@@ -1,7 +1,7 @@
 // Vector art for the prototype: every component drawn as SVG from code, in the colours of the
 // rulebook (pp. 3, 7, 10, 12). The same SVG string goes into the 2D interface (innerHTML) and,
-// as a data URL, onto 3D pieces. It is a placeholder style meant to be refined, then turned into
-// 3D assets; it never copies the licensed artwork.
+// as a data URL, onto 3D pieces. These open drawings never copy the licensed artwork; the faithful
+// official art, when present locally, takes their place (see "official art" below).
 
 /** Board-absolute direction names used by the rules (src/game/trv/engine.ts). */
 export type ArtDir = 'F' | 'FL' | 'FR' | 'B' | 'BL' | 'BR';
@@ -32,6 +32,33 @@ export function dataUrl(svgText: string): string {
   return `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svgText)}`;
 }
 
+// ------------------------------------------------------------------------------- official art
+
+/**
+ * The faithful vector art of the official components, when its licensed files are present
+ * (assets/licensed/vector/official.ts: derived from the publisher's artwork, never in git). Each
+ * drawing below asks it first and falls back to its own open drawing, so the code runs without it.
+ */
+interface OfficialArt {
+  dieSvg(f: DieFace, extra?: string): string | null;
+  hazardTokenSvg(type: string | null, faceUp: boolean, extra?: string): string | null;
+  damageTokenSvg(type: string | null, faceUp: boolean, dir?: ArtDir, extra?: string): string | null;
+  dashboardSvg(d: DashboardArt, extra?: string): string | null;
+  commandBoardSvg(c: CommandBoardArt, extra?: string): string | null;
+}
+type OfficialModule = { makeOfficial(base: { dieSvg(f: DieFace, extra?: string): string }): OfficialArt };
+const officialModule = Object.values(import.meta.glob<OfficialModule>('/assets/licensed/vector/official.ts', { eager: true }))[0];
+// `?art=open` in the page address shows the open drawings even when the official art is there.
+const openOnly = typeof location !== 'undefined' && new URLSearchParams(location.search).get('art') === 'open';
+/** True when the faithful official art is in use (licensed files present, not `?art=open`). */
+export const OFFICIAL_ART = !!officialModule && !openOnly;
+let official: OfficialArt | null | undefined;
+/** The official art, made on first use (it builds on this module's own dice). */
+function off(): OfficialArt | null {
+  if (official === undefined) official = officialModule && !openOnly ? officialModule.makeOfficial({ dieSvg }) : null;
+  return official;
+}
+
 /** Black or white ink, whichever reads on a background colour. */
 export function inkOn(hex: string): string {
   const v = parseInt(hex.slice(1), 16);
@@ -60,6 +87,8 @@ const PIPS: Record<number, [number, number][]> = {
 
 /** A die face, 100 x 100. */
 export function dieSvg(f: DieFace, extra = ''): string {
+  const o = off()?.dieSvg(f, extra);
+  if (o) return o;
   const bgOf: Record<string, string> = {
     road: PALETTE.dieRoad, stunt: PALETTE.dieStunt, shooting: PALETTE.dieShooting, slam: PALETTE.dieSlam, direction: PALETTE.dieDirection,
   };
@@ -133,6 +162,8 @@ export function hazardSymbol(cx: number, cy: number, s: number, color: string): 
 
 /** Hazard token, 120 x 100, chevron-shaped. `type` null or faceUp=false draws the back. */
 export function hazardTokenSvg(type: string | null, faceUp: boolean, extra = ''): string {
+  const o = off()?.hazardTokenSvg(type, faceUp, extra);
+  if (o) return o;
   let fill: string = PALETTE.hazardRed, art = hazardSymbol(62, 50, 26, PALETTE.cream), label = '';
   if (faceUp && type) {
     switch (type) {
@@ -153,6 +184,8 @@ const DAMAGE_TITLE: Record<string, string> = { shrapnel: 'SCHEGGE', dazed: 'STOR
 
 /** Damage token, 110 x 100, torn bottom edge. faceUp=false draws the back (brake warning). */
 export function damageTokenSvg(type: string | null, faceUp: boolean, dir?: ArtDir, extra = ''): string {
+  const o = off()?.damageTokenSvg(type, faceUp, dir, extra);
+  if (o) return o;
   const outline = 'M6 6 H104 V84 L92 76 L80 92 L66 80 L52 94 L38 80 L24 92 L14 80 L6 86 Z';
   if (!faceUp || !type) {
     return svg(110, 100, `<path d="${outline}" fill="#15171c" stroke="#000" stroke-width="2"/>`
@@ -210,6 +243,8 @@ const SIZE_LABEL: Record<ArtSize, string> = { S: 'PICCOLA', M: 'MEDIA', L: 'GRAN
  * Drop zones carry data-drop="move:<carId>" / "coast:<carId>"; the root carries data-car.
  */
 export function dashboardSvg(d: DashboardArt, extra = ''): string {
+  const o = off()?.dashboardSvg(d, extra);
+  if (o) return o;
   const dead = d.status !== 'ok';
   const band = dead ? '#4a4a4a' : d.color;
   const ink = inkOn(band);
@@ -262,6 +297,8 @@ export const COMMAND_SLOTS: { cmd: string; name: string; values: string; x: numb
 
 /** Command board, 220 x 190: four command quarters, a diamond slot in each corner (data-drop="cmd:<id>"). */
 export function commandBoardSvg(c: CommandBoardArt, extra = ''): string {
+  const o = off()?.commandBoardSvg(c, extra);
+  if (o) return o;
   const ink = inkOn(c.color);
   let b = `<path d="M30 6 H190 L214 30 V160 L190 184 H30 L6 160 V30Z" fill="#1b1f27" stroke="rgba(0,0,0,.6)" stroke-width="3"/>`;
   b += `<path d="M40 22 H180 L198 40 V150 L180 168 H40 L22 150 V40Z" fill="${c.color}"/>`;

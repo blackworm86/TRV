@@ -13,6 +13,13 @@ export function texturesReady(): Promise<void> {
   return Promise.all([...pending]).then(() => undefined);
 }
 
+/** Counts `p` (an image that is still loading) in {@link texturesReady}. */
+export function trackTexture(p: Promise<unknown>): void {
+  const done = p.then(() => undefined, () => undefined);
+  pending.add(done);
+  void done.then(() => pending.delete(done));
+}
+
 /**
  * Texture of an SVG drawing, `px` pixels on its longer side. Returned at once (blank) and
  * filled in when the image decodes. Cached by drawing and size.

@@ -74,11 +74,13 @@ const BOARD_X0 = -1.5 * PITCH_W;
 const bank = new TextureBank(renderer.capabilities.getMaxAnisotropy());
 const pieces = new Pieces(MM, bank);
 
-/** World position of a space centre (columns run across the three tiles). */
+/** World position of a space centre (columns run across the three tiles), on the tile's ground. */
 function world(p: Pos): THREE.Vector3 {
   const slot = Math.floor(p.c / TILE_COLS);
   const [px, py] = spaceCenterPx(p.r, p.c - slot * TILE_COLS);
-  return new THREE.Vector3(BOARD_X0 + slot * PITCH_W + px * KX, TILE_T, (py - GRID.frameH / 2) * KZ);
+  // A relief tile (official terrain maps) has sand above and mud below its asphalt.
+  const ground = (tileSlots[slot]?.userData.heightAt as ((x: number, y: number) => number) | undefined)?.(px, py) ?? 0;
+  return new THREE.Vector3(BOARD_X0 + slot * PITCH_W + px * KX, TILE_T + ground, (py - GRID.frameH / 2) * KZ);
 }
 
 // Road tiles built from the terrain data, cached per face.
@@ -368,7 +370,8 @@ function drawTable(s: Snapshot): void {
     if (!rec) { rec = { type: h.type, obj: hazardToken(h.type, HAZ_SIZE) }; hazardObjs.set(k, rec); scene.add(rec.obj.group); }
     const [r, c] = k.split(',').map(Number);
     // world() is the middle of the space's body; the token's box also holds the point, half a point further on.
-    rec.obj.group.position.copy(world({ r, c })).setY(TILE_T + 0.003);
+    rec.obj.group.position.copy(world({ r, c }));
+    rec.obj.group.position.y += 0.003;
     rec.obj.group.position.x += GRID.tip / 2 * KX;
     rec.obj.setFaceUp(h.faceUp);
   }

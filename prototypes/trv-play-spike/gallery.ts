@@ -9,7 +9,7 @@ import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import RULES from '../../data/trv/game_base.json';
 import CATALOG from '../../data/trv/catalog_base.json';
 import {
-  dieSvg, hazardTokenSvg, damageTokenSvg, dashboardSvg, commandBoardSvg, chopperSvg, carSvg, avatarSvg, PALETTE,
+  dieSvg, hazardTokenSvg, damageTokenSvg, dashboardSvg, commandBoardSvg, chopperSvg, carSvg, avatarSvg, PALETTE, OFFICIAL_ART,
 } from '../../src/view/vector/art';
 import { buildTile, hazardToken, type TileData } from '../../src/view/board3d';
 import { makeDie, type DiceFaces } from '../../src/view/dice3d';
@@ -263,3 +263,6 @@ showIn3D('tile-1a');
 void (async () => {
   for (const img of document.querySelectorAll<HTMLImageElement>('img[data-thumb]')) img.src = await thumb(img.dataset.thumb!);
 })();
+
+// With the licensed files present, dice, tokens and boards are the official art redrawn as vectors.
+if (OFFICIAL_ART) document.getElementById('art-note')!.firstChild!.textContent = 'Dadi, segnalini e plance: grafica ufficiale ridisegnata in vettoriale (file con licenza, fuori da git; ?art=open mostra i disegni liberi). ';

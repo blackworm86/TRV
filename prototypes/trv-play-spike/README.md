@@ -81,3 +81,23 @@ partita funziona.
 
 - File in `assets/models/` (creati dall'utente con Meshy, nel repository); tutto ciò che li riguarda (misure sul tavolo, ruote, rotori, vetro, molle) è in `models-config.ts`.
 - Pagina di controllo: `models.html` (aggiungi `?drive` per vedere le auto guidare avanti e indietro).
+
+## Grafica ufficiale in vettoriale e terreno in rilievo
+
+Solo in locale: tutto ciò che deriva dalla grafica ufficiale sta in `assets/licensed/` (fuori da
+git). Senza quei file il gioco usa i disegni liberi e le tessere a chevron colorati.
+
+- `tools/asset-pipeline/trace.py` vettorizza le scansioni (colori campionati, contorni, curve);
+  `pdf_fonts.py` estrae i caratteri incorporati nel regolamento. Il risultato è
+  `assets/licensed/vector/official.ts`, che `src/view/vector/art.ts` usa per dadi, segnalini,
+  cruscotti e plancia comandi. `?art=open` nell'indirizzo mostra i disegni liberi.
+- `tools/asset-pipeline/terrain.py` trasforma una tessera del PDF print-and-play (circa 8400 px)
+  in mappe di colore, altezza, normali, ruvidità e contorno (`assets/licensed/terrain/<faccia>/`).
+  `buildTile` disegna la faccia in rilievo: sabbia sopra l'asfalto, fango sotto, roccia degli
+  spazi invalicabili più alta, crepe incise; `world()` appoggia i pezzi sul terreno. Tutte le 10
+  facce, una per volta:
+  `python -I tools/asset-pipeline/terrain.py "assets/licensed/TRV 01 Base Game/Road Tiles Base.pdf" <oggetto> assets/licensed/terrain/<faccia> <faccia>`
+  con oggetto 4, 7, 10, 13, 16, 19, 22, 25, 28, 31 per le facce 1a, 1b, 2a, 2b, 3a, 3b, 4a, 4b, 5a, 5b.
+  La roccia sta solo sugli spazi X di `data/trv/game_base.json`.
+- Pagine di controllo locali: `assets/licensed/vector/_review.html` (scansione accanto al
+  vettoriale) e `_terrain.html?face=2a&view=low` (una faccia in rilievo con auto).

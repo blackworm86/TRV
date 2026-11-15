@@ -1,12 +1,13 @@
 // The road as vector geometry: every space of a tile is a chevron polygon built from the
 // terrain grid in data/trv/game_base.json, coloured by its effect (rulebook p. 7). Spaces of
 // neighbouring rows are offset, so each tile's front and rear edges zig-zag and the next tile
-// slots into it like a toy brick. No licensed image is used.
+// slots into it like a toy brick. No licensed image is used, unless a face's terrain maps are present
+// locally (made from the official art, not in git): then the face is that art in relief.
 
 import * as THREE from 'three';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { PALETTE, hazardTokenSvg } from './vector/art';
-import { svgTexture } from './texture';
+import { svgTexture, trackTexture } from './texture';
 
 /** Space grid measured on the tiles, in pixels of a 2000 x 1522 frame (row 0 = left edge). */
 export const GRID = {
@@ -22,6 +23,9 @@ export const GRID = {
 export const TILE_PITCH_PX = GRID.cols * GRID.pitch;
 
 export interface TileData {
+  /** Tile number and face ('a' / 'b'): they name the face's terrain maps, when present. */
+  tile?: number;
+  side?: string;
   name: string;
   terrain: string[];
   /** [row, col, player counts?] */
@@ -35,6 +39,11 @@ export interface TileMeshOptions {
   thickness: number;
   /** On the starting tile, hazard spaces not used at this player count are drawn faint. */
   players?: number;
+  /**
+   * Relief terrain (when the face has terrain maps): world height of one height unit, so sand
+   * rises `relief` above the asphalt and mud sinks `relief` below it. Default: half the thickness.
+   */
+  relief?: number;
 }
 
 /** Centre of a space in frame pixels. Columns may run past 0..7 (neighbouring tiles). */
@@ -62,6 +71,80 @@ export function spaceGeometry(r: number, c: number, width: number, depth: number
 }
 
 const TERRAIN_COLOR: Record<string, string> = { R: PALETTE.road, o: PALETTE.offroad, M: PALETTE.mud, X: PALETTE.impassable };
+
+// ------------------------------------------------------------------------------- relief terrain
+
+/**
+ * Terrain maps made from the official tile art by tools/asset-pipeline/terrain.py, one folder per
+ * face (assets/licensed/terrain/1a/...). Licensed and not in git: without them a tile is drawn as
+ * coloured chevrons.
+ */
+const TERRAIN_FILES = import.meta.glob<string>('/assets/licensed/terrain/*/*.png', { eager: true, query: '?url', import: 'default' });
+
+/** The maps of one face (albedo, height, normal, rough, mask), or null. */
+function terrainMaps(id: string): Record<string, string> | null {
+  const pre = `/assets/licensed/terrain/${id}/`;
+  const out: Record<string, string> = {};
+  for (const [k, url] of Object.entries(TERRAIN_FILES)) if (k.startsWith(pre)) out[k.slice(pre.length, -4)] = url;
+  return out.albedo && out.height && out.mask ? out : null;
+}
+
+/** Height map grey levels: h = (grey - 128) / 100, -1 (the cardboard top, mud) .. +1 (sand). */
+const H_ZERO = 128, H_UNIT = 40;
+/** Relief segments of the terrain mesh along the road and across it. */
+const RELIEF_SEG: [number, number] = [500, 380];
+
+/**
+ * The relief surface of a tile face: the official art on a plane displaced by the height map,
+ * with its normal, roughness and outline maps. `amp` is the world height of one height unit; the
+ * surface sits at `top` (the cardboard) where h = -1. Returns the mesh and a height lookup in frame
+ * pixels (world height above `top`), exact once the height map has loaded (asphalt level before).
+ */
+function reliefSurface(maps: Record<string, string>, width: number, depth: number, top: number, amp: number): {
+  mesh: THREE.Mesh; heightAt: (px: number, py: number) => number;
+} {
+  const loader = new THREE.TextureLoader();
+  const tex = (url: string | undefined, srgb = false): THREE.Texture | null => {
+    if (!url) return null;
+    let t!: THREE.Texture;
+    trackTexture(new Promise((ok, fail) => { t = loader.load(url, ok, undefined, fail); }));
+    if (srgb) t.colorSpace = THREE.SRGBColorSpace;
+    t.anisotropy = 8;
+    return t;
+  };
+  // grey g (0..1) -> world: amp * (255 g - H_ZERO) / H_UNIT + amp (so h = -1 sits on `top`).
+  const mat = new THREE.MeshStandardMaterial({
+    map: tex(maps.albedo, true), normalMap: tex(maps.normal), roughnessMap: tex(maps.rough), alphaMap: tex(maps.mask),
+    displacementMap: tex(maps.height), displacementScale: amp * 255 / H_UNIT, displacementBias: amp * (1 - H_ZERO / H_UNIT),
+    alphaTest: 0.5, roughness: 1, metalness: 0,
+  });
+  const mesh = new THREE.Mesh(new THREE.PlaneGeometry(width, depth, ...RELIEF_SEG), mat);
+  mesh.rotation.x = -Math.PI / 2;
+  mesh.position.y = top + 0.001;
+  mesh.receiveShadow = true;
+
+  // CPU copy of the height map, for placing pieces on the ground.
+  let grid: { w: number; h: number; v: Uint8ClampedArray } | null = null;
+  const img = new Image();
+  img.onload = () => {
+    const c = document.createElement('canvas');
+    c.width = img.width; c.height = img.height;
+    const x2 = c.getContext('2d', { willReadFrequently: true })!;
+    x2.drawImage(img, 0, 0);
+    grid = { w: c.width, h: c.height, v: x2.getImageData(0, 0, c.width, c.height).data };
+  };
+  img.src = maps.height;
+  const heightAt = (px: number, py: number): number => {
+    if (!grid) return amp + 0.001;
+    const gx = THREE.MathUtils.clamp(px / GRID.frameW * grid.w - 0.5, 0, grid.w - 1.001);
+    const gy = THREE.MathUtils.clamp(py / GRID.frameH * grid.h - 0.5, 0, grid.h - 1.001);
+    const i = Math.floor(gx), j = Math.floor(gy), fx = gx - i, fy = gy - j;
+    const at = (x: number, y: number): number => grid!.v[(y * grid!.w + x) * 4];
+    const g = (at(i, j) * (1 - fx) + at(i + 1, j) * fx) * (1 - fy) + (at(i, j + 1) * (1 - fx) + at(i + 1, j + 1) * fx) * fy;
+    return amp * ((g - H_ZERO) / H_UNIT + 1) + 0.001;
+  };
+  return { mesh, heightAt };
+}
 
 /**
  * Builds one road tile centred on the origin, in world units. A frame pixel (x, y) maps to
@@ -128,6 +211,18 @@ export function buildTile(tile: TileData, o: TileMeshOptions): THREE.Group {
   base.castShadow = true;
   base.receiveShadow = true;
   group.add(base);
+
+  // The official art in relief, when this face has terrain maps: it carries the terrain colours,
+  // the hazard marks and the name banner itself.
+  const maps = tile.tile !== undefined ? terrainMaps(`${tile.tile}${tile.side ?? ''}`) : null;
+  if (maps) {
+    const relief = reliefSurface(maps, o.width, o.depth, o.thickness, o.relief ?? o.thickness * 0.5);
+    group.add(relief.mesh);
+    group.userData.heightAt = relief.heightAt;
+    return group;
+  }
+  /** Height of the ground above the tile's cardboard top at a frame pixel (world units). */
+  group.userData.heightAt = (): number => 0.002;
   for (const [t, geos] of tops) flat(geos, TERRAIN_COLOR[t] ?? '#888', o.thickness + 0.002);
   flat(borders, PALETTE.impassableBorder, o.thickness + 0.004);
   flat(hazardMarks, PALETTE.hazardRed, o.thickness + 0.004);

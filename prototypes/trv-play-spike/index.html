@@ -54,8 +54,9 @@
   #mydice svg.used { opacity: .18; cursor: default; }
   #mydice svg.sel { transform: translateY(-6px) scale(1.12); box-shadow: 0 0 0 3px var(--hot); }
   #mydice svg.idle { cursor: default; }
-  #cmd { height: 100%; aspect-ratio: 220 / 190; flex: none; }
-  #cmd svg { height: 100%; width: 100%; }
+  #cmd { height: 100%; flex: none; }
+  /* Width follows the drawing: the open board is 220 x 190, the official one 1000 x 874. */
+  #cmd svg { height: 100%; width: auto; display: block; }
   #dashes { display: flex; gap: 8px; flex: 1; height: 100%; min-width: 0; }
   #dashes > svg { height: 100%; width: auto; aspect-ratio: 260 / 150; max-width: 33%; }
   #chopper { width: 64px; align-self: center; text-align: center; font-size: 12px; flex: none; }
