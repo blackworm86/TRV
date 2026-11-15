@@ -20,11 +20,19 @@ partita funziona.
   tessera finale, traguardo, vittoria per ultimo superstite.
 - "Annulla ultima scelta" e ripresa automatica della partita (seed + scelte in localStorage).
 
-## Asset
-Tutti i pezzi vengono dal catalogo fisico `data/trv/catalog_base.json` (quantità, misure in mm, immagini
-fronte/retro) tramite `src/game/trv/catalog.ts` e `src/view/pieces3d.ts`: tessere, segnalini pericolo
-ufficiali sul tavolo, dadi 3D con le facce ufficiali, cruscotti e plance comando delle crew nel pannello,
-facce dei dadi nella cronaca. Le misure sono stime (`measured: false`) finché non vengono misurate.
+## Interfaccia e grafica
+- Layout dallo schizzo dell'utente: in alto io, gli avversari con i loro dadi e il dado strada; al centro
+  la mappa; in basso i miei dadi, la plancia comandi, i tre cruscotti (danni appesi sotto, auto
+  inoperativa capovolta) e l'elicottero. La cronaca è una riga sola: cliccandola si apre il registro.
+- I dadi si trascinano su uno spazio libero (cruscotto: "ANY" o +1 inerzia; plancia: quadrante del
+  comando), oppure si seleziona un dado e si clicca lo spazio. Clic su uno spazio senza dado
+  selezionato: usa il primo dado libero che ci sta. Gli spazi validi si illuminano di verde.
+- Grafica tutta vettoriale e provvisoria (`src/view/vector/art.ts`): tutti i dadi (movimento, strada,
+  acrobazia, slam, sparo, direzione), segnalini pericolo e danno, cruscotti, plancia, elicottero.
+- Mappa vettoriale (`src/view/board3d.ts`): ogni casella è un chevron estruso colorato per effetto
+  (strada, fuoristrada, fango, invalicabile con doppio bordo giallo, pericolo in rosso); le tessere
+  si incastrano a passo di 8 colonne. Nessuna immagine licenziata nel tavolo.
+- Misure dal catalogo fisico `data/trv/catalog_base.json` (stime, `measured: false`).
 
 ## Interpretazioni provvisorie (da confermare con l'utente)
 - Sbandata: i 4 segnalini delle scansioni mostrano tutti "avanti"; il regolamento dice "6 segnalini diversi".

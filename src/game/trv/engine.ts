@@ -36,6 +36,8 @@ export interface Vehicle {
   damage: DamageToken[];
   moved: boolean;
   coasts: number;
+  /** Movement dice placed on this car's dashboard this round: the move die, then coast dice. */
+  placed: { value: number; coast: boolean }[];
   /** Stacking order: higher is on top. */
   z: number;
 }
@@ -47,6 +49,8 @@ export interface Player {
   dice: number[];
   used: boolean[];
   commandUsed: boolean;
+  /** The command activated this round and the die placed on it. */
+  command: { cmd: CommandId; value: number } | null;
   out: boolean;
   chopper: Pos | null;
   /** Catalog crew id (colour set of boards and pieces), if the interface chose one. */
@@ -64,6 +68,12 @@ export interface Option {
   carId?: string;
   die?: number;
   danger?: boolean;
+  /** Assign: the die goes to the car's coast space. */
+  coast?: boolean;
+  /** Command: which command the die activates. */
+  command?: CommandId;
+  /** Assign / command: the value of the die being placed. */
+  dieValue?: number;
 }
 
 export interface Decision {
@@ -255,11 +265,11 @@ export function newGame(s: Setup): Game {
     current: 0, roadDie: 0, winner: null, log: [], zTop: 0, activeCar: null, lastRoll: [], pendingDice: [],
   };
   s.players.forEach((p, i) => {
-    g.players.push({ id: i, name: p.name, color: p.color, dice: [], used: [], commandUsed: false, out: false, chopper: null,
+    g.players.push({ id: i, name: p.name, color: p.color, dice: [], used: [], commandUsed: false, command: null, out: false, chopper: null,
       ...(p.crew ? { crew: p.crew } : {}) });
     for (const size of ['S', 'M', 'L'] as Size[]) {
       g.vehicles.push({ id: `p${i}${size}`, owner: i, size, isWreck: false, pos: null, inStart: true,
-        status: 'ok', damage: [], moved: false, coasts: 0, z: 0 });
+        status: 'ok', damage: [], moved: false, coasts: 0, placed: [], z: 0 });
     }
   });
   // Road tiles: the starting tile, then the others shuffled into a pile.
@@ -404,7 +414,7 @@ function* enter(g: Game, v: Vehicle, to: Pos, ctx: MoveCtx | null): Gen<boolean>
     if (h.type === 'wreck') {
       g.hazards.delete(k); g.hazardDiscard.push('wreck');
       const w: Vehicle = { id: `w${g.zTop}`, owner: null, size: 'S', isWreck: true, pos: { ...to }, inStart: false,
-        status: 'inop', damage: [], moved: false, coasts: 0, z: v.z };
+        status: 'inop', damage: [], moved: false, coasts: 0, placed: [], z: v.z };
       v.z = ++g.zTop;
       g.vehicles.push(w);
     } else if (h.type === 'mine') {
@@ -629,11 +639,12 @@ function* turn(g: Game, p: Player): Gen<void> {
     kind: 'assign', player: p.id, prompt: `${p.name}: assegna un dado movimento a un'auto.`,
     options: assign.map(a => ({
       label: `${a.coast ? 'Inerzia' : `Dado ${p.dice[a.die]}`} → auto ${SIZE_NAME[a.car.size]}`,
-      die: a.die, carId: a.car.id, ...(a.car.pos ? { pos: a.car.pos } : {}),
+      die: a.die, carId: a.car.id, coast: a.coast, dieValue: p.dice[a.die], ...(a.car.pos ? { pos: a.car.pos } : {}),
     })),
   });
   const a = assign[ai];
   p.used[a.die] = true;
+  a.car.placed.push({ value: p.dice[a.die], coast: a.coast });
   const car = a.car;
   g.activeCar = car.id;
   let moves = a.coast ? 1 : p.dice[a.die];
@@ -653,11 +664,12 @@ function* turn(g: Game, p: Player): Gen<void> {
     if (cmds.length) {
       const ci = yield* ask({
         kind: 'command', player: p.id, prompt: `${p.name}: attivare un comando (una volta per round)?`,
-        options: [{ label: 'Nessun comando' }, ...cmds.map(c => ({ label: `${COMMAND_NAME[c.cmd]} con il dado ${p.dice[c.die]}`, die: c.die }))],
+        options: [{ label: 'Nessun comando' }, ...cmds.map(c => ({ label: `${COMMAND_NAME[c.cmd]} con il dado ${p.dice[c.die]}`, die: c.die, command: c.cmd, dieValue: p.dice[c.die] }))],
       });
       if (ci > 0) {
         const c = cmds[ci - 1];
         p.used[c.die] = true;
+        p.command = { cmd: c.cmd, value: p.dice[c.die] };
         p.commandUsed = true;
         say(g, `${p.name} attiva ${COMMAND_NAME[c.cmd]}.`, 'info');
         if (c.cmd === 'nitro') moves += p.dice[c.die];
@@ -738,9 +750,10 @@ export function* play(g: Game): Gen<void> {
   for (g.round = 1; g.winner === null; g.round++) {
     for (const p of g.players) {
       p.commandUsed = false;
+      p.command = null;
       if (g.round > 1 && !p.out) rollMovement(g, p, `round-${g.round}`);
     }
-    for (const v of g.vehicles) { v.moved = false; v.coasts = 0; }
+    for (const v of g.vehicles) { v.moved = false; v.coasts = 0; v.placed = []; }
     g.roadDie = rollFx(g, 'road', 'road-die');
     say(g, `Round ${g.round}: ${g.players[g.firstPlayer].name} tira il dado strada: ${g.roadDie}.`, 'dice');
     for (let t = 0; t < base.turns_per_round && g.winner === null; t++) {
