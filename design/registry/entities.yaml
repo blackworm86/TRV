@@ -150,7 +150,7 @@ formulas:
       - j
     output_range: [0, "m - 1"]
     expression: "per k da m-1 a 1: j = face_index(n = k+1); scambia k e j"
-    notes: "F3. output_range indica gli indici delle posizioni (0..m-1); l'output vero è una permutazione delle m posizioni. Ognuna delle m! ha probabilità 1/m! rispetto a una sorgente ideale; con un generatore reale serve uno stato di almeno log2(m_max!) bit (RNG-9, RNG-15). m in 0..65536. max(0, m-1) chiamate a face_index, estrazioni grezze >= chiamate. Userà i GDD di #7, #12, #15 (non ancora scritti)."
+    notes: "F3. output_range indica gli indici delle posizioni (0..m-1); l'output vero è una permutazione delle m posizioni. Ognuna delle m! ha probabilità 1/m! rispetto a una sorgente ideale. Con il generatore reale conta l'entropia del seed (256 bit, RNG-2), non la larghezza dello stato: regime combinatorio fino a m = 46 (scarto <= 2^-64), computazionale oltre; oltre m = 57 alcuni ordinamenti non sono raggiungibili (RNG-9, RNG-15). m in 0..65536, fuori → RngError prima di ogni estrazione (RNG-16). M_MAX_PILA da leggere dal regolamento (OQ-7). max(0, m-1) chiamate a face_index, estrazioni grezze >= chiamate. Userà i GDD di #7, #12, #15 (non ancora scritti)."
     added: 2026-11-15
     revised: 2026-11-15
 
