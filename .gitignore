@@ -182,3 +182,6 @@ reference/rulebook/
 dist-single/
 .vitest/
 /playwright-report/
+
+# Evidenze con grafica licenziata: restano in locale, mai nel repository
+production/qa/evidence/m0-table-spike/
