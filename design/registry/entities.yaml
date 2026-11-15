@@ -136,9 +136,9 @@ formulas:
       - limite
     output_range: [0, "n - 1"]
     expression: "limite = 2^W - (2^W mod n); ripeti u = estrai() finché u < limite; face_index = u mod n"
-    notes: "F1. Ogni faccia esattamente 1/n; almeno un'estrazione anche con n = 1; n = 0 rifiutato alla validazione di #4. W = 32 provvisorio (ADR del generatore). Userà i GDD di #7, #8, #10, #12, #13, #14, #15 (non ancora scritti)."
+    notes: "F1. Ogni faccia esattamente 1/n data un'estrazione u uniforme (requisito RNG-15 dell'ADR-A); almeno un'estrazione anche con n = 1; n in 1..65536 (2^16): n = 0, n > 2^16, negativo o non intero rifiutato alla validazione di #4 e come RngError a runtime. W = 32 provvisorio (ADR del generatore); in JS aritmetica Number, mai bitwise, per 2^W. Userà i GDD di #7, #8, #10, #12, #13, #14, #15 (non ancora scritti)."
     added: 2026-11-15
-    revised: ""
+    revised: 2026-11-15
   - name: uniform_shuffle
     status: active
     source: design/gdd/dice-seeded-rng.md
@@ -150,9 +150,9 @@ formulas:
       - j
     output_range: [0, "m - 1"]
     expression: "per k da m-1 a 1: j = face_index(n = k+1); scambia k e j"
-    notes: "F3. Output: una permutazione delle m posizioni (indici 0..m-1), ognuna delle m! con probabilità 1/m!; max(0, m-1) chiamate a face_index. Userà i GDD di #7, #12, #15 (non ancora scritti)."
+    notes: "F3. output_range indica gli indici delle posizioni (0..m-1); l'output vero è una permutazione delle m posizioni. Ognuna delle m! ha probabilità 1/m! rispetto a una sorgente ideale; con un generatore reale serve uno stato di almeno log2(m_max!) bit (RNG-9, RNG-15). m in 0..65536. max(0, m-1) chiamate a face_index, estrazioni grezze >= chiamate. Userà i GDD di #7, #12, #15 (non ancora scritti)."
     added: 2026-11-15
-    revised: ""
+    revised: 2026-11-15
 
 # Example:
 #

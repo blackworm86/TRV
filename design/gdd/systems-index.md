@@ -175,7 +175,7 @@ moduli di #4 (Tier 4).
 | # | System Name | Category | Priority | Status | Design Doc | Depends On |
 |---|-------------|----------|----------|--------|------------|------------|
 | 1 | Rules Core & Event Log (inferred) | Core | MVP | Not Started | — | #2 |
-| 2 | Dice & Seeded RNG | Core | MVP | Designed | [dice-seeded-rng.md](dice-seeded-rng.md) | — |
+| 2 | Dice & Seeded RNG | Core | MVP | In Review | [dice-seeded-rng.md](dice-seeded-rng.md) | — |
 | 3 | Board, Terrain & Front Arc | Core | MVP | Not Started | — | #4 |
 | 4 | Content Pack & Rule Modules (inferred) | Core | MVP | Not Started | — | #1 |
 | 5 | Asset Manifest & Pipeline (inferred) | Core | MVP | Not Started | — | #4 |
@@ -189,7 +189,7 @@ moduli di #4 (Tier 4).
 | 14 | Shooting | Gameplay | MVP | Not Started | — | #2, #3, #8, #9, #15 |
 | 15 | Damage & Repair | Gameplay | MVP | Not Started | — | #1, #2, #3, #9, #10 |
 | 16 | Road Advance & Endgame | Gameplay | MVP | Not Started | — | #3, #7, #8, #9, #10, #12 |
-| 17 | Interpretations Log | Meta | MVP | Not Started | — | — |
+| 17 | Interpretations Log | Meta | MVP | Designed | [interpretations-log.md](interpretations-log.md) | — |
 | 18 | Settings & Accessibility (inferred) | Persistence | Full Vision | Not Started | — | #23, #24, #25, #26 |
 | 19 | Table Renderer 3D (inferred) | UI | MVP | Not Started | — | #1, #3, #5, #9, #12 |
 | 20 | Dice Presentation (inferred) | UI | MVP | Not Started | — | #2, #19, #25 |
@@ -422,10 +422,10 @@ catena mina → Skid → slam.
 | Metric | Count |
 |--------|-------|
 | Total systems identified | 30 |
-| Design docs started | 1 |
+| Design docs started | 2 |
 | Design docs reviewed | 0 |
 | Design docs approved | 0 |
-| MVP systems designed | 1/24 |
+| MVP systems designed | 2/24 |
 | Vertical Slice systems designed | 0/0 (nessun sistema proprio) |
 
 ---
