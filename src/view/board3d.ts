@@ -5,7 +5,8 @@
 
 import * as THREE from 'three';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
-import { PALETTE, dataUrl, hazardTokenSvg } from './vector/art';
+import { PALETTE, hazardTokenSvg } from './vector/art';
+import { svgTexture } from './texture';
 
 /** Space grid measured on the tiles, in pixels of a 2000 x 1522 frame (row 0 = left edge). */
 export const GRID = {
@@ -139,25 +140,55 @@ export function buildTile(tile: TileData, o: TileMeshOptions): THREE.Group {
   return group;
 }
 
-/** Hazard token as a thin chevron with vector art on both faces; image right = forward (+x). */
-export function hazardToken(type: string, size: { length: number; depth: number; thickness: number }): { group: THREE.Group; setFaceUp: (up: boolean) => void } {
-  const loader = new THREE.TextureLoader();
-  const mat = (svgText: string): THREE.MeshStandardMaterial => {
-    const m = new THREE.MeshStandardMaterial({ transparent: true, alphaTest: 0.5, roughness: 0.7, color: 0xffffff });
-    loader.load(dataUrl(svgText), t => { t.colorSpace = THREE.SRGBColorSpace; m.map = t; m.needsUpdate = true; });
-    return m;
-  };
-  const face = (svgText: string): THREE.Mesh => {
-    const m = new THREE.Mesh(new THREE.PlaneGeometry(size.length, size.depth), mat(svgText));
-    m.rotation.x = -Math.PI / 2;
-    m.position.y = size.thickness;
-    m.castShadow = true;
+/**
+ * Hazard token: a cardboard chevron with vector art on both faces; image right = forward (+x).
+ * `setFaceUp` flips it; `update(dt)` plays the flip (call it every frame).
+ */
+export function hazardToken(type: string, size: { length: number; depth: number; thickness: number }): {
+  group: THREE.Group; setFaceUp: (up: boolean) => void; update: (dt: number) => void;
+} {
+  const kx = size.length / 120, kz = size.depth / 100;
+  // Token outline (art.ts CHEVRON, 120 x 100), centred, in shape x / y = world x / -z.
+  const outline: [number, number][] = [[4, 4], [92, 4], [116, 50], [92, 96], [4, 96], [28, 50]];
+  const shape = new THREE.Shape(outline.map(([x, y]) => new THREE.Vector2((x - 60) * kx, -(y - 50) * kz)));
+  const card = new THREE.Mesh(new THREE.ExtrudeGeometry(shape, { depth: size.thickness * 0.96, bevelEnabled: false }),
+    new THREE.MeshStandardMaterial({ color: 0x2a2622, roughness: 0.9 }));
+  card.rotation.x = -Math.PI / 2;
+  card.position.y = -size.thickness / 2;
+  card.castShadow = true;
+  const face = (svgText: string, up: boolean): THREE.Mesh => {
+    const m = new THREE.Mesh(new THREE.PlaneGeometry(size.length, size.depth),
+      new THREE.MeshStandardMaterial({ map: svgTexture(svgText, 512), alphaTest: 0.5, roughness: 0.7 }));
+    // Top face reads normally from above; the bottom face is mirrored so it reads when flipped.
+    m.rotation.set(up ? -Math.PI / 2 : Math.PI / 2, 0, 0);
+    m.position.y = (up ? 1 : -1) * (size.thickness / 2 + 0.001);
     m.receiveShadow = true;
     return m;
   };
-  const front = face(hazardTokenSvg(type, true));
-  const back = face(hazardTokenSvg(null, false));
+  const chip = new THREE.Group();
+  chip.add(card, face(hazardTokenSvg(type, true), true), face(hazardTokenSvg(null, false), false));
+  chip.position.y = size.thickness / 2;
   const group = new THREE.Group();
-  group.add(front, back);
-  return { group, setFaceUp: up => { front.visible = up; back.visible = !up; } };
+  group.add(chip);
+  let target = 0, angle = 0, lift = 0, first = true;
+  const pose = (): void => {
+    chip.rotation.x = angle;
+    chip.position.y = size.thickness / 2 + Math.sin(Math.min(Math.PI, Math.abs(angle - target) > 1e-3 ? lift : 0)) * size.length * 0.6;
+  };
+  return {
+    group,
+    setFaceUp: up => {
+      const t = up ? 0 : Math.PI;
+      if (first) { first = false; target = angle = t; pose(); return; }
+      if (t !== target) { target = t; lift = 0; }
+    },
+    update: dt => {
+      if (Math.abs(angle - target) < 1e-3) return;
+      const step = Math.sign(target - angle) * Math.min(Math.abs(target - angle), dt * Math.PI * 1.6);
+      angle += step;
+      lift = Math.PI * (1 - Math.abs(target - angle) / Math.PI);
+      pose();
+      if (Math.abs(angle - target) < 1e-3) { angle = target; chip.position.y = size.thickness / 2; chip.rotation.x = angle; }
+    },
+  };
 }

@@ -181,7 +181,7 @@ export function damageTokenSvg(type: string | null, faceUp: boolean, dir?: ArtDi
 
 /** A die placed on a board, drawn inside a slot. */
 function placedDie(x: number, y: number, s: number, value: number, color: string): string {
-  return `<g transform="translate(${x - s / 2} ${y - s / 2}) scale(${s / 100})" pointer-events="none">${inner(dieSvg({ kind: 'movement', value, color }))}</g>`;
+  return `<g transform="translate(${x - s / 2} ${y - s / 2}) scale(${s / 100})" pointer-events="none" data-die3d="movement|${value}|${color}">${inner(dieSvg({ kind: 'movement', value, color }))}</g>`;
 }
 
 export interface DashboardArt {

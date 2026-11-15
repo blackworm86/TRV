@@ -32,6 +32,16 @@ partita funziona.
 - Mappa vettoriale (`src/view/board3d.ts`): ogni casella è un chevron estruso colorato per effetto
   (strada, fuoristrada, fango, invalicabile con doppio bordo giallo, pericolo in rosso); le tessere
   si incastrano a passo di 8 colonne. Nessuna immagine licenziata nel tavolo.
+- Dadi tutti in 3D (`src/view/dice3d.ts`, facce vettoriali): i dadi tirati rotolano sul tavolo sotto la
+  strada e restano lì fino al tiro successivo (mostrati al doppio della misura reale per leggerli); i dadi
+  dell'interfaccia (miei, avversari, dado strada, dadi posati sulle plance) sono disegnati in 3D da un
+  livello WebGL sopra la pagina.
+- Segnalini pericolo 3D sulla strada (cartoncino con fronte e retro); si girano quando un'auto ci entra.
+  Mina e relitto, scartati dopo l'effetto, restano scoperti per un attimo prima di sparire.
+- Fasi del turno (p. 8) nella barra: Assegna, Comando, Movimento, Spara. Nel primo round lo sparo è
+  barrato ("Your guns are not online until the second round", p. 10). Avviso a schermo per sparo,
+  danni, pericoli ed eliminazioni.
+- Galleria degli asset: `gallery.html` (stessa grafica e stessi pezzi 3D, nessuna immagine licenziata).
 - Misure dal catalogo fisico `data/trv/catalog_base.json` (stime, `measured: false`).
 
 ## Interpretazioni provvisorie (da confermare con l'utente)

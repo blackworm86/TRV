@@ -17,6 +17,10 @@ import { Pieces, TextureBank } from '../../src/view/pieces3d';
 import { buildTile, hazardToken, spaceCenterPx, GRID, TILE_PITCH_PX } from '../../src/view/board3d';
 import { dieSvg, dashboardSvg, commandBoardSvg, chopperSvg, avatarSvg, dataUrl } from '../../src/view/vector/art';
 import { newSeed } from '../../src/platform/entropy';
+import { makeDie, withOwnMaterials, type Die3D, type DiceFaces } from '../../src/view/dice3d';
+import RULES from '../../data/trv/game_base.json';
+
+const FACES = RULES.dice as unknown as DiceFaces;
 
 const SAVE_KEY = 'trv-hotseat-v3';
 const $ = (id: string): HTMLElement => document.getElementById(id)!;
@@ -109,11 +113,21 @@ scene.add(finish);
 
 const carObjs = new Map<string, THREE.Group>();
 const chopperObjs = new Map<number, THREE.Group>();
-const hazardObjs = new Map<string, { type: string; obj: ReturnType<typeof hazardToken> }>();
+const hazardObjs = new Map<string, { type: string; obj: ReturnType<typeof hazardToken>; gone?: number }>();
 const HAZ = sizeOf(CAT, 'hazard_token');
 const HAZ_SIZE = { length: HAZ[1] * MM, depth: HAZ[0] * MM, thickness: HAZ[2] * MM };
 const markerGroup = new THREE.Group();
 scene.add(markerGroup);
+// Dice tray: this turn's FX dice roll onto the table just below the road.
+const DIE_W = sizeOf(CAT, 'die')[0] * MM;
+// Rolled dice are shown at twice their size, so their faces read from the camera.
+const TRAY_SCALE = 2;
+const TRAY_Z = TILE_H / 2 + 0.9;
+interface TableDie { d: Die3D; from: THREE.Vector3; to: THREE.Vector3; q0: THREE.Quaternion; q1: THREE.Quaternion; t: number }
+let trayDice: TableDie[] = [];
+let trayKey = '';
+let resetTray = false;
+const FORWARD = new THREE.Vector3(1, 0, 0), AWAY = new THREE.Vector3(0, 0, -1);
 const ringGeo = new THREE.RingGeometry(0.42, 0.56, 32);
 interface Marker { mesh: THREE.Mesh; option: number; at: THREE.Vector3 }
 let markers: Marker[] = [];
@@ -151,6 +165,8 @@ function choose(i: number): void {
 
 function undo(): void {
   if (!saved || !saved.choices.length) return;
+  logSeen = -1;
+  resetTray = true;
   winShown = false;
   $('win').style.display = 'none';
   startGame({ setup: saved.setup, choices: saved.choices.slice(0, -1) });
@@ -223,13 +239,17 @@ function render(): void {
   for (const [k, h] of g.hazards) {
     live.add(k);
     let rec = hazardObjs.get(k);
-    if (rec && rec.type !== h.type) { scene.remove(rec.obj.group); rec = undefined; }
+    if (rec && (rec.type !== h.type || rec.gone !== undefined)) { scene.remove(rec.obj.group); rec = undefined; }
     if (!rec) { rec = { type: h.type, obj: hazardToken(h.type, HAZ_SIZE) }; hazardObjs.set(k, rec); scene.add(rec.obj.group); }
     const [r, c] = k.split(',').map(Number);
     rec.obj.group.position.copy(world({ r, c })).setY(TILE_T + 0.003);
     rec.obj.setFaceUp(h.faceUp);
   }
-  for (const [k, rec] of hazardObjs) if (!live.has(k)) { scene.remove(rec.obj.group); hazardObjs.delete(k); }
+  // A hazard discarded after resolving (mine, wreck) stays face up for a moment, then goes.
+  for (const [k, rec] of hazardObjs) if (!live.has(k) && rec.gone === undefined) {
+    rec.obj.setFaceUp(true);
+    rec.gone = performance.now() / 1000 + 1.8;
+  }
 
   const seen = new Set<string>();
   const stackCount = new Map<string, number>();
@@ -263,8 +283,39 @@ function render(): void {
     o.userData.target = world(p.chopper).setY(1.1);
   }
 
+  drawTray();
   drawMarkers();
   drawHud();
+}
+
+/** Rolls new FX dice onto the table near the car that caused them; old rolls stay still. */
+function drawTray(): void {
+  if (!g) return;
+  const key = g.lastRoll.map(r => `${r.die}${r.face}`).join(',');
+  // A new turn clears lastRoll: the previous dice stay on the table until the next roll.
+  if (key === trayKey || (!key && !resetTray)) return;
+  resetTray = false;
+  const prev = trayKey ? trayKey.split(',') : [];
+  const keep = key.startsWith(trayKey) ? prev.length : 0;
+  trayKey = key;
+  for (const t of trayDice.slice(keep)) scene.remove(t.d.mesh);
+  trayDice = trayDice.slice(0, keep);
+  const car = g.vehicles.find(v => v.id === g!.activeCar);
+  const cx = THREE.MathUtils.clamp(car?.pos ? world(car.pos).x : BOARD_X0 + 2, BOARD_X0 + 1, BOARD_X0 + 2 * PITCH_W + TILE_W - 6);
+  g.lastRoll.forEach((r, i) => {
+    if (i < keep) return;
+    const d = makeDie(FACES, r.die, DIE_W);
+    d.mesh.scale.setScalar(TRAY_SCALE);
+    const to = new THREE.Vector3(cx + (i % 8) * DIE_W * TRAY_SCALE * 1.4, DIE_W * TRAY_SCALE / 2, TRAY_Z + Math.floor(i / 8) * DIE_W * TRAY_SCALE * 1.4);
+    const from = to.clone().add(new THREE.Vector3(-1.5 - Math.random(), 2.5, 1.2));
+    const q1 = d.orientation(r.face, r.die === 'direction' ? FORWARD : AWAY)
+      .premultiply(new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 1, 0), r.die === 'direction' ? 0 : (Math.random() - 0.5) * 0.4));
+    const q0 = new THREE.Quaternion().setFromEuler(new THREE.Euler(Math.random() * 6, Math.random() * 6, Math.random() * 6));
+    d.mesh.position.copy(from);
+    d.mesh.quaternion.copy(q0);
+    scene.add(d.mesh);
+    trayDice.push({ d, from, to, q0, q1, t: -i * 0.12 });
+  });
 }
 
 function drawMarkers(): void {
@@ -289,7 +340,8 @@ function drawMarkers(): void {
 // ---------------------------------------------------------------- drawing: 2D
 
 function dieHtml(kind: string, value: number | string, color: string | undefined, cls = '', attrs = ''): string {
-  return dieSvg({ kind, value, color, forward: 'right' }, `class="${cls}" ${attrs}`);
+  // The SVG keeps the layout and takes the clicks; the HUD overlay draws a 3D die on top of it.
+  return dieSvg({ kind, value, color, forward: 'right' }, `class="${cls}" data-die3d="${kind}|${value}|${color ?? ''}" ${attrs}`);
 }
 
 function logLine(e: LogEntry): string {
@@ -298,6 +350,22 @@ function logLine(e: LogEntry): string {
 }
 
 let winShown = false;
+let logSeen = -1;
+let toastTimer = 0;
+/** Shows the new shots, damage, hazards and eliminations for a few seconds over the map. */
+function toast(): void {
+  if (!g) return;
+  if (logSeen < 0 || logSeen > g.log.length) { logSeen = g.log.length; return; }
+  const fresh = g.log.slice(logSeen).filter(e => e.kind === 'dice' || e.kind === 'bad' || e.kind === 'good'
+    || /Pericolo|danno|sparo|bersaglio|armi|COLPITO/i.test(e.text));
+  logSeen = g.log.length;
+  if (!fresh.length) return;
+  const el = $('toast');
+  el.innerHTML = fresh.slice(-4).map(e => `<div class="${e.kind}">${esc(e.text)}</div>`).join('');
+  el.classList.add('show');
+  clearTimeout(toastTimer);
+  toastTimer = window.setTimeout(() => el.classList.remove('show'), 3200);
+}
 function drawHud(): void {
   if (!g) return;
   const me = viewer()!;
@@ -329,7 +397,7 @@ function drawHud(): void {
       actions.appendChild(b);
     };
     if (d.kind === 'command') btn(0, 'quiet');
-    else if (d.kind === 'shoot') btn(0, 'quiet');
+    else if (d.kind === 'shoot') { d.options.forEach((_, i) => { if (i > 0) btn(i, 'shoot'); }); btn(0, 'quiet'); }
     else if (d.kind === 'roadDie' || d.kind === 'slamReroll') { btn(0, 'quiet'); btn(1); }
     else if (!['assign', 'step', 'airstrike', 'repair'].includes(d.kind)) d.options.forEach((_, i) => btn(i));
   }
@@ -337,8 +405,14 @@ function drawHud(): void {
   $('ticker').innerHTML = last ? logLine(last).replace(/^<div[^>]*>|<\/div>$/g, '') : '';
   if ($('drawer').style.display === 'block') drawDrawer();
 
-  // FX dice rolled this turn.
-  $('fx').innerHTML = g.lastRoll.map(r => dieHtml(r.die, r.value, undefined)).join('');
+  toast();
+
+  // The four steps of a turn (rulebook p. 8), the current one lit.
+  const stepOf: Record<string, number> = { assign: 1, command: 2, airstrike: 2, repair: 2, step: 3, roadDie: 3, slamReroll: 3, shoot: 4 };
+  const cur = d ? stepOf[d.kind] ?? 0 : 0;
+  const shootNote = g.round <= 1 ? ' (dal 2° round)' : '';
+  $('steps').innerHTML = ['Assegna', 'Comando', 'Movimento', `Spara${shootNote}`].map((n, i) =>
+    `<span class="${i + 1 === cur ? 'on' : i + 1 < cur ? 'done' : ''} ${i === 3 && g!.round <= 1 ? 'off' : ''}">${i + 1} ${n}</span>`).join('');
 
   // Bottom: my dice, command board, dashboards, chopper.
   const hot = hotZones();
@@ -510,6 +584,8 @@ $('start').onclick = () => {
   winShown = false;
   $('win').style.display = 'none';
   $('setup').style.display = 'none';
+  logSeen = -1;
+  resetTray = true;
   startGame({ setup: { seed: seed.value, players, startSide: ($('side') as HTMLSelectElement).value as 'a' | 'b' }, choices: [] });
 };
 
@@ -523,7 +599,7 @@ function fit(): void {
   camera.updateProjectionMatrix();
   // Frame the whole road (start area included): fit the corners on screen, then centre them.
   const x0 = BOARD_X0 - 1.8, x1 = BOARD_X0 + 2 * PITCH_W + TILE_W;
-  const zTop = -TILE_H / 2, zBot = TILE_H / 2;
+  const zTop = -TILE_H / 2, zBot = TRAY_Z + DIE_W * 1.5; // road plus the dice tray
   const corners = [[x0, zTop], [x1, zTop], [x0, zBot], [x1, zBot]].map(([x, z]) => new THREE.Vector3(x, 0, z));
   const dir = new THREE.Vector3(0, 1, 0.55).normalize();
   const target = new THREE.Vector3((x0 + x1) / 2, 0, (zTop + zBot) / 2);
@@ -552,6 +628,69 @@ function fit(): void {
 addEventListener('resize', fit);
 fit();
 
+// ---------------------------------------------------------------- HUD dice in 3D
+// A transparent WebGL layer over the interface: every element marked data-die3d="kind|value|color"
+// (my dice, opponents', the road die, dice placed on boards, the dragged die) gets a 3D die drawn
+// exactly over it. The element stays in the page, invisible, for layout and clicks.
+
+const hudRenderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+hudRenderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+hudRenderer.toneMapping = THREE.NoToneMapping;
+Object.assign(hudRenderer.domElement.style, { position: 'fixed', left: '0', top: '0', pointerEvents: 'none', zIndex: '7' });
+document.body.appendChild(hudRenderer.domElement);
+const hudScene = new THREE.Scene();
+hudScene.add(new THREE.AmbientLight(0xffffff, 1.5));
+const hudLamp = new THREE.DirectionalLight(0xffffff, 1.9);
+hudLamp.position.set(-0.4, 0.8, 1);
+hudScene.add(hudLamp);
+const hudCam = new THREE.OrthographicCamera(0, 1, 0, -1, -500, 500);
+interface HudDie { d: Die3D; key: string; seen: boolean }
+const hudDice = new Map<Element, HudDie>();
+const TO_SCREEN = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(1, 0, 0), Math.PI / 2);
+const TILT = new THREE.Quaternion().setFromEuler(new THREE.Euler(0.32, -0.4, 0));
+
+function fitHud(): void {
+  hudRenderer.setSize(innerWidth, innerHeight);
+  Object.assign(hudCam, { left: 0, right: innerWidth, top: 0, bottom: -innerHeight });
+  hudCam.updateProjectionMatrix();
+}
+addEventListener('resize', fitHud);
+fitHud();
+
+function syncHudDice(now: number): void {
+  for (const h of hudDice.values()) h.seen = false;
+  for (const el of document.querySelectorAll('[data-die3d]')) {
+    const r = el.getBoundingClientRect();
+    if (r.width < 2 || el.closest('[style*="display: none"]')) continue;
+    const key = el.getAttribute('data-die3d')!;
+    let h = hudDice.get(el);
+    if (h && h.key !== key) { hudScene.remove(h.d.mesh); h = undefined; }
+    if (!h) {
+      const [kind, , color] = key.split('|');
+      h = { d: withOwnMaterials(makeDie(FACES, kind, 1, color || undefined)), key, seen: true };
+      hudScene.add(h.d.mesh);
+      hudDice.set(el, h);
+    }
+    h.seen = true;
+    const [kind, value] = key.split('|');
+    const size = Math.min(r.width, r.height) * 0.8;
+    h.d.mesh.scale.setScalar(size);
+    h.d.mesh.position.set(r.left + r.width / 2, -(r.top + r.height / 2), 0);
+    const face = Math.max(0, h.d.faceOf(kind === 'movement' ? Number(value) : value));
+    const fwd = kind === 'direction' ? FORWARD : AWAY;
+    const q = h.d.orientation(face, fwd).premultiply(TO_SCREEN).premultiply(TILT);
+    if (el.classList.contains('sel')) q.premultiply(new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 1, 0), Math.sin(now * 3) * 0.35));
+    h.d.mesh.quaternion.copy(q);
+    const faded = el.classList.contains('used');
+    for (const m of h.d.mesh.material as THREE.MeshStandardMaterial[]) { m.transparent = faded; m.opacity = faded ? 0.22 : 1; }
+  }
+  for (const [el, h] of hudDice) if (!h.seen) {
+    hudScene.remove(h.d.mesh);
+    for (const m of h.d.mesh.material as THREE.Material[]) m.dispose();
+    hudDice.delete(el);
+  }
+}
+
 const timer = new THREE.Timer();
 timer.connect(document);
 renderer.setAnimationLoop(t => {
@@ -571,8 +710,22 @@ renderer.setAnimationLoop(t => {
     const r = o.getObjectByName('rotor'); if (r) r.rotation.y += dt * 18;
   }
   for (const m of markers) (m.mesh.material as THREE.MeshBasicMaterial).opacity = 0.65 + Math.sin(now * 5) * 0.25;
+  for (const [k, h] of hazardObjs) {
+    h.obj.update(dt);
+    if (h.gone !== undefined && now > h.gone) { scene.remove(h.obj.group); hazardObjs.delete(k); }
+  }
+  for (const td of trayDice) {
+    if (td.t >= 1) continue;
+    td.t = Math.min(1, td.t + dt / 0.75);
+    const u = Math.max(0, td.t), e = 1 - Math.pow(1 - u, 3);
+    td.d.mesh.position.lerpVectors(td.from, td.to, e);
+    td.d.mesh.position.y = td.to.y + Math.abs(Math.cos(u * Math.PI * 1.5)) * (1 - u) * 2.2;
+    td.d.mesh.quaternion.slerpQuaternions(td.q0, td.q1, e);
+  }
   controls.update();
   renderer.render(scene, camera);
+  syncHudDice(now);
+  hudRenderer.render(hudScene, hudCam);
 });
 
 try {
@@ -585,6 +738,6 @@ try {
 
 // For automated checks.
 (window as unknown as { trv: object }).trv = {
-  get game() { return g; }, get decision() { return decision; }, choose, undo, zoneOption,
+  get game() { return g; }, get decision() { return decision; }, choose, undo, zoneOption, scene, hazardObjs,
   get rows() { return ROWS; }, get cols() { return COLS; },
 };

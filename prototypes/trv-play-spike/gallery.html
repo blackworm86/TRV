@@ -1,0 +1,92 @@
+<!-- PROTOTYPE - NOT FOR PRODUCTION. Galleria degli asset del gioco base (vettoriali e 3D). -->
+<!doctype html>
+<html lang="it">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Asset di Thunder Road</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=League+Gothic&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  /* Layout: a table under a work lamp. Sticky index, a 3D viewer up top, then one shelf per kind of piece. */
+  :root {
+    --bg: #17120e; --surface: #221a14; --line: #3a2c20; --ink: #f1e6d4; --muted: #b3a186; --accent: #f6c46a; --hot: #e8742a;
+    --display: 'League Gothic', 'Arial Narrow', Impact, sans-serif;
+    --body: 'Inter', system-ui, -apple-system, 'Segoe UI', sans-serif;
+    color-scheme: dark;
+  }
+  * { box-sizing: border-box; }
+  html { scroll-behavior: smooth; }
+  body { margin: 0; background: var(--bg); color: var(--ink); font: 15px/1.5 var(--body); }
+  @media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } }
+  .wrap { max-width: 1240px; margin: 0 auto; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); }
+  body::before { content: ""; position: fixed; inset: 0 0 auto; height: env(safe-area-inset-top, 0px); z-index: 10; background: var(--bg); }
+
+  #top { position: sticky; top: env(safe-area-inset-top, 0px); z-index: 5; background: color-mix(in srgb, var(--bg) 92%, transparent); backdrop-filter: blur(6px); border-bottom: 1px solid var(--line); }
+  #top .wrap { display: flex; align-items: center; gap: 20px; padding-block: 10px; flex-wrap: wrap; }
+  #top h1 { margin: 0; font: 400 30px/1 var(--display); letter-spacing: .5px; color: var(--accent); white-space: nowrap; }
+  #nav { display: flex; gap: 4px 14px; flex-wrap: wrap; }
+  #nav a { color: var(--muted); text-decoration: none; font-size: 13px; font-weight: 500; }
+  #nav a:hover, #nav a:focus-visible { color: var(--ink); }
+
+  .intro { display: grid; grid-template-columns: minmax(0, 2.2fr) minmax(0, 1fr); gap: 20px; padding-block: 20px 8px; align-items: start; }
+  #viewer { position: relative; aspect-ratio: 16 / 9; max-width: 100%; border-radius: 10px; overflow: hidden; border: 1px solid var(--line); background: #1d1712; }
+  #viewer canvas { display: block; width: 100%; height: 100%; touch-action: none; }
+  #viewer-title { position: absolute; left: 12px; top: 10px; font: 400 24px/1 var(--display); letter-spacing: .4px; color: var(--ink); text-shadow: 0 1px 4px #000; pointer-events: none; }
+  #viewer .hint { position: absolute; right: 12px; bottom: 8px; font-size: 12px; color: var(--muted); pointer-events: none; }
+  .intro aside { min-width: 0; }
+  .intro aside p { margin: 0 0 10px; color: var(--muted); max-width: 46ch; }
+  .intro aside strong { color: var(--ink); font-weight: 600; }
+  .stat { font: 400 64px/1 var(--display); color: var(--accent); }
+
+  section { padding-block: 26px 6px; border-top: 1px solid var(--line); margin-top: 18px; scroll-margin-top: 70px; }
+  section header { display: flex; flex-wrap: wrap; align-items: baseline; gap: 6px 18px; margin-bottom: 14px; }
+  section h2 { margin: 0; font: 400 38px/1 var(--display); letter-spacing: .5px; text-wrap: balance; }
+  section header p { margin: 0; color: var(--muted); max-width: 70ch; }
+  .legend { list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; gap: 6px 14px; font-size: 13px; color: var(--muted); width: 100%; }
+  .legend b { display: inline-block; width: 14px; height: 14px; border-radius: 3px; vertical-align: -2px; margin-right: 6px; border: 1px solid #0006; }
+
+  .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(270px, 1fr)); gap: 14px; }
+  .card { background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 12px; display: flex; flex-direction: column; gap: 10px; min-width: 0; }
+  .card h3 { margin: 0; font: 400 22px/1.05 var(--display); letter-spacing: .4px; }
+  .card .meta { margin: -6px 0 0; font-size: 12.5px; color: var(--muted); font-variant-numeric: tabular-nums; }
+  .thumb { position: relative; display: block; width: 100%; padding: 0; border: 1px solid var(--line); border-radius: 8px; background: radial-gradient(circle at 50% 35%, #3a2c20, #1d1712); cursor: pointer; aspect-ratio: 3 / 2; overflow: hidden; }
+  .thumb img { display: block; width: 100%; height: 100%; object-fit: contain; }
+  .thumb span { position: absolute; right: 8px; bottom: 6px; font-size: 11px; font-weight: 600; color: var(--bg); background: var(--accent); padding: 1px 7px; border-radius: 99px; }
+  .thumb:hover, .thumb:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+  .thumb.on { outline: 2px solid var(--hot); }
+  .flat { display: flex; flex-wrap: wrap; gap: 6px; align-items: flex-end; }
+  .flat i { display: block; }
+  .flat svg { display: block; width: 100%; height: auto; }
+  .flat .face { width: 36px; }
+  .flat .tok { width: 92px; }
+  .flat .board { width: 100%; }
+  .flat .car { width: 58px; }
+  .flat .icon { width: 48px; }
+  .flat .finish { width: 40px; height: 100px; background: repeating-conic-gradient(#111 0 25%, #eee 0 50%) 0 0 / 20px 20px; border-radius: 3px; }
+  footer { padding-block: 30px 40px; color: var(--muted); font-size: 13px; }
+
+  @media (max-width: 760px) {
+    .intro { grid-template-columns: minmax(0, 1fr); }
+    .stat { font-size: 48px; }
+  }
+</style>
+</head>
+<body>
+<div id="top"><div class="wrap"><h1>Asset di Thunder Road</h1><nav id="nav"></nav></div></div>
+<main class="wrap">
+  <div class="intro">
+    <div id="viewer"><div id="viewer-title"></div><div class="hint">Trascina per ruotare · rotella per lo zoom</div></div>
+    <aside>
+      <div class="stat" id="count">0</div>
+      <p><strong>pezzi 3D</strong> e tutta la grafica vettoriale che il prototipo usa oggi per il gioco base. Clicca un’anteprima per girarla qui a fianco.</p>
+      <p>Grafica provvisoria, disegnata da zero: nessuna immagine ufficiale. Quantità dal regolamento, misure dal catalogo fisico (stime finché non si misurano i pezzi).</p>
+    </aside>
+  </div>
+  <div id="sections"></div>
+  <footer>Generata dal codice del prototipo: <code>src/view/vector/art.ts</code>, <code>board3d.ts</code>, <code>dice3d.ts</code>, <code>pieces3d.ts</code>.</footer>
+</main>
+<script type="module" src="./gallery.ts"></script>
+</body>
+</html>

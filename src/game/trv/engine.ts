@@ -554,10 +554,10 @@ function* shootFrom(g: Game, player: number, from: Pos, who: string): Gen<void> 
     const st = vehiclesAt(g, p);
     if (st.length) targets.push(st[st.length - 1]);
   }
-  if (!targets.length) return;
+  if (!targets.length) { say(g, `${who}: nessun bersaglio nell'arco frontale, niente sparo.`, 'info'); return; }
   const i = yield* ask({
     kind: 'shoot', player, prompt: `${g.players[player].name}: sparare con ${who}?`,
-    options: [{ label: 'Non sparare' }, ...targets.map(t => ({ label: `Spara a ${carName(g, t)}`, carId: t.id, pos: t.pos! }))],
+    options: [{ label: 'Non sparare' }, ...targets.map(t => ({ label: `Spara ${carName(g, t).replace(/^l'/, "all'").replace(/^il /, 'al ')}`, carId: t.id, pos: t.pos! }))],
   });
   if (i === 0) return;
   const t = targets[i - 1];
@@ -685,7 +685,9 @@ function* turn(g: Game, p: Player): Gen<void> {
     yield* moveCar(g, car, moves, drift, a.coast);
   }
   if (a.coast) car.coasts++; else car.moved = true;
-  if (g.winner === null && g.round > 1 && car.status === 'ok' && car.pos) yield* shootFrom(g, p.id, car.pos, carName(g, car));
+  // Step 4, shoot (p. 10): skipped in the first round, "your guns are not online".
+  if (g.winner === null && g.round === 1) say(g, 'Primo round: le armi non sono ancora attive, niente sparo.', 'info');
+  else if (g.winner === null && car.status === 'ok' && car.pos) yield* shootFrom(g, p.id, car.pos, carName(g, car));
   // End of turn: road vehicles in a chopper's space are eliminated (p. 11).
   for (const pl of g.players) {
     if (!pl.chopper) continue;
