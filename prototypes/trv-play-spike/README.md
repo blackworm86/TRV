@@ -70,3 +70,14 @@ partita funziona.
 - Il motore gioca 150 partite casuali (2-4 giocatori) fino alla vittoria, senza blocchi
   (`tests/unit/trv/engine.test.ts`).
 - Prova a 1024×768: `production/qa/evidence/trv-play-spike/` (locale, contiene grafica licenziata).
+
+## Comandi della telecamera
+
+- Tasto sinistro: sposta il tabellone (pan). Tasto destro: ruota (orbita). Rotella: zoom.
+- WASD o frecce: scorre la vista sul tavolo.
+- Tab / Maiusc+Tab: passa da un'auto all'altra del giocatore di turno. 1, 2, 3: auto piccola, media, grande. F: l'auto che sta agendo.
+
+## Modelli 3D
+
+- File in `assets/licensed/models/` (fuori da git); tutto ciò che li riguarda (misure sul tavolo, ruote, rotori, vetro, molle) è in `models-config.ts`.
+- Pagina di controllo: `models.html` (aggiungi `?drive` per vedere le auto guidare avanti e indietro).

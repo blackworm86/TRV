@@ -81,6 +81,13 @@
   .road.glow { filter: drop-shadow(0 0 10px #f2c230); }
   .road.glow span { color: #f2c230; }
   #actions button.road { background: #f2c230; }
+  #handoff { position: fixed; left: 50%; top: 42%; transform: translate(-50%, -50%) scale(.9); opacity: 0; pointer-events: none; z-index: 8;
+    background: rgba(20,14,10,.95); border: 4px solid var(--who, var(--acc)); border-radius: 16px; padding: 14px 34px 16px; text-align: center;
+    box-shadow: 0 0 40px var(--who, transparent); transition: opacity .25s, transform .25s; }
+  #handoff.show { opacity: 1; transform: translate(-50%, -50%) scale(1); }
+  #handoff small { display: block; font-size: 14px; letter-spacing: 2px; text-transform: uppercase; opacity: .8; }
+  #handoff b { display: block; font-size: 54px; font-weight: 400; line-height: 1.05; color: var(--who); }
+  #handoff span { display: block; margin-top: 4px; font-size: 16px; font-weight: 600; }
   #toast { position: fixed; left: 50%; top: calc(var(--top) + 12px); transform: translate(-50%, -8px); min-width: 280px; max-width: 70vw;
     background: rgba(20,14,10,.92); border: 2px solid var(--acc); border-radius: 10px; padding: 8px 14px; font-size: 16px; font-weight: 600;
     text-align: center; opacity: 0; pointer-events: none; transition: opacity .25s, transform .25s; z-index: 6; }
@@ -113,6 +120,7 @@
   <div class="road"><span class="gothic">DADO<br>STRADA</span><div id="roaddie"></div></div>
 </div>
 <div id="toast"></div>
+<div id="handoff"></div>
 <div id="roundbox"></div>
 <div id="drawer"></div>
 <div id="bar">
