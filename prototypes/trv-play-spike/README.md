@@ -157,3 +157,14 @@ git). Senza quei file il gioco usa i disegni liberi e le tessere a chevron color
   (assegnazione, comando, riparazione) o col puntatore sopra; pulsante ▴/▾ o tasto P per
   aprirle o chiuderle a mano. Il tavolo è inquadrato sopra la striscia piccola; quella grande
   si apre sopra il suo bordo inferiore.
+
+## Replay, segnalino danno e plancia piccola (2026-11-15)
+
+- **Plancia sempre piccola**: si ingrandisce solo col puntatore sopra o col pulsante Plance (P).
+- **"Nessun comando"** accanto ai dadi.
+- **Instant replay**: quando un'auto è danneggiata o distrutta, il pulsante Replay (R) rivede
+  quei momenti al rallentatore e da vicino, poi rimette tavolo e telecamera com'erano.
+- **Segnalino danno**: quello estratto viene girato grande al centro, con l'auto colpita e il suo
+  effetto; i dadi che richiede compaiono accanto. Sulla plancia resta coperto, come da regolamento.
+  Il motore mette il segnalino nel fotogramma `damage` (`Frame.token`).
+- Dalla console: `__fx.replay()`, `__fx.damage('p1M','shrapnel')`.

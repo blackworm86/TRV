@@ -15,7 +15,7 @@ import {
 import { BASE_CATALOG as CAT, sizeOf, ofKind } from '../../src/game/trv/catalog';
 import { Pieces, TextureBank } from '../../src/view/pieces3d';
 import { buildTile, hazardToken, spaceCenterPx, spaceGeometry, GRID, TILE_PITCH_PX } from '../../src/view/board3d';
-import { dieSvg, dashboardSvg, commandBoardSvg, playerStripSvg, STRIP_ASPECT, avatarSvg, dataUrl } from '../../src/view/vector/art';
+import { dieSvg, damageTokenSvg, dashboardSvg, commandBoardSvg, playerStripSvg, STRIP_ASPECT, avatarSvg, dataUrl } from '../../src/view/vector/art';
 import { newSeed } from '../../src/platform/entropy';
 import { ModelBank, dressed, fitToLength, splitParts, splitWheels, type Tint } from '../../src/view/models3d';
 import { MODEL, SHOW_LENGTH_MM, MODEL_YAW, CHOPPER_PARTS, ROTOR_SPEED, WHEELS, GUNS, type GunSpec, crewTint, WRECK_TINT, wreckModel, phaseOf, hover, CarRig } from './models-config';
@@ -211,6 +211,7 @@ let decision: Decision | null = null;
 let selDie: number | null = null;
 
 function startGame(s: Saved): void {
+  replayFrames = null; // a replay belongs to the game it was seen in
   saved = s;
   g = newGame(s.setup);
   gen = play(g);
@@ -235,6 +236,7 @@ function choose(i: number): void {
   persist();
   const fresh = g!.frames.slice(frameSeen);
   frameSeen = g!.frames.length;
+  keepReplay(fresh);
   playBeats(fresh);
 }
 
@@ -493,7 +495,7 @@ let shakeUntil = 0;
 let trayFresh = true;
 
 const BEAT: Partial<Record<Frame['kind'], number>> = {
-  move: 0.32, roll: 1.15, slam: 1.0, shot: 1.7, damage: 0.9, elim: 1.5, reveal: 0.8, tile: 1.1, round: 2.6, chopper: 0.8,
+  move: 0.32, roll: 1.15, slam: 1.0, shot: 1.7, damage: 1.9, elim: 1.5, reveal: 0.8, tile: 1.1, round: 2.6, chopper: 0.8,
 };
 
 /** What each rolled die decides, said in a few words under the big die in the middle of the screen. */
@@ -516,6 +518,33 @@ function showRoll(f: Frame): void {
   el.classList.add('show');
   clearTimeout(rollsTimer);
   rollsTimer = window.setTimeout(() => el.classList.remove('show'), 3200);
+}
+
+/** The damage tokens: name and what each does, in a few words (rulebook, back cover). */
+const DAMAGE_INFO: Record<string, [string, string]> = {
+  dent: ['Ammaccatura', 'Nessun effetto, oltre al danno.'],
+  shrapnel: ['Schegge', 'Dado direzione: il primo veicolo su quella linea subisce un danno.'],
+  skid: ['Sbandata', 'L’auto si sposta di 1 casella nella direzione indicata.'],
+  dazed: ['Stordito', 'Dado acrobazia: tante caselle, ognuna nella direzione tirata.'],
+  blastoff: ['Decollo', 'Dadi direzione e acrobazia: l’auto vola di tante caselle in quella direzione.'],
+};
+/**
+ * A car takes damage: the token drawn is turned over big in the middle of the screen, with whose
+ * car it is and what the token does. The dice it calls for appear beside it as they are rolled.
+ */
+function showDamage(f: Frame): void {
+  if (!g || f.token === undefined) return;
+  const v = g.vehicles.find(x => x.id === f.vehicleId);
+  const owner = v && v.owner !== null ? g.players[v.owner] : null;
+  const who = v ? `Auto ${{ S: 'piccola', M: 'media', L: 'grande' }[v.size]}${owner ? ` di ${owner.name}` : ''}` : '';
+  const [name, does] = f.token ? DAMAGE_INFO[f.token.type] ?? [f.token.type, ''] : ['Danno', 'Nessun segnalino rimasto nella pila.'];
+  const el = $('rolls');
+  el.innerHTML = `<div class="roll dmg" style="--c:${owner?.color ?? '#d42f30'}"><small>${esc(who)} · danno</small>`
+    + `<i class="tok">${f.token ? damageTokenSvg(f.token.type, true, f.token.dir as never) : damageTokenSvg(null, false)}</i>`
+    + `<b>${esc(name)}</b><span>${esc(does)}</span></div>`;
+  el.classList.add('show');
+  clearTimeout(rollsTimer);
+  rollsTimer = window.setTimeout(() => el.classList.remove('show'), 4500);
 }
 
 /** A comic word over a point of the table ("SLAM!", "BOOM!"): it pops, rises and fades. */
@@ -665,8 +694,59 @@ function skipBeats(): void {
 
 function finishBeats(): void {
   playing = false;
+  if (replaying) endReplay();
   render();
 }
+
+// ---------------------------------------------------------------- instant replay
+// When a car is damaged or destroyed, the beats around it are kept: the Replay button (or R) plays
+// them again, slowly and from close by, then puts the table and the camera back as they were.
+
+/** Replay speed, and where the camera stands from the spot it looks at. */
+const REPLAY = { speed: 0.45, before: 8, after: 2, camera: new THREE.Vector3(-2.4, 4.4, 5.4) };
+let replayFrames: Frame[] | null = null;
+let replayAt: THREE.Vector3 | null = null;
+let replaying = false;
+let timeScale = 1;
+let camBefore: { pos: THREE.Vector3; target: THREE.Vector3 } | null = null;
+
+/** Keeps the beats around a damage or a destruction in the frames a choice produced, if any. */
+function keepReplay(frames: Frame[]): void {
+  const hit = (f: Frame): boolean => f.kind === 'damage' || f.kind === 'elim';
+  const first = frames.findIndex(hit);
+  if (first < 0) return;
+  let last = first;
+  frames.forEach((f, i) => { if (hit(f)) last = i; });
+  replayFrames = frames.slice(Math.max(0, first - REPLAY.before), last + 1 + REPLAY.after).filter(f => f.kind !== 'log' && f.kind !== 'round' && f.kind !== 'tile');
+  const where = frames[first].into ?? frames[first].at;
+  replayAt = where ? world(where) : null;
+  const b = $('replay');
+  b.classList.add('fresh');
+  window.setTimeout(() => b.classList.remove('fresh'), 9000);
+}
+
+function startReplay(): void {
+  if (!g || !replayFrames?.length || playing) return;
+  replaying = true;
+  timeScale = REPLAY.speed;
+  camBefore = { pos: camera.position.clone(), target: controls.target.clone() };
+  focusGoal = null;
+  if (replayAt) { controls.target.copy(replayAt).setY(0); camera.position.copy(controls.target).add(REPLAY.camera); }
+  $('replaybadge').classList.add('show');
+  $('replay').classList.remove('fresh');
+  // Back to how the table stood before: the pieces are put there at once, not driven there.
+  drawTable(replayFrames[0].snap);
+  for (const o of carObjs.values()) { const tg = o.userData.target as THREE.Vector3 | undefined; if (tg) o.position.copy(tg); }
+  playBeats(replayFrames.slice());
+}
+
+function endReplay(): void {
+  replaying = false;
+  timeScale = 1;
+  $('replaybadge').classList.remove('show');
+  if (camBefore) { camera.position.copy(camBefore.pos); controls.target.copy(camBefore.target); camBefore = null; }
+}
+$('replay').addEventListener('click', startReplay);
 
 function applyBeat(f: Frame, now: number): void {
   if (f.kind === 'log') { toastLine(f); if (f.logKind === 'turn') { trayFresh = true; $('rolls').classList.remove('show'); } return; }
@@ -682,6 +762,7 @@ function applyBeat(f: Frame, now: number): void {
       if (f.from && at) burst(world(f.from), at, f.vehicleId);
       break;
     case 'damage':
+      showDamage(f);
       if (f.vehicleId) flash(f.vehicleId);
       if (at) { impact(at, 0xff2a2a, 1.1); word('DANNO!', at, '#ff4a3a'); }
       break;
@@ -1002,7 +1083,6 @@ function drawHud(): void {
   const d = playing ? null : decision;
   if (d) handoff(d);
   // A new kind of choice forgets a strip opened or closed by hand.
-  if ((d?.kind ?? '') !== stripKind) { stripKind = d?.kind ?? ''; stripPin = null; }
   syncStrip();
 
   // Top: the round, then a bubble per player in seating order (the one on turn glows), the road die.
@@ -1066,7 +1146,7 @@ function drawHud(): void {
   actions.classList.toggle('only', !actions.querySelector('button'));
   $('mydice').dataset.label = d?.kind === 'assign' ? 'Assegna un dado' : d?.kind === 'command' ? 'Un dado sul comando' : '';
   actions.dataset.car = g.activeCar ?? '';
-  actions.dataset.anchor = d?.kind === 'command' ? 'cmd' : g.activeCar ? 'car' : 'bar';
+  actions.dataset.anchor = d?.kind === 'command' ? 'dice' : g.activeCar ? 'car' : 'bar';
   if ($('drawer').style.display === 'block') drawDrawer();
 
   // The four steps of a turn (rulebook p. 8), the current one lit.
@@ -1110,6 +1190,7 @@ function drawHud(): void {
     }
   }
   ($('undo') as HTMLButtonElement).disabled = !saved?.choices.length;
+  ($('replay') as HTMLButtonElement).disabled = !replayFrames?.length || playing;
   if (d?.kind === 'assign') drawMarkers();
 
   if (g.winner !== null && !winShown) {
@@ -1216,6 +1297,8 @@ addEventListener('keydown', e => {
     toggleGrid();
   } else if (key === 'p') {
     toggleStrip();
+  } else if (key === 'r') {
+    startReplay();
   } else if (key === 'f') {
     focusOn([...carObjs.values()].find(o => o.userData.active) ?? cars[0]);
   }
@@ -1444,17 +1527,16 @@ function syncHudDice(now: number): void {
 }
 
 /**
- * The strip is big while dice go on the boards (assigning, a command, a repair) or the pointer is
- * on it, small otherwise; the button (or P) opens or closes it by hand until the next kind of choice.
+ * The strip is small. It grows while the pointer is on it, and the button (or P) keeps it open
+ * until it is pressed again.
  */
-let stripPin: boolean | null = null, stripHover = false, stripKind = '';
+let stripPin = false, stripHover = false;
 function syncStrip(): void {
-  const d = playing ? null : decision;
-  const open = stripPin ?? ((!!d && ['assign', 'command', 'repair'].includes(d.kind)) || stripHover);
+  const open = stripPin || stripHover;
   document.body.classList.toggle('open', open);
   $('stripmode').firstElementChild!.textContent = open ? '▾' : '▴';
 }
-function toggleStrip(): void { stripPin = !document.body.classList.contains('open'); syncStrip(); }
+function toggleStrip(): void { stripPin = !stripPin; if (!stripPin) stripHover = false; syncStrip(); }
 $('stripmode').addEventListener('click', toggleStrip);
 $('bottom').addEventListener('pointerenter', () => { stripHover = true; syncStrip(); });
 $('bottom').addEventListener('pointerleave', () => { stripHover = false; syncStrip(); });
@@ -1476,11 +1558,10 @@ function placeActions(): void {
   const dice = $('mydice').getBoundingClientRect();
   if (dice.height > 0) top = Math.min(top, dice.top - h - 26);
   const o = el.dataset.anchor === 'car' && el.dataset.car ? carObjs.get(el.dataset.car) : undefined;
-  const strip = el.dataset.anchor === 'cmd' ? $('strip').firstElementChild?.getBoundingClientRect() : undefined;
-  if (strip && strip.height > 0) {
-    // On the command board's lower tab: the commands are chosen there, and so is "none".
-    x = strip.left + strip.width * CMD_TAB[0];
-    top = Math.min(innerHeight - h - 4, strip.top + strip.height * CMD_TAB[1] - h / 2);
+  if (el.dataset.anchor === 'dice' && dice.height > 0) {
+    // Beside the dice: the die goes on a command, or this button says "none".
+    x = dice.right + 14 + w / 2;
+    top = dice.top + (dice.height - h) / 2;
   } else if (o) {
     // Around the car, wherever it hides the least: the spaces that can be picked (targets, moves)
     // and the vehicles must stay in view. Under the car first, then behind it, above, ahead.
@@ -1509,8 +1590,6 @@ function placeActions(): void {
   el.style.left = `${Math.max(w / 2 + 8, Math.min(innerWidth - w / 2 - 8, x))}px`;
   el.style.top = `${top}px`;
 }
-/** Where the command board's lower tab is in the strip's drawing, as shares of its width and height. */
-const CMD_TAB: [number, number] = [145.5 / 1197, 246.4 / 292];
 $('skip').addEventListener('click', () => skipBeats());
 
 /** The lines of the spaces over the terrain, on or off (button and key G). */
@@ -1576,7 +1655,7 @@ const timer = new THREE.Timer();
 timer.connect(document);
 renderer.setAnimationLoop(t => {
   timer.update(t);
-  const dt = Math.min(timer.getDelta(), 0.1);
+  const dt = Math.min(timer.getDelta(), 0.1) * timeScale;
   const k = 1 - Math.exp(-dt * 10);
   const now = performance.now() / 1000;
   for (const o of carObjs.values()) drive(o, dt, k, now);
@@ -1604,7 +1683,7 @@ renderer.setAnimationLoop(t => {
     const f = queue.shift();
     if (!f) { finishBeats(); break; }
     applyBeat(f, now);
-    nextBeatAt = Math.max(nextBeatAt, now - 0.5) + beatLength(f);
+    nextBeatAt = Math.max(nextBeatAt, now - 0.5) + beatLength(f) / timeScale;
   }
   for (let i = effects.length - 1; i >= 0; i--) {
     const e = effects[i];
@@ -1660,6 +1739,8 @@ try {
 // `__fx.crash(__fx.cars()[0], 2, 0)` or `__fx.explode(0, 0)`.
 Object.assign(window, { __fx: {
   cars: () => [...carObjs.keys()],
+  damage: (id: string, type: string) => showDamage({ kind: 'damage', vehicleId: id, token: { type } } as unknown as Frame),
+  replay: (n = 14) => { if (!g) return 0; replayFrames = g.frames.slice(-n).filter(f => f.kind !== 'log' && f.kind !== 'round' && f.kind !== 'tile'); const f = replayFrames.find(x => x.at); replayAt = f?.at ? world(f.at) : null; startReplay(); return replayFrames.length; },
   aim: (id: string, yaw: number | null) => { const o = carObjs.get(id); if (o) o.userData.aim = yaw; },
   zoom: (id: string, d = 3) => { const o = carObjs.get(id); if (o) { controls.target.copy(o.position); camera.position.copy(o.position).add(new THREE.Vector3(-d * 0.3, d * 0.6, d)); } },
   explode: (x: number, z: number) => explode(new THREE.Vector3(x, TILE_T, z)),

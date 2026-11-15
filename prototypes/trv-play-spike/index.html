@@ -85,6 +85,13 @@
   /* The question over the choices (or alone, where the player must act on the table). */
   #actions { flex-wrap: wrap; justify-content: center; max-width: 320px; }
   #actions .q { flex-basis: 100%; text-align: center; font: 400 20px/1 'League Gothic', Impact, sans-serif; letter-spacing: .5px; color: var(--ink); padding: 2px 8px; }
+  #actions[data-anchor="dice"] .q { display: none; } /* the dice already say what the die is for */
+  #replay.fresh { background: #d42f30; color: #fff; animation: callout 1.2s ease-in-out infinite; }
+  #replaybadge { position: fixed; left: 50%; top: calc(var(--top) + 8px); transform: translateX(-50%); display: none; align-items: center; gap: 9px; z-index: 6; padding: 6px 16px;
+    font: 400 26px/1 'League Gothic', Impact, sans-serif; letter-spacing: 2px; color: #fff; background: rgba(20,14,10,.9); border: 2px solid #d42f30; border-radius: 10px; }
+  #replaybadge.show { display: flex; }
+  #replaybadge i { width: 12px; height: 12px; border-radius: 50%; background: #ff3b30; animation: blink 1s steps(2, start) infinite; }
+  @keyframes blink { to { visibility: hidden; } }
   #actions.only { pointer-events: none; animation: none; padding: 5px 8px; box-shadow: 0 0 0 2px var(--who), 0 6px 18px rgba(0,0,0,.5); }
   /* The quieter choice is still a choice: light enough to be seen at once. */
   #actions button.quiet { background: #efe3cf; color: #1a120c; font-weight: 600; }
@@ -119,6 +126,15 @@
   #rolls .roll svg { width: 84px; height: 84px; }
   #rolls .roll b { font-family: 'League Gothic', Impact, sans-serif; font-weight: 400; font-size: 22px; color: var(--acc); line-height: 1; }
   #rolls .roll span { font-size: 13px; max-width: 150px; text-align: center; line-height: 1.15; }
+  /* A damage token turned over: bigger than a die, in the colour of the car's crew. */
+  #rolls .roll.dmg { min-width: 190px; padding-right: 14px; border-right: 2px solid rgba(255,255,255,.12); }
+  #rolls .roll.dmg:only-child { border-right: 0; padding-right: 0; }
+  #rolls .roll.dmg small { font-size: 12px; letter-spacing: 1px; text-transform: uppercase; color: var(--c); font-weight: 700; }
+  #rolls .roll.dmg .tok { display: block; animation: tokflip .55s ease-out; filter: drop-shadow(0 6px 10px rgba(0,0,0,.6)); }
+  #rolls .roll.dmg .tok svg { width: 132px; height: 120px; }
+  #rolls .roll.dmg b { font-size: 30px; color: #ff6a5a; }
+  #rolls .roll.dmg span { font-size: 14px; max-width: 210px; }
+  @keyframes tokflip { 0% { transform: rotateY(180deg) scale(.5); opacity: 0; } 55% { transform: rotateY(60deg) scale(1.12); opacity: 1; } 100% { transform: none; } }
   #fx { position: fixed; inset: 0; pointer-events: none; z-index: 5; overflow: hidden; }
   .word { position: absolute; transform: translate(-50%, -50%); font: 400 54px 'League Gothic', Impact, sans-serif; letter-spacing: 1px; color: #fff;
     -webkit-text-stroke: 2px #16100b; paint-order: stroke fill; text-shadow: 0 4px 0 #16100b, 0 0 24px var(--wc, #ff6a2a); white-space: nowrap; will-change: transform, opacity; }
@@ -180,6 +196,7 @@
 <div id="fx"></div>
 <div id="rolls"></div>
 <div id="toast"></div>
+<div id="replaybadge"><i></i>INSTANT REPLAY</div>
 <div id="handoff"></div>
 <div id="roundbox"></div>
 <div id="drawer"></div>
@@ -187,6 +204,7 @@
   <div id="steps"></div>
   <div id="prompt"></div>
   <button class="tool" id="skip" title="Salta l’animazione (barra spaziatrice)"><span>⏭</span><small>Salta</small></button>
+  <button class="tool" id="replay" title="Rivedi al rallentatore l’ultimo danno o l’ultima distruzione (R)" disabled><span>⟲</span><small>Replay</small></button>
   <button class="tool" id="stripmode" title="Apri o chiudi le plance (P)"><span>▴</span><small>Plance</small></button>
   <button class="tool" id="grid" title="Mostra o nascondi le linee delle caselle (G)"><span>▦</span><small>Griglia</small></button>
   <button class="tool" id="ticker" title="Cronaca della partita"><span>☰</span><small>Cronaca</small></button>

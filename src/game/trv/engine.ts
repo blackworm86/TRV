@@ -114,6 +114,8 @@ export interface Frame {
   /** Elimination: the space the vehicle was entering (off the road, or impassable), and why. */
   into?: Pos;
   why?: string;
+  /** Damage: the token drawn and turned over (null when the pile is empty). */
+  token?: DamageToken | null;
   die?: RolledDie;
   /** Round start: each player's movement dice, the road die and who rolled it. */
   round?: { n: number; dice: { player: number; values: number[] }[]; roadDie: number; roller: number };
@@ -536,7 +538,7 @@ function* damage(g: Game, v: Vehicle): Gen<void> {
     const [i] = rollDice(g, [{ id: 'damage-draw', n: g.damagePile.length }], 'damage-draw');
     token = g.damagePile.splice(i, 1)[0];
   }
-  beat(g, 'damage', { vehicleId: v.id, ...(v.pos ? { at: { ...v.pos } } : {}) });
+  beat(g, 'damage', { vehicleId: v.id, token: token ? { ...token } : null, ...(v.pos ? { at: { ...v.pos } } : {}) });
   say(g, `${capital(carName(g, v))} subisce danno: ${token ? DAMAGE_NAME[token.type] : 'nessun segnalino rimasto'}.`, 'bad');
   if (token) yield* damageEffect(g, v, token);
   // The effect may have moved the car off the board (TS narrows status too eagerly here).
