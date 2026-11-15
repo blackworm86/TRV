@@ -40,3 +40,9 @@
   source: {vendor: "il proprietario del progetto", product: "modello generato da lui"}
   date: 2026-11-15
   ships: true
+- path: assets/ui/command_dashboard.svg
+  origin: you
+  tool: "Adobe Illustrator: ridisegno vettoriale di command board e dashboard, solo ingombri e linee"
+  source: {vendor: "il proprietario del progetto", product: "disegno fatto da lui"}
+  date: 2026-11-15
+  ships: true

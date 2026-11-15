@@ -111,6 +111,9 @@ export interface Frame {
   vehicleId?: string;
   at?: Pos;
   from?: Pos;
+  /** Elimination: the space the vehicle was entering (off the road, or impassable), and why. */
+  into?: Pos;
+  why?: string;
   die?: RolledDie;
   /** Round start: each player's movement dice, the road die and who rolled it. */
   round?: { n: number; dice: { player: number; values: number[] }[]; roadDie: number; roller: number };
@@ -364,9 +367,9 @@ function activePlayers(g: Game): Player[] {
   return g.players.filter(p => !p.out);
 }
 
-function eliminate(g: Game, v: Vehicle, why: string): void {
+function eliminate(g: Game, v: Vehicle, why: string, into?: Pos): void {
   if (v.status === 'elim') return;
-  beat(g, 'elim', { vehicleId: v.id, ...(v.pos ? { at: { ...v.pos } } : {}) });
+  beat(g, 'elim', { vehicleId: v.id, why, ...(v.pos ? { at: { ...v.pos } } : {}), ...(into ? { into: { ...into } } : {}) });
   say(g, `${capital(carName(g, v))} è eliminata: ${why}.`, 'bad');
   if (v.isWreck) {
     g.vehicles = g.vehicles.filter(x => x !== v);
@@ -452,8 +455,8 @@ function* enter(g: Game, v: Vehicle, to: Pos, ctx: MoveCtx | null): Gen<boolean>
     advanceBoard(g);
     to = { r: to.r, c: to.c - TILE_COLS };
   }
-  if (!onBoard(to)) { eliminate(g, v, 'è uscita dalla strada'); return true; }
-  if (terrainAt(g, to) === 'X') { eliminate(g, v, 'è entrata in una casella invalicabile'); return true; }
+  if (!onBoard(to)) { eliminate(g, v, 'è uscita dalla strada', to); return true; }
+  if (terrainAt(g, to) === 'X') { eliminate(g, v, 'è entrata in una casella invalicabile', to); return true; }
   v.pos = { ...to };
   v.inStart = false;
   v.z = ++g.zTop;

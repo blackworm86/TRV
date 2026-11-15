@@ -30,14 +30,14 @@ export interface TerrainStyle {
 
 /** Default look, sampled from the colours of the printed tiles. */
 export const TERRAIN_STYLE: TerrainStyle = {
-  height: { R: 0, o: 1, M: -0.85, X: 3 },
+  height: { R: 0, o: 1, M: -0.85, X: 0.45 },
   warp: 22,
   asphalt: [[84, 85, 88], [124, 121, 120]], crack: [44, 43, 45],
   sand: [[251, 198, 138], [228, 166, 106]],
   mud: [[46, 32, 33], [82, 54, 50]], mudGlint: [118, 92, 82],
   rock: [[160, 86, 80], [190, 120, 96], [92, 55, 52]],
   plant: [[112, 138, 118], [62, 84, 70]],
-  line: [198, 136, 91], tape: [[238, 173, 68], [44, 34, 30]], hazard: [214, 22, 28],
+  line: [246, 196, 62], tape: [[246, 196, 62], [28, 24, 22]], hazard: [214, 22, 28],
   rough: { R: 0.86, o: 0.97, M: 0.3, X: 0.82 },
   plants: 0.6,
 };
@@ -56,9 +56,16 @@ export interface ProceduralMaps {
   rough: Uint8ClampedArray;
   /** 255 on the tile's spaces, 0 outside its cut edge. */
   mask: Uint8ClampedArray;
+  /**
+   * The information layer, apart from the terrain: grid lines, the tape around impassable spaces and
+   * the hazard triangles, RGBA on a transparent ground, at its own (finer) size.
+   */
+  info: { w: number; h: number; data: Uint8ClampedArray };
 }
 
 export interface ProceduralOptions {
+  /** Width of the information layer in pixels. Default: twice the map width. */
+  infoWidth?: number;
   /** Hazard spaces not used at this player count are printed faint. */
   players?: number;
   /** Variation seed; default: from the face's name, so every face has its own look. */
@@ -279,9 +286,9 @@ export function proceduralTerrain(tile: TileData, opt: ProceduralOptions = {}): 
       if (wR[p] > 0) hg += wR[p] / g * (0.012 * fbm(fx / 9, fy / 9, seed + 7, 2) - 0.07 * crack(fx, fy, seed));
       let hx = 0;
       if (wX[p] > 0) {
+        // Rocky ground only: the obstacle itself is a 3D model standing on it (src/view/terrain/obstacles.ts).
         const up = smooth(0, rim, dX[p]);
-        hx = 0.6 + (st.height.X - 0.6) * up + up * (1.9 * ridged(fx / 60, fy / 60, seed + 8) + 0.5 * ridged(fx / 20, fy / 20, seed + 9) - 1.1);
-        hx = mix(hx, Math.floor(hx * 3) / 3, 0.45); // ledges
+        hx = st.height.X * up + up * (0.6 * ridged(fx / 60, fy / 60, seed + 8) + 0.25 * ridged(fx / 20, fy / 20, seed + 9) - 0.4);
       }
       height[p] = mix(hg, hx, smooth(0.05, 0.6, wX[p]));
     }
@@ -325,8 +332,8 @@ export function proceduralTerrain(tile: TileData, opt: ProceduralOptions = {}): 
   }
 
   plants(tile, kind, albedo, w, h, px, seed, st);
-  printed(tile, opt.players, albedo, rough, mask, w, h, px, seed, st);
-  return { w, h, height, albedo, rough, mask };
+  const info = infoLayer(tile, opt.players, st, opt.infoWidth ?? w * 2);
+  return { w, h, height, albedo, rough, mask, info };
 }
 
 /** Crack strength 0..1 at a frame point (thin wandering lines). */
@@ -398,9 +405,15 @@ function inTri(x: number, y: number, s: number): boolean {
   return x >= -s && Math.abs(y) <= half;
 }
 
-/** Printed marks over the terrain: grid lines, tape frames of impassable spaces, hazard triangles. */
-function printed(tile: TileData, players: number | undefined, albedo: Uint8ClampedArray, rough: Uint8ClampedArray,
-  mask: Uint8ClampedArray, w: number, h: number, px: number, seed: number, st: TerrainStyle): void {
+/**
+ * The information layer of a face, `w` pixels wide: grid lines, tape frames of impassable spaces and
+ * hazard triangles (faint when not used at this player count), RGBA on a transparent ground.
+ * Example: `const info = infoLayer(tile, 3, TERRAIN_STYLE, 2000)`.
+ */
+export function infoLayer(tile: TileData, players: number | undefined, st: TerrainStyle, w: number): { w: number; h: number; data: Uint8ClampedArray } {
+  const h = Math.round(w * GRID.frameH / GRID.frameW);
+  const px = GRID.frameW / w;
+  const data = new Uint8ClampedArray(w * h * 4);
   const hazard = new Map<string, number>();
   for (const hz of tile.hazards) {
     const counts = hz[2] as number[] | undefined;
@@ -409,20 +422,24 @@ function printed(tile: TileData, players: number | undefined, albedo: Uint8Clamp
   for (let j = 0; j < h; j++) {
     const fy = (j + 0.5) * px;
     for (let i = 0; i < w; i++) {
-      const p = j * w + i;
-      if (!mask[p]) continue;
       const fx = (i + 0.5) * px;
-      const cell = cellAt(fx, fy)!;
-      const q = p * 4;
+      const cell = cellAt(fx, fy);
+      if (!cell) continue;
+      const q = (j * w + i) * 4;
+      // Later marks go over earlier ones.
       const paint = (c: Rgb, a: number): void => {
-        for (let ch = 0; ch < 3; ch++) albedo[q + ch] = mix(albedo[q + ch], c[ch], a);
+        const a0 = data[q + 3] / 255, out = a + a0 * (1 - a);
+        if (out <= 0) return;
+        for (let ch = 0; ch < 3; ch++) data[q + ch] = (c[ch] * a + data[q + ch] * a0 * (1 - a)) / out;
+        data[q + 3] = out * 255;
       };
-      const wear = 0.75 + 0.25 * fbm(fx / 9, fy / 9, seed + 80, 2);
-      // Tape frame of an impassable space.
-      if (tile.terrain[cell.r]?.[cell.c] === 'X' && cell.s > 0.79 && cell.s < 0.9
+      // Grid line along the outline.
+      const a = (1 - smooth(1.4, 3.2, cell.edge)) * 0.9;
+      if (a > 0) paint(st.line, a);
+      // Tape frame of an impassable space (only where the next space is not impassable too).
+      if (tile.terrain[cell.r]?.[cell.c] === 'X' && cell.s > 0.8 && cell.s < 0.93
         && beyondOutline(cell, fx, fy, (r, c) => (tile.terrain[r]?.[c] ?? 'o') as Kind) !== 'X') {
-        paint(((fx + fy) / 16) % 2 < 1 ? st.tape[0] : st.tape[1], 0.95 * wear);
-        rough[p] = 200;
+        paint(((fx + fy) / 18) % 2 < 1 ? st.tape[0] : st.tape[1], 1);
       }
       // Hazard triangles: two nested outlines.
       const hz = hazard.get(`${cell.r},${cell.c}`);
@@ -430,14 +447,12 @@ function printed(tile: TileData, players: number | undefined, albedo: Uint8Clamp
         const dx = fx - cell.cx, dy = fy - cell.cy;
         for (const k of [1, 0.55]) {
           const s = 46 * k;
-          if (inTri(dx, dy, s) && !inTri(dx, dy, s * 0.7)) paint(st.hazard, hz * wear);
+          if (inTri(dx, dy, s) && !inTri(dx, dy, s * 0.7)) paint(st.hazard, hz);
         }
       }
-      // Grid line along the outline.
-      const a = (1 - smooth(1.6, 3.4, cell.edge)) * 0.85 * wear;
-      if (a > 0) paint(st.line, a);
     }
   }
+  return { w, h, data };
 }
 
 /**

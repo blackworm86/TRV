@@ -1,0 +1,12 @@
+{
+  "_note": "Look of the road tiles, not rules. obstacles: the kind of 3D obstacle standing on a face's impassable spaces (rocks, mesa, ruin, bunker, barricade), chosen after what the printed tile shows; 'default' is for faces not listed.",
+  "obstacles": {
+    "default": "rocks",
+    "2a": "rocks",
+    "2b": "ruin",
+    "3b": "bunker",
+    "4b": "mesa",
+    "5a": "rocks",
+    "5b": "mesa"
+  }
+}

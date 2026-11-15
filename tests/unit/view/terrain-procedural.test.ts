@@ -56,7 +56,7 @@ describe('proceduralTerrain', () => {
     expect(m.mask[2 * m.w + Math.floor(m.w / 2)]).toBe(0);
   });
 
-  it('puts rock above sand, sand above road and mud lowest, at space centres', () => {
+  it('puts sand above road and mud lowest, and keeps impassable ground low for the 3D obstacles', () => {
     const all: Record<string, number[]> = { R: [], o: [], M: [], X: [] };
     for (const t of TILES) {
       const m = proceduralTerrain(t, { width: WIDTH });
@@ -66,10 +66,9 @@ describe('proceduralTerrain', () => {
       }));
     }
     const avg = (k: string): number => all[k].reduce((a, b) => a + b, 0) / all[k].length;
-    expect(avg('X')).toBeGreaterThan(avg('o'));
     expect(avg('o')).toBeGreaterThan(avg('R'));
     expect(avg('R')).toBeGreaterThan(avg('M'));
-    expect(avg('X')).toBeGreaterThan(TERRAIN_STYLE.height.X - 1);
+    expect(Math.abs(avg('X') - TERRAIN_STYLE.height.X)).toBeLessThan(1);
   });
 
   it('is deterministic, and the seed changes the look', () => {
@@ -81,19 +80,21 @@ describe('proceduralTerrain', () => {
     expect(c.albedo).not.toEqual(a.albedo);
   });
 
-  it('prints unused hazard spaces faint at that player count', () => {
+  it('draws unused hazard spaces faint on the info layer, and no marks on the terrain', () => {
     const t = TILES[0]; // 1a: hazard [2, 4, [2]] is used only with 2 players
     const [x, y] = spaceCenterPx(2, 4);
-    const redAt = (players: number): number => {
-      const m = proceduralTerrain(t, { width: 1000, players });
-      let best = 0; // reddest pixel along the triangle's base edge
+    const markAt = (players: number): number => {
+      const m = proceduralTerrain(t, { width: 500, infoWidth: 1000, players }).info;
+      let best = 0; // most opaque pixel along the triangle's base edge
       for (let dy = -40; dy <= 40; dy += 2) {
         const i = Math.floor((x - 44) / GRID.frameW * m.w), j = Math.floor((y + dy) / GRID.frameH * m.h);
-        const q = (j * m.w + i) * 4;
-        best = Math.max(best, m.albedo[q] - m.albedo[q + 1]);
+        best = Math.max(best, m.data[(j * m.w + i) * 4 + 3]);
       }
       return best;
     };
-    expect(redAt(2)).toBeGreaterThan(redAt(4) + 40);
+    expect(markAt(2)).toBeGreaterThan(markAt(4) + 100);
+    expect(markAt(4)).toBeGreaterThan(0);
+    // The terrain itself is the same at every player count: the marks are only on the info layer.
+    expect(proceduralTerrain(t, { width: WIDTH, players: 2 }).albedo).toEqual(proceduralTerrain(t, { width: WIDTH, players: 4 }).albedo);
   });
 });

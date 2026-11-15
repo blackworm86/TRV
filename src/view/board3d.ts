@@ -11,6 +11,8 @@ import { PALETTE, hazardTokenSvg } from './vector/art';
 import { svgTexture, trackTexture } from './texture';
 import { GRID, spaceCenterPx, spaceOutlinePx, type TileData } from './tile-grid';
 import { proceduralTerrain, normalMap, H_MIN, H_MAX } from './terrain/procedural';
+import { buildObstacles, type ObstacleKind } from './terrain/obstacles';
+import LOOK from '../../data/trv/terrain_look.json';
 
 export { GRID, TILE_PITCH_PX, spaceCenterPx, spaceOutlinePx, type TileData } from './tile-grid';
 
@@ -169,11 +171,20 @@ function dataTexture(data: Uint8ClampedArray, w: number, h: number, channels: 1 
   return t;
 }
 
-const procCache = new Map<string, { textures: ReliefTextures; height: Float32Array; w: number; h: number }>();
+/** The kind of obstacle on a face's impassable spaces (data/trv/terrain_look.json). */
+function obstacleKind(tile: TileData): ObstacleKind {
+  const table = LOOK.obstacles as Record<string, string>;
+  return (table[`${tile.tile ?? ''}${tile.side ?? ''}`] ?? table.default) as ObstacleKind;
+}
 
-/** A face's terrain generated from its grid (src/view/terrain/procedural.ts), in relief. */
+const procCache = new Map<string, { textures: ReliefTextures; info: THREE.Texture; height: Float32Array; w: number; h: number }>();
+
+/**
+ * A face's terrain generated from its grid (src/view/terrain/procedural.ts), in relief, and its
+ * information layer: a second surface following the same relief, unlit so its lines stay bright.
+ */
 function proceduralRelief(tile: TileData, players: number | undefined, width: number, depth: number, top: number, amp: number): {
-  mesh: THREE.Mesh; heightAt: (px: number, py: number) => number;
+  mesh: THREE.Mesh; info: THREE.Mesh; heightAt: (px: number, py: number) => number;
 } {
   const key = `${tile.tile ?? ''}${tile.side ?? ''}|${tile.name}|${tile.terrain.join('')}|${players ?? ''}|${width}|${amp}`;
   let hit = procCache.get(key);
@@ -190,13 +201,25 @@ function proceduralRelief(tile: TileData, players: number | undefined, width: nu
         // grey g (0..1) -> h = H_MIN + range g -> world amp (h + 1) above `top`
         scale: amp * range, bias: amp * (H_MIN + 1),
       },
+      info: dataTexture(m.info.data, m.info.w, m.info.h, 4, true),
       height: m.height, w: m.w, h: m.h,
     };
     procCache.set(key, hit);
   }
   const { textures, height, w, h } = hit;
+  // The information layer: same relief, a hair above the ground, lit by nothing (its own colours).
+  const info = new THREE.Mesh(new THREE.PlaneGeometry(width, depth, ...RELIEF_SEG), new THREE.MeshStandardMaterial({
+    map: hit.info, emissiveMap: hit.info, emissive: 0xffffff, emissiveIntensity: 1, color: 0x000000,
+    displacementMap: textures.height, displacementScale: textures.scale, displacementBias: textures.bias,
+    transparent: true, depthWrite: false, toneMapped: false, roughness: 1, metalness: 0,
+    polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -2,
+  }));
+  info.rotation.x = -Math.PI / 2;
+  info.position.y = top + 0.006;
+  info.renderOrder = 1;
+  info.name = 'info';
   return {
-    mesh: reliefMesh(textures, width, depth, top),
+    mesh: reliefMesh(textures, width, depth, top), info,
     heightAt: (px, py) => amp * (sampleGrid(height, w, h, 1, px, py) + 1) + 0.001,
   };
 }
@@ -272,6 +295,12 @@ export function buildTile(tile: TileData, o: TileMeshOptions): THREE.Group {
   const look = o.terrain ?? DEFAULT_LOOK;
   const amp = o.relief ?? o.thickness * 0.5;
   const maps = look === 'official' && tile.tile !== undefined ? terrainMaps(`${tile.tile}${tile.side ?? ''}`) : null;
+  // Impassable spaces carry a 3D obstacle (rocks, mesas, ruins, bunkers), whatever the terrain's look.
+  const obstacles = look === 'flat' ? null : buildObstacles(tile, obstacleKind(tile), { width: o.width, depth: o.depth });
+  if (obstacles) {
+    obstacles.position.y = o.thickness + amp * 1.2;
+    group.add(obstacles);
+  }
   if (maps) {
     const relief = officialRelief(maps, o.width, o.depth, o.thickness, amp);
     group.add(relief.mesh);
@@ -279,10 +308,12 @@ export function buildTile(tile: TileData, o: TileMeshOptions): THREE.Group {
     return group;
   }
   if (look !== 'flat') {
-    // Terrain generated from the grid: it carries the colours, grid lines and hazard marks.
+    // Terrain generated from the grid, and over it, apart, the information layer (grid lines, tape
+    // around impassable spaces, hazard marks): `group.userData.info`, which the game can hide.
     const relief = proceduralRelief(tile, o.players, o.width, o.depth, o.thickness, amp);
-    group.add(relief.mesh);
+    group.add(relief.mesh, relief.info);
     group.userData.heightAt = relief.heightAt;
+    group.userData.info = relief.info;
   } else {
     /** Height of the ground above the tile's cardboard top at a frame pixel (world units). */
     group.userData.heightAt = (): number => 0.002;

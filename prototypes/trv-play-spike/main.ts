@@ -15,7 +15,7 @@ import {
 import { BASE_CATALOG as CAT, sizeOf, ofKind } from '../../src/game/trv/catalog';
 import { Pieces, TextureBank } from '../../src/view/pieces3d';
 import { buildTile, hazardToken, spaceCenterPx, spaceGeometry, GRID, TILE_PITCH_PX } from '../../src/view/board3d';
-import { dieSvg, dashboardSvg, commandBoardSvg, chopperSvg, avatarSvg, dataUrl } from '../../src/view/vector/art';
+import { dieSvg, dashboardSvg, commandBoardSvg, avatarSvg, dataUrl } from '../../src/view/vector/art';
 import { newSeed } from '../../src/platform/entropy';
 import { ModelBank, dressed, fitToLength, splitParts, splitWheels, type Tint } from '../../src/view/models3d';
 import { MODEL, SHOW_LENGTH_MM, MODEL_YAW, CHOPPER_PARTS, ROTOR_SPEED, WHEELS, crewTint, WRECK_TINT, wreckModel, phaseOf, hover, CarRig } from './models-config';
@@ -452,8 +452,149 @@ let shakeUntil = 0;
 let trayFresh = true;
 
 const BEAT: Partial<Record<Frame['kind'], number>> = {
-  move: 0.32, roll: 0.8, slam: 0.75, shot: 0.6, damage: 0.65, elim: 0.75, reveal: 0.7, tile: 1.1, round: 2.6, chopper: 0.8,
+  move: 0.32, roll: 1.15, slam: 1.0, shot: 0.7, damage: 0.9, elim: 1.5, reveal: 0.8, tile: 1.1, round: 2.6, chopper: 0.8,
 };
+
+/** What each rolled die decides, said in a few words under the big die in the middle of the screen. */
+const ROLL_NAME: Record<string, string> = { slam: 'Dado slam', direction: 'Direzione', shooting: 'Dado sparo', stunt: 'Dado acrobazia', road: 'Dado strada' };
+const ROLL_MEANS: Record<string, Record<string, string>> = {
+  slam: { top: 'si muove il veicolo che ha urtato (sopra)', bottom: 'si muove il veicolo urtato (sotto)' },
+  direction: { F: 'avanti', FL: 'avanti a sinistra', FR: 'avanti a destra', B: 'indietro', BL: 'indietro a sinistra', BR: 'indietro a destra' },
+  shooting: { L: 'colpisce solo le auto grandi', M: 'colpisce medie e grandi', SM: 'colpisce piccole e medie', ANY: 'colpisce qualsiasi auto' },
+};
+let rollsTimer = 0;
+/** Shows a rolled die big in the middle of the screen, with what it means; the dice of one event stay together. */
+function showRoll(f: Frame): void {
+  if (!f.die) return;
+  const el = $('rolls');
+  if (!el.classList.contains('show')) el.innerHTML = '';
+  if (el.children.length >= 4) el.firstElementChild!.remove();
+  const means = ROLL_MEANS[f.die.die]?.[String(f.die.value)] ?? (typeof f.die.value === 'number' ? `${f.die.value}` : '');
+  el.insertAdjacentHTML('beforeend', `<div class="roll">${dieHtml(f.die.die, f.die.value, undefined, '', `data-roll="${performance.now()}"`)}`
+    + `<b>${ROLL_NAME[f.die.die] ?? f.die.die}</b><span>${esc(means)}</span></div>`);
+  el.classList.add('show');
+  clearTimeout(rollsTimer);
+  rollsTimer = window.setTimeout(() => el.classList.remove('show'), 3200);
+}
+
+/** A comic word over a point of the table ("SLAM!", "BOOM!"): it pops, rises and fades. */
+interface Word { el: HTMLElement; at: THREE.Vector3; t: number; life: number }
+const words: Word[] = [];
+function word(text: string, at: THREE.Vector3, color: string, big = false): void {
+  const el = document.createElement('div');
+  el.className = `word${big ? ' big' : ''}`;
+  el.textContent = text;
+  el.style.setProperty('--wc', color);
+  $('fx').appendChild(el);
+  words.push({ el, at: at.clone(), t: 0, life: big ? 1.6 : 1.2 });
+}
+function updateWords(dt: number): void {
+  const rect = renderer.domElement.getBoundingClientRect();
+  for (let i = words.length - 1; i >= 0; i--) {
+    const w = words[i];
+    w.t += dt / w.life;
+    if (w.t >= 1) { w.el.remove(); words.splice(i, 1); continue; }
+    const p = w.at.clone().setY(w.at.y + 0.9 + w.t * 1.2).project(camera);
+    const pop = w.t < 0.15 ? 0.4 + w.t / 0.15 * 0.8 : 1.2 - Math.min(0.2, (w.t - 0.15) * 1.5);
+    w.el.style.left = `${rect.left + (p.x * 0.5 + 0.5) * rect.width}px`;
+    w.el.style.top = `${rect.top + (-p.y * 0.5 + 0.5) * rect.height}px`;
+    w.el.style.transform = `translate(-50%, -50%) scale(${pop}) rotate(${-6 + w.t * 4}deg)`;
+    w.el.style.opacity = `${w.t < 0.7 ? 1 : (1 - w.t) / 0.3}`;
+  }
+}
+
+/**
+ * An explosion at a point of the table: a flash of light, fireballs that swell and darken, flying
+ * debris, a shock ring, dark smoke and a scorch mark that fades. `size` 1 = a car blowing up.
+ */
+function explode(at: THREE.Vector3, size = 1, now = performance.now() / 1000): void {
+  const p0 = at.clone().setY(Math.max(at.y, TILE_T) + 0.25);
+  shakeUntil = now + 0.5 * size;
+  const light = new THREE.PointLight(0xffb040, 60 * size, 14 * size);
+  light.position.copy(p0).setY(p0.y + 0.8);
+  scene.add(light);
+  effects.push({ life: 0.5, t: 0, step: u => { light.intensity = 60 * size * (1 - u) ** 2; if (u >= 1) scene.remove(light); } });
+  // Fireballs: bright and additive at first, then dark smoke.
+  for (let i = 0; i < 14; i++) {
+    const s = new THREE.Sprite(new THREE.SpriteMaterial({ map: smokeTex, color: 0xfff0a0, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending }));
+    const dir = new THREE.Vector3(Math.random() - 0.5, Math.random() * 0.9 + 0.2, Math.random() - 0.5).normalize();
+    const speed = (0.8 + Math.random() * 1.6) * size, grow = (1.1 + Math.random() * 1.3) * size, delay = Math.random() * 0.12;
+    s.position.copy(p0);
+    scene.add(s);
+    const hot = new THREE.Color(0xfff0a0), mid = new THREE.Color(0xff6a1a), cold = new THREE.Color(0x2a1a12);
+    effects.push({ life: 0.9 + Math.random() * 0.4, t: 0, step: u => {
+      const v = Math.max(0, u - delay);
+      s.position.copy(p0).addScaledVector(dir, speed * (1 - (1 - v) ** 2)).setY(p0.y + dir.y * speed * v + v * 0.6);
+      s.scale.setScalar(0.3 + grow * Math.sqrt(v));
+      s.material.color.copy(v < 0.3 ? hot.clone().lerp(mid, v / 0.3) : mid.clone().lerp(cold, (v - 0.3) / 0.7));
+      if (v > 0.45 && s.material.blending !== THREE.NormalBlending) { s.material.blending = THREE.NormalBlending; s.material.needsUpdate = true; }
+      s.material.opacity = v < 0.1 ? v * 10 : 1 - v;
+      if (u >= 1) { scene.remove(s); s.material.dispose(); }
+    } });
+  }
+  // Debris: small dark chunks thrown up, falling back under gravity.
+  const chunk = new THREE.BoxGeometry(0.09, 0.06, 0.12);
+  for (let i = 0; i < 12; i++) {
+    const m = new THREE.Mesh(chunk, new THREE.MeshStandardMaterial({ color: i % 3 ? 0x2a2622 : 0x8a4a2a, roughness: 0.8 }));
+    const v0 = new THREE.Vector3((Math.random() - 0.5) * 5, 3 + Math.random() * 4, (Math.random() - 0.5) * 5).multiplyScalar(size);
+    const spin = new THREE.Vector3(Math.random() * 12, Math.random() * 12, Math.random() * 12);
+    m.castShadow = true;
+    scene.add(m);
+    effects.push({ life: 1.3, t: 0, step: u => {
+      const t = u * 1.3;
+      m.position.copy(p0).addScaledVector(v0, t).setY(Math.max(TILE_T + 0.03, p0.y + v0.y * t - 9 * t * t));
+      m.rotation.set(spin.x * t, spin.y * t, spin.z * t);
+      if (u >= 1) { scene.remove(m); (m.material as THREE.Material).dispose(); }
+    } });
+  }
+  impact(p0, 0xffd23a, 2.4 * size);
+  // Scorch mark on the ground, fading slowly.
+  const scorch = new THREE.Mesh(new THREE.CircleGeometry(0.7 * size, 24), new THREE.MeshBasicMaterial({ map: smokeTex, color: 0x000000, transparent: true, depthWrite: false }));
+  scorch.rotation.x = -Math.PI / 2;
+  scorch.position.copy(at).setY(Math.max(at.y, TILE_T) + 0.012);
+  scorch.renderOrder = 2;
+  scene.add(scorch);
+  effects.push({ life: 9, t: 0, step: u => { (scorch.material as THREE.MeshBasicMaterial).opacity = 0.85 * (1 - u * u); if (u >= 1) scene.remove(scorch); } });
+  const puff = new THREE.Object3D();
+  puff.position.copy(p0);
+  smokeOn(`boom-${now}-${Math.random()}`, puff, now + 2.6, true);
+}
+
+/**
+ * A vehicle is destroyed. With `into` (the space it was entering: an obstacle, or off the road) it
+ * first lunges that way and blows up against it; then the wreck is thrown up, spinning, and is gone.
+ */
+function crash(id: string, into: THREE.Vector3 | null, why: string): void {
+  const o = carObjs.get(id);
+  if (!o) return;
+  carObjs.delete(id); // from here on this effect owns the piece: the table no longer drives it
+  smokeOff(id);
+  const from = o.position.clone();
+  const hit = into ? from.clone().lerp(into, 0.6) : from.clone();
+  const yaw0 = o.rotation.y;
+  let blown = false;
+  effects.push({ life: into ? 1.5 : 1.2, t: 0, step: u => {
+    const lunge = into ? 0.2 : 0.02;
+    if (u < lunge) {
+      o.position.lerpVectors(from, hit, (u / lunge) ** 2);
+      return;
+    }
+    if (!blown) {
+      blown = true;
+      explode(hit, 1);
+      word('BOOM!', hit, '#ff6a2a', true);
+      for (const m of collectMaterials(o)) { m.color.multiplyScalar(0.25); m.emissive.setRGB(1, 0.35, 0.05); m.emissiveIntensity = 0.8; }
+    }
+    const v = (u - lunge) / (1 - lunge), t = v * 1.3;
+    // Thrown back from the obstacle and up, tumbling; it shrinks away as it lands.
+    const back = into ? from.clone().sub(hit).setY(0).normalize() : new THREE.Vector3(0, 0, 0);
+    o.position.copy(hit).addScaledVector(back, t * 1.6).setY(Math.max(TILE_T, hit.y + 5.5 * t - 6.5 * t * t));
+    o.rotation.set(t * 7, yaw0 + t * 3, t * 4);
+    o.scale.setScalar(v < 0.75 ? 1 : Math.max(0.01, 1 - (v - 0.75) / 0.25));
+    if (u >= 1) scene.remove(o);
+  } });
+  void why;
+}
 
 function beatLength(f: Frame): number {
   if (f.kind !== 'log') return BEAT[f.kind] ?? 0.3;
@@ -487,24 +628,25 @@ function finishBeats(): void {
 }
 
 function applyBeat(f: Frame, now: number): void {
-  if (f.kind === 'log') { toastLine(f); if (f.logKind === 'turn') trayFresh = true; return; }
+  if (f.kind === 'log') { toastLine(f); if (f.logKind === 'turn') { trayFresh = true; $('rolls').classList.remove('show'); } return; }
   drawTable(f.snap);
   const at = f.at ? world(f.at) : null;
   switch (f.kind) {
-    case 'roll': rollOnTable(f); break;
+    case 'roll': rollOnTable(f); showRoll(f); break;
     case 'slam':
       shakeUntil = now + 0.35;
-      if (at) impact(at, 0xff6a2a, 1.6);
+      if (at) { impact(at, 0xff6a2a, 1.6); impact(at, 0xffffff, 0.8); word('SLAM!', at, '#ffb02a'); }
       break;
     case 'shot':
       if (f.from && at) tracer(world(f.from), at);
       break;
     case 'damage':
       if (f.vehicleId) flash(f.vehicleId);
-      if (at) impact(at, 0xff2a2a, 1.1);
+      if (at) { impact(at, 0xff2a2a, 1.1); word('DANNO!', at, '#ff4a3a'); }
       break;
     case 'elim':
-      if (at) impact(at, 0xffd23a, 2.0);
+      if (f.vehicleId) crash(f.vehicleId, f.into ? world(f.into) : null, f.why ?? '');
+      else if (at) explode(at);
       break;
     case 'reveal':
       if (at) impact(at, 0xffffff, 0.9);
@@ -735,13 +877,25 @@ function drawHud(): void {
   const d = playing ? null : decision;
   if (d) handoff(d);
 
-  // Top: me, opponents with colour and dice, road die.
-  $('meav').innerHTML = avatarSvg(me.color, me.name);
-  $('mename').textContent = me.name;
-  $('opps').innerHTML = g.players.filter(p => p !== me).map(p =>
-    `<div class="opp ${p.out ? 'out' : ''}" style="border-color:${p.color}"><div class="av">${avatarSvg(p.color, p.name)}</div>
-     <div><div class="nm gothic">${esc(p.name)}${p.out ? ' — fuori' : ''}</div>
-     <div class="dice-row">${p.dice.map((n, i) => dieHtml('movement', n, p.color, p.used[i] ? 'used' : '')).join('')}</div></div></div>`).join('');
+  // Top: the round, then a bubble per player in seating order (the one on turn glows), the road die.
+  document.documentElement.style.setProperty('--who', me.color);
+  $('roundinfo').innerHTML = `<small>ROUND</small><b class="gothic">${g.round}</b><span>${g.finalTile ? 'ultima tessera' : `tessera ${g.tilesPlaced}`}</span>`;
+  const CMD_NAME: Record<string, string> = { airstrike: 'Attacco aereo', nitro: 'Nitro', drift: 'Drift', repair: 'Ripara' };
+  $('players').innerHTML = g.players.map(p => {
+    const turn = p.id === g!.current && g!.winner === null, decides = !!d && d.player === p.id;
+    const cars = g!.vehicles.filter(v => v.owner === p.id).sort((a, b) => 'SML'.indexOf(a.size) - 'SML'.indexOf(b.size)).map(v => {
+      const title = `${{ S: 'Piccola', M: 'Media', L: 'Grande' }[v.size]}: ${v.status === 'elim' ? 'eliminata' : v.status === 'inop' ? 'fuori uso' : v.inStart ? 'in partenza' : 'in strada'}${v.damage.length ? `, ${v.damage.length} danni` : ''}`;
+      return `<span class="car ${v.status === 'ok' ? '' : v.status}" title="${title}">${v.size}${'<i></i>'.repeat(v.damage.length)}</span>`;
+    }).join('');
+    const tag = p.out ? '<span class="tag quiet">fuori</span>' : turn ? '<span class="tag">di turno</span>' : decides ? '<span class="tag">decide</span>'
+      : p.id === g!.firstPlayer ? '<span class="tag quiet">1° giocatore</span>' : '';
+    const extra = [p.command ? `<b>${CMD_NAME[p.command.cmd] ?? p.command.cmd}</b> con ${p.command.value}` : '', p.chopper ? 'elicottero in campo' : ''].filter(Boolean).join(' · ');
+    return `<div class="bubble pl ${turn ? 'turn' : ''} ${decides ? 'decides' : ''} ${p.out ? 'out' : ''}" style="--c:${p.color}">
+      <div class="av">${avatarSvg(p.color, p.name)}</div>
+      <div class="who"><span class="nm gothic">${esc(p.name)}</span>${tag}</div>
+      <div class="row"><div class="dice-row">${p.dice.map((n, i) => dieHtml('movement', n, p.color, p.used[i] ? 'used' : '')).join('')}</div>
+        <div class="cars">${cars}</div>${extra ? `<span class="extra">${extra}</span>` : ''}</div></div>`;
+  }).join('');
   $('roaddie').innerHTML = g.roadDie ? dieHtml('road', g.roadDie, undefined) : '';
   $('roaddie').parentElement!.classList.toggle('glow', d?.kind === 'roadDie');
 
@@ -783,9 +937,10 @@ function drawHud(): void {
   // The four steps of a turn (rulebook p. 8), the current one lit.
   const stepOf: Record<string, number> = { assign: 1, command: 2, airstrike: 2, repair: 2, step: 3, roadDie: 3, slamReroll: 3, shoot: 4 };
   const cur = d ? stepOf[d.kind] ?? 0 : 0;
-  const shootNote = g.round <= 1 ? ' (dal 2° round)' : '';
-  $('steps').innerHTML = ['Assegna', 'Comando', 'Movimento', `Spara${shootNote}`].map((n, i) =>
-    `<span class="${i + 1 === cur ? 'on' : i + 1 < cur ? 'done' : ''} ${i === 3 && g!.round <= 1 ? 'off' : ''}">${i + 1} ${n}</span>`).join('');
+  $('steps').innerHTML = ['Assegna', 'Comando', 'Movimento', 'Spara'].map((n, i) => {
+    const locked = i === 3 && g!.round <= 1;
+    return `<div class="st ${i + 1 === cur ? 'on' : i + 1 < cur ? 'done' : ''} ${locked ? 'off' : ''}"><b>${i + 1 < cur ? '✓' : i + 1}</b><span>${n}</span>${locked ? '<small>dal 2° round</small>' : ''}</div>`;
+  }).join('');
 
   // Bottom: my dice, command board, dashboards, chopper.
   const hot = hotZones();
@@ -801,7 +956,9 @@ function drawHud(): void {
     dropMove: hot.has(`move:${v.id}`), dropCoast: hot.has(`coast:${v.id}`), pick: pickIds.has(v.id),
     label: v.status === 'elim' ? 'ELIMINATA' : v.inStart ? 'IN PARTENZA' : '',
   })).join('');
-  $('chopper').innerHTML = chopperSvg(me.color, !!me.chopper) + (me.chopper ? 'in campo' : 'pronto');
+  // The chopper not in play is drawn in 3D beside the dashboards (see syncHudChopper).
+  $('chopperpad').dataset.color = me.chopper ? '' : me.color;
+  $('chopperstate').textContent = me.chopper ? 'in campo' : me.commandUsed ? 'pronto' : 'pronto · attacco aereo';
 
   // Clicks on boards: drop the selected die, or pick a car to repair.
   for (const el of document.querySelectorAll<SVGElement>('#bottom [data-drop]')) {
@@ -921,6 +1078,8 @@ addEventListener('keydown', e => {
     const me = viewer();
     const v = g && me ? g.vehicles.find(x => x.owner === g!.players.indexOf(me) && x.size === 'SML'[Number(key) - 1] && x.status !== 'elim') : undefined;
     if (v) focusOn(carObjs.get(v.id));
+  } else if (key === 'g') {
+    toggleGrid();
   } else if (key === 'f') {
     focusOn([...carObjs.values()].find(o => o.userData.active) ?? cars[0]);
   }
@@ -1030,9 +1189,21 @@ $('start').onclick = () => {
 
 // ---------------------------------------------------------------- loop
 
+/** Width over height of the boards strip (command board + three dashboards) in the owner's drawing. */
+const STRIP_ASPECT = 4.62;
 function fit(): void {
-  const top = cssPx('--top'), bottom = cssPx('--bottom') + cssPx('--bar');
-  const h = Math.max(200, innerHeight - top - bottom);
+  // The boards strip is as tall as the bottom panel allows, or as the width allows (dice and chopper beside it).
+  const panel = $('bottom').getBoundingClientRect().height - 16;
+  // The command board is the one to read: it stands taller than the dashboards when there is room.
+  const CMD_ASPECT = 291 / 259.53, CMD_TALLER = 1.35;
+  const beside = STRIP_ASPECT - CMD_ASPECT + 0.27 * 2 + 0.05 + 0.62; // dashboards, dice and chopper, in strip heights
+  const sh = Math.max(110, Math.min(panel, (innerWidth - 24 - 28) / (beside + CMD_ASPECT * CMD_TALLER)));
+  document.documentElement.style.setProperty('--sh', `${sh}px`);
+  document.documentElement.style.setProperty('--ch', `${Math.min(panel, sh * CMD_TALLER)}px`);
+  const top = cssPx('--top'), bottom = $('bottom').getBoundingClientRect().height + cssPx('--bar');
+  const h = Math.max(200, innerHeight - bottom);
+  // The player bubbles float over the top of the map: keep the road below them.
+  const topLim = 1 - 2 * top / h;
   renderer.setSize(innerWidth, h);
   camera.aspect = innerWidth / h;
   camera.updateProjectionMatrix();
@@ -1054,11 +1225,11 @@ function fit(): void {
     let lo = 2, hi = 200;
     for (let i = 0; i < 30; i++) {
       const mid = (lo + hi) / 2, b = place(mid);
-      if (b.min.x < -0.97 || b.max.x > 0.97 || b.min.y < -0.95 || b.max.y > 0.95) lo = mid; else hi = mid;
+      if (b.min.x < -0.97 || b.max.x > 0.97 || b.min.y < -0.95 || b.max.y > topLim) lo = mid; else hi = mid;
     }
     const b = place(hi);
-    // Shift the target so the projected board sits in the middle of the view.
-    const cy = (b.min.y + b.max.y) / 2;
+    // Shift the target so the projected board sits in the middle of the free part of the view.
+    const cy = (b.min.y + b.max.y) / 2 - (topLim - 0.95) / 2;
     target.z -= cy * (zBot - zTop) * 0.5;
   }
   controls.target.copy(target);
@@ -1100,7 +1271,7 @@ function syncHudDice(now: number): void {
   for (const h of hudDice.values()) h.seen = false;
   for (const el of document.querySelectorAll('[data-die3d]')) {
     const r = el.getBoundingClientRect();
-    if (r.width < 2 || el.closest('[style*="display: none"]') || el.closest('#roundbox:not(.show)')) continue;
+    if (r.width < 2 || el.closest('[style*="display: none"]') || el.closest('#roundbox:not(.show)') || el.closest('#rolls:not(.show)')) continue;
     const key = el.getAttribute('data-die3d')!;
     let h = hudDice.get(el);
     if (h && h.key !== key) { hudScene.remove(h.d.mesh); h = undefined; }
@@ -1139,6 +1310,46 @@ function syncHudDice(now: number): void {
     hudDice.delete(el);
   }
 }
+
+/** The chopper not in play, in 3D over its pad beside the dashboards: it turns slowly, rotors spinning. */
+const hudChoppers = new Map<string, THREE.Group>();
+function syncHudChopper(now: number, dt: number): void {
+  const pad = $('chopperpad');
+  const color = pad.dataset.color ?? '';
+  const r = pad.getBoundingClientRect();
+  for (const [c, o] of hudChoppers) o.visible = c === color && r.width > 2;
+  if (!color || r.width < 2) return;
+  let o = hudChoppers.get(color);
+  if (!o) {
+    o = new THREE.Group();
+    hudChoppers.set(color, o);
+    hudScene.add(o);
+    const holder = o;
+    void models.load(MODEL.chopper).then(m => {
+      if (!m) return;
+      if (!m.userData.split) { splitParts(m, CHOPPER_PARTS); m.userData.split = true; }
+      const d = dressed(m, crewTint(color, true));
+      const size = fitToLength(d, 1, MODEL_YAW);
+      d.position.y -= size.y / 2;
+      holder.add(d);
+      holder.userData.spin = (['rotorMain', 'rotorTail'] as const).map(n => d.getObjectByName(n)).filter(Boolean);
+    });
+  }
+  o.scale.setScalar(Math.min(r.width * 1.25, r.height * 1.6) * 0.98);
+  o.position.set(r.left + r.width / 2, -(r.top + r.height / 2), 0);
+  o.rotation.set(0.3, now * 0.5, 0);
+  for (const p of (o.userData.spin ?? []) as THREE.Object3D[]) {
+    if (p.name === 'rotorMain') p.rotation.y += dt * ROTOR_SPEED.rotorMain; else p.rotation.z += dt * ROTOR_SPEED.rotorTail;
+  }
+}
+
+/** The lines of the spaces over the terrain, on or off (button and key G). */
+let gridOn = true;
+function toggleGrid(): void {
+  gridOn = !gridOn;
+  $('grid').classList.toggle('offed', !gridOn);
+}
+$('grid').addEventListener('click', toggleGrid);
 
 /** Car speed on the table (world units per second) and how fast it turns to face its way. */
 const DRIVE = { speed: 7, turnRate: 9, parkTurnRate: 2.5, maxYaw: 0.87 };
@@ -1224,7 +1435,12 @@ renderer.setAnimationLoop(t => {
     e.step(e.t);
     if (e.t >= 1) effects.splice(i, 1);
   }
-  for (const grp of tileSlots) if (grp && grp.userData.x !== undefined) grp.position.x += (grp.userData.x - grp.position.x) * k * 0.6;
+  for (const grp of tileSlots) {
+    if (!grp) continue;
+    if (grp.userData.x !== undefined) grp.position.x += (grp.userData.x - grp.position.x) * k * 0.6;
+    if (grp.userData.info) (grp.userData.info as THREE.Object3D).visible = gridOn;
+  }
+  updateWords(dt);
   updateSmoke(dt, now);
   for (const [k, h] of hazardObjs) {
     h.obj.update(dt);
@@ -1244,6 +1460,7 @@ renderer.setAnimationLoop(t => {
   renderer.render(scene, camera);
   if (shake) camera.position.sub(shake);
   syncHudDice(now);
+  syncHudChopper(now, dt);
   hudRenderer.render(hudScene, hudCam);
 });
 
@@ -1261,3 +1478,13 @@ try {
   get queue() { return queue; }, get playing() { return playing; }, skipBeats, playBeats, // playBeats: replays frames (presentation only), for checks
   get rows() { return ROWS; }, get cols() { return COLS; },
 };
+
+// Debug handle (prototype only): try the effects from the console without playing, e.g.
+// `__fx.crash(__fx.cars()[0], 2, 0)` or `__fx.explode(0, 0)`.
+Object.assign(window, { __fx: {
+  cars: () => [...carObjs.keys()],
+  explode: (x: number, z: number) => explode(new THREE.Vector3(x, TILE_T, z)),
+  crash: (id: string, dx = 1.5, dz = 0) => { const o = carObjs.get(id); if (o) crash(id, o.position.clone().add(new THREE.Vector3(dx, 0, dz)), ''); },
+  word: (t: string, x: number, z: number) => word(t, new THREE.Vector3(x, TILE_T, z), '#ffb02a'),
+  roll: (die: string, value: number | string) => showRoll({ kind: 'roll', die: { die, value } } as unknown as Frame),
+} });

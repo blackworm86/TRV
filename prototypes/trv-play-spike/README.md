@@ -107,3 +107,24 @@ git). Senza quei file il gioco usa i disegni liberi e le tessere a chevron color
   faccia sul thread principale (da spostare in un worker).
 - Pagine di controllo locali: `assets/licensed/vector/_review.html` (scansione accanto al
   vettoriale) e `_terrain.html?face=2a&view=low` (una faccia in rilievo con auto).
+
+## Interfaccia ridisegnata (2026-11-15)
+
+- **Command board e dashboard** dal disegno vettoriale dell'utente
+  (`assets/ui/command_dashboard.svg`, nel repository): `src/view/vector/boards.ts` ne ricava
+  le quattro plance e ci scrive sopra testi, dadi e danni. Senza il file si torna ai disegni
+  precedenti. La command board è più alta delle dashboard, perché è quella da leggere.
+  Manca ancora il retro delle dashboard.
+- **Giocatori** in bolle fluttuanti sopra la mappa, con bagliore su chi è di turno; mostrano
+  dadi, auto con i danni, comando usato ed elicottero in campo.
+- **Fasi del turno** come nastro a frecce sopra le plance.
+- **Elicottero non in campo** in 3D accanto alle dashboard.
+- **Terreno e informazioni separati**: il terreno procedurale non ha più segni stampati; linee
+  delle caselle, nastro giallo-nero e triangoli dei pericoli stanno su un livello a parte
+  (pulsante ▦ o tasto G per nasconderlo).
+- **Ostacoli 3D** sulle caselle invalicabili: rocce, mesa, rovine, bunker, barricate; il tipo
+  per faccia è in `data/trv/terrain_look.json`.
+- **Effetti**: ogni dado tirato appare grande al centro con il suo significato; SLAM!, DANNO!,
+  BOOM! sul tavolo; un'auto eliminata si lancia contro l'ostacolo, esplode e vola via.
+  Dalla console: `__fx.explode(x, z)`, `__fx.crash(__fx.cars()[0])`.
+- Prove: `production/qa/evidence/trv-play-spike/ui-redesign-*.jpg`.

@@ -3,6 +3,8 @@
 // as a data URL, onto 3D pieces. These open drawings never copy the licensed artwork; the faithful
 // official art, when present locally, takes their place (see "official art" below).
 
+import { makeBoards } from './boards';
+
 /** Board-absolute direction names used by the rules (src/game/trv/engine.ts). */
 export type ArtDir = 'F' | 'FL' | 'FR' | 'B' | 'BL' | 'BR';
 export type ArtSize = 'S' | 'M' | 'L';
@@ -57,6 +59,19 @@ let official: OfficialArt | null | undefined;
 function off(): OfficialArt | null {
   if (official === undefined) official = officialModule && !openOnly ? officialModule.makeOfficial({ dieSvg }) : null;
   return official;
+}
+
+// The project owner's own drawing of the command board and dashboards (one SVG, outlines only).
+// When it is there, the boards are drawn from it (./boards.ts), also with `?art=open`: it is open material, in the repository.
+const boardsRaw = Object.values(import.meta.glob<string>('/assets/ui/command_dashboard.svg', { eager: true, query: '?raw', import: 'default' }))[0];
+/** True when the boards come from the owner's drawing. */
+export const USER_BOARDS = !!boardsRaw;
+let userBoards: ReturnType<typeof makeBoards> | null | undefined;
+function boards(): ReturnType<typeof makeBoards> | null {
+  if (userBoards === undefined) {
+    userBoards = USER_BOARDS ? makeBoards(boardsRaw, { dieSvg, damageTokenSvg: (t, up) => damageTokenSvg(t, up), inkOn, font: FONT }) : null;
+  }
+  return userBoards;
 }
 
 /** Black or white ink, whichever reads on a background colour. */
@@ -243,6 +258,8 @@ const SIZE_LABEL: Record<ArtSize, string> = { S: 'PICCOLA', M: 'MEDIA', L: 'GRAN
  * Drop zones carry data-drop="move:<carId>" / "coast:<carId>"; the root carries data-car.
  */
 export function dashboardSvg(d: DashboardArt, extra = ''): string {
+  const u = boards()?.dashboardSvg(d, extra);
+  if (u) return u;
   const o = off()?.dashboardSvg(d, extra);
   if (o) return o;
   const dead = d.status !== 'ok';
@@ -297,6 +314,8 @@ export const COMMAND_SLOTS: { cmd: string; name: string; values: string; x: numb
 
 /** Command board, 220 x 190: four command quarters, a diamond slot in each corner (data-drop="cmd:<id>"). */
 export function commandBoardSvg(c: CommandBoardArt, extra = ''): string {
+  const u = boards()?.commandBoardSvg(c, extra);
+  if (u) return u;
   const o = off()?.commandBoardSvg(c, extra);
   if (o) return o;
   const ink = inkOn(c.color);
