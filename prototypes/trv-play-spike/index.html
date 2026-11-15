@@ -1,0 +1,90 @@
+<!-- PROTOTYPE - NOT FOR PRODUCTION. Partita hot seat giocabile sul tavolo 3D. Le regole sono in src/game/trv/engine.ts. -->
+<!doctype html>
+<html lang="it">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Thunder Road Vendetta — hot seat</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=League+Gothic&display=swap" rel="stylesheet">
+<style>
+  :root { --panel: 300px; --ink: #f3e6d0; --bg: #1a120c; --card: rgba(32, 22, 15, .96); --acc: #f6c46a; }
+  html, body { margin: 0; height: 100%; background: var(--bg); overflow: hidden; font: 14px/1.35 system-ui, sans-serif; color: var(--ink); }
+  canvas { display: block; touch-action: none; }
+  h1, .big { font-family: 'League Gothic', Impact, sans-serif; font-weight: 400; letter-spacing: .5px; }
+  #panel { position: fixed; left: 0; right: 0; bottom: 0; height: var(--panel); display: grid;
+    grid-template-columns: minmax(300px, 1.25fr) minmax(260px, 1fr) minmax(240px, 1fr); gap: 10px; padding: 10px;
+    box-sizing: border-box; background: linear-gradient(#24180f, #170f09); border-top: 3px solid #3b2a1c; }
+  .box { background: var(--card); border-radius: 10px; padding: 10px 12px; overflow: auto; min-height: 0; box-shadow: inset 0 0 0 1px #3b2a1c; }
+  #who { font-family: 'League Gothic', Impact, sans-serif; font-size: 30px; line-height: 1; margin-bottom: 4px; }
+  #prompt { margin: 2px 0 8px; font-size: 15px; }
+  #opts { display: flex; flex-wrap: wrap; gap: 6px; }
+  #opts button, .tool { min-height: 40px; padding: 6px 10px; font: inherit; font-weight: 600; border: 0; border-radius: 8px;
+    background: #e8742a; color: #1a120c; cursor: pointer; text-align: left; }
+  #opts button.danger { background: #8c2a20; color: #fff; }
+  #opts button.quiet { background: #3b2d22; color: var(--ink); }
+  #opts button:hover { outline: 2px solid #fff; }
+  .tool { background: #3b2d22; color: var(--ink); min-height: 32px; font-weight: 500; }
+  #tools { display: flex; gap: 6px; margin-top: 8px; flex-wrap: wrap; }
+  .pl { padding: 6px 8px; border-radius: 8px; margin-bottom: 6px; background: #20160e; border-left: 6px solid; }
+  .pl.cur { box-shadow: 0 0 0 2px var(--acc); }
+  .pl.out { opacity: .45; }
+  .pl b { font-size: 15px; }
+  .dice { display: inline-flex; gap: 4px; margin-left: 6px; vertical-align: middle; }
+  .die { width: 22px; height: 22px; border-radius: 5px; background: #f4efe6; color: #111; display: inline-grid; place-items: center; font-weight: 700; }
+  .die.used { opacity: .25; }
+  .cars { display: flex; gap: 8px; margin-top: 3px; font-size: 13px; }
+  .car.inop { color: #e9a23b; } .car.elim { text-decoration: line-through; opacity: .5; }
+  #log div { padding: 2px 0; border-bottom: 1px solid #2c1f15; }
+  #log .dice { color: #9fd3ff; margin: 0; display: block; } #log .bad { color: #ff9b8a; } #log .good { color: #9be39b; font-weight: 700; }
+  #log .turn { color: var(--acc); font-weight: 700; margin-top: 4px; }
+  #status { position: fixed; top: 10px; left: 12px; background: rgba(20,14,10,.85); padding: 6px 12px; border-radius: 8px; pointer-events: none; }
+  #status .big { font-size: 22px; color: var(--acc); }
+  #setup { position: fixed; inset: 0; display: grid; place-items: center; background: rgba(10,6,3,.82); z-index: 5; }
+  #setup .card { background: var(--card); padding: 22px 26px; border-radius: 14px; width: min(520px, 92vw); box-shadow: 0 10px 40px #000; }
+  #setup h1 { font-size: 44px; color: var(--acc); margin: 0 0 8px; }
+  #setup label { display: block; margin: 10px 0 4px; font-weight: 600; }
+  #setup input, #setup select { font: inherit; padding: 8px; border-radius: 6px; border: 1px solid #5a4330; background: #120c07; color: var(--ink); }
+  #setup .names { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
+  #setup .go { margin-top: 16px; width: 100%; min-height: 48px; font-size: 18px; background: #e8742a; color: #1a120c; border: 0; border-radius: 10px; font-weight: 700; cursor: pointer; }
+  #win { position: fixed; inset: 0; display: none; place-items: center; background: rgba(0,0,0,.55); z-index: 4; }
+  #win .card { background: var(--card); padding: 24px 30px; border-radius: 14px; text-align: center; }
+  #win .big { font-size: 56px; color: var(--acc); }
+  #note { font-size: 12px; opacity: .7; margin-top: 6px; }
+</style>
+</head>
+<body>
+<div id="status"></div>
+<div id="panel">
+  <div class="box">
+    <div id="who"></div>
+    <div id="prompt"></div>
+    <div id="opts"></div>
+    <div id="tools">
+      <button class="tool" id="undo">↶ Annulla ultima scelta</button>
+      <button class="tool" id="newgame">Nuova partita</button>
+      <button class="tool" id="view">Centra vista</button>
+    </div>
+  </div>
+  <div class="box" id="players"></div>
+  <div class="box" id="log"></div>
+</div>
+<div id="setup">
+  <div class="card">
+    <h1>Thunder Road Vendetta</h1>
+    <label>Giocatori</label>
+    <select id="np"><option>2</option><option selected>3</option><option>4</option></select>
+    <label>Nomi</label>
+    <div class="names">
+      <input id="n0" value="Rosso"><input id="n1" value="Blu"><input id="n2" value="Verde"><input id="n3" value="Giallo">
+    </div>
+    <label>Tessera di partenza</label>
+    <select id="side"><option value="a">1a — The Parking Lot</option><option value="b">1b — Runway to Ruin</option></select>
+    <button class="go" id="start">Si parte!</button>
+    <div id="note">Hot seat: passate il dispositivo a chi tocca. Gli anelli sul tavolo sono le scelte possibili: clicca un anello o un pulsante.</div>
+  </div>
+</div>
+<div id="win"><div class="card"><div class="big" id="wintext"></div><button class="tool" id="again">Nuova partita</button> <button class="tool" id="close">Guarda il tavolo</button></div></div>
+<script type="module" src="./main.ts"></script>
+</body>
+</html>

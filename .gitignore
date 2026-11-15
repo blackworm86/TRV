@@ -185,3 +185,4 @@ dist-single/
 
 # Evidenze con grafica licenziata: restano in locale, mai nel repository
 production/qa/evidence/m0-table-spike/
+production/qa/evidence/trv-play-spike/
