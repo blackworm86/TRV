@@ -29,6 +29,23 @@ export const CHOPPER_PARTS: SpinPart[] = [
   { name: 'rotorMain', pivot: [-0.075, 0.14, 0], pick: (x, y, z) => y > 0.128 && Math.abs(z) < 0.035 && x < 0.27 },
   { name: 'rotorTail', pivot: [0.327, 0.024, 0.022], pick: (x, _y, z) => x > 0.285 && z > 0.017 },
 ];
+/**
+ * The gun each car model carries, in the model's own coordinates (nose at -x, y up): the vertices
+ * that belong to it, the point it turns about (its mount) and the tip of its barrel. Read off the
+ * models' side and top views; a model that changes needs these measured again.
+ */
+export interface GunSpec extends SpinPart { muzzle: [number, number, number] }
+export const GUNS: Record<string, GunSpec> = {
+  // Small: on top of the roll cage, barrel over the bonnet.
+  [MODEL.car.S]: { name: 'gun', pivot: [0.05, 0.1, 0], muzzle: [-0.14, 0.118, 0],
+    pick: (x, y, z) => y > 0.085 && x > -0.16 && x < 0.2 && Math.abs(z) < 0.05 },
+  // Medium: on the bonnet, ahead of the windscreen.
+  [MODEL.car.M]: { name: 'gun', pivot: [-0.26, 0.07, 0], muzzle: [-0.41, 0.082, 0],
+    pick: (x, y, z) => y > 0.062 && x > -0.43 && x < -0.14 && Math.abs(z) < 0.06 },
+  // Large: on the bed, barrel over the cab roof.
+  [MODEL.car.L]: { name: 'gun', pivot: [0.17, 0.06, 0.005], muzzle: [-0.02, 0.077, 0.005],
+    pick: (x, y, z) => Math.abs(z) < 0.07 && x < 0.3 && ((x > 0 && y > 0.04) || (x > -0.04 && y > 0.065)) },
+};
 /** Turning speed of the rotors, radians per second. */
 export const ROTOR_SPEED: Record<string, number> = { rotorMain: 22, rotorTail: 34 };
 

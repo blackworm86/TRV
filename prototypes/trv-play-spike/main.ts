@@ -18,7 +18,7 @@ import { buildTile, hazardToken, spaceCenterPx, spaceGeometry, GRID, TILE_PITCH_
 import { dieSvg, dashboardSvg, commandBoardSvg, playerStripSvg, STRIP_ASPECT, avatarSvg, dataUrl } from '../../src/view/vector/art';
 import { newSeed } from '../../src/platform/entropy';
 import { ModelBank, dressed, fitToLength, splitParts, splitWheels, type Tint } from '../../src/view/models3d';
-import { MODEL, SHOW_LENGTH_MM, MODEL_YAW, CHOPPER_PARTS, ROTOR_SPEED, WHEELS, crewTint, WRECK_TINT, wreckModel, phaseOf, hover, CarRig } from './models-config';
+import { MODEL, SHOW_LENGTH_MM, MODEL_YAW, CHOPPER_PARTS, ROTOR_SPEED, WHEELS, GUNS, type GunSpec, crewTint, WRECK_TINT, wreckModel, phaseOf, hover, CarRig } from './models-config';
 import { makeDie, withOwnMaterials, type Die3D, type DiceFaces } from '../../src/view/dice3d';
 import RULES from '../../data/trv/game_base.json';
 
@@ -319,13 +319,51 @@ function applyGlow(o: THREE.Object3D, now: number): void {
     m.emissiveIntensity = s;
   }
 }
+/**
+ * The car's own gun, cut out of the model (GUNS in models-config.ts) so it can turn on its mount.
+ * It swivels toward `o.userData.aim` (a world yaw) and kicks back at every round; at rest it points
+ * forward. It rides on the body, so it leans and shakes with it.
+ */
+function mountGun(o: THREE.Group, model: THREE.Object3D, spec: GunSpec): void {
+  const gun = model.getObjectByName(spec.name);
+  if (!gun) return;
+  let body: THREE.Object3D | null = null;
+  model.traverse(x => { if (x.userData.body && !body) body = x; });
+  const frame = gun.parent;
+  if (body && frame) {
+    (body as THREE.Object3D).add(frame); // the frame carried the body's transform: now the body does
+    frame.position.set(0, 0, 0); frame.rotation.set(0, 0, 0); frame.scale.set(1, 1, 1);
+  }
+  const muzzle = new THREE.Object3D();
+  muzzle.position.set(spec.muzzle[0] - spec.pivot[0], spec.muzzle[1] - spec.pivot[1], spec.muzzle[2] - spec.pivot[2]);
+  gun.add(muzzle);
+  gun.userData.muzzle = muzzle;
+  gun.userData.piece = gun.children[0];
+  gun.userData.restX = gun.children[0].position.x;
+  o.userData.turret = gun;
+}
+/** How far a gun kicks back along its barrel at each round, in model units. */
+const GUN_KICK = 0.02;
+/** One frame of a gun: it turns toward its aim (or back forward) and recovers from the recoil. */
+function driveGun(o: THREE.Object3D, carYaw: number, dt: number): void {
+  const gun = o.userData.turret as THREE.Object3D | undefined;
+  if (!gun) return;
+  const aim = o.userData.aim as number | null | undefined;
+  let want = aim === null || aim === undefined ? 0 : aim - carYaw;
+  want = Math.atan2(Math.sin(want - gun.rotation.y), Math.cos(want - gun.rotation.y));
+  gun.rotation.y += want * Math.min(1, dt * 12);
+  const kick = ((gun.userData.kick ?? 0) as number) * Math.exp(-dt * 22);
+  gun.userData.kick = kick;
+  (gun.userData.piece as THREE.Object3D).position.x = (gun.userData.restX as number) + kick * GUN_KICK; // the barrel points to -x
+}
+
 /** Swaps a stand-in piece for its model once loaded, at its table length. */
 function useModel(o: THREE.Group, url: string, lengthMm: number, tint: Tint, id: string): void {
   void models.load(url).then(m => {
     if (!m) return;
     if (!m.userData.split) {
       if (url === MODEL.chopper) splitParts(m, CHOPPER_PARTS);
-      else if (WHEELS[url]) splitWheels(m, WHEELS[url]);
+      else if (WHEELS[url]) { splitWheels(m, WHEELS[url]); if (GUNS[url]) splitParts(m, [GUNS[url]]); }
       m.userData.split = true;
     }
     const d = dressed(m, tint);
@@ -334,6 +372,7 @@ function useModel(o: THREE.Group, url: string, lengthMm: number, tint: Tint, id:
     o.userData.mats = collectMaterials(d);
     for (const c of o.children) c.visible = false;
     o.add(d);
+    if (GUNS[url]) mountGun(o, d, GUNS[url]);
     o.userData.modelHeight = size.y;
     o.userData.modelSize = size;
     o.userData.spin = (['rotorMain', 'rotorTail'] as const).map(n => d.getObjectByName(n)).filter(Boolean);
@@ -454,7 +493,7 @@ let shakeUntil = 0;
 let trayFresh = true;
 
 const BEAT: Partial<Record<Frame['kind'], number>> = {
-  move: 0.32, roll: 1.15, slam: 1.0, shot: 0.7, damage: 0.9, elim: 1.5, reveal: 0.8, tile: 1.1, round: 2.6, chopper: 0.8,
+  move: 0.32, roll: 1.15, slam: 1.0, shot: 1.7, damage: 0.9, elim: 1.5, reveal: 0.8, tile: 1.1, round: 2.6, chopper: 0.8,
 };
 
 /** What each rolled die decides, said in a few words under the big die in the middle of the screen. */
@@ -640,7 +679,7 @@ function applyBeat(f: Frame, now: number): void {
       if (at) { impact(at, 0xff6a2a, 1.6); impact(at, 0xffffff, 0.8); word('SLAM!', at, '#ffb02a'); }
       break;
     case 'shot':
-      if (f.from && at) tracer(world(f.from), at);
+      if (f.from && at) burst(world(f.from), at, f.vehicleId);
       break;
     case 'damage':
       if (f.vehicleId) flash(f.vehicleId);
@@ -678,20 +717,104 @@ function impact(at: THREE.Vector3, color: number, size: number): void {
   } });
 }
 
-/** A bright line from the shooter to the target. */
-function tracer(from: THREE.Vector3, to: THREE.Vector3): void {
-  const a = from.clone().setY(TILE_T + 0.45), b = to.clone().setY(TILE_T + 0.45);
-  const len = a.distanceTo(b);
-  const m = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.05, len, 8), new THREE.MeshBasicMaterial({ color: 0xffe066, transparent: true }));
-  m.position.copy(a).add(b).multiplyScalar(0.5);
-  m.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), b.clone().sub(a).normalize());
-  scene.add(m);
-  impact(a, 0xffe066, 0.6);
-  effects.push({ life: 0.5, t: 0, step: u => {
-    (m.material as THREE.MeshBasicMaterial).opacity = 1 - u;
-    m.scale.set(1 - u * 0.7, 1, 1 - u * 0.7);
-    if (u >= 1) { scene.remove(m); m.geometry.dispose(); }
+/** How a burst is fired: time to aim, rounds, seconds between them, bullet speed (units/s), spread at the target. */
+const BURST = { aim: 0.32, rounds: 8, gap: 0.085, speed: 26, spread: 0.22 };
+const bulletGeo = new THREE.CylinderGeometry(0.022, 0.022, 1, 6);
+/**
+ * A shot: the shooter (the car on that spot, or a chopper over it) turns its gun on the target
+ * and fires a burst. Every round has a muzzle flash, a recoil, a tracer that flies to the target
+ * and sparks where it lands. The die that follows says whether it did any damage.
+ */
+function burst(from: THREE.Vector3, to: THREE.Vector3, targetId?: string): void {
+  // Who is firing: a chopper standing over that spot, else the nearest car to it.
+  let shooter: THREE.Object3D | undefined, flying = false;
+  for (const o of chopperObjs.values()) {
+    const tg = o.userData.target as THREE.Vector3 | undefined;
+    if (!o.userData.parked && tg && Math.hypot(tg.x - from.x, tg.z - from.z) < 0.3) { shooter = o; flying = true; }
+  }
+  if (!shooter) {
+    let best = 0.9;
+    for (const [id, o] of carObjs) {
+      if (id === targetId) continue;
+      const d = Math.hypot(o.position.x - from.x, o.position.z - from.z);
+      if (d < best) { best = d; shooter = o; }
+    }
+  }
+  const origin = (shooter?.position ?? from).clone();
+  const yaw = Math.atan2(-(to.z - origin.z), to.x - origin.x);
+  if (shooter) shooter.userData.aim = yaw;
+  const target = to.clone().setY(Math.max(to.y, TILE_T) + 0.3);
+  const turret = shooter?.userData.turret as THREE.Object3D | undefined;
+  const muzzleAt = (): THREE.Vector3 => {
+    if (turret) return (turret.userData.muzzle as THREE.Object3D).getWorldPosition(new THREE.Vector3());
+    const p = (shooter?.position ?? from).clone();
+    return p.add(new THREE.Vector3(Math.cos(yaw), 0, -Math.sin(yaw)).multiplyScalar(0.6)).setY(p.y + (flying ? -0.1 : 0.45));
+  };
+  const total = BURST.aim + BURST.rounds * BURST.gap + 0.5;
+  let fired = 0;
+  effects.push({ life: total, t: 0, step: u => {
+    const t = u * total;
+    while (fired < BURST.rounds && t >= BURST.aim + fired * BURST.gap) round(fired++);
+    if (u >= 1 && shooter) shooter.userData.aim = null;
   } });
+  word('RATATATA!', origin, '#ffe066');
+
+  function round(n: number): void {
+    const a = muzzleAt();
+    const b = target.clone().add(new THREE.Vector3((Math.random() - 0.5) * 2 * BURST.spread, (Math.random() - 0.3) * BURST.spread, (Math.random() - 0.5) * 2 * BURST.spread));
+    if (turret) turret.userData.kick = 1; // the gun kicks back
+    // Muzzle flash: a hot star at the barrel and a blink of light.
+    const fl = new THREE.Sprite(new THREE.SpriteMaterial({ map: smokeTex, color: 0xffe9a0, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending }));
+    fl.position.copy(a);
+    const light = new THREE.PointLight(0xffc860, 9, 5);
+    light.position.copy(a);
+    scene.add(fl, light);
+    effects.push({ life: 0.09, t: 0, step: v => {
+      fl.scale.setScalar(0.25 + v * 0.55); fl.material.opacity = 1 - v; light.intensity = 9 * (1 - v);
+      if (v >= 1) { scene.remove(fl, light); fl.material.dispose(); }
+    } });
+    // A wisp of gun smoke left behind.
+    const puff = new THREE.Sprite(new THREE.SpriteMaterial({ map: smokeTex, color: 0xb0aaa0, transparent: true, opacity: 0, depthWrite: false }));
+    puff.position.copy(a);
+    scene.add(puff);
+    effects.push({ life: 0.7, t: 0, step: v => {
+      puff.position.y = a.y + v * 0.5; puff.scale.setScalar(0.15 + v * 0.5); puff.material.opacity = 0.35 * Math.sin(v * Math.PI);
+      if (v >= 1) { scene.remove(puff); puff.material.dispose(); }
+    } });
+    // The tracer: a short bright streak that flies to the target.
+    const dir = b.clone().sub(a), dist = dir.length();
+    dir.normalize();
+    const streak = Math.min(0.9, dist * 0.45);
+    const m = new THREE.Mesh(bulletGeo, new THREE.MeshBasicMaterial({ color: n % 3 === 0 ? 0xfff6c8 : 0xffc23a, transparent: true, blending: THREE.AdditiveBlending, depthWrite: false }));
+    m.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), dir);
+    m.scale.set(1, streak, 1);
+    scene.add(m);
+    effects.push({ life: Math.max(0.05, dist / BURST.speed), t: 0, step: v => {
+      m.position.copy(a).addScaledVector(dir, Math.max(streak / 2, v * dist - streak / 2));
+      if (v >= 1) { scene.remove(m); (m.material as THREE.Material).dispose(); sparks(b, dir); }
+    } });
+  }
+}
+
+/** Sparks where a round lands: a flash and a few bright bits thrown back. */
+function sparks(at: THREE.Vector3, dir: THREE.Vector3): void {
+  const fl = new THREE.Sprite(new THREE.SpriteMaterial({ map: smokeTex, color: 0xfff0b0, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending }));
+  fl.position.copy(at);
+  scene.add(fl);
+  effects.push({ life: 0.14, t: 0, step: v => { fl.scale.setScalar(0.2 + v * 0.5); fl.material.opacity = 1 - v; if (v >= 1) { scene.remove(fl); fl.material.dispose(); } } });
+  for (let i = 0; i < 4; i++) {
+    const m = new THREE.Mesh(bulletGeo, new THREE.MeshBasicMaterial({ color: 0xffd060, transparent: true, blending: THREE.AdditiveBlending, depthWrite: false }));
+    const v0 = dir.clone().multiplyScalar(-1.5).add(new THREE.Vector3((Math.random() - 0.5) * 4, 1.5 + Math.random() * 2.5, (Math.random() - 0.5) * 4));
+    m.scale.set(0.6, 0.12, 0.6);
+    scene.add(m);
+    effects.push({ life: 0.35, t: 0, step: v => {
+      const t = v * 0.35;
+      m.position.copy(at).addScaledVector(v0, t).setY(Math.max(TILE_T + 0.02, at.y + v0.y * t - 9 * t * t));
+      m.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), v0.clone().setY(v0.y - 18 * t).normalize());
+      (m.material as THREE.MeshBasicMaterial).opacity = 1 - v;
+      if (v >= 1) { scene.remove(m); (m.material as THREE.Material).dispose(); }
+    } });
+  }
 }
 
 /** The car glows red for a moment. */
@@ -878,6 +1001,9 @@ function drawHud(): void {
   // While the last choice plays out, nothing can be chosen.
   const d = playing ? null : decision;
   if (d) handoff(d);
+  // A new kind of choice forgets a strip opened or closed by hand.
+  if ((d?.kind ?? '') !== stripKind) { stripKind = d?.kind ?? ''; stripPin = null; }
+  syncStrip();
 
   // Top: the round, then a bubble per player in seating order (the one on turn glows), the road die.
   document.documentElement.style.setProperty('--who', me.color);
@@ -930,7 +1056,17 @@ function drawHud(): void {
     else if (d.kind === 'slamReroll') { btn(0, 'Tieni', 'quiet'); btn(1, 'Ritira i dadi'); }
     else if (!['assign', 'step', 'airstrike', 'repair'].includes(d.kind)) d.options.forEach((o, i) => btn(i, o.label));
   }
-  actions.dataset.car = d && d.kind !== 'command' ? g.activeCar ?? '' : '';
+  // The question sits with its answer: over the buttons, or alone by the car or the dice.
+  const left = d?.kind === 'step' ? /(\d+) moviment/.exec(d.prompt)?.[1] : undefined;
+  const ASK: Partial<Record<Decision['kind'], string>> = {
+    command: 'Comando?', roadDie: `Dado strada: +${g.roadDie}?`, slamReroll: 'Slam: ritiri i dadi?', shoot: 'Scegli il bersaglio',
+    step: left ? `${left} moviment${left === '1' ? 'o' : 'i'}` : 'Muovi', airstrike: 'Scegli una casella vuota', repair: 'Scegli l’auto da riparare',
+  };
+  if (d && ASK[d.kind]) actions.insertAdjacentHTML('afterbegin', `<span class="q">${esc(ASK[d.kind]!)}</span>`);
+  actions.classList.toggle('only', !actions.querySelector('button'));
+  $('mydice').dataset.label = d?.kind === 'assign' ? 'Assegna un dado' : d?.kind === 'command' ? 'Un dado sul comando' : '';
+  actions.dataset.car = g.activeCar ?? '';
+  actions.dataset.anchor = d?.kind === 'command' ? 'cmd' : g.activeCar ? 'car' : 'bar';
   if ($('drawer').style.display === 'block') drawDrawer();
 
   // The four steps of a turn (rulebook p. 8), the current one lit.
@@ -1078,6 +1214,8 @@ addEventListener('keydown', e => {
     if (v) focusOn(carObjs.get(v.id));
   } else if (key === 'g') {
     toggleGrid();
+  } else if (key === 'p') {
+    toggleStrip();
   } else if (key === 'f') {
     focusOn([...carObjs.values()].find(o => o.userData.active) ?? cars[0]);
   }
@@ -1190,9 +1328,11 @@ $('start').onclick = () => {
 function fit(): void {
   // The boards strip is as tall as the bottom panel allows, or as the width allows (dice and chopper beside it).
   const sh = Math.max(150, Math.min(innerHeight * 0.36, 420, (innerWidth - 24) / STRIP_ASPECT));
-  document.documentElement.style.setProperty('--sh', `${sh}px`);
-  document.documentElement.style.setProperty('--bottom', `${sh + 14}px`);
-  const top = cssPx('--top'), bottom = $('bottom').getBoundingClientRect().height + cssPx('--bar');
+  // Folded, the strip is about half that; the table is framed above the folded strip.
+  const small = Math.max(110, sh * 0.5) + 14;
+  document.documentElement.style.setProperty('--big', `${sh + 14}px`);
+  document.documentElement.style.setProperty('--small', `${small}px`);
+  const top = cssPx('--top'), bottom = small + cssPx('--bar');
   const h = Math.max(200, innerHeight - bottom);
   // The player bubbles float over the top of the map: keep the road below them.
   const topLim = 1 - 2 * top / h;
@@ -1303,23 +1443,74 @@ function syncHudDice(now: number): void {
   }
 }
 
-/** Keeps the floating choices by the car they are about, or above the bar when there is none. */
+/**
+ * The strip is big while dice go on the boards (assigning, a command, a repair) or the pointer is
+ * on it, small otherwise; the button (or P) opens or closes it by hand until the next kind of choice.
+ */
+let stripPin: boolean | null = null, stripHover = false, stripKind = '';
+function syncStrip(): void {
+  const d = playing ? null : decision;
+  const open = stripPin ?? ((!!d && ['assign', 'command', 'repair'].includes(d.kind)) || stripHover);
+  document.body.classList.toggle('open', open);
+  $('stripmode').firstElementChild!.textContent = open ? '▾' : '▴';
+}
+function toggleStrip(): void { stripPin = !document.body.classList.contains('open'); syncStrip(); }
+$('stripmode').addEventListener('click', toggleStrip);
+$('bottom').addEventListener('pointerenter', () => { stripHover = true; syncStrip(); });
+$('bottom').addEventListener('pointerleave', () => { stripHover = false; syncStrip(); });
+
+/**
+ * Keeps the floating choices where the player is looking (`data-anchor`): under the car they are
+ * about (above it only when there is no room below), on the command board for "no command",
+ * otherwise just above the bar. Never under the strip, never off the screen.
+ */
 function placeActions(): void {
   const el = $('actions');
   if (!el.childElementCount) { el.style.display = 'none'; return; }
   el.style.display = 'flex';
   const rect = renderer.domElement.getBoundingClientRect();
-  const o = el.dataset.car ? carObjs.get(el.dataset.car) : undefined;
-  let x = rect.left + rect.width / 2, y = rect.bottom - 16;
-  if (o) {
-    const p = o.position.clone().setY(o.position.y + (o.userData.modelHeight ?? 0.5) + 0.5).project(camera);
-    x = rect.left + (p.x * 0.5 + 0.5) * rect.width;
-    y = rect.top + (-p.y * 0.5 + 0.5) * rect.height;
+  const floor = $('bar').getBoundingClientRect().top - 8; // nothing floats lower than this over the table
+  const w = el.offsetWidth, h = el.offsetHeight;
+  let x = innerWidth / 2, top = floor - h;
+  // With no car to stand by, it stays clear of the dice, which sit on the bar's upper edge.
+  const dice = $('mydice').getBoundingClientRect();
+  if (dice.height > 0) top = Math.min(top, dice.top - h - 26);
+  const o = el.dataset.anchor === 'car' && el.dataset.car ? carObjs.get(el.dataset.car) : undefined;
+  const strip = el.dataset.anchor === 'cmd' ? $('strip').firstElementChild?.getBoundingClientRect() : undefined;
+  if (strip && strip.height > 0) {
+    // On the command board's lower tab: the commands are chosen there, and so is "none".
+    x = strip.left + strip.width * CMD_TAB[0];
+    top = Math.min(innerHeight - h - 4, strip.top + strip.height * CMD_TAB[1] - h / 2);
+  } else if (o) {
+    // Around the car, wherever it hides the least: the spaces that can be picked (targets, moves)
+    // and the vehicles must stay in view. Under the car first, then behind it, above, ahead.
+    const screen = (p: THREE.Vector3): [number, number] => {
+      const q = p.clone().project(camera);
+      return [rect.left + (q.x * 0.5 + 0.5) * rect.width, rect.top + (-q.y * 0.5 + 0.5) * rect.height];
+    };
+    const [gx, gy] = screen(o.position);
+    const space = Math.abs(screen(o.position.clone().add(new THREE.Vector3(1, 0, 0)))[0] - gx); // a world unit, in pixels
+    const keep: [number, number, number, number][] = []; // left, top, right, bottom of what must stay visible
+    for (const m of markers) { const [mx, my] = screen(m.at); keep.push([mx - space * 0.75, my - space * 0.5, mx + space * 0.75, my + space * 0.5]); }
+    for (const c of carObjs.values()) { const [cx, cy] = screen(c.position); keep.push([cx - space * 0.6, cy - space * 0.55, cx + space * 0.6, cy + space * 0.3]); }
+    const gap = space * 0.75 + 10;
+    const spots: [number, number][] = [
+      [gx, gy + space * 0.35 + 8], [gx - w / 2 - gap, gy - h / 2], [gx, gy - space * 0.7 - h - 8], [gx + w / 2 + gap, gy - h / 2],
+      [gx - w / 2 - gap, gy + space * 0.5], [gx - w / 2 - gap, gy - space * 0.6 - h], [gx, gy + space * 1.1], [gx, gy - space * 1.5 - h],
+    ];
+    let best = Infinity;
+    for (const [sx, sy] of spots) {
+      const cx = Math.max(w / 2 + 8, Math.min(innerWidth - w / 2 - 8, sx)), ty = Math.max(cssPx('--top'), Math.min(floor - h, sy));
+      let hidden = Math.hypot(cx - sx, ty - sy) * 20; // pushed away from its spot by the screen's edge
+      for (const [l, t, r, bt] of keep) hidden += Math.max(0, Math.min(cx + w / 2, r) - Math.max(cx - w / 2, l)) * Math.max(0, Math.min(ty + h, bt) - Math.max(ty, t));
+      if (hidden < best - 1) { best = hidden; x = cx; top = ty; }
+    }
   }
-  const w = el.offsetWidth / 2 + 8, h = el.offsetHeight + 8;
-  el.style.left = `${Math.max(w, Math.min(innerWidth - w, x))}px`;
-  el.style.top = `${Math.max(cssPx('--top') + h, Math.min(rect.bottom - 8, y))}px`;
+  el.style.left = `${Math.max(w / 2 + 8, Math.min(innerWidth - w / 2 - 8, x))}px`;
+  el.style.top = `${top}px`;
 }
+/** Where the command board's lower tab is in the strip's drawing, as shares of its width and height. */
+const CMD_TAB: [number, number] = [145.5 / 1197, 246.4 / 292];
 $('skip').addEventListener('click', () => skipBeats());
 
 /** The lines of the spaces over the terrain, on or off (button and key G). */
@@ -1360,6 +1551,7 @@ function drive(o: THREE.Object3D, dt: number, k: number, now: number): void {
   const turn = want - yaw;
   const newYaw = yaw + turn * Math.min(1, dt * rate);
   o.userData.yaw = newYaw;
+  driveGun(o, newYaw, dt);
   // Tip over the long axis onto one side; while tipping it hops.
   const f = (o.userData.flipNow ?? 0) + (((o.userData.flip ?? 0) - (o.userData.flipNow ?? 0)) * k * 0.7);
   o.userData.flipNow = f;
@@ -1392,6 +1584,10 @@ renderer.setAnimationLoop(t => {
   for (const o of chopperObjs.values()) {
     const tg = o.userData.target as THREE.Vector3 | undefined;
     if (tg) o.position.lerp(tg, k);
+    const aim = o.userData.aim as number | null | undefined;
+    const wantYaw = aim ?? 0, dy = Math.atan2(Math.sin(wantYaw - o.rotation.y), Math.cos(wantYaw - o.rotation.y));
+    o.rotation.y += dy * Math.min(1, dt * 8);
+    o.rotation.z += ((aim === null || aim === undefined ? 0 : -0.3) - o.rotation.z) * Math.min(1, dt * 8); // nose down to strafe
     // On the ground it stands still, rotors idling; in the air it hovers.
     const idle = o.userData.parked && tg && o.position.distanceTo(tg) < 0.1 ? 0.08 : 1;
     const r = o.getObjectByName('rotor'); if (r) r.rotation.y += dt * 18 * idle;
@@ -1464,8 +1660,14 @@ try {
 // `__fx.crash(__fx.cars()[0], 2, 0)` or `__fx.explode(0, 0)`.
 Object.assign(window, { __fx: {
   cars: () => [...carObjs.keys()],
+  aim: (id: string, yaw: number | null) => { const o = carObjs.get(id); if (o) o.userData.aim = yaw; },
+  zoom: (id: string, d = 3) => { const o = carObjs.get(id); if (o) { controls.target.copy(o.position); camera.position.copy(o.position).add(new THREE.Vector3(-d * 0.3, d * 0.6, d)); } },
   explode: (x: number, z: number) => explode(new THREE.Vector3(x, TILE_T, z)),
   crash: (id: string, dx = 1.5, dz = 0) => { const o = carObjs.get(id); if (o) crash(id, o.position.clone().add(new THREE.Vector3(dx, 0, dz)), ''); },
+  burst: (fromId: string, toId: string) => {
+    const a = carObjs.get(fromId), b = carObjs.get(toId);
+    if (a && b) burst(a.position.clone(), b.position.clone(), toId);
+  },
   word: (t: string, x: number, z: number) => word(t, new THREE.Vector3(x, TILE_T, z), '#ffb02a'),
   roll: (die: string, value: number | string) => showRoll({ kind: 'roll', die: { die, value } } as unknown as Frame),
 } });

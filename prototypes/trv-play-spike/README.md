@@ -143,3 +143,17 @@ git). Senza quei file il gioco usa i disegni liberi e le tessere a chevron color
 - **Barra asciutta**: fasi, poche parole di richiesta, strumenti. Le scelte (dado strada, slam,
   non sparare) compaiono vicino all'auto che agisce.
 - Prove: `production/qa/evidence/trv-play-spike/ui-strip-*.jpg`.
+
+## Attacco e plance a scomparsa (2026-11-15)
+
+- **Arma del modello**: ogni auto usa la propria arma, ritagliata dal modello (`GUNS` in
+  `models-config.ts`: vertici, perno e bocca, misurati sulle viste laterale e dall'alto in
+  `production/qa/evidence/trv-play-spike/gun-survey-*.jpg`). Ruota verso il bersaglio e rincula.
+  Se un modello cambia, le misure vanno rifatte.
+- **Raffica**: otto colpi con vampata, fumo, tracciante e scintille; l'elicottero si gira e
+  abbassa il muso. Dalla console: `__fx.burst('p0M','p1S')`, `__fx.aim(id, angolo)`,
+  `__fx.zoom(id)`.
+- **Plance a scomparsa**: piccole durante movimento e sparo, grandi quando si mettono dadi
+  (assegnazione, comando, riparazione) o col puntatore sopra; pulsante ▴/▾ o tasto P per
+  aprirle o chiuderle a mano. Il tavolo è inquadrato sopra la striscia piccola; quella grande
+  si apre sopra il suo bordo inferiore.
