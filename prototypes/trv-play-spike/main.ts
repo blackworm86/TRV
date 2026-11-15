@@ -570,9 +570,24 @@ function rollOnTable(f: Frame): void {
   const cx = THREE.MathUtils.clamp(car?.pos ? world(car.pos).x : BOARD_X0 + 2, BOARD_X0 + 1, BOARD_X0 + 2 * PITCH_W + TILE_W - 8);
   const d = makeDie(FACES, f.die.die, DIE_W);
   d.mesh.scale.setScalar(TRAY_SCALE);
-  const step = DIE_W * TRAY_SCALE * 1.4;
-  const to = old >= 0 ? trayDice[old].to.clone() : new THREE.Vector3(cx + (i % 10) * step, DIE_W * TRAY_SCALE / 2, TRAY_Z + Math.floor(i / 10) * step);
-  const from = to.clone().add(new THREE.Vector3(-1.6 - Math.random(), 2.8, 1.4));
+  // Dice are solid: each one lands on a spot of its own. Slots are a die's diagonal plus a gap
+  // apart (a die may land a little turned); the first free one nearest the car is taken.
+  const step = DIE_W * TRAY_SCALE * 1.6;
+  const others = trayDice.filter((t, k) => k !== i && t);
+  const free = (x: number, z: number): boolean => others.every(t => Math.abs(t.to.x - x) >= step - 1e-6 || Math.abs(t.to.z - z) >= step - 1e-6);
+  let to = old >= 0 ? trayDice[old].to.clone() : null;
+  for (let row = 0; !to && row < 4; row++) {
+    for (let n = 0; n < 40; n++) {
+      const j = n % 2 ? (n + 1) / 2 : -n / 2; // 0, 1, -1, 2, -2…
+      const x = cx + j * step, z = TRAY_Z + row * step;
+      if (x < BOARD_X0 + 0.5 || !free(x, z)) continue;
+      to = new THREE.Vector3(x, DIE_W * TRAY_SCALE / 2, z);
+      break;
+    }
+  }
+  to ??= new THREE.Vector3(cx, DIE_W * TRAY_SCALE / 2, TRAY_Z + 4 * step);
+  // Dropped from above with a little drift, less than the gap between slots: it never crosses a neighbour.
+  const from = to.clone().add(new THREE.Vector3((Math.random() - 0.5) * 0.4, 3.2, (Math.random() - 0.5) * 0.3));
   const q1 = d.orientation(f.die.face, f.die.die === 'direction' ? FORWARD : AWAY)
     .premultiply(new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 1, 0), f.die.die === 'direction' ? 0 : (Math.random() - 0.5) * 0.4));
   const q0 = new THREE.Quaternion().setFromEuler(new THREE.Euler(Math.random() * 6, Math.random() * 6, Math.random() * 6));
@@ -1240,6 +1255,6 @@ try {
 // For automated checks.
 (window as unknown as { trv: object }).trv = {
   get game() { return g; }, get decision() { return decision; }, choose, undo, zoneOption, scene, hazardObjs,
-  get queue() { return queue; }, get playing() { return playing; }, skipBeats,
+  get queue() { return queue; }, get playing() { return playing; }, skipBeats, playBeats, // playBeats: replays frames (presentation only), for checks
   get rows() { return ROWS; }, get cols() { return COLS; },
 };
