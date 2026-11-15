@@ -69,6 +69,18 @@
   #steps span.on { background: var(--acc); color: #1a120c; font-weight: 700; }
   #steps span.off { text-decoration: line-through; opacity: .6; }
   #actions button.shoot { background: #ffd23a; }
+  #roundbox { position: fixed; left: 50%; top: calc(var(--top) + 40px); transform: translate(-50%, -10px) scale(.96); opacity: 0; pointer-events: none;
+    background: rgba(20,14,10,.94); border: 2px solid var(--acc); border-radius: 14px; padding: 10px 18px 14px; z-index: 6; transition: opacity .25s, transform .25s; }
+  #roundbox.show { opacity: 1; transform: translate(-50%, 0) scale(1); }
+  #roundbox h2 { margin: 0 0 6px; font-size: 40px; font-weight: 400; color: var(--acc); text-align: center; }
+  #roundbox .row { display: flex; align-items: center; gap: 8px; padding: 4px 0; }
+  #roundbox .row .av { width: 30px; height: 30px; }
+  #roundbox .row span { font-size: 22px; min-width: 90px; }
+  #roundbox .row svg { width: 40px; height: 40px; }
+  #roundbox .row em { margin-left: 10px; font-size: 12px; color: var(--acc); font-style: normal; }
+  .road.glow { filter: drop-shadow(0 0 10px #f2c230); }
+  .road.glow span { color: #f2c230; }
+  #actions button.road { background: #f2c230; }
   #toast { position: fixed; left: 50%; top: calc(var(--top) + 12px); transform: translate(-50%, -8px); min-width: 280px; max-width: 70vw;
     background: rgba(20,14,10,.92); border: 2px solid var(--acc); border-radius: 10px; padding: 8px 14px; font-size: 16px; font-weight: 600;
     text-align: center; opacity: 0; pointer-events: none; transition: opacity .25s, transform .25s; z-index: 6; }
@@ -101,6 +113,7 @@
   <div class="road"><span class="gothic">DADO<br>STRADA</span><div id="roaddie"></div></div>
 </div>
 <div id="toast"></div>
+<div id="roundbox"></div>
 <div id="drawer"></div>
 <div id="bar">
   <div id="steps"></div>

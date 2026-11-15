@@ -46,6 +46,35 @@ describe('whole games', () => {
       expect(g.winner).not.toBeNull();
     }
   });
+  it('offers the road die also in round 1, to a car leaving the starting area on road', () => {
+    let offered = 0;
+    let firstRound = 0;
+    for (let s = 1; s <= 40; s++) {
+      const g = newGame({ seed: SEED(s), players: PLAYERS.slice(0, 3), startSide: 'a' });
+      const it = play(g);
+      let r = it.next(0);
+      let x = s;
+      for (let k = 0; !r.done && k < 5000; k++) {
+        if (r.value.kind === 'roadDie') {
+          offered++;
+          if (g.round === 1) firstRound++;
+        }
+        x = (x * 1103515245 + 12345) & 0x7fffffff;
+        const safe = r.value.options.map((o, i) => ({ o, i })).filter(e => !e.o.danger);
+        r = it.next((safe.length ? safe : r.value.options.map((o, i) => ({ o, i })))[x % Math.max(1, safe.length || r.value.options.length)].i);
+      }
+    }
+    expect(offered).toBeGreaterThan(0);
+    expect(firstRound).toBeGreaterThan(0);
+  });
+  it('records a frame for every move, roll and log line, each with a table snapshot', () => {
+    const pick = (d: Decision, k: number): number => k % d.options.length;
+    const { g } = autoplay(SEED(7), 2, pick);
+    const kinds = new Set(g.frames.map(f => f.kind));
+    for (const k of ['log', 'move', 'roll', 'round']) expect(kinds.has(k as never)).toBe(true);
+    expect(g.frames.filter(f => f.kind === 'log').length).toBe(g.log.length);
+    expect(g.frames.every(f => f.snap.board.length === 3)).toBe(true);
+  });
   it('replays the same game from the same seed and choices', () => {
     const pick = (d: Decision, k: number): number => k % d.options.length;
     const a = autoplay(SEED(42), 3, pick).g;

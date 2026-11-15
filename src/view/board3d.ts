@@ -51,6 +51,16 @@ export function spaceOutlinePx(r: number, c: number, scale = 1): [number, number
   return pts.map(([x, y]) => [cx + x * scale, cy + y * scale]);
 }
 
+/**
+ * Flat outline of one space in a tile's own frame (centred, world units, lying in x / -z once
+ * the mesh is turned flat with rotation.x = -PI/2). For highlights drawn over a space.
+ */
+export function spaceGeometry(r: number, c: number, width: number, depth: number, scale = 0.96): THREE.ShapeGeometry {
+  const kx = width / GRID.frameW, kz = depth / GRID.frameH;
+  const pts = spaceOutlinePx(r, c, scale).map(([x, y]) => new THREE.Vector2((x - GRID.frameW / 2) * kx, -(y - GRID.frameH / 2) * kz));
+  return new THREE.ShapeGeometry(new THREE.Shape(pts));
+}
+
 const TERRAIN_COLOR: Record<string, string> = { R: PALETTE.road, o: PALETTE.offroad, M: PALETTE.mud, X: PALETTE.impassable };
 
 /**

@@ -88,6 +88,35 @@ export interface RolledDie { die: string; face: number; value: string | number }
 
 export interface LogEntry { text: string; kind: 'info' | 'dice' | 'bad' | 'good' | 'turn'; dice?: RolledDie[] }
 
+/** What the table looks like at one moment: enough for the UI to draw it. */
+export interface Snapshot {
+  board: TileRef[];
+  finalTile: boolean;
+  vehicles: Pick<Vehicle, 'id' | 'owner' | 'size' | 'isWreck' | 'pos' | 'inStart' | 'status' | 'z'>[];
+  hazards: [string, HazardOnBoard][];
+  choppers: (Pos | null)[];
+  activeCar: string | null;
+}
+
+/**
+ * One beat of the game for the UI to animate, in order: a car entering a space, a die rolled,
+ * a slam, a shot, damage, an elimination, a hazard turned up, a new tile, the start of a round,
+ * a chopper placed, or a log line. Each carries the table as it is right after that beat.
+ * Frames are presentation data: the rules never read them.
+ */
+export interface Frame {
+  kind: 'log' | 'move' | 'roll' | 'slam' | 'shot' | 'damage' | 'elim' | 'reveal' | 'tile' | 'round' | 'chopper';
+  text?: string;
+  logKind?: LogEntry['kind'];
+  vehicleId?: string;
+  at?: Pos;
+  from?: Pos;
+  die?: RolledDie;
+  /** Round start: each player's movement dice, the road die and who rolled it. */
+  round?: { n: number; dice: { player: number; values: number[] }[]; roadDie: number; roller: number };
+  snap: Snapshot;
+}
+
 export interface Game {
   rng: RngState;
   players: Player[];
@@ -114,6 +143,8 @@ export interface Game {
   lastRoll: RolledDie[];
   /** FX dice rolled since the last log line, attached to the next 'dice' line. */
   pendingDice: RolledDie[];
+  /** Beats for the UI to animate (see Frame). */
+  frames: Frame[];
 }
 
 export interface Setup {
@@ -227,6 +258,7 @@ function rollFx<K extends 'road' | 'stunt' | 'slam' | 'shooting' | 'direction'>(
   const rolled = { die, face: f, value: v as string | number };
   g.lastRoll.push(rolled);
   g.pendingDice.push(rolled);
+  beat(g, 'roll', { die: rolled });
   return v;
 }
 
@@ -243,6 +275,23 @@ function say(g: Game, text: string, kind: LogEntry['kind'] = 'info'): void {
     g.log.push({ text, kind, dice: g.pendingDice });
     g.pendingDice = [];
   } else g.log.push({ text, kind });
+  beat(g, 'log', { text, logKind: kind });
+}
+
+/** The table as it is now. */
+export function snapshot(g: Game): Snapshot {
+  return {
+    board: g.board.map(t => ({ ...t })),
+    finalTile: g.finalTile,
+    vehicles: g.vehicles.map(v => ({ id: v.id, owner: v.owner, size: v.size, isWreck: v.isWreck, pos: v.pos ? { ...v.pos } : null, inStart: v.inStart, status: v.status, z: v.z })),
+    hazards: [...g.hazards].map(([k, h]) => [k, { ...h }]),
+    choppers: g.players.map(p => (p.chopper ? { ...p.chopper } : null)),
+    activeCar: g.activeCar,
+  };
+}
+
+function beat(g: Game, kind: Frame['kind'], extra: Omit<Frame, 'kind' | 'snap'> = {}): void {
+  g.frames.push({ kind, ...extra, snap: snapshot(g) });
 }
 
 function* ask(d: Decision): Gen<number> {
@@ -262,7 +311,7 @@ export function newGame(s: Setup): Game {
   const g: Game = {
     rng: r.value, players: [], vehicles: [], board: [], pile: [], tilesPlaced: 3, finalTile: false,
     hazards: new Map(), hazardPile: [], hazardDiscard: [], damagePile: [], round: 0, firstPlayer: 0,
-    current: 0, roadDie: 0, winner: null, log: [], zTop: 0, activeCar: null, lastRoll: [], pendingDice: [],
+    current: 0, roadDie: 0, winner: null, log: [], zTop: 0, activeCar: null, lastRoll: [], pendingDice: [], frames: [],
   };
   s.players.forEach((p, i) => {
     g.players.push({ id: i, name: p.name, color: p.color, dice: [], used: [], commandUsed: false, command: null, out: false, chopper: null,
@@ -317,6 +366,7 @@ function activePlayers(g: Game): Player[] {
 
 function eliminate(g: Game, v: Vehicle, why: string): void {
   if (v.status === 'elim') return;
+  beat(g, 'elim', { vehicleId: v.id, ...(v.pos ? { at: { ...v.pos } } : {}) });
   say(g, `${capital(carName(g, v))} è eliminata: ${why}.`, 'bad');
   if (v.isWreck) {
     g.vehicles = g.vehicles.filter(x => x !== v);
@@ -378,6 +428,7 @@ function advanceBoard(g: Game): void {
   g.tilesPlaced++;
   placeHazards(g, 2, null);
   if (g.players.length === 2 && g.tilesPlaced >= base.two_player_final_tile) g.finalTile = true;
+  beat(g, 'tile');
   if (g.finalTile) say(g, `${tileDef(g.board[2]).name} è la tessera finale: c'è il traguardo!`, 'info');
 }
 
@@ -406,10 +457,11 @@ function* enter(g: Game, v: Vehicle, to: Pos, ctx: MoveCtx | null): Gen<boolean>
   v.pos = { ...to };
   v.inStart = false;
   v.z = ++g.zTop;
+  beat(g, 'move', { vehicleId: v.id, at: { ...to } });
   const k = key(to);
   const h = g.hazards.get(k);
   if (h) {
-    if (!h.faceUp) { h.faceUp = true; say(g, `Pericolo scoperto: ${HAZARD_NAME[h.type]}!`, 'info'); }
+    if (!h.faceUp) { h.faceUp = true; beat(g, 'reveal', { at: { ...to } }); say(g, `Pericolo scoperto: ${HAZARD_NAME[h.type]}!`, 'info'); }
     else say(g, `${capital(carName(g, v))} finisce su ${HAZARD_NAME[h.type]}.`, 'info');
     if (h.type === 'wreck') {
       g.hazards.delete(k); g.hazardDiscard.push('wreck');
@@ -447,6 +499,7 @@ function* slam(g: Game, at: Pos): Gen<void> {
     const stack = vehiclesAt(g, at);
     if (stack.length < 2) return;
     const top = stack[stack.length - 1], bottom = stack[stack.length - 2];
+    beat(g, 'slam', { at: { ...at }, vehicleId: top.id });
     say(g, `SLAM! ${capital(carName(g, top))} contro ${carName(g, bottom)}.`, 'bad');
     let which = rollFx(g, 'slam', 'slam');
     let d = rollFx(g, 'direction', 'slam');
@@ -480,6 +533,7 @@ function* damage(g: Game, v: Vehicle): Gen<void> {
     const [i] = rollDice(g, [{ id: 'damage-draw', n: g.damagePile.length }], 'damage-draw');
     token = g.damagePile.splice(i, 1)[0];
   }
+  beat(g, 'damage', { vehicleId: v.id, ...(v.pos ? { at: { ...v.pos } } : {}) });
   say(g, `${capital(carName(g, v))} subisce danno: ${token ? DAMAGE_NAME[token.type] : 'nessun segnalino rimasto'}.`, 'bad');
   if (token) yield* damageEffect(g, v, token);
   // The effect may have moved the car off the board (TS narrows status too eagerly here).
@@ -561,6 +615,7 @@ function* shootFrom(g: Game, player: number, from: Pos, who: string): Gen<void> 
   });
   if (i === 0) return;
   const t = targets[i - 1];
+  beat(g, 'shot', { from: { ...from }, at: { ...t.pos! }, vehicleId: t.id });
   const f = rollFx(g, 'shooting', 'shoot');
   const hit = f === 'ANY' || f === t.size || (f === 'SM' && (t.size === 'S' || t.size === 'M'));
   const face = f === 'ANY' ? 'qualsiasi' : f === 'SM' ? 'piccola/media' : SIZE_NAME[f as Size];
@@ -572,7 +627,10 @@ function* shootFrom(g: Game, player: number, from: Pos, who: string): Gen<void> 
 
 function* moveCar(g: Game, car: Vehicle, moves: number, drift: boolean, coast: boolean): Gen<void> {
   const ctx: MoveCtx = { left: moves, drift, driftUsed: false };
-  let onlyRoad = !car.inStart && !!car.pos && terrainAt(g, car.pos) === 'R';
+  // Road die (p. 9): the car must start and move only on road. Leaving the starting area counts
+  // as starting on road (decided with the rules owner, 2026-11-15).
+  let onlyRoad = car.inStart || (!!car.pos && terrainAt(g, car.pos) === 'R');
+  const startedOff = !onlyRoad;
   let stopped = false;
   let bonusUsed = coast;
   for (;;) {
@@ -594,6 +652,11 @@ function* moveCar(g: Game, car: Vehicle, moves: number, drift: boolean, coast: b
       if (t !== 'R') onlyRoad = false;
       ctx.left = Math.max(0, ctx.left - (t === 'M' ? 2 : 1));
       if (yield* enter(g, car, to, ctx)) { stopped = true; ctx.left = 0; }
+    }
+    if (!stopped && !bonusUsed && car.status === 'ok' && !onlyRoad && g.winner === null) {
+      say(g, startedOff
+        ? 'Niente dado strada: l’auto non è partita da una casella di strada.'
+        : 'Niente dado strada: l’auto non si è mossa solo su strada.', 'info');
     }
     if (stopped || bonusUsed || car.status !== 'ok' || !onlyRoad || g.winner !== null) break;
     bonusUsed = true;
@@ -717,6 +780,7 @@ function* airstrike(g: Game, p: Player): Gen<void> {
     options: spaces.map(s => ({ label: `Casella ${s.r + 1}-${s.c + 1}`, pos: s })),
   });
   p.chopper = spaces[i];
+  beat(g, 'chopper', { at: { ...p.chopper } });
   if (g.round > 1) yield* shootFrom(g, p.id, p.chopper, 'l\'elicottero');
 }
 
@@ -757,6 +821,10 @@ export function* play(g: Game): Gen<void> {
     }
     for (const v of g.vehicles) { v.moved = false; v.coasts = 0; v.placed = []; }
     g.roadDie = rollFx(g, 'road', 'road-die');
+    beat(g, 'round', { round: {
+      n: g.round, roadDie: g.roadDie, roller: g.firstPlayer,
+      dice: g.players.filter(p => !p.out).map(p => ({ player: p.id, values: [...p.dice] })),
+    } });
     say(g, `Round ${g.round}: ${g.players[g.firstPlayer].name} tira il dado strada: ${g.roadDie}.`, 'dice');
     for (let t = 0; t < base.turns_per_round && g.winner === null; t++) {
       let i = g.firstPlayer;

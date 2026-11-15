@@ -10,11 +10,11 @@ import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import {
   newGame, play, tileDef, ROWS, COLS, TILE_COLS,
-  type Game, type Decision, type Pos, type Vehicle, type Setup, type LogEntry, type Player,
+  snapshot, type Game, type Decision, type Pos, type Setup, type LogEntry, type Player, type Frame, type Snapshot,
 } from '../../src/game/trv/engine';
 import { BASE_CATALOG as CAT, sizeOf, ofKind } from '../../src/game/trv/catalog';
 import { Pieces, TextureBank } from '../../src/view/pieces3d';
-import { buildTile, hazardToken, spaceCenterPx, GRID, TILE_PITCH_PX } from '../../src/view/board3d';
+import { buildTile, hazardToken, spaceCenterPx, spaceGeometry, GRID, TILE_PITCH_PX } from '../../src/view/board3d';
 import { dieSvg, dashboardSvg, commandBoardSvg, chopperSvg, avatarSvg, dataUrl } from '../../src/view/vector/art';
 import { newSeed } from '../../src/platform/entropy';
 import { makeDie, withOwnMaterials, type Die3D, type DiceFaces } from '../../src/view/dice3d';
@@ -78,9 +78,9 @@ function world(p: Pos): THREE.Vector3 {
 // Road tiles built from the terrain data, cached per face.
 const tileCache = new Map<string, THREE.Group>();
 const tileSlots: (THREE.Group | null)[] = [null, null, null];
-function showTiles(): void {
+function showTiles(s: Snapshot): void {
   if (!g) return;
-  g.board.forEach((t, i) => {
+  s.board.forEach((t, i) => {
     const startFace = t.tile === 1 && g!.tilesPlaced === 3;
     const key = `${t.tile}${t.side}${startFace ? g!.players.length : ''}`;
     let grp = tileCache.get(key);
@@ -88,9 +88,18 @@ function showTiles(): void {
       grp = buildTile(tileDef(t), { width: TILE_W, depth: TILE_H, thickness: TILE_T, ...(startFace ? { players: g!.players.length } : {}) });
       tileCache.set(key, grp);
     }
-    if (tileSlots[i] !== grp) { if (tileSlots[i]) scene.remove(tileSlots[i]!); tileSlots[i] = grp; scene.add(grp); }
-    grp.position.set(BOARD_X0 + i * PITCH_W + (GRID.frameW / 2) * KX, 0, 0);
+    const x = BOARD_X0 + i * PITCH_W + (GRID.frameW / 2) * KX;
+    if (tileSlots[i] !== grp) {
+      const fresh = !tileSlots.includes(grp);
+      tileSlots[i] = grp;
+      if (!grp.parent) scene.add(grp);
+      // A new lead tile slides in from beyond the road; the others slide back into place.
+      if (fresh && grp.userData.x === undefined) grp.position.set(playing ? x + PITCH_W : x, 0, 0);
+    }
+    grp.userData.x = x;
   });
+  // Tiles no longer on the board leave the table.
+  for (const grp of tileCache.values()) if (grp.parent && !tileSlots.includes(grp)) { scene.remove(grp); grp.userData.x = undefined; }
 }
 
 const pickPlane = new THREE.Mesh(new THREE.PlaneGeometry(140, 80), new THREE.MeshBasicMaterial({ visible: false }));
@@ -125,8 +134,6 @@ const TRAY_SCALE = 2;
 const TRAY_Z = TILE_H / 2 + 0.9;
 interface TableDie { d: Die3D; from: THREE.Vector3; to: THREE.Vector3; q0: THREE.Quaternion; q1: THREE.Quaternion; t: number }
 let trayDice: TableDie[] = [];
-let trayKey = '';
-let resetTray = false;
 const FORWARD = new THREE.Vector3(1, 0, 0), AWAY = new THREE.Vector3(0, 0, -1);
 const ringGeo = new THREE.RingGeometry(0.42, 0.56, 32);
 interface Marker { mesh: THREE.Mesh; option: number; at: THREE.Vector3 }
@@ -149,6 +156,9 @@ function startGame(s: Saved): void {
   for (const c of s.choices) { if (r.done) break; r = gen.next(c); }
   decision = r.done ? null : r.value;
   selDie = null;
+  frameSeen = g.frames.length;
+  queue.length = 0;
+  playing = false;
   persist();
   render();
 }
@@ -160,13 +170,13 @@ function choose(i: number): void {
   decision = r.done ? null : r.value;
   selDie = null;
   persist();
-  render();
+  const fresh = g!.frames.slice(frameSeen);
+  frameSeen = g!.frames.length;
+  playBeats(fresh);
 }
 
 function undo(): void {
   if (!saved || !saved.choices.length) return;
-  logSeen = -1;
-  resetTray = true;
   winShown = false;
   $('win').style.display = 'none';
   startGame({ setup: saved.setup, choices: saved.choices.slice(0, -1) });
@@ -223,21 +233,29 @@ function dieUsable(i: number): boolean {
 
 // ---------------------------------------------------------------- drawing: 3D
 
-function startSpot(v: Vehicle): THREE.Vector3 {
+function startSpot(v: { owner: number | null; size: 'S' | 'M' | 'L' }): THREE.Vector3 {
   const sizeIdx = { S: 0, M: 1, L: 2 }[v.size];
   const n = g!.players.length;
-  const z = (v.owner! - (n - 1) / 2) * 2.3 + (sizeIdx - 1) * 0.74;
+  const z = ((v.owner ?? 0) - (n - 1) / 2) * 2.3 + (sizeIdx - 1) * 0.74;
   return new THREE.Vector3(BOARD_X0 - 1.0, TILE_T, z);
 }
 
+/** Everything: the table as the rules have it now, the highlights and the interface. */
 function render(): void {
   if (!g) return;
-  showTiles();
-  finish.visible = g.finalTile;
+  drawTable(snapshot(g));
+  drawMarkers();
+  drawHud();
+}
 
-  const live = new Set<string>();
-  for (const [k, h] of g.hazards) {
-    live.add(k);
+/** Draws the table from a snapshot (the rules' state now, or a beat being replayed). */
+function drawTable(s: Snapshot): void {
+  if (!g) return;
+  showTiles(s);
+  finish.visible = s.finalTile;
+  const hz = new Map(s.hazards);
+
+  for (const [k, h] of hz) {
     let rec = hazardObjs.get(k);
     if (rec && (rec.type !== h.type || rec.gone !== undefined)) { scene.remove(rec.obj.group); rec = undefined; }
     if (!rec) { rec = { type: h.type, obj: hazardToken(h.type, HAZ_SIZE) }; hazardObjs.set(k, rec); scene.add(rec.obj.group); }
@@ -246,14 +264,14 @@ function render(): void {
     rec.obj.setFaceUp(h.faceUp);
   }
   // A hazard discarded after resolving (mine, wreck) stays face up for a moment, then goes.
-  for (const [k, rec] of hazardObjs) if (!live.has(k) && rec.gone === undefined) {
+  for (const [k, rec] of hazardObjs) if (!hz.has(k) && rec.gone === undefined) {
     rec.obj.setFaceUp(true);
-    rec.gone = performance.now() / 1000 + 1.8;
+    rec.gone = performance.now() / 1000 + 1.6;
   }
 
   const seen = new Set<string>();
   const stackCount = new Map<string, number>();
-  for (const v of [...g.vehicles].filter(x => x.status !== 'elim').sort((a, b) => a.z - b.z)) {
+  for (const v of [...s.vehicles].filter(x => x.status !== 'elim').sort((a, b) => a.z - b.z)) {
     seen.add(v.id);
     let o = carObjs.get(v.id);
     if (!o) {
@@ -268,69 +286,218 @@ function render(): void {
       const k = `${v.pos.r},${v.pos.c}`;
       const n = stackCount.get(k) ?? 0;
       stackCount.set(k, n + 1);
-      target = world(v.pos).add(new THREE.Vector3(n * 0.12, (g.hazards.has(k) ? HAZ_SIZE.thickness : 0) + n * 0.55, n * 0.08));
+      target = world(v.pos).add(new THREE.Vector3(n * 0.12, (hz.has(k) ? HAZ_SIZE.thickness : 0) + n * 0.55, n * 0.08));
     } else target = startSpot(v);
     o.userData.target = target;
     o.userData.yaw = v.status === 'inop' && !v.isWreck ? Math.PI : 0;
-    o.userData.active = v.id === g.activeCar;
+    o.userData.active = v.id === s.activeCar;
   }
-  for (const [id, o] of carObjs) if (!seen.has(id)) { scene.remove(o); carObjs.delete(id); }
-
-  for (const p of g.players) {
-    let o = chopperObjs.get(p.id);
-    if (!p.chopper) { if (o) { scene.remove(o); chopperObjs.delete(p.id); } continue; }
-    if (!o) { o = pieces.chopper(sizeOf(CAT, 'chopper'), p.color); chopperObjs.set(p.id, o); scene.add(o); o.position.copy(world(p.chopper)).setY(4); }
-    o.userData.target = world(p.chopper).setY(1.1);
+  // Eliminated pieces sink and shrink away.
+  for (const [id, o] of carObjs) if (!seen.has(id)) {
+    carObjs.delete(id);
+    effects.push({ life: 0.7, t: 0, step: u => { o.scale.setScalar(Math.max(0.01, 1 - u)); o.rotation.z = u * 1.2; if (u >= 1) scene.remove(o); } });
   }
 
-  drawTray();
-  drawMarkers();
+  s.choppers.forEach((at, pid) => {
+    let o = chopperObjs.get(pid);
+    if (!at) { if (o) { scene.remove(o); chopperObjs.delete(pid); } return; }
+    if (!o) { o = pieces.chopper(sizeOf(CAT, 'chopper'), g!.players[pid].color); chopperObjs.set(pid, o); scene.add(o); o.position.copy(world(at)).setY(5); }
+    o.userData.target = world(at).setY(1.1);
+  });
+}
+
+// ---------------------------------------------------------------- playback of the rules' beats
+
+/** Short-lived 3D effects (impacts, tracers, flashes): `step(u)` with u from 0 to 1. */
+interface Effect { life: number; t: number; step: (u: number) => void }
+const effects: Effect[] = [];
+let frameSeen = 0;
+const queue: Frame[] = [];
+let playing = false;
+let nextBeatAt = 0;
+let shakeUntil = 0;
+let trayFresh = true;
+
+const BEAT: Partial<Record<Frame['kind'], number>> = {
+  move: 0.32, roll: 0.8, slam: 0.75, shot: 0.6, damage: 0.65, elim: 0.75, reveal: 0.7, tile: 1.1, round: 2.6, chopper: 0.8,
+};
+
+function beatLength(f: Frame): number {
+  if (f.kind !== 'log') return BEAT[f.kind] ?? 0.3;
+  if (f.logKind === 'turn') return 0.6;
+  return f.logKind === 'dice' || f.logKind === 'bad' || f.logKind === 'good' ? 0.45 : 0.1;
+}
+
+/** Starts replaying the beats the last choice produced. */
+function playBeats(frames: Frame[]): void {
+  if (!frames.length) { render(); return; }
+  queue.push(...frames);
+  playing = true;
+  nextBeatAt = 0;
+  markerGroup.clear();
+  markers = [];
   drawHud();
 }
 
-/** Rolls new FX dice onto the table near the car that caused them; old rolls stay still. */
-function drawTray(): void {
-  if (!g) return;
-  const key = g.lastRoll.map(r => `${r.die}${r.face}`).join(',');
-  // A new turn clears lastRoll: the previous dice stay on the table until the next roll.
-  if (key === trayKey || (!key && !resetTray)) return;
-  resetTray = false;
-  const prev = trayKey ? trayKey.split(',') : [];
-  const keep = key.startsWith(trayKey) ? prev.length : 0;
-  trayKey = key;
-  for (const t of trayDice.slice(keep)) scene.remove(t.d.mesh);
-  trayDice = trayDice.slice(0, keep);
-  const car = g.vehicles.find(v => v.id === g!.activeCar);
-  const cx = THREE.MathUtils.clamp(car?.pos ? world(car.pos).x : BOARD_X0 + 2, BOARD_X0 + 1, BOARD_X0 + 2 * PITCH_W + TILE_W - 6);
-  g.lastRoll.forEach((r, i) => {
-    if (i < keep) return;
-    const d = makeDie(FACES, r.die, DIE_W);
-    d.mesh.scale.setScalar(TRAY_SCALE);
-    const to = new THREE.Vector3(cx + (i % 8) * DIE_W * TRAY_SCALE * 1.4, DIE_W * TRAY_SCALE / 2, TRAY_Z + Math.floor(i / 8) * DIE_W * TRAY_SCALE * 1.4);
-    const from = to.clone().add(new THREE.Vector3(-1.5 - Math.random(), 2.5, 1.2));
-    const q1 = d.orientation(r.face, r.die === 'direction' ? FORWARD : AWAY)
-      .premultiply(new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 1, 0), r.die === 'direction' ? 0 : (Math.random() - 0.5) * 0.4));
-    const q0 = new THREE.Quaternion().setFromEuler(new THREE.Euler(Math.random() * 6, Math.random() * 6, Math.random() * 6));
-    d.mesh.position.copy(from);
-    d.mesh.quaternion.copy(q0);
-    scene.add(d.mesh);
-    trayDice.push({ d, from, to, q0, q1, t: -i * 0.12 });
-  });
+/** Jumps to the end of the replay. */
+function skipBeats(): void {
+  if (!playing) return;
+  for (const f of queue) if (f.kind === 'log') toastLine(f);
+  queue.length = 0;
+  $('roundbox').classList.remove('show');
+  finishBeats();
+}
+
+function finishBeats(): void {
+  playing = false;
+  render();
+}
+
+function applyBeat(f: Frame, now: number): void {
+  if (f.kind === 'log') { toastLine(f); if (f.logKind === 'turn') trayFresh = true; return; }
+  drawTable(f.snap);
+  const at = f.at ? world(f.at) : null;
+  switch (f.kind) {
+    case 'roll': rollOnTable(f); break;
+    case 'slam':
+      shakeUntil = now + 0.35;
+      if (at) impact(at, 0xff6a2a, 1.6);
+      break;
+    case 'shot':
+      if (f.from && at) tracer(world(f.from), at);
+      break;
+    case 'damage':
+      if (f.vehicleId) flash(f.vehicleId);
+      if (at) impact(at, 0xff2a2a, 1.1);
+      break;
+    case 'elim':
+      if (at) impact(at, 0xffd23a, 2.0);
+      break;
+    case 'reveal':
+      if (at) impact(at, 0xffffff, 0.9);
+      break;
+    case 'chopper':
+      if (at) impact(at, 0x9fd3ff, 1.2);
+      break;
+    case 'round':
+      showRound(f);
+      break;
+    default:
+      break;
+  }
+}
+
+/** A coloured ring that spreads and fades over a space. */
+function impact(at: THREE.Vector3, color: number, size: number): void {
+  const m = new THREE.Mesh(new THREE.RingGeometry(0.3, 0.42, 40), new THREE.MeshBasicMaterial({ color, transparent: true, side: THREE.DoubleSide, depthTest: false }));
+  m.rotation.x = -Math.PI / 2;
+  m.position.copy(at).setY(TILE_T + 0.3);
+  m.renderOrder = 12;
+  scene.add(m);
+  effects.push({ life: 0.6, t: 0, step: u => {
+    m.scale.setScalar(1 + u * size * 2);
+    (m.material as THREE.MeshBasicMaterial).opacity = 1 - u;
+    if (u >= 1) { scene.remove(m); m.geometry.dispose(); }
+  } });
+}
+
+/** A bright line from the shooter to the target. */
+function tracer(from: THREE.Vector3, to: THREE.Vector3): void {
+  const a = from.clone().setY(TILE_T + 0.45), b = to.clone().setY(TILE_T + 0.45);
+  const len = a.distanceTo(b);
+  const m = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.05, len, 8), new THREE.MeshBasicMaterial({ color: 0xffe066, transparent: true }));
+  m.position.copy(a).add(b).multiplyScalar(0.5);
+  m.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), b.clone().sub(a).normalize());
+  scene.add(m);
+  impact(a, 0xffe066, 0.6);
+  effects.push({ life: 0.5, t: 0, step: u => {
+    (m.material as THREE.MeshBasicMaterial).opacity = 1 - u;
+    m.scale.set(1 - u * 0.7, 1, 1 - u * 0.7);
+    if (u >= 1) { scene.remove(m); m.geometry.dispose(); }
+  } });
+}
+
+/** The car glows red for a moment. */
+function flash(id: string): void {
+  const o = carObjs.get(id);
+  if (!o) return;
+  const mats: THREE.MeshStandardMaterial[] = [];
+  o.traverse(x => { const m = (x as THREE.Mesh).material as THREE.MeshStandardMaterial | undefined; if (m?.emissive && !mats.includes(m)) mats.push(m); });
+  effects.push({ life: 0.65, t: 0, step: u => {
+    for (const m of mats) { m.emissive.setRGB(1, 0.1, 0.05); m.emissiveIntensity = Math.sin(u * Math.PI * 3) ** 2 * (1 - u) * 1.5; }
+  } });
+}
+
+/** A rolled FX die tumbles onto the table just below the road, near the car that rolled it. */
+function rollOnTable(f: Frame): void {
+  if (!f.die) return;
+  if (trayFresh) { for (const t of trayDice) scene.remove(t.d.mesh); trayDice = []; trayFresh = false; }
+  const i = trayDice.length;
+  const car = f.snap.vehicles.find(v => v.id === f.snap.activeCar);
+  const cx = THREE.MathUtils.clamp(car?.pos ? world(car.pos).x : BOARD_X0 + 2, BOARD_X0 + 1, BOARD_X0 + 2 * PITCH_W + TILE_W - 8);
+  const d = makeDie(FACES, f.die.die, DIE_W);
+  d.mesh.scale.setScalar(TRAY_SCALE);
+  const step = DIE_W * TRAY_SCALE * 1.4;
+  const to = new THREE.Vector3(cx + (i % 10) * step, DIE_W * TRAY_SCALE / 2, TRAY_Z + Math.floor(i / 10) * step);
+  const from = to.clone().add(new THREE.Vector3(-1.6 - Math.random(), 2.8, 1.4));
+  const q1 = d.orientation(f.die.face, f.die.die === 'direction' ? FORWARD : AWAY)
+    .premultiply(new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 1, 0), f.die.die === 'direction' ? 0 : (Math.random() - 0.5) * 0.4));
+  const q0 = new THREE.Quaternion().setFromEuler(new THREE.Euler(Math.random() * 6, Math.random() * 6, Math.random() * 6));
+  d.mesh.position.copy(from);
+  d.mesh.quaternion.copy(q0);
+  scene.add(d.mesh);
+  trayDice.push({ d, from, to, q0, q1, t: 0 });
+}
+
+/** Start of a round: every crew rolls its movement dice, the first player rolls the road die. */
+function showRound(f: Frame): void {
+  if (!g || !f.round) return;
+  const r = f.round;
+  const t0 = performance.now();
+  const box = $('roundbox');
+  box.innerHTML = `<h2 class="gothic">Round ${r.n}</h2>` + r.dice.map((d, k) => {
+    const p = g!.players[d.player];
+    return `<div class="row"><div class="av">${avatarSvg(p.color, p.name)}</div><span class="gothic">${esc(p.name)}</span>`
+      + d.values.map((v, j) => dieHtml('movement', v, p.color, '', `data-roll="${t0 + k * 120 + j * 40}"`)).join('')
+      + (d.player === r.roller ? `<em>dado strada</em>${dieHtml('road', r.roadDie, undefined, 'road', `data-roll="${t0 + 500}"`)}` : '') + '</div>';
+  }).join('');
+  box.classList.add('show');
+  window.setTimeout(() => box.classList.remove('show'), 2500);
 }
 
 function drawMarkers(): void {
   markerGroup.clear();
   markers = [];
-  if (!g || !decision || !['step', 'airstrike', 'shoot'].includes(decision.kind)) return;
+  if (!g || !decision || playing || !['step', 'airstrike', 'shoot'].includes(decision.kind)) return;
   const d = decision;
   d.options.forEach((o, i) => {
     if (!o.pos) return;
     const at = world(o.pos);
     if (markers.some(m => m.at.distanceTo(at) < 0.05)) return;
-    const color = o.danger ? 0xff3b30 : d.kind === 'shoot' ? 0xffd23a : 0x4cff7a;
-    const mesh = new THREE.Mesh(ringGeo, new THREE.MeshBasicMaterial({ color, transparent: true, opacity: 0.9, side: THREE.DoubleSide, depthTest: false }));
-    mesh.rotation.x = -Math.PI / 2;
-    mesh.position.copy(at).setY(TILE_T + 0.1);
+    const color = o.danger ? 0xff3b30 : d.kind === 'shoot' ? 0xffd23a : d.kind === 'airstrike' ? 0x7fd4ff : 0x4cff7a;
+    const onTable = o.pos.r >= 0 && o.pos.r < ROWS && o.pos.c >= 0 && o.pos.c < COLS;
+    let mesh: THREE.Mesh;
+    if (onTable) {
+      // The whole space glows: a solid fill, a bright rim and a soft, wider halo. Not tone
+      // mapped, so the colour stays vivid under the table's lighting.
+      const slot = Math.floor(o.pos.c / TILE_COLS);
+      const rc = o.pos.c - slot * TILE_COLS;
+      const glow = (opacity: number, additive: boolean): THREE.MeshBasicMaterial => new THREE.MeshBasicMaterial({
+        color, transparent: true, opacity, depthWrite: false, toneMapped: false, ...(additive ? { blending: THREE.AdditiveBlending } : {}),
+      });
+      mesh = new THREE.Mesh(spaceGeometry(o.pos.r, rc, TILE_W, TILE_H, 0.95), glow(0.7, false));
+      const rim = new THREE.Mesh(spaceGeometry(o.pos.r, rc, TILE_W, TILE_H, 1.0), glow(0.9, true));
+      rim.position.z = -0.002;
+      const halo = new THREE.Mesh(spaceGeometry(o.pos.r, rc, TILE_W, TILE_H, 1.14), glow(0.4, true));
+      halo.position.z = -0.004;
+      mesh.add(rim, halo);
+      mesh.rotation.x = -Math.PI / 2;
+      mesh.position.set(BOARD_X0 + slot * PITCH_W + (GRID.frameW / 2) * KX, TILE_T + HAZ_SIZE.thickness + 0.02, 0);
+    } else {
+      mesh = new THREE.Mesh(ringGeo, new THREE.MeshBasicMaterial({ color, transparent: true, opacity: 0.9, side: THREE.DoubleSide, depthTest: false }));
+      mesh.rotation.x = -Math.PI / 2;
+      mesh.position.copy(at).setY(TILE_T + 0.1);
+    }
     mesh.renderOrder = 10;
     markerGroup.add(mesh);
     markers.push({ mesh, option: i, at });
@@ -350,26 +517,26 @@ function logLine(e: LogEntry): string {
 }
 
 let winShown = false;
-let logSeen = -1;
 let toastTimer = 0;
-/** Shows the new shots, damage, hazards and eliminations for a few seconds over the map. */
-function toast(): void {
-  if (!g) return;
-  if (logSeen < 0 || logSeen > g.log.length) { logSeen = g.log.length; return; }
-  const fresh = g.log.slice(logSeen).filter(e => e.kind === 'dice' || e.kind === 'bad' || e.kind === 'good'
-    || /Pericolo|danno|sparo|bersaglio|armi|COLPITO/i.test(e.text));
-  logSeen = g.log.length;
-  if (!fresh.length) return;
+const toastLines: string[] = [];
+/** Shows a rules line that matters (shots, damage, hazards, eliminations, turns) over the map. */
+function toastLine(f: Frame): void {
+  if (!f.text) return;
+  const important = f.logKind !== 'info' || /Pericolo|danno|sparo|bersaglio|armi|dado strada|COLPITO|nuova tessera|traguardo/i.test(f.text);
+  if (!important) return;
+  toastLines.push(`<div class="${f.logKind}">${esc(f.text)}</div>`);
+  while (toastLines.length > 4) toastLines.shift();
   const el = $('toast');
-  el.innerHTML = fresh.slice(-4).map(e => `<div class="${e.kind}">${esc(e.text)}</div>`).join('');
+  el.innerHTML = toastLines.join('');
   el.classList.add('show');
   clearTimeout(toastTimer);
-  toastTimer = window.setTimeout(() => el.classList.remove('show'), 3200);
+  toastTimer = window.setTimeout(() => { el.classList.remove('show'); toastLines.length = 0; }, 3200);
 }
 function drawHud(): void {
   if (!g) return;
   const me = viewer()!;
-  const d = decision;
+  // While the last choice plays out, nothing can be chosen.
+  const d = playing ? null : decision;
 
   // Top: me, opponents with colour and dice, road die.
   $('meav').innerHTML = avatarSvg(me.color, me.name);
@@ -379,15 +546,25 @@ function drawHud(): void {
      <div><div class="nm gothic">${esc(p.name)}${p.out ? ' — fuori' : ''}</div>
      <div class="dice-row">${p.dice.map((n, i) => dieHtml('movement', n, p.color, p.used[i] ? 'used' : '')).join('')}</div></div></div>`).join('');
   $('roaddie').innerHTML = g.roadDie ? dieHtml('road', g.roadDie, undefined) : '';
+  $('roaddie').parentElement!.classList.toggle('glow', d?.kind === 'roadDie');
 
   // Bar: prompt, contextual actions, last log line.
   const name = d ? g.players[d.player].name : '';
   const text = d ? d.prompt.replace(new RegExp(`^${name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}: `), '') : g.winner !== null ? 'Partita finita.' : '';
-  $('prompt').innerHTML = d ? `<b style="color:${g.players[d.player].color}">${esc(name)}</b>${esc(text)}` : esc(text);
+  $('prompt').innerHTML = d ? `<b style="color:${g.players[d.player].color}">${esc(name)}</b>${esc(text)}` : playing ? '<i>…</i>' : esc(text);
+  if (d?.kind === 'roadDie') $('prompt').innerHTML = `<b style="color:${g.players[d.player].color}">${esc(name)}</b>Dado strada! L'auto è partita e rimasta su strada: +${g.roadDie} movimenti?`;
   if (d?.kind === 'assign') $('prompt').innerHTML += ' <i>— trascina un dado su un cruscotto</i>';
   if (d?.kind === 'command') $('prompt').innerHTML += ' <i>— trascina un dado su un comando</i>';
   const actions = $('actions');
   actions.innerHTML = '';
+  if (playing) {
+    const b = document.createElement('button');
+    b.textContent = 'Salta ⏭';
+    b.className = 'quiet';
+    b.title = 'Salta l’animazione (barra spaziatrice)';
+    b.onclick = skipBeats;
+    actions.appendChild(b);
+  }
   if (d) {
     const btn = (i: number, cls = ''): void => {
       const b = document.createElement('button');
@@ -398,14 +575,13 @@ function drawHud(): void {
     };
     if (d.kind === 'command') btn(0, 'quiet');
     else if (d.kind === 'shoot') { d.options.forEach((_, i) => { if (i > 0) btn(i, 'shoot'); }); btn(0, 'quiet'); }
-    else if (d.kind === 'roadDie' || d.kind === 'slamReroll') { btn(0, 'quiet'); btn(1); }
+    else if (d.kind === 'roadDie') { btn(1, 'road'); btn(0, 'quiet'); }
+    else if (d.kind === 'slamReroll') { btn(0, 'quiet'); btn(1); }
     else if (!['assign', 'step', 'airstrike', 'repair'].includes(d.kind)) d.options.forEach((_, i) => btn(i));
   }
   const last = g.log[g.log.length - 1];
   $('ticker').innerHTML = last ? logLine(last).replace(/^<div[^>]*>|<\/div>$/g, '') : '';
   if ($('drawer').style.display === 'block') drawDrawer();
-
-  toast();
 
   // The four steps of a turn (rulebook p. 8), the current one lit.
   const stepOf: Record<string, number> = { assign: 1, command: 2, airstrike: 2, repair: 2, step: 3, roadDie: 3, slamReroll: 3, shoot: 4 };
@@ -503,6 +679,8 @@ addEventListener('pointerup', e => {
   if (i >= 0) choose(i); else { selDie = null; drawHud(); }
 });
 
+addEventListener('keydown', e => { if (playing && (e.key === ' ' || e.key === 'Enter')) { e.preventDefault(); skipBeats(); } });
+
 // ---------------------------------------------------------------- input: map
 
 const ray = new THREE.Raycaster();
@@ -521,7 +699,7 @@ renderer.domElement.addEventListener('pointermove', e => {
   const i = m ? m.option : -1;
   if (i === hovered) return;
   hovered = i;
-  for (const mk of markers) mk.mesh.scale.setScalar(mk.option === i ? 1.5 : 1);
+  for (const mk of markers) mk.mesh.userData.hover = mk.option === i;
   if (decision && g) {
     const nm = g.players[decision.player].name;
     $('prompt').innerHTML = `<b style="color:${g.players[decision.player].color}">${esc(nm)}</b>` +
@@ -584,8 +762,6 @@ $('start').onclick = () => {
   winShown = false;
   $('win').style.display = 'none';
   $('setup').style.display = 'none';
-  logSeen = -1;
-  resetTray = true;
   startGame({ setup: { seed: seed.value, players, startSide: ($('side') as HTMLSelectElement).value as 'a' | 'b' }, choices: [] });
 };
 
@@ -661,7 +837,7 @@ function syncHudDice(now: number): void {
   for (const h of hudDice.values()) h.seen = false;
   for (const el of document.querySelectorAll('[data-die3d]')) {
     const r = el.getBoundingClientRect();
-    if (r.width < 2 || el.closest('[style*="display: none"]')) continue;
+    if (r.width < 2 || el.closest('[style*="display: none"]') || el.closest('#roundbox:not(.show)')) continue;
     const key = el.getAttribute('data-die3d')!;
     let h = hudDice.get(el);
     if (h && h.key !== key) { hudScene.remove(h.d.mesh); h = undefined; }
@@ -680,6 +856,16 @@ function syncHudDice(now: number): void {
     const fwd = kind === 'direction' ? FORWARD : AWAY;
     const q = h.d.orientation(face, fwd).premultiply(TO_SCREEN).premultiply(TILT);
     if (el.classList.contains('sel')) q.premultiply(new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 1, 0), Math.sin(now * 3) * 0.35));
+    // A die being rolled tumbles, then settles on its face.
+    const rollAt = Number(el.getAttribute('data-roll') ?? 0);
+    if (rollAt) {
+      const u = THREE.MathUtils.clamp((now * 1000 - rollAt) / 900, 0, 1);
+      if (u < 1) {
+        const spin = (1 - u) ** 2 * 14;
+        q.premultiply(new THREE.Quaternion().setFromEuler(new THREE.Euler(spin * 1.3, spin, spin * 0.7)));
+        h.d.mesh.position.y += Math.abs(Math.sin(u * Math.PI * 2.5)) * (1 - u) * size * 0.9;
+      }
+    }
     h.d.mesh.quaternion.copy(q);
     const faded = el.classList.contains('used');
     for (const m of h.d.mesh.material as THREE.MeshStandardMaterial[]) { m.transparent = faded; m.opacity = faded ? 0.22 : 1; }
@@ -709,7 +895,22 @@ renderer.setAnimationLoop(t => {
     if (tg) o.position.lerp(tg, k);
     const r = o.getObjectByName('rotor'); if (r) r.rotation.y += dt * 18;
   }
-  for (const m of markers) (m.mesh.material as THREE.MeshBasicMaterial).opacity = 0.65 + Math.sin(now * 5) * 0.25;
+  for (const m of markers) (m.mesh.material as THREE.MeshBasicMaterial).opacity = (m.mesh.userData.hover ? 0.85 : 0.45) + Math.sin(now * 5) * 0.15;
+  // Replay of the rules' beats, one at a time.
+  // Beats follow the clock, not the frame rate: a slow frame plays every beat that is due.
+  while (playing && now >= nextBeatAt) {
+    const f = queue.shift();
+    if (!f) { finishBeats(); break; }
+    applyBeat(f, now);
+    nextBeatAt = Math.max(nextBeatAt, now - 0.5) + beatLength(f);
+  }
+  for (let i = effects.length - 1; i >= 0; i--) {
+    const e = effects[i];
+    e.t = Math.min(1, e.t + dt / e.life);
+    e.step(e.t);
+    if (e.t >= 1) effects.splice(i, 1);
+  }
+  for (const grp of tileSlots) if (grp && grp.userData.x !== undefined) grp.position.x += (grp.userData.x - grp.position.x) * k * 0.6;
   for (const [k, h] of hazardObjs) {
     h.obj.update(dt);
     if (h.gone !== undefined && now > h.gone) { scene.remove(h.obj.group); hazardObjs.delete(k); }
@@ -723,7 +924,10 @@ renderer.setAnimationLoop(t => {
     td.d.mesh.quaternion.slerpQuaternions(td.q0, td.q1, e);
   }
   controls.update();
+  const shake = now < shakeUntil ? new THREE.Vector3((Math.random() - 0.5) * 0.25, (Math.random() - 0.5) * 0.15, (Math.random() - 0.5) * 0.25) : null;
+  if (shake) camera.position.add(shake);
   renderer.render(scene, camera);
+  if (shake) camera.position.sub(shake);
   syncHudDice(now);
   hudRenderer.render(hudScene, hudCam);
 });
@@ -739,5 +943,6 @@ try {
 // For automated checks.
 (window as unknown as { trv: object }).trv = {
   get game() { return g; }, get decision() { return decision; }, choose, undo, zoneOption, scene, hazardObjs,
+  get queue() { return queue; }, get playing() { return playing; }, skipBeats,
   get rows() { return ROWS; }, get cols() { return COLS; },
 };

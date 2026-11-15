@@ -41,13 +41,27 @@ partita funziona.
 - Fasi del turno (p. 8) nella barra: Assegna, Comando, Movimento, Spara. Nel primo round lo sparo è
   barrato ("Your guns are not online until the second round", p. 10). Avviso a schermo per sparo,
   danni, pericoli ed eliminazioni.
+- Animazioni: il motore registra una sequenza di fotogrammi (`Frame` in `engine.ts`: passo, tiro, slam,
+  sparo, danno, eliminazione, pericolo scoperto, nuova tessera, inizio round, elicottero) e l'interfaccia
+  li riproduce uno alla volta: auto che avanzano casella per casella, dadi che rotolano sul tavolo,
+  scossone e onda d'urto negli slam, traccia dello sparo, lampo rosso sul danno, auto eliminate che
+  spariscono, tessera nuova che scorre, riquadro di inizio round con i dadi di tutte le crew e il dado
+  strada. "Salta" o la barra spaziatrice vanno subito alla fine.
+- Spazi di movimento (e bersagli, caselle per l'elicottero) illuminati per intero: verde per muoversi,
+  rosso se eliminano l'auto, giallo per sparare, azzurro per l'elicottero.
+- Dado strada: quando è utilizzabile il dado in alto si illumina e compare il pulsante; quando non lo è,
+  la cronaca dice perché (partita fuori strada o uscita dalla strada).
 - Galleria degli asset: `gallery.html` (stessa grafica e stessi pezzi 3D, nessuna immagine licenziata).
 - Misure dal catalogo fisico `data/trv/catalog_base.json` (stime, `measured: false`).
+
+## Decisioni sulle regole (confermate dall'utente)
+- Dado strada: un'auto che entra dall'area di partenza conta come partita su strada; può usarlo se
+  si muove solo su caselle di strada (2026-11-15).
 
 ## Interpretazioni provvisorie (da confermare con l'utente)
 - Sbandata: i 4 segnalini delle scansioni mostrano tutti "avanti"; il regolamento dice "6 segnalini diversi".
 - Lato delle tessere pescate: casuale (il regolamento dice solo di mescolarle).
-- Dado strada: un'auto che parte dall'area di partenza non lo può usare (non è partita su strada).
+
 - Spinte oltre il fronte della tessera di testa (slam, danni): trattate come un'uscita dal fronte.
 - Relitti spinti fuori da qualunque bordo: eliminati.
 - Pericolo e auto nella stessa casella: prima si risolve il pericolo, poi lo slam.
