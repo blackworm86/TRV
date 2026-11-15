@@ -24,6 +24,19 @@ const DARK = '#26232b', METAL = '#aba3a6', LINE = '#aba3a6', CREAM = '#f3e6d0';
 const SPAN: Record<BoardId, [number, number]> = { cmd: [0, 291], S: [268, 577], M: [579, 896.5], L: [887.5, 1196] };
 const DASH_Y: [number, number] = [48, 252];
 const CMD_H = 259.53;
+const DRAW_W = 1197;
+/** The middle of each dashboard, the two damage slots on its lower edge (left and right of the middle) and that edge's height. */
+const DASH_MID: Record<ArtSize, number> = { S: 422.35, M: 731.94, L: 1041.53 };
+const SLOT_DX = 65.5, SLOT_Y = 205.3;
+/** A damage token under a dashboard: its width, and how far its top is tucked under the board. */
+const TOKEN_W = 100, TOKEN_TUCK = 9;
+/**
+ * The strip's frame in the drawing's units: the boards as the owner drew them (and as the rulebook
+ * lays them out), plus the damage tokens hanging under the dashboards. Expansions grow it upward:
+ * a card above each dashboard and a command board twice as tall; the page anchors the strip to the
+ * bottom, so a taller frame only takes room from the table.
+ */
+export const STRIP_BOX = { x: 0, y: 0, w: DRAW_W, h: 292 };
 /** The command board's coloured panel: left, top, right, bottom. */
 const PANEL = [42.5, 42.5, 248.4, 217.8];
 
@@ -85,6 +98,7 @@ const COMMANDS: { cmd: string; name: string; dice: string; slot: string; lines: 
 export function makeBoards(raw: string, base: BoardBase): {
   dashboardSvg(d: DashboardArt, extra?: string): string;
   commandBoardSvg(c: CommandBoardArt, extra?: string): string;
+  stripSvg(c: CommandBoardArt, dashes: DashboardArt[], extra?: string): string;
 } {
   const all = parse(raw);
   const of = (id: BoardId): El[] => all.filter(e => boardOf(e.x) === id);
@@ -97,6 +111,13 @@ export function makeBoards(raw: string, base: BoardBase): {
 
   /** A car dashboard: the board, its writing, the dice on it and the damage tokens hanging below. */
   function dashboardSvg(d: DashboardArt, extra = ''): string {
+    const [x0, x1] = SPAN[d.size];
+    const w = x1 - x0, h = STRIP_BOX.h - DASH_Y[0];
+    return svg(`${x0} ${DASH_Y[0]} ${w} ${h}`, dashBody(d), `style="aspect-ratio:${w}/${h}" ${extra}`);
+  }
+
+  /** A dashboard in the drawing's own coordinates (see dashboardSvg). */
+  function dashBody(d: DashboardArt): string {
     const els = of(d.size);
     const [x0, x1] = SPAN[d.size];
     const dead = d.status !== 'ok';
@@ -112,12 +133,16 @@ export function makeBoards(raw: string, base: BoardBase): {
     const bg = els.find(e => e.layer === 'background')!;
 
     let b = '';
-    // Damage tokens first, so the board covers their top edge.
+    // Damage tokens first, so the board covers their top edge: one in each of the two slots under
+    // the board (more than two overlap, shifted). An empty slot shows a faint outline.
     const token = base.damageTokenSvg(null, false);
     const vb = (/viewBox="([^"]+)"/.exec(token)?.[1] ?? '0 0 100 100').split(/\s+/).map(Number);
-    for (let i = 0; i < d.damage; i++) {
-      const k = 46 / vb[2];
-      b += `<g transform="translate(${x0 + 86 + i * 54} ${DASH_Y[1] - vb[3] * k - 2}) scale(${k})">${inner(token)}</g>`;
+    const k = TOKEN_W / vb[2], th = vb[3] * k;
+    for (let i = 0; i < Math.max(2, d.damage); i++) {
+      const sx = DASH_MID[d.size] + (i % 2 ? SLOT_DX : -SLOT_DX) - TOKEN_W / 2 + Math.floor(i / 2) * 10;
+      const sy = SLOT_Y - TOKEN_TUCK + Math.floor(i / 2) * 8;
+      if (i < d.damage) b += `<g transform="translate(${sx} ${sy}) scale(${k})">${inner(token)}</g>`;
+      else if (!dead) b += `<rect x="${sx + 4}" y="${sy}" width="${TOKEN_W - 8}" height="${th - 12}" rx="6" fill="#000" fill-opacity=".18" stroke="${LINE}" stroke-opacity=".3" stroke-dasharray="4 4"><title>Slot danno</title></rect>`;
     }
     for (const e of els) {
       if (slots.includes(e) || (e.tag === 'rect' && e.cls === 'st4')) continue; // the slots are drawn below, with their state
@@ -145,18 +170,21 @@ export function makeBoards(raw: string, base: BoardBase): {
       b += text('INERZIA', cx, cy + cr + 17, 13, CREAM, 'middle', 'opacity=".85"');
       for (let i = 0; i < 2; i++) b += `<circle cx="${cx - 6 + i * 12}" cy="${cy + cr + 27}" r="3.4" fill="${i < coasts.length ? CREAM : 'none'}" stroke="${CREAM}" stroke-width="1"/>`;
     }
-    if (d.damage) b += text(`DANNI ${d.damage}`, x0 + 26, 186, 13, '#ff9b8a');
     if (dead) b += shape(bg, crew, 'fill="#000" opacity=".5"');
     if (d.status === 'inop') {
       b += `<g transform="translate(${(x0 + x1) / 2} 132) rotate(-7)"><rect x="-74" y="-17" width="148" height="34" rx="4" fill="#d42f30" stroke="#1d1b20" stroke-width="2"/>${text('FUORI USO', 0, 11, 30, CREAM, 'middle')}</g>`;
     }
     if (d.status === 'elim') b += `<g transform="translate(${(x0 + x1) / 2} 132) rotate(-7)">${text('ELIMINATA', 0, 12, 36, '#ff5a4a', 'middle')}</g>`;
-    const w = x1 - x0, h = DASH_Y[1] - DASH_Y[0];
-    return svg(`${x0} ${DASH_Y[0]} ${w} ${h}`, b, `data-car="${d.carId}" style="aspect-ratio:${w}/${h}" ${extra}`);
+    return `<g data-car="${d.carId}">${b}</g>`;
   }
 
   /** The command board: four commands with what they do, a die slot in each corner. */
   function commandBoardSvg(c: CommandBoardArt, extra = ''): string {
+    return svg(`0 0 ${SPAN.cmd[1]} ${CMD_H}`, cmdBody(c), `style="aspect-ratio:${SPAN.cmd[1]}/${CMD_H}" ${extra}`);
+  }
+
+  /** The command board in the drawing's own coordinates (see commandBoardSvg). */
+  function cmdBody(c: CommandBoardArt): string {
     const els = of('cmd');
     const ink = base.inkOn(c.color);
     const corner = els.filter(e => e.tag === 'rect' && e.cls === 'st2');
@@ -185,8 +213,19 @@ export function makeBoards(raw: string, base: BoardBase): {
       else b += text(k.slot, sx, sy + 5.5, 16, CREAM, 'middle', `opacity="${dim ? 0.35 : 1}"`);
     }
     b += text('COMANDI', (SPAN.cmd[0] + SPAN.cmd[1]) / 2, 250.6, 12, DARK, 'middle');
-    return svg(`0 0 ${SPAN.cmd[1]} ${CMD_H}`, b, `style="aspect-ratio:${SPAN.cmd[1]}/${CMD_H}" ${extra}`);
+    return `<g>${b}</g>`;
   }
 
-  return { dashboardSvg, commandBoardSvg };
+  /**
+   * The player's whole strip in one drawing, laid out as the owner drew it: command board on the
+   * left, the three dashboards against it and against each other, damage tokens hanging below.
+   */
+  function stripSvg(c: CommandBoardArt, dashes: DashboardArt[], extra = ''): string {
+    // The medium dashboard's side points lie over its neighbours, as in the drawing's layer order.
+    const order = [...dashes].sort((a, b) => 'SLM'.indexOf(a.size) - 'SLM'.indexOf(b.size));
+    const { x, y, w, h } = STRIP_BOX;
+    return svg(`${x} ${y} ${w} ${h}`, cmdBody(c) + order.map(dashBody).join(''), `style="aspect-ratio:${w}/${h}" ${extra}`);
+  }
+
+  return { dashboardSvg, commandBoardSvg, stripSvg };
 }

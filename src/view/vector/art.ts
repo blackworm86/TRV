@@ -3,7 +3,7 @@
 // as a data URL, onto 3D pieces. These open drawings never copy the licensed artwork; the faithful
 // official art, when present locally, takes their place (see "official art" below).
 
-import { makeBoards } from './boards';
+import { makeBoards, STRIP_BOX } from './boards';
 
 /** Board-absolute direction names used by the rules (src/game/trv/engine.ts). */
 export type ArtDir = 'F' | 'FL' | 'FR' | 'B' | 'BL' | 'BR';
@@ -257,6 +257,17 @@ const SIZE_LABEL: Record<ArtSize, string> = { S: 'PICCOLA', M: 'MEDIA', L: 'GRAN
  * and two damage slots below with face-down tokens hanging under them (rulebook p. 6).
  * Drop zones carry data-drop="move:<carId>" / "coast:<carId>"; the root carries data-car.
  */
+/** Width over height of the player's strip (see playerStripSvg). */
+export const STRIP_ASPECT = STRIP_BOX.w / STRIP_BOX.h;
+/**
+ * The player's whole strip in one drawing: command board, the three dashboards against it as in
+ * the rulebook, damage tokens under them. Null without the owner's drawing (assets/ui).
+ * Example: `el.innerHTML = playerStripSvg(cmd, dashes) ?? ''`.
+ */
+export function playerStripSvg(c: CommandBoardArt, dashes: DashboardArt[], extra = ''): string | null {
+  return boards()?.stripSvg(c, dashes, extra) ?? null;
+}
+
 export function dashboardSvg(d: DashboardArt, extra = ''): string {
   const u = boards()?.dashboardSvg(d, extra);
   if (u) return u;

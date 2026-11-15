@@ -128,3 +128,18 @@ git). Senza quei file il gioco usa i disegni liberi e le tessere a chevron color
   BOOM! sul tavolo; un'auto eliminata si lancia contro l'ostacolo, esplode e vola via.
   Dalla console: `__fx.explode(x, z)`, `__fx.crash(__fx.cars()[0])`.
 - Prove: `production/qa/evidence/trv-play-spike/ui-redesign-*.jpg`.
+
+## Interfaccia del giocatore, seconda stesura (2026-11-15)
+
+- **Mappa procedurale predefinita**, con ostacoli in rilievo e livello informativo separato
+  (linee, nastro, pericoli; tasto G). La grafica ufficiale resta con `?terrain=official`.
+- **Striscia del giocatore in un solo disegno**, disposta come nel manuale: command board a
+  sinistra, le tre dashboard accostate e allineate, due slot danno sotto ogni dashboard.
+  La striscia è ancorata in basso: con le espansioni (carta sopra ogni auto, command board alta
+  il doppio) cresce verso l'alto (`STRIP_BOX` in `src/view/vector/boards.ts`).
+- **Dadi del giocatore** sopra l'interfaccia, sul bordo del tavolo: si trascinano sulle plance
+  o sulle auto 3D.
+- **Elicottero** non in campo a terra dietro le auto della sua squadra, nel 3D.
+- **Barra asciutta**: fasi, poche parole di richiesta, strumenti. Le scelte (dado strada, slam,
+  non sparare) compaiono vicino all'auto che agisce.
+- Prove: `production/qa/evidence/trv-play-spike/ui-strip-*.jpg`.

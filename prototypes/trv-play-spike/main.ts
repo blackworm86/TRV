@@ -15,7 +15,7 @@ import {
 import { BASE_CATALOG as CAT, sizeOf, ofKind } from '../../src/game/trv/catalog';
 import { Pieces, TextureBank } from '../../src/view/pieces3d';
 import { buildTile, hazardToken, spaceCenterPx, spaceGeometry, GRID, TILE_PITCH_PX } from '../../src/view/board3d';
-import { dieSvg, dashboardSvg, commandBoardSvg, avatarSvg, dataUrl } from '../../src/view/vector/art';
+import { dieSvg, dashboardSvg, commandBoardSvg, playerStripSvg, STRIP_ASPECT, avatarSvg, dataUrl } from '../../src/view/vector/art';
 import { newSeed } from '../../src/platform/entropy';
 import { ModelBank, dressed, fitToLength, splitParts, splitWheels, type Tint } from '../../src/view/models3d';
 import { MODEL, SHOW_LENGTH_MM, MODEL_YAW, CHOPPER_PARTS, ROTOR_SPEED, WHEELS, crewTint, WRECK_TINT, wreckModel, phaseOf, hover, CarRig } from './models-config';
@@ -427,15 +427,17 @@ function drawTable(s: Snapshot): void {
     effects.push({ life: 0.7, t: 0, step: u => { o.scale.setScalar(Math.max(0.01, 1 - u)); o.rotation.z = u * 1.2; if (u >= 1) scene.remove(o); } });
   }
 
+  // A chopper not in play waits on the ground behind its crew's cars; an airstrike flies it in.
   s.choppers.forEach((at, pid) => {
     let o = chopperObjs.get(pid);
-    if (!at) { if (o) { scene.remove(o); chopperObjs.delete(pid); } return; }
+    const spot = at ? world(at).setY(1.1) : new THREE.Vector3(BOARD_X0 - 2.5, TILE_T, (pid - (g!.players.length - 1) / 2) * 2.3);
     if (!o) {
       o = pieces.chopper(sizeOf(CAT, 'chopper'), g!.players[pid].color);
       useModel(o, MODEL.chopper, SHOW_LENGTH_MM.chopper, crewTint(g!.players[pid].color, true), `chopper${pid}`);
-      chopperObjs.set(pid, o); scene.add(o); o.position.copy(world(at)).setY(5);
+      chopperObjs.set(pid, o); scene.add(o); o.position.copy(spot);
     }
-    o.userData.target = world(at).setY(1.1);
+    o.userData.target = spot;
+    o.userData.parked = !at;
   });
 }
 
@@ -903,35 +905,32 @@ function drawHud(): void {
   const name = d ? g.players[d.player].name : '';
   const text = d ? d.prompt.replace(new RegExp(`^${name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}: `), '') : g.winner !== null ? 'Partita finita.' : '';
   $('prompt').innerHTML = d ? `<b style="color:${g.players[d.player].color}">${esc(name)}</b>${esc(text)}` : playing ? '<i>…</i>' : esc(text);
-  if (d?.kind === 'roadDie') $('prompt').innerHTML = `<b style="color:${g.players[d.player].color}">${esc(name)}</b>Dado strada! L'auto è partita e rimasta su strada: +${g.roadDie} movimenti?`;
-  if (d?.kind === 'assign') $('prompt').innerHTML += ' <i>— trascina un dado su un’auto o sul suo cruscotto</i>';
-  if (d?.kind === 'command') $('prompt').innerHTML += ' <i>— trascina un dado su un comando</i>';
+  // A few words per kind of choice: the table and the boards show the rest.
+  const SHORT: Partial<Record<Decision['kind'], string>> = {
+    assign: 'assegna un dado', command: 'comando?', airstrike: 'piazza l’elicottero', repair: 'quale auto ripari?',
+    roadDie: `dado strada: +${g.roadDie}?`, slamReroll: 'slam: ritiri i dadi?', shoot: 'scegli il bersaglio',
+  };
+  if (d && SHORT[d.kind]) $('prompt').innerHTML = `<b style="color:${g.players[d.player].color}">${esc(name)}</b>${esc(SHORT[d.kind]!)}`;
+  ($('skip') as HTMLButtonElement).style.display = playing ? '' : 'none';
+  // The choices float by the car they are about (see placeActions), not in the bar.
   const actions = $('actions');
   actions.innerHTML = '';
-  if (playing) {
-    const b = document.createElement('button');
-    b.textContent = 'Salta ⏭';
-    b.className = 'quiet';
-    b.title = 'Salta l’animazione (barra spaziatrice)';
-    b.onclick = skipBeats;
-    actions.appendChild(b);
-  }
   if (d) {
-    const btn = (i: number, cls = ''): void => {
+    const btn = (i: number, label: string, cls = ''): void => {
       const b = document.createElement('button');
-      b.textContent = d.options[i].label;
+      b.textContent = label;
+      b.title = d.options[i].label;
       b.className = cls || (d.options[i].danger ? 'danger' : '');
       b.onclick = () => choose(i);
       actions.appendChild(b);
     };
-    if (d.kind === 'command') btn(0, 'quiet');
-    else if (d.kind === 'shoot') { d.options.forEach((_, i) => { if (i > 0) btn(i, 'shoot'); }); btn(0, 'quiet'); }
-    else if (d.kind === 'roadDie') { btn(1, 'road'); btn(0, 'quiet'); }
-    else if (d.kind === 'slamReroll') { btn(0, 'quiet'); btn(1); }
-    else if (!['assign', 'step', 'airstrike', 'repair'].includes(d.kind)) d.options.forEach((_, i) => btn(i));
+    if (d.kind === 'command') btn(0, 'Nessun comando', 'quiet');
+    else if (d.kind === 'shoot') btn(0, 'Non sparare', 'quiet'); // the targets are lit on the table
+    else if (d.kind === 'roadDie') { btn(1, `+${g.roadDie} movimenti`, 'road'); btn(0, 'Fermati', 'quiet'); }
+    else if (d.kind === 'slamReroll') { btn(0, 'Tieni', 'quiet'); btn(1, 'Ritira i dadi'); }
+    else if (!['assign', 'step', 'airstrike', 'repair'].includes(d.kind)) d.options.forEach((o, i) => btn(i, o.label));
   }
-  const last = g.log[g.log.length - 1];
-  $('ticker').innerHTML = last ? logLine(last).replace(/^<div[^>]*>|<\/div>$/g, '') : '';
+  actions.dataset.car = d && d.kind !== 'command' ? g.activeCar ?? '' : '';
   if ($('drawer').style.display === 'block') drawDrawer();
 
   // The four steps of a turn (rulebook p. 8), the current one lit.
@@ -949,16 +948,15 @@ function drawHud(): void {
     const cls = me.used[i] ? 'used' : !mine || !dieUsable(i) ? 'idle' : selDie === i ? 'sel' : '';
     return dieHtml('movement', n, me.color, cls, `data-die="${i}"`);
   }).join('');
-  $('cmd').innerHTML = commandBoardSvg({ color: me.color, used: me.command, drop: [...hot].filter(z => z.startsWith('cmd:')).map(z => z.slice(4)) });
+  const cmdArt = { color: me.color, used: me.command, drop: [...hot].filter(z => z.startsWith('cmd:')).map(z => z.slice(4)) };
   const pickIds = new Set(d?.kind === 'repair' ? d.options.map(o => o.carId) : []);
-  $('dashes').innerHTML = g.vehicles.filter(v => v.owner === me.id).map(v => dashboardSvg({
+  const dashArt = g.vehicles.filter(v => v.owner === me.id).map(v => ({
     carId: v.id, size: v.size, color: me.color, status: v.status, placed: v.placed, damage: v.damage.length,
     dropMove: hot.has(`move:${v.id}`), dropCoast: hot.has(`coast:${v.id}`), pick: pickIds.has(v.id),
-    label: v.status === 'elim' ? 'ELIMINATA' : v.inStart ? 'IN PARTENZA' : '',
-  })).join('');
-  // The chopper not in play is drawn in 3D beside the dashboards (see syncHudChopper).
-  $('chopperpad').dataset.color = me.chopper ? '' : me.color;
-  $('chopperstate').textContent = me.chopper ? 'in campo' : me.commandUsed ? 'pronto' : 'pronto · attacco aereo';
+    label: v.status === 'elim' ? '' : v.inStart ? 'IN PARTENZA' : '',
+  }));
+  // One drawing, laid out as in the rulebook; without the owner's drawing, the boards side by side.
+  $('strip').innerHTML = playerStripSvg(cmdArt, dashArt) ?? `<div class="loose">${commandBoardSvg(cmdArt)}${dashArt.map(a => dashboardSvg(a)).join('')}</div>`;
 
   // Clicks on boards: drop the selected die, or pick a car to repair.
   for (const el of document.querySelectorAll<SVGElement>('#bottom [data-drop]')) {
@@ -970,7 +968,7 @@ function drawHud(): void {
     });
   }
   if (d?.kind === 'repair') {
-    for (const el of document.querySelectorAll<SVGElement>('#dashes [data-car]')) {
+    for (const el of document.querySelectorAll<SVGElement>('#strip [data-car]')) {
       const i = d.options.findIndex(o => o.carId === el.dataset.car);
       if (i >= 0) { el.classList.add('hotzone'); el.addEventListener('click', () => choose(i)); }
     }
@@ -1189,17 +1187,11 @@ $('start').onclick = () => {
 
 // ---------------------------------------------------------------- loop
 
-/** Width over height of the boards strip (command board + three dashboards) in the owner's drawing. */
-const STRIP_ASPECT = 4.62;
 function fit(): void {
   // The boards strip is as tall as the bottom panel allows, or as the width allows (dice and chopper beside it).
-  const panel = $('bottom').getBoundingClientRect().height - 16;
-  // The command board is the one to read: it stands taller than the dashboards when there is room.
-  const CMD_ASPECT = 291 / 259.53, CMD_TALLER = 1.35;
-  const beside = STRIP_ASPECT - CMD_ASPECT + 0.27 * 2 + 0.05 + 0.62; // dashboards, dice and chopper, in strip heights
-  const sh = Math.max(110, Math.min(panel, (innerWidth - 24 - 28) / (beside + CMD_ASPECT * CMD_TALLER)));
+  const sh = Math.max(150, Math.min(innerHeight * 0.36, 420, (innerWidth - 24) / STRIP_ASPECT));
   document.documentElement.style.setProperty('--sh', `${sh}px`);
-  document.documentElement.style.setProperty('--ch', `${Math.min(panel, sh * CMD_TALLER)}px`);
+  document.documentElement.style.setProperty('--bottom', `${sh + 14}px`);
   const top = cssPx('--top'), bottom = $('bottom').getBoundingClientRect().height + cssPx('--bar');
   const h = Math.max(200, innerHeight - bottom);
   // The player bubbles float over the top of the map: keep the road below them.
@@ -1208,7 +1200,7 @@ function fit(): void {
   camera.aspect = innerWidth / h;
   camera.updateProjectionMatrix();
   // Frame the whole road (start area included): fit the corners on screen, then centre them.
-  const x0 = BOARD_X0 - 1.8, x1 = BOARD_X0 + 2 * PITCH_W + TILE_W;
+  const x0 = BOARD_X0 - 3.2, x1 = BOARD_X0 + 2 * PITCH_W + TILE_W; // start area: cars and parked choppers
   const zTop = -TILE_H / 2, zBot = TRAY_Z + DIE_W * 1.5; // road plus the dice tray
   const corners = [[x0, zTop], [x1, zTop], [x0, zBot], [x1, zBot]].map(([x, z]) => new THREE.Vector3(x, 0, z));
   const dir = new THREE.Vector3(0, 1, 0.55).normalize();
@@ -1311,37 +1303,24 @@ function syncHudDice(now: number): void {
   }
 }
 
-/** The chopper not in play, in 3D over its pad beside the dashboards: it turns slowly, rotors spinning. */
-const hudChoppers = new Map<string, THREE.Group>();
-function syncHudChopper(now: number, dt: number): void {
-  const pad = $('chopperpad');
-  const color = pad.dataset.color ?? '';
-  const r = pad.getBoundingClientRect();
-  for (const [c, o] of hudChoppers) o.visible = c === color && r.width > 2;
-  if (!color || r.width < 2) return;
-  let o = hudChoppers.get(color);
-  if (!o) {
-    o = new THREE.Group();
-    hudChoppers.set(color, o);
-    hudScene.add(o);
-    const holder = o;
-    void models.load(MODEL.chopper).then(m => {
-      if (!m) return;
-      if (!m.userData.split) { splitParts(m, CHOPPER_PARTS); m.userData.split = true; }
-      const d = dressed(m, crewTint(color, true));
-      const size = fitToLength(d, 1, MODEL_YAW);
-      d.position.y -= size.y / 2;
-      holder.add(d);
-      holder.userData.spin = (['rotorMain', 'rotorTail'] as const).map(n => d.getObjectByName(n)).filter(Boolean);
-    });
+/** Keeps the floating choices by the car they are about, or above the bar when there is none. */
+function placeActions(): void {
+  const el = $('actions');
+  if (!el.childElementCount) { el.style.display = 'none'; return; }
+  el.style.display = 'flex';
+  const rect = renderer.domElement.getBoundingClientRect();
+  const o = el.dataset.car ? carObjs.get(el.dataset.car) : undefined;
+  let x = rect.left + rect.width / 2, y = rect.bottom - 16;
+  if (o) {
+    const p = o.position.clone().setY(o.position.y + (o.userData.modelHeight ?? 0.5) + 0.5).project(camera);
+    x = rect.left + (p.x * 0.5 + 0.5) * rect.width;
+    y = rect.top + (-p.y * 0.5 + 0.5) * rect.height;
   }
-  o.scale.setScalar(Math.min(r.width * 1.25, r.height * 1.6) * 0.98);
-  o.position.set(r.left + r.width / 2, -(r.top + r.height / 2), 0);
-  o.rotation.set(0.3, now * 0.5, 0);
-  for (const p of (o.userData.spin ?? []) as THREE.Object3D[]) {
-    if (p.name === 'rotorMain') p.rotation.y += dt * ROTOR_SPEED.rotorMain; else p.rotation.z += dt * ROTOR_SPEED.rotorTail;
-  }
+  const w = el.offsetWidth / 2 + 8, h = el.offsetHeight + 8;
+  el.style.left = `${Math.max(w, Math.min(innerWidth - w, x))}px`;
+  el.style.top = `${Math.max(cssPx('--top') + h, Math.min(rect.bottom - 8, y))}px`;
 }
+$('skip').addEventListener('click', () => skipBeats());
 
 /** The lines of the spaces over the terrain, on or off (button and key G). */
 let gridOn = true;
@@ -1413,11 +1392,13 @@ renderer.setAnimationLoop(t => {
   for (const o of chopperObjs.values()) {
     const tg = o.userData.target as THREE.Vector3 | undefined;
     if (tg) o.position.lerp(tg, k);
-    const r = o.getObjectByName('rotor'); if (r) r.rotation.y += dt * 18;
+    // On the ground it stands still, rotors idling; in the air it hovers.
+    const idle = o.userData.parked && tg && o.position.distanceTo(tg) < 0.1 ? 0.08 : 1;
+    const r = o.getObjectByName('rotor'); if (r) r.rotation.y += dt * 18 * idle;
     const model = o.userData.model as THREE.Object3D | undefined;
-    if (model) hover(model, now, o.userData.phase ?? 0, o.userData.modelHeight ?? 0.5);
+    if (model) hover(model, idle < 1 ? 0 : now, idle < 1 ? 0 : o.userData.phase ?? 0, idle < 1 ? 0 : o.userData.modelHeight ?? 0.5);
     for (const p of (o.userData.spin ?? []) as THREE.Object3D[]) {
-      if (p.name === 'rotorMain') p.rotation.y += dt * ROTOR_SPEED.rotorMain; else p.rotation.z += dt * ROTOR_SPEED.rotorTail;
+      if (p.name === 'rotorMain') p.rotation.y += dt * ROTOR_SPEED.rotorMain * idle; else p.rotation.z += dt * ROTOR_SPEED.rotorTail * idle;
     }
   }
   for (const m of markers) (m.mesh.material as THREE.MeshBasicMaterial).opacity = (m.mesh.userData.hover ? 0.85 : 0.45) + Math.sin(now * 5) * 0.15;
@@ -1460,7 +1441,7 @@ renderer.setAnimationLoop(t => {
   renderer.render(scene, camera);
   if (shake) camera.position.sub(shake);
   syncHudDice(now);
-  syncHudChopper(now, dt);
+  placeActions();
   hudRenderer.render(hudScene, hudCam);
 });
 

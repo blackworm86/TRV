@@ -31,14 +31,14 @@ export interface TileMeshOptions {
   /**
    * Look of the face: 'official' = the official art in relief when its maps are present locally,
    * else procedural; 'procedural' = terrain generated from the grid; 'flat' = coloured chevrons.
-   * Default: `?terrain=` in the page address, else 'official'.
+   * Default: `?terrain=` in the page address, else 'procedural'.
    */
   terrain?: TerrainLook;
 }
 
 export type TerrainLook = 'official' | 'procedural' | 'flat';
 const URL_LOOK = typeof location !== 'undefined' ? new URLSearchParams(location.search).get('terrain') : null;
-const DEFAULT_LOOK: TerrainLook = URL_LOOK === 'procedural' || URL_LOOK === 'flat' ? URL_LOOK : 'official';
+const DEFAULT_LOOK: TerrainLook = URL_LOOK === 'official' || URL_LOOK === 'flat' ? URL_LOOK : 'procedural';
 
 /**
  * Flat outline of one space in a tile's own frame (centred, world units, lying in x / -z once
