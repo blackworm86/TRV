@@ -99,5 +99,11 @@ git). Senza quei file il gioco usa i disegni liberi e le tessere a chevron color
   `python -I tools/asset-pipeline/terrain.py "assets/licensed/TRV 01 Base Game/Road Tiles Base.pdf" <oggetto> assets/licensed/terrain/<faccia> <faccia>`
   con oggetto 4, 7, 10, 13, 16, 19, 22, 25, 28, 31 per le facce 1a, 1b, 2a, 2b, 3a, 3b, 4a, 4b, 5a, 5b.
   La roccia sta solo sugli spazi X di `data/trv/game_base.json`.
+- Terreno procedurale (`src/view/terrain/procedural.ts`, codice aperto, nessuna grafica licenziata): dalla
+  sola griglia della faccia genera asfalto con crepe e segni di gomme, sabbia con dune e piante, pozze di
+  fango, roccia rossa sugli spazi invalicabili (spazi X vicini fanno un unico blocco, nastro giallo-nero
+  solo sul bordo esterno), linee della griglia e triangoli dei pericoli. Si usa quando mancano le mappe
+  ufficiali, oppure con `?terrain=procedural`; `?terrain=flat` mostra i chevron colorati. Circa 0,6 s per
+  faccia sul thread principale (da spostare in un worker).
 - Pagine di controllo locali: `assets/licensed/vector/_review.html` (scansione accanto al
   vettoriale) e `_terrain.html?face=2a&view=low` (una faccia in rilievo con auto).
