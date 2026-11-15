@@ -6,7 +6,7 @@
 import * as THREE from 'three';
 import type { SpinPart, Tint, WheelSpec } from '../../src/view/models3d';
 
-const DIR = '/assets/licensed/models/';
+const DIR = '/assets/models/';
 export const MODEL = {
   car: { S: `${DIR}Car_Small.glb`, M: `${DIR}Car_Medium.glb`, L: `${DIR}Car_Large.glb` },
   chopper: `${DIR}Chopper.glb`,

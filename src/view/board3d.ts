@@ -158,8 +158,8 @@ export function hazardToken(type: string, size: { length: number; depth: number;
   group: THREE.Group; setFaceUp: (up: boolean) => void; update: (dt: number) => void;
 } {
   const kx = size.length / 120, kz = size.depth / 100;
-  // Token outline (art.ts CHEVRON, 120 x 100), centred, in shape x / y = world x / -z.
-  const outline: [number, number][] = [[4, 4], [92, 4], [116, 50], [92, 96], [4, 96], [28, 50]];
+  // Token outline (art.ts CHEVRON, 120 x 100: a road space's shape), centred, in shape x / y = world x / -z.
+  const outline: [number, number][] = [[1.5, 1.5], [104.7, 1.5], [118.5, 50], [104.7, 98.5], [1.5, 98.5], [15.3, 50]];
   const shape = new THREE.Shape(outline.map(([x, y]) => new THREE.Vector2((x - 60) * kx, -(y - 50) * kz)));
   const card = new THREE.Mesh(new THREE.ExtrudeGeometry(shape, { depth: size.thickness * 0.96, bevelEnabled: false }),
     new THREE.MeshStandardMaterial({ color: 0x2a2622, roughness: 0.9 }));

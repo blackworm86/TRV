@@ -130,7 +130,9 @@ const carObjs = new Map<string, THREE.Group>();
 const chopperObjs = new Map<number, THREE.Group>();
 const hazardObjs = new Map<string, { type: string; obj: ReturnType<typeof hazardToken>; gone?: number }>();
 const HAZ = sizeOf(CAT, 'hazard_token');
-const HAZ_SIZE = { length: HAZ[1] * MM, depth: HAZ[0] * MM, thickness: HAZ[2] * MM };
+// A hazard token has the shape and size of a road space (asked by the user), so it covers it.
+const HAZ_FILL = 0.96;
+const HAZ_SIZE = { length: (GRID.pitch + GRID.tip) * KX * HAZ_FILL, depth: GRID.rowPitch * KZ * HAZ_FILL, thickness: HAZ[2] * MM };
 const markerGroup = new THREE.Group();
 scene.add(markerGroup);
 // Dice tray: this turn's FX dice roll onto the table just below the road.
@@ -138,7 +140,7 @@ const DIE_W = sizeOf(CAT, 'die')[0] * MM;
 // Rolled dice are shown at twice their size, so their faces read from the camera.
 const TRAY_SCALE = 2;
 const TRAY_Z = TILE_H / 2 + 0.9;
-interface TableDie { d: Die3D; from: THREE.Vector3; to: THREE.Vector3; q0: THREE.Quaternion; q1: THREE.Quaternion; t: number }
+interface TableDie { kind: string; d: Die3D; from: THREE.Vector3; to: THREE.Vector3; q0: THREE.Quaternion; q1: THREE.Quaternion; t: number }
 let trayDice: TableDie[] = [];
 const FORWARD = new THREE.Vector3(1, 0, 0), AWAY = new THREE.Vector3(0, 0, -1);
 const ringGeo = new THREE.RingGeometry(0.42, 0.56, 32);
@@ -292,7 +294,7 @@ function dieUsable(i: number): boolean {
 
 // ---------------------------------------------------------------- drawing: 3D
 
-// Generated models (licensed folder, not in git): one per piece type, tinted with the crew colour.
+// Generated models (assets/models, made by the project owner): one per piece type, tinted with the crew colour.
 const models = new ModelBank();
 function collectMaterials(root: THREE.Object3D): THREE.MeshStandardMaterial[] {
   const out: THREE.MeshStandardMaterial[] = [];
@@ -365,7 +367,9 @@ function drawTable(s: Snapshot): void {
     if (rec && (rec.type !== h.type || rec.gone !== undefined)) { scene.remove(rec.obj.group); rec = undefined; }
     if (!rec) { rec = { type: h.type, obj: hazardToken(h.type, HAZ_SIZE) }; hazardObjs.set(k, rec); scene.add(rec.obj.group); }
     const [r, c] = k.split(',').map(Number);
+    // world() is the middle of the space's body; the token's box also holds the point, half a point further on.
     rec.obj.group.position.copy(world({ r, c })).setY(TILE_T + 0.003);
+    rec.obj.group.position.x += GRID.tip / 2 * KX;
     rec.obj.setFaceUp(h.faceUp);
   }
   // A hazard discarded after resolving (mine, wreck) stays face up for a moment, then goes.
@@ -399,8 +403,9 @@ function drawTable(s: Snapshot): void {
       target = world(v.pos).add(new THREE.Vector3(n * 0.12, (hz.has(k) ? HAZ_SIZE.thickness : 0) + n * 0.55, n * 0.08));
     } else target = startSpot(v);
     o.userData.target = target;
-    // Inoperable: upside down, smoking. A repair turns it back on its wheels.
+    // Inoperable: on one side (the game picks which, each time), smoking. A repair puts it back on its wheels.
     const inop = v.status === 'inop' && !v.isWreck;
+    if (inop && !o.userData.flip) o.userData.flipSide = Math.random() < 0.5 ? -1 : 1;
     o.userData.flip = inop ? 1 : 0;
     o.userData.height = o.userData.modelHeight ?? (v.isWreck ? ofKind(CAT, 'wreck')[0] : ofKind(CAT, 'car', { car_size: v.size })[0]).size_mm[2] * MM;
     if (inop) smokeOn(v.id, o, Infinity, false); else if (smokes.get(v.id)?.until === Infinity) smokeOff(v.id);
@@ -557,13 +562,16 @@ function flash(id: string): void {
 function rollOnTable(f: Frame): void {
   if (!f.die) return;
   if (trayFresh) { for (const t of trayDice) scene.remove(t.d.mesh); trayDice = []; trayFresh = false; }
-  const i = trayDice.length;
+  // One die per kind on the table: a new roll of the same die replaces the old one, in its place.
+  const old = trayDice.findIndex(t => t.kind === f.die!.die);
+  if (old >= 0) scene.remove(trayDice[old].d.mesh); // its materials are shared by every die: keep them
+  const i = old >= 0 ? old : trayDice.length;
   const car = f.snap.vehicles.find(v => v.id === f.snap.activeCar);
   const cx = THREE.MathUtils.clamp(car?.pos ? world(car.pos).x : BOARD_X0 + 2, BOARD_X0 + 1, BOARD_X0 + 2 * PITCH_W + TILE_W - 8);
   const d = makeDie(FACES, f.die.die, DIE_W);
   d.mesh.scale.setScalar(TRAY_SCALE);
   const step = DIE_W * TRAY_SCALE * 1.4;
-  const to = new THREE.Vector3(cx + (i % 10) * step, DIE_W * TRAY_SCALE / 2, TRAY_Z + Math.floor(i / 10) * step);
+  const to = old >= 0 ? trayDice[old].to.clone() : new THREE.Vector3(cx + (i % 10) * step, DIE_W * TRAY_SCALE / 2, TRAY_Z + Math.floor(i / 10) * step);
   const from = to.clone().add(new THREE.Vector3(-1.6 - Math.random(), 2.8, 1.4));
   const q1 = d.orientation(f.die.face, f.die.die === 'direction' ? FORWARD : AWAY)
     .premultiply(new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 1, 0), f.die.die === 'direction' ? 0 : (Math.random() - 0.5) * 0.4));
@@ -571,7 +579,7 @@ function rollOnTable(f: Frame): void {
   d.mesh.position.copy(from);
   d.mesh.quaternion.copy(q0);
   scene.add(d.mesh);
-  trayDice.push({ d, from, to, q0, q1, t: 0 });
+  trayDice[i] = { kind: f.die.die, d, from, to, q0, q1, t: 0 };
 }
 
 /** Start of a round: every crew rolls its movement dice, the first player rolls the road die. */
@@ -1144,13 +1152,15 @@ function drive(o: THREE.Object3D, dt: number, k: number, now: number): void {
   const turn = want - yaw;
   const newYaw = yaw + turn * Math.min(1, dt * rate);
   o.userData.yaw = newYaw;
-  // Flip over the long axis; while turning it hops, and upside down it rests on its roof.
+  // Tip over the long axis onto one side; while tipping it hops.
   const f = (o.userData.flipNow ?? 0) + (((o.userData.flip ?? 0) - (o.userData.flipNow ?? 0)) * k * 0.7);
   o.userData.flipNow = f;
   o.rotation.order = 'YXZ';
-  o.rotation.set(f * Math.PI, newYaw, 0);
+  o.rotation.set(f * (o.userData.flipSide ?? 1) * Math.PI / 2, newYaw, 0);
   const h = o.userData.height ?? 0.5;
-  o.position.y = (tg?.y ?? TILE_T) + f * h + Math.sin(f * Math.PI) * h * 1.2;
+  // On its side it rests on half its width; while tipping it hops.
+  const halfW = ((o.userData.modelSize as THREE.Vector3 | undefined)?.z ?? h) / 2;
+  o.position.y = (tg?.y ?? TILE_T) + f * halfW + Math.sin(f * Math.PI) * h * 0.8;
   const rig = o.userData.rig as CarRig | undefined;
   if (rig) {
     const fwd = speed * dt * (reverse ? -1 : 1);

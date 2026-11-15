@@ -121,7 +121,9 @@ export function dieSvg(f: DieFace, extra = ''): string {
 // ------------------------------------------------------------------------------- tokens
 
 /** Chevron outline pointing right (forward), in a 120 x 100 box. */
-const CHEVRON = 'M4 4 H92 L116 50 L92 96 H4 L28 50 Z';
+// Hazard token outline: the same chevron as a road space (pitch 233 + point 34, row 216 px, see
+// board3d GRID), in a 120 x 100 box, so a token covers its space exactly.
+const CHEVRON = 'M1.5 1.5 H104.7 L118.5 50 L104.7 98.5 H1.5 L15.3 50 Z';
 
 /** The red double triangle printed on hazard spaces and on the hazard token back. */
 export function hazardSymbol(cx: number, cy: number, s: number, color: string): string {

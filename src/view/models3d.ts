@@ -1,7 +1,7 @@
 // Generated 3D models (GLB) for the crews' pieces. One model per piece type, shared by every
 // crew: the model is neutral (light grey panels, dark metal) and the crew colour is applied at
 // draw time on the light, unsaturated panels. Models load at runtime; a missing file leaves the
-// procedural stand-in in place, so the table still works without the licensed files.
+// procedural stand-in in place, so the table still works without the model files.
 
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';

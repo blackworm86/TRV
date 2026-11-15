@@ -79,5 +79,5 @@ partita funziona.
 
 ## Modelli 3D
 
-- File in `assets/licensed/models/` (fuori da git); tutto ciò che li riguarda (misure sul tavolo, ruote, rotori, vetro, molle) è in `models-config.ts`.
+- File in `assets/models/` (creati dall'utente con Meshy, nel repository); tutto ciò che li riguarda (misure sul tavolo, ruote, rotori, vetro, molle) è in `models-config.ts`.
 - Pagina di controllo: `models.html` (aggiungi `?drive` per vedere le auto guidare avanti e indietro).
