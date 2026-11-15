@@ -1,22 +1,26 @@
 // PROTOTYPE - NOT FOR PRODUCTION
 // Partita hot seat di Thunder Road: Vendetta sul tavolo 3D. Le regole stanno tutte in
-// src/game/trv/engine.ts; questo file disegna lo stato e trasforma clic in scelte.
+// src/game/trv/engine.ts; i pezzi e le immagini vengono dal catalogo fisico
+// (src/game/trv/catalog.ts, src/view/pieces3d.ts). Questo file disegna e trasforma clic in scelte.
 // La grafica ufficiale si carica a runtime da assets/licensed/_derived/ (esclusa da git).
 
 import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import {
-  newGame, play, tileDef, ROWS, COLS, TILE_COLS,
-  type Game, type Decision, type Pos, type Vehicle, type Setup,
+  newGame, play, ROWS, COLS, TILE_COLS,
+  type Game, type Decision, type Pos, type Vehicle, type Setup, type LogEntry,
 } from '../../src/game/trv/engine';
+import {
+  BASE_CATALOG as CAT, sizeOf, roadTileImage, tokenImage, dieFaceImage, dashboardImage, commandBoardImage, ofKind,
+} from '../../src/game/trv/catalog';
+import { Pieces, TextureBank } from '../../src/view/pieces3d';
 import { newSeed } from '../../src/platform/entropy';
 
-const COLORS = ['#d8402f', '#2f6fd8', '#3aa64a', '#e2b523'];
-const SAVE_KEY = 'trv-hotseat-v1';
+const SAVE_KEY = 'trv-hotseat-v2';
 
 // ---------------------------------------------------------------- scene
 
-const panelH = (): number => Math.max(250, Math.min(320, innerHeight * 0.36));
+const panelH = (): number => Math.max(270, Math.min(340, innerHeight * 0.4));
 const renderer = new THREE.WebGLRenderer({ antialias: true });
 renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
 renderer.shadowMap.enabled = true;
@@ -30,7 +34,7 @@ const camera = new THREE.PerspectiveCamera(32, 1, 0.1, 200);
 const controls = new OrbitControls(camera, renderer.domElement);
 controls.enableDamping = true;
 controls.maxPolarAngle = 1.2;
-controls.minDistance = 6;
+controls.minDistance = 4;
 controls.maxDistance = 90;
 
 scene.add(new THREE.HemisphereLight(0xfff1dc, 0x3a2414, 1.0));
@@ -38,7 +42,7 @@ const lamp = new THREE.DirectionalLight(0xffe2b8, 2.2);
 lamp.position.set(-10, 30, 14);
 lamp.castShadow = true;
 lamp.shadow.mapSize.set(4096, 2048);
-Object.assign(lamp.shadow.camera, { left: -30, right: 30, top: 14, bottom: -14 });
+Object.assign(lamp.shadow.camera, { left: -30, right: 30, top: 16, bottom: -16 });
 lamp.shadow.bias = -0.0004;
 scene.add(lamp);
 
@@ -47,10 +51,14 @@ table.rotation.x = -Math.PI / 2;
 table.receiveShadow = true;
 scene.add(table);
 
-// Tile geometry, measured on the tile images (2000 px wide copy).
-const TILE_W = 13.14, TILE_H = 10, TILE_T = 0.12;
-const IMG_W = 2000, IMG_H = 1522;
+// One scale for the whole table: world units per millimetre, from the road tile's length.
+const TILE_MM = sizeOf(CAT, 'road_tile');
+const MM = 13.14 / TILE_MM[0];
+const TILE_W = TILE_MM[0] * MM, TILE_H = TILE_MM[1] * MM, TILE_T = TILE_MM[2] * MM;
+const IMG_W = 2000, IMG_H = 1522; // space grid measured on a 2000 px copy of the tile image
 const BOARD_X0 = -1.5 * TILE_W;
+const bank = new TextureBank(renderer.capabilities.getMaxAnisotropy());
+const pieces = new Pieces(MM, bank);
 
 function world(p: Pos): THREE.Vector3 {
   const slot = Math.floor(p.c / TILE_COLS);
@@ -61,117 +69,41 @@ function world(p: Pos): THREE.Vector3 {
   return new THREE.Vector3(BOARD_X0 + slot * TILE_W + u * TILE_W, TILE_T, (v - 0.5) * TILE_H);
 }
 
-const loader = new THREE.TextureLoader();
-const texCache = new Map<string, THREE.Texture>();
-let artMissing = false;
-function tileTexture(image: string, onLoad: (t: THREE.Texture) => void): void {
-  const hit = texCache.get(image);
-  if (hit) { onLoad(hit); return; }
-  loader.load(`/assets/licensed/_derived/tiles/${image}.png`, t => {
-    t.colorSpace = THREE.SRGBColorSpace;
-    t.anisotropy = renderer.capabilities.getMaxAnisotropy();
-    texCache.set(image, t);
-    onLoad(t);
-  }, undefined, () => { artMissing = true; drawPanel(); });
-}
-
-const tileMeshes = [0, 1, 2].map(i => {
-  const m = new THREE.Mesh(new THREE.PlaneGeometry(TILE_W, TILE_H),
-    new THREE.MeshStandardMaterial({ color: 0x888888, roughness: 0.85, transparent: true, alphaTest: 0.5 }));
-  m.rotation.x = -Math.PI / 2;
-  m.position.set(BOARD_X0 + (i + 0.5) * TILE_W, TILE_T, 0);
-  m.receiveShadow = true;
-  scene.add(m);
-  return m;
+const tiles = [0, 1, 2].map(i => {
+  const t = pieces.roadTile(TILE_MM);
+  t.group.position.set(BOARD_X0 + (i + 0.5) * TILE_W, 0, 0);
+  scene.add(t.group);
+  return t;
 });
-const tileShown = ['', '', ''];
 
 const pickPlane = new THREE.Mesh(new THREE.PlaneGeometry(140, 80), new THREE.MeshBasicMaterial({ visible: false }));
 pickPlane.rotation.x = -Math.PI / 2;
 pickPlane.position.y = TILE_T;
 scene.add(pickPlane);
 
-// Finish line, shown beyond the lead tile when it is the final tile.
+// Finish line: the catalog has no art for it yet, so a chequered stand-in at catalog size.
 function checker(): THREE.CanvasTexture {
   const c = document.createElement('canvas'); c.width = 64; c.height = 448;
   const x2 = c.getContext('2d')!;
   for (let y = 0; y < 28; y++) for (let x = 0; x < 4; x++) { x2.fillStyle = (x + y) % 2 ? '#111' : '#eee'; x2.fillRect(x * 16, y * 16, 16, 16); }
   const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; return t;
 }
-const finish = new THREE.Mesh(new THREE.PlaneGeometry(1.4, TILE_H * 0.86), new THREE.MeshStandardMaterial({ map: checker() }));
+const FIN = sizeOf(CAT, 'finish_line');
+const finish = new THREE.Mesh(new THREE.PlaneGeometry(FIN[0] * MM, FIN[1] * MM * 0.86), new THREE.MeshStandardMaterial({ map: checker() }));
 finish.rotation.x = -Math.PI / 2;
-finish.position.set(BOARD_X0 + 3 * TILE_W + 0.8, TILE_T, 0.6);
+finish.position.set(BOARD_X0 + 3 * TILE_W + FIN[0] * MM / 2, TILE_T, 0.6);
 scene.add(finish);
 
-// ---------------------------------------------------------------- pieces
-
-function carMesh(color: string, scale: number, wreck: boolean): THREE.Group {
-  const s = new THREE.Shape();
-  const L = 1.05, W = 0.6, r = 0.14;
-  s.moveTo(-L / 2 + r, -W / 2); s.lineTo(L / 2 - 0.28, -W / 2); s.lineTo(L / 2, 0); s.lineTo(L / 2 - 0.28, W / 2);
-  s.lineTo(-L / 2 + r, W / 2); s.quadraticCurveTo(-L / 2, W / 2, -L / 2, W / 2 - r);
-  s.lineTo(-L / 2, -W / 2 + r); s.quadraticCurveTo(-L / 2, -W / 2, -L / 2 + r, -W / 2);
-  const body = new THREE.Mesh(
-    new THREE.ExtrudeGeometry(s, { depth: 0.22, bevelEnabled: true, bevelSize: 0.04, bevelThickness: 0.04, bevelSegments: 2 }),
-    new THREE.MeshStandardMaterial({ color: wreck ? 0x3a3530 : color, roughness: wreck ? 0.95 : 0.45, metalness: 0.15 }),
-  );
-  body.rotation.x = -Math.PI / 2;
-  body.castShadow = true;
-  const cab = new THREE.Mesh(new THREE.BoxGeometry(0.38, 0.14, 0.42), new THREE.MeshStandardMaterial({ color: wreck ? 0x1d1a17 : 0x222831 }));
-  cab.position.set(-0.05, 0.33, 0);
-  cab.castShadow = true;
-  const grp = new THREE.Group();
-  grp.add(body, cab);
-  grp.scale.setScalar(scale);
-  return grp;
-}
-
-function chopperMesh(color: string): THREE.Group {
-  const grp = new THREE.Group();
-  const mat = new THREE.MeshStandardMaterial({ color, roughness: 0.4 });
-  const body = new THREE.Mesh(new THREE.SphereGeometry(0.3, 16, 12), mat);
-  body.scale.set(1.4, 0.8, 0.9);
-  const tail = new THREE.Mesh(new THREE.BoxGeometry(0.7, 0.08, 0.08), mat);
-  tail.position.set(-0.6, 0.05, 0);
-  const rotor = new THREE.Group();
-  for (const a of [0, Math.PI / 2]) {
-    const b = new THREE.Mesh(new THREE.BoxGeometry(1.5, 0.03, 0.08), new THREE.MeshStandardMaterial({ color: 0x222222 }));
-    b.rotation.y = a; rotor.add(b);
-  }
-  rotor.position.y = 0.32;
-  rotor.name = 'rotor';
-  grp.add(body, tail, rotor);
-  grp.traverse(o => { o.castShadow = true; });
-  return grp;
-}
-
-const HAZ_STYLE: Record<string, [string, string]> = {
-  mud: ['#4a2e1c', 'FANGO'], road: ['#666', 'STRADA'], oil: ['#2a2a3a', 'OLIO'], mine: ['#151515', 'MINA'], wreck: ['#151515', 'RELITTO'],
-};
-const hazTex = new Map<string, THREE.CanvasTexture>();
-function hazardTexture(kind: string): THREE.CanvasTexture {
-  const hit = hazTex.get(kind); if (hit) return hit;
-  const c = document.createElement('canvas'); c.width = c.height = 128;
-  const x2 = c.getContext('2d')!;
-  if (kind === 'down') {
-    x2.fillStyle = '#b8262b'; x2.fillRect(0, 0, 128, 128);
-    x2.strokeStyle = '#fff'; x2.lineWidth = 8;
-    x2.beginPath(); x2.moveTo(64, 22); x2.lineTo(108, 100); x2.lineTo(20, 100); x2.closePath(); x2.stroke();
-  } else {
-    const [bg, label] = HAZ_STYLE[kind];
-    x2.fillStyle = bg; x2.fillRect(0, 0, 128, 128);
-    x2.strokeStyle = '#e33'; x2.lineWidth = 6; x2.strokeRect(3, 3, 122, 122);
-    x2.fillStyle = '#fff'; x2.font = 'bold 26px Impact, sans-serif'; x2.textAlign = 'center'; x2.fillText(label, 64, 74);
-  }
-  const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; hazTex.set(kind, t); return t;
-}
+// ---------------------------------------------------------------- pieces on the table
 
 const carObjs = new Map<string, THREE.Group>();
 const chopperObjs = new Map<number, THREE.Group>();
-const hazardGroup = new THREE.Group();
-scene.add(hazardGroup);
+const hazardObjs = new Map<string, { key: string; type: string; obj: ReturnType<Pieces['token']> }>();
+const HAZ_SIZE = sizeOf(CAT, 'hazard_token');
+const TOKEN_T = HAZ_SIZE[2] * MM;
+const tray = new THREE.Group();
+scene.add(tray);
 
-// Option markers.
 const markerGroup = new THREE.Group();
 scene.add(markerGroup);
 const ringGeo = new THREE.RingGeometry(0.42, 0.56, 32);
@@ -185,6 +117,8 @@ let saved: Saved | null = null;
 let g: Game | null = null;
 let gen: Generator<Decision, void, number> | null = null;
 let decision: Decision | null = null;
+
+function crewOf(player: number): string { return g?.players[player]?.crew ?? CAT.crews[player].id; }
 
 function startGame(s: Saved): void {
   saved = s;
@@ -234,15 +168,28 @@ function startSpot(v: Vehicle): THREE.Vector3 {
 
 function render(): void {
   if (!g) return;
-  g.board.forEach((t, i) => {
-    const img = tileDef(t).image;
-    if (tileShown[i] === img) return;
-    tileShown[i] = img;
-    const mat = tileMeshes[i].material as THREE.MeshStandardMaterial;
-    tileTexture(img, tex => { if (tileShown[i] === img) { mat.map = tex; mat.color.set(0xffffff); mat.needsUpdate = true; } });
-  });
+  g.board.forEach((t, i) => tiles[i].setFace(roadTileImage(CAT, t.tile, t.side)));
   finish.visible = g.finalTile;
 
+  // Hazard tokens: official front when face up, shared back when face down.
+  const live = new Set<string>();
+  for (const [k, h] of g.hazards) {
+    live.add(k);
+    let rec = hazardObjs.get(k);
+    if (rec && rec.type !== h.type) { scene.remove(rec.obj.group); rec = undefined; }
+    if (!rec) {
+      const obj = pieces.token(HAZ_SIZE, tokenImage(CAT, 'hazard_token', h.type, true), tokenImage(CAT, 'hazard_token', null, false));
+      rec = { key: k, type: h.type, obj };
+      hazardObjs.set(k, rec);
+      scene.add(obj.group);
+    }
+    const [r, c] = k.split(',').map(Number);
+    rec.obj.group.position.copy(world({ r, c })).setY(TILE_T + 0.002);
+    rec.obj.setFaceUp(h.faceUp);
+  }
+  for (const [k, rec] of hazardObjs) if (!live.has(k)) { scene.remove(rec.obj.group); hazardObjs.delete(k); }
+
+  // Cars and wrecks, stacked by slam order.
   const seen = new Set<string>();
   const stackCount = new Map<string, number>();
   const ordered = [...g.vehicles].filter(v => v.status !== 'elim').sort((a, b) => a.z - b.z);
@@ -250,8 +197,8 @@ function render(): void {
     seen.add(v.id);
     let o = carObjs.get(v.id);
     if (!o) {
-      const scale = { S: 0.82, M: 1.0, L: 1.2 }[v.size];
-      o = carMesh(v.owner === null ? '#333' : g.players[v.owner].color, scale, v.isWreck);
+      const comp = v.isWreck ? ofKind(CAT, 'wreck')[0] : ofKind(CAT, 'car', { car_size: v.size })[0];
+      o = pieces.car(comp.size_mm, v.owner === null ? '#333' : g.players[v.owner].color, v.isWreck);
       carObjs.set(v.id, o);
       scene.add(o);
       o.position.copy(v.pos ? world(v.pos) : startSpot(v));
@@ -261,7 +208,8 @@ function render(): void {
       const k = `${v.pos.r},${v.pos.c}`;
       const n = stackCount.get(k) ?? 0;
       stackCount.set(k, n + 1);
-      target = world(v.pos).add(new THREE.Vector3(n * 0.12, n * 0.34, n * 0.08));
+      const onToken = g.hazards.has(k) ? TOKEN_T : 0;
+      target = world(v.pos).add(new THREE.Vector3(n * 0.12, onToken + n * 0.55, n * 0.08));
     } else target = startSpot(v);
     o.userData.target = target;
     o.userData.yaw = v.status === 'inop' && !v.isWreck ? Math.PI : 0;
@@ -272,22 +220,39 @@ function render(): void {
   for (const p of g.players) {
     let o = chopperObjs.get(p.id);
     if (!p.chopper) { if (o) { scene.remove(o); chopperObjs.delete(p.id); } continue; }
-    if (!o) { o = chopperMesh(p.color); chopperObjs.set(p.id, o); scene.add(o); o.position.copy(world(p.chopper)).setY(4); }
+    if (!o) { o = pieces.chopper(sizeOf(CAT, 'chopper'), p.color); chopperObjs.set(p.id, o); scene.add(o); o.position.copy(world(p.chopper)).setY(4); }
     o.userData.target = world(p.chopper).setY(1.25);
   }
 
-  hazardGroup.clear();
-  for (const [k, h] of g.hazards) {
-    const [r, c] = k.split(',').map(Number);
-    const m = new THREE.Mesh(new THREE.PlaneGeometry(0.62, 0.62), new THREE.MeshStandardMaterial({ map: hazardTexture(h.faceUp ? h.type : 'down') }));
-    m.rotation.x = -Math.PI / 2;
-    m.position.copy(world({ r, c })).add(new THREE.Vector3(-0.32, 0.02, 0.26));
-    m.receiveShadow = true;
-    hazardGroup.add(m);
-  }
-
+  drawTray();
   drawMarkers();
   drawPanel();
+}
+
+/** Dice tray under the board: the current player's movement dice and this turn's FX dice. */
+function drawTray(): void {
+  tray.clear();
+  if (!g) return;
+  const z = TILE_H / 2 + 1.0;
+  const pl = g.players[decision ? decision.player : g.current];
+  const mv = ofKind(CAT, 'die', { die: 'movement' })[0];
+  pl.dice.forEach((n, i) => {
+    const d = pieces.die(mv.size_mm[0], [1, 2, 3, 4, 5, 6], pl.color, false);
+    d.show(n - 1, (i - 1.5) * 0.15);
+    d.mesh.position.set(BOARD_X0 + 1 + i * 0.95, mv.size_mm[0] * MM / 2, z);
+    if (pl.used[i]) { d.mesh.position.z += 0.9; (d.mesh.material as THREE.MeshStandardMaterial[]).forEach(m => { m.transparent = true; m.opacity = 0.35; }); }
+    tray.add(d.mesh);
+  });
+  const fx = g.lastRoll.slice(-8);
+  fx.forEach((r, i) => {
+    const comp = ofKind(CAT, 'die', { die: r.die })[0];
+    if (!comp?.face_images) return;
+    const urls = comp.face_images.map(f => `/${CAT.roots[comp.module]}/${f}.png`);
+    const d = pieces.die(comp.size_mm[0], urls, '#888', r.die === 'direction');
+    d.show(r.face);
+    d.mesh.position.set(BOARD_X0 + 6 + i * 0.95, comp.size_mm[0] * MM / 2, z);
+    tray.add(d.mesh);
+  });
 }
 
 function drawMarkers(): void {
@@ -300,16 +265,23 @@ function drawMarkers(): void {
     if (o.pos) at = world(o.pos);
     else if (o.carId) { const obj = carObjs.get(o.carId); if (obj) at = (obj.userData.target as THREE.Vector3).clone(); }
     if (!at) return;
-    // Several options on one spot (assign: 4 dice on one car) share the first marker.
     if (markers.some(m => m.at.distanceTo(at!) < 0.05)) return;
     const color = o.danger ? 0xff3b30 : d.kind === 'shoot' ? 0xffd23a : 0x4cff7a;
     const mesh = new THREE.Mesh(ringGeo, new THREE.MeshBasicMaterial({ color, transparent: true, opacity: 0.9, side: THREE.DoubleSide, depthTest: false }));
     mesh.rotation.x = -Math.PI / 2;
-    mesh.position.copy(at).setY(TILE_T + 0.05);
+    mesh.position.copy(at).setY(TILE_T + 0.08);
     mesh.renderOrder = 10;
     markerGroup.add(mesh);
     markers.push({ mesh, option: i, at });
   });
+}
+
+function diceHtml(e: LogEntry): string {
+  if (!e.dice) return '';
+  return e.dice.map(d => {
+    const url = dieFaceImage(CAT, d.die, d.face);
+    return url ? `<img class="face" src="${url}" alt="${esc(String(d.value))}">` : '';
+  }).join('');
 }
 
 let winShown = false;
@@ -323,45 +295,47 @@ function drawPanel(): void {
   const opts = $('opts');
   opts.innerHTML = '';
   if (d) {
-    if (d.kind === 'airstrike') {
-      opts.innerHTML = '<i>Clicca un anello verde sul tavolo.</i>';
-    } else {
-      d.options.forEach((o, i) => {
-        const b = document.createElement('button');
-        b.textContent = o.label;
-        if (o.danger) b.className = 'danger';
-        if (/^(Non sparare|Nessun comando|No, fermati|Tieni)/.test(o.label)) b.className = 'quiet';
-        b.onclick = () => choose(i);
-        b.onmouseenter = () => hover(i);
-        b.onmouseleave = () => hover(-1);
-        opts.appendChild(b);
-      });
-    }
+    if (d.kind === 'airstrike') opts.innerHTML = '<i>Clicca un anello verde sul tavolo.</i>';
+    else d.options.forEach((o, i) => {
+      const b = document.createElement('button');
+      b.textContent = o.label;
+      if (o.danger) b.className = 'danger';
+      if (/^(Non sparare|Nessun comando|No, fermati|Tieni)/.test(o.label)) b.className = 'quiet';
+      b.onclick = () => choose(i);
+      b.onmouseenter = () => hover(i);
+      b.onmouseleave = () => hover(-1);
+      opts.appendChild(b);
+    });
   }
   ($('undo') as HTMLButtonElement).disabled = !saved?.choices.length;
 
+  // Players: command board, dashboards (back when inoperable) with face-down damage tokens.
+  const dmgBack = tokenImage(CAT, 'damage_token', null, false);
   $('players').innerHTML = g.players.map(p => {
+    const crew = crewOf(p.id);
     const cars = g!.vehicles.filter(v => v.owner === p.id).map(v => {
-      const name = { S: 'Piccola', M: 'Media', L: 'Grande' }[v.size];
-      const st = v.status === 'elim' ? 'eliminata' : v.status === 'inop' ? 'fuori uso' : v.inStart ? 'partenza' : v.moved ? 'mossa' : 'pronta';
-      return `<span class="car ${v.status}">${name}: ${'●'.repeat(v.damage.length)}${'○'.repeat(Math.max(0, 2 - v.damage.length))} ${st}</span>`;
+      const img = dashboardImage(CAT, crew, v.size, v.status !== 'inop');
+      const tokens = v.damage.map(() => `<img class="dmg" src="${dmgBack}" alt="danno">`).join('');
+      const st = v.status === 'elim' ? 'eliminata' : v.status === 'inop' ? 'fuori uso' : v.inStart ? 'in partenza' : v.moved ? 'mossa' : v.coasts ? `inerzia ×${v.coasts}` : 'pronta';
+      return `<div class="dash ${v.status}" title="${st}"><img src="${img}" alt="cruscotto ${v.size}"><div class="dmgs">${tokens}</div><span>${st}</span></div>`;
     }).join('');
-    const dice = p.dice.map((n, i) => `<span class="die ${p.used[i] ? 'used' : ''}">${n}</span>`).join('');
+    const dice = p.dice.map((n, i) => `<span class="die ${p.used[i] ? 'used' : ''}" style="background:${p.color}">${n}</span>`).join('');
     const cur = d && d.player === p.id ? 'cur' : '';
     return `<div class="pl ${cur} ${p.out ? 'out' : ''}" style="border-color:${p.color}">
-      <b>${esc(p.name)}</b>${p.out ? ' — fuori' : ''}<span class="dice">${dice}</span>
-      ${p.commandUsed ? ' <small>comando usato</small>' : ''}${p.chopper ? ' <small>elicottero in campo</small>' : ''}
+      <div class="plhead"><b>${esc(p.name)}</b>${p.out ? ' — fuori' : ''}<span class="dice">${dice}</span>
+      <img class="cmd ${p.commandUsed ? 'used' : ''}" src="${commandBoardImage(CAT, crew)}" alt="plancia comandi" title="${p.commandUsed ? 'comando già usato in questo round' : 'comando disponibile'}">
+      ${p.chopper ? '<small>elicottero in campo</small>' : ''}</div>
       <div class="cars">${cars}</div></div>`;
   }).join('');
 
   const log = $('log');
-  log.innerHTML = g.log.slice(-160).map(e => `<div class="${e.kind}">${esc(e.text)}</div>`).join('');
+  log.innerHTML = g.log.slice(-160).map(e => `<div class="${e.kind}">${diceHtml(e)}${esc(e.text)}</div>`).join('');
   log.scrollTop = log.scrollHeight;
 
   const names = g.board.map(t => `${t.tile}${t.side}`).join(' · ');
   $('status').innerHTML = `<span class="big">Round ${g.round}</span> &nbsp;Dado strada: <b>${g.roadDie}</b>
     &nbsp;·&nbsp; Tessere: ${names}${g.finalTile ? ' · <b>tessera finale!</b>' : ` · ${g.tilesPlaced}ª posata`}
-    ${artMissing ? '<br><small>Grafica ufficiale non trovata in assets/licensed/_derived/tiles/</small>' : ''}`;
+    ${bank.missing.size ? '<br><small>Grafica ufficiale mancante: lancia python tools/assets/extract_base.py</small>' : ''}`;
 
   if (g.winner !== null && !winShown) {
     winShown = true;
@@ -410,6 +384,18 @@ function markerAt(e: PointerEvent): Marker | null {
   return best;
 }
 
+// Setup screen: one crew per player, from the catalog (expansions add crews).
+const crewSelects: HTMLSelectElement[] = [];
+for (let i = 0; i < 4; i++) {
+  const sel = document.createElement('select');
+  sel.innerHTML = CAT.crews.map(c => `<option value="${c.id}">${esc(c.name)}</option>`).join('');
+  sel.value = CAT.crews[i].id;
+  crewSelects.push(sel);
+  const name = $(`n${i}`) as HTMLInputElement;
+  name.value = CAT.crews[i].name;
+  name.after(sel);
+}
+
 $('undo').onclick = undo;
 $('newgame').onclick = () => { $('setup').style.display = 'grid'; };
 $('view').onclick = () => fit();
@@ -418,14 +404,22 @@ $('close').onclick = () => { $('win').style.display = 'none'; };
 $('np').onchange = () => syncNames();
 function syncNames(): void {
   const n = Number(($('np') as HTMLSelectElement).value);
-  for (let i = 0; i < 4; i++) ($(`n${i}`) as HTMLInputElement).style.visibility = i < n ? 'visible' : 'hidden';
+  for (let i = 0; i < 4; i++) {
+    ($(`n${i}`) as HTMLInputElement).style.visibility = i < n ? 'visible' : 'hidden';
+    crewSelects[i].style.visibility = i < n ? 'visible' : 'hidden';
+  }
 }
 syncNames();
 $('start').onclick = () => {
+  const n = Number(($('np') as HTMLSelectElement).value);
+  const crews = crewSelects.slice(0, n).map(s => s.value);
+  if (new Set(crews).size !== crews.length) { alert('Ogni giocatore deve avere un colore diverso.'); return; }
   const seed = newSeed();
   if (!seed.ok) { alert('Il browser non fornisce numeri casuali sicuri: impossibile iniziare.'); return; }
-  const n = Number(($('np') as HTMLSelectElement).value);
-  const players = Array.from({ length: n }, (_, i) => ({ name: ($(`n${i}`) as HTMLInputElement).value.trim() || `Giocatore ${i + 1}`, color: COLORS[i] }));
+  const players = crews.map((crew, i) => {
+    const c = CAT.crews.find(x => x.id === crew)!;
+    return { name: ($(`n${i}`) as HTMLInputElement).value.trim() || c.name, color: c.color, crew };
+  });
   for (const o of carObjs.values()) scene.remove(o);
   carObjs.clear();
   for (const o of chopperObjs.values()) scene.remove(o);
@@ -445,11 +439,11 @@ function fit(): void {
   renderer.setSize(innerWidth, h);
   camera.aspect = innerWidth / h;
   camera.updateProjectionMatrix();
-  const target = new THREE.Vector3(-1.2, 0, 0.4);
+  const target = new THREE.Vector3(-1.2, 0, 1.0);
   const dir = new THREE.Vector3(0, 1, 0.42).normalize();
   const vfov = THREE.MathUtils.degToRad(camera.fov);
   const hfov = 2 * Math.atan(Math.tan(vfov / 2) * camera.aspect);
-  const needW = 3 * TILE_W + 3.6, needH = TILE_H + 1.2;
+  const needW = 3 * TILE_W + 3.6, needH = TILE_H + 3.2;
   const dist = Math.max(needW / 2 / Math.tan(hfov / 2), needH / 2 / Math.tan(vfov / 2) / dir.y) * 1.02;
   camera.position.copy(target).addScaledVector(dir, dist);
   controls.target.copy(target);
@@ -493,5 +487,5 @@ try {
 // For automated checks.
 (window as unknown as { trv: object }).trv = {
   get game() { return g; }, get decision() { return decision; }, choose, undo,
-  get rows() { return ROWS; }, get cols() { return COLS; },
+  get rows() { return ROWS; }, get cols() { return COLS; }, get missingArt() { return [...bank.missing]; },
 };

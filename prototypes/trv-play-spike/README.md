@@ -6,8 +6,9 @@ con le regole del regolamento applicate dal motore (`src/game/trv/engine.ts`) e 
 che sceglie solo tra mosse legali (anelli sul tavolo o pulsanti).
 
 **Come si avvia**: `npm run dev`, poi apri `http://localhost:5173/prototypes/trv-play-spike/`.
-Serve la grafica in `assets/licensed/_derived/tiles/` (locale, esclusa da git); senza, le tessere
-restano grigie ma la partita funziona.
+Serve la grafica estratta in `assets/licensed/_derived/base/` (locale, esclusa da git): chi possiede i
+file ufficiali la rigenera con `python tools/assets/extract_base.py`. Senza, i pezzi restano grigi ma la
+partita funziona.
 
 **Stato**: in corso.
 
@@ -18,6 +19,12 @@ restano grigie ma la partita funziona.
   ritiro per il veicolo più grande, sparo, segnalini danno, elicotteri, avanzamento delle tessere,
   tessera finale, traguardo, vittoria per ultimo superstite.
 - "Annulla ultima scelta" e ripresa automatica della partita (seed + scelte in localStorage).
+
+## Asset
+Tutti i pezzi vengono dal catalogo fisico `data/trv/catalog_base.json` (quantità, misure in mm, immagini
+fronte/retro) tramite `src/game/trv/catalog.ts` e `src/view/pieces3d.ts`: tessere, segnalini pericolo
+ufficiali sul tavolo, dadi 3D con le facce ufficiali, cruscotti e plance comando delle crew nel pannello,
+facce dei dadi nella cronaca. Le misure sono stime (`measured: false`) finché non vengono misurate.
 
 ## Interpretazioni provvisorie (da confermare con l'utente)
 - Sbandata: i 4 segnalini delle scansioni mostrano tutti "avanti"; il regolamento dice "6 segnalini diversi".

@@ -49,6 +49,8 @@ export interface Player {
   commandUsed: boolean;
   out: boolean;
   chopper: Pos | null;
+  /** Catalog crew id (colour set of boards and pieces), if the interface chose one. */
+  crew?: string;
 }
 
 export interface TileRef { tile: number; side: 'a' | 'b' }
@@ -71,7 +73,10 @@ export interface Decision {
   options: Option[];
 }
 
-export interface LogEntry { text: string; kind: 'info' | 'dice' | 'bad' | 'good' | 'turn' }
+/** A die as rolled: which die and the face index (into the face lists of game_base.json). */
+export interface RolledDie { die: string; face: number; value: string | number }
+
+export interface LogEntry { text: string; kind: 'info' | 'dice' | 'bad' | 'good' | 'turn'; dice?: RolledDie[] }
 
 export interface Game {
   rng: RngState;
@@ -96,12 +101,14 @@ export interface Game {
   /** The car moving this turn, for the UI. */
   activeCar: string | null;
   /** The last dice rolled, for the UI. */
-  lastRoll: { die: string; value: string | number }[];
+  lastRoll: RolledDie[];
+  /** FX dice rolled since the last log line, attached to the next 'dice' line. */
+  pendingDice: RolledDie[];
 }
 
 export interface Setup {
   seed: string;
-  players: { name: string; color: string }[];
+  players: { name: string; color: string; crew?: string }[];
   startSide: 'a' | 'b';
 }
 
@@ -133,7 +140,7 @@ const COMMAND_NAME: Record<CommandId, string> = {
   airstrike: 'Attacco aereo', nitro: 'Nitro', drift: 'Drift', repair: 'Riparazione',
 };
 
-interface TileDef { tile: number; side: string; name: string; image: string; terrain: string[]; hazards: unknown[][] }
+interface TileDef { tile: number; side: string; name: string; terrain: string[]; hazards: unknown[][] }
 const TILES = base.tiles as unknown as TileDef[];
 
 /** The definition of a tile face. */
@@ -207,7 +214,9 @@ function rollFx<K extends 'road' | 'stunt' | 'slam' | 'shooting' | 'direction'>(
   const faces = DICE[die];
   const [f] = rollDice(g, [{ id: die, n: faces.length }], cause);
   const v = faces[f] as (typeof DICE)[K][number];
-  g.lastRoll.push({ die, value: v as string | number });
+  const rolled = { die, face: f, value: v as string | number };
+  g.lastRoll.push(rolled);
+  g.pendingDice.push(rolled);
   return v;
 }
 
@@ -220,7 +229,10 @@ function shuffled<T>(g: Game, items: T[], pileId: string): T[] {
 }
 
 function say(g: Game, text: string, kind: LogEntry['kind'] = 'info'): void {
-  g.log.push({ text, kind });
+  if (kind === 'dice' && g.pendingDice.length) {
+    g.log.push({ text, kind, dice: g.pendingDice });
+    g.pendingDice = [];
+  } else g.log.push({ text, kind });
 }
 
 function* ask(d: Decision): Gen<number> {
@@ -240,10 +252,11 @@ export function newGame(s: Setup): Game {
   const g: Game = {
     rng: r.value, players: [], vehicles: [], board: [], pile: [], tilesPlaced: 3, finalTile: false,
     hazards: new Map(), hazardPile: [], hazardDiscard: [], damagePile: [], round: 0, firstPlayer: 0,
-    current: 0, roadDie: 0, winner: null, log: [], zTop: 0, activeCar: null, lastRoll: [],
+    current: 0, roadDie: 0, winner: null, log: [], zTop: 0, activeCar: null, lastRoll: [], pendingDice: [],
   };
   s.players.forEach((p, i) => {
-    g.players.push({ id: i, name: p.name, color: p.color, dice: [], used: [], commandUsed: false, out: false, chopper: null });
+    g.players.push({ id: i, name: p.name, color: p.color, dice: [], used: [], commandUsed: false, out: false, chopper: null,
+      ...(p.crew ? { crew: p.crew } : {}) });
     for (const size of ['S', 'M', 'L'] as Size[]) {
       g.vehicles.push({ id: `p${i}${size}`, owner: i, size, isWreck: false, pos: null, inStart: true,
         status: 'ok', damage: [], moved: false, coasts: 0, z: 0 });
