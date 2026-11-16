@@ -18,6 +18,7 @@ export const TERRAIN_STYLE: Record<string, { fill: string; name: string }> = {
   P: { fill: PALETTE.ramp, name: 'Rampa' },
   F: { fill: PALETTE.fire, name: 'Fuoco' },
   S: { fill: PALETTE.saltFlats, name: 'Saline' },
+  O: { fill: '#1a1820', name: 'Chiazza d’olio' },
 };
 
 /** Options of {@link tileSvg} and {@link mapSvg}. */

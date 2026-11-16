@@ -7,11 +7,14 @@
 // Everything is deterministic: the same face, player count and seed give the same maps. Pure
 // TypeScript on typed arrays, no DOM and no three.js, so it runs in unit tests and in a worker.
 
-import { GRID, type TileData } from '../tile-grid';
+import { GRID, spaceCenterPx, type TileData } from '../tile-grid';
 
 type Rgb = [number, number, number];
-/** R road, o off-road, M mud, X impassable; Carnage at Devil's Run: G toxic goo, D desert glass, P ramp, F fire, S salt flats. */
-type Kind = 'R' | 'o' | 'M' | 'X' | 'G' | 'D' | 'P' | 'F' | 'S';
+/**
+ * R road, o off-road, M mud, X impassable; Carnage at Devil's Run: G toxic goo, D desert glass, P ramp,
+ * F fire, S salt flats; O: an oil slick on asphalt (a revealed Oil Slick hazard, drawn on the space).
+ */
+type Kind = 'R' | 'o' | 'M' | 'X' | 'G' | 'D' | 'P' | 'F' | 'S' | 'O';
 
 /** Look of the procedural terrain. Heights in height units: -1 is the tile's cardboard top. */
 export interface TerrainStyle {
@@ -27,6 +30,8 @@ export interface TerrainStyle {
   glass: [Rgb, Rgb]; glassGlint: Rgb;
   salt: [Rgb, Rgb]; saltCrack: Rgb;
   scorch: [Rgb, Rgb]; ash: Rgb; ember: Rgb;
+  /** Oil slick: the dark oil and the rainbow sheen on it. */
+  oil: Rgb; sheen: [Rgb, Rgb, Rgb];
   plant: [Rgb, Rgb];
   line: Rgb; tape: [Rgb, Rgb]; hazard: Rgb;
   rough: Record<Kind, number>;
@@ -36,7 +41,7 @@ export interface TerrainStyle {
 
 /** Default look, sampled from the colours of the printed tiles. */
 export const TERRAIN_STYLE: TerrainStyle = {
-  height: { R: 0, o: 1, M: -0.85, X: 0.45, G: -0.6, D: 0.15, P: 0.7, F: 0.25, S: 0.2 },
+  height: { R: 0, o: 1, M: -0.85, X: 0.45, G: -0.6, D: 0.15, P: 0.7, F: 0.25, S: 0.2, O: 0 },
   warp: 22,
   asphalt: [[84, 85, 88], [124, 121, 120]], crack: [44, 43, 45],
   sand: [[251, 198, 138], [228, 166, 106]],
@@ -46,9 +51,10 @@ export const TERRAIN_STYLE: TerrainStyle = {
   glass: [[176, 222, 232], [118, 182, 206]], glassGlint: [244, 252, 255],
   salt: [[244, 240, 230], [226, 220, 206]], saltCrack: [176, 164, 146],
   scorch: [[18, 15, 14], [46, 36, 31]], ash: [128, 122, 116], ember: [255, 104, 24],
+  oil: [16, 15, 18], sheen: [[90, 40, 140], [30, 120, 150], [150, 130, 40]],
   plant: [[112, 138, 118], [62, 84, 70]],
   line: [246, 196, 62], tape: [[246, 196, 62], [28, 24, 22]], hazard: [214, 22, 28],
-  rough: { R: 0.86, o: 0.97, M: 0.3, X: 0.82, G: 0.18, D: 0.08, P: 0.95, F: 0.9, S: 0.93 },
+  rough: { R: 0.86, o: 0.97, M: 0.3, X: 0.82, G: 0.18, D: 0.08, P: 0.95, F: 0.9, S: 0.93, O: 0.86 },
   plants: 0.6,
 };
 
@@ -221,7 +227,7 @@ function seedOf(text: string): number {
 
 // ------------------------------------------------------------------------------- generator
 
-const KINDS: Kind[] = ['R', 'o', 'M', 'X', 'G', 'D', 'P', 'F', 'S'];
+const KINDS: Kind[] = ['R', 'o', 'M', 'X', 'G', 'D', 'P', 'F', 'S', 'O'];
 
 /**
  * Builds the procedural maps of one tile face.
@@ -281,7 +287,9 @@ export function proceduralTerrain(tile: TileData, opt: ProceduralOptions = {}): 
 
   // 3. Height: ground (sand, asphalt, mud) blends softly; rock rises steeply over it.
   const height = new Float32Array(n);
-  const [wR, wO, wM, wX, wG, wD, wP, wF, wS] = wWide;
+  const [wR0, wO, wM, wX, wG, wD, wP, wF, wS, wOil] = wWide;
+  // Oil lies on asphalt: for the relief an oil space is road.
+  const wR = wR0.map((v, i) => v + wOil[i]);
   // Rock rises from its edge to a rough top: distance (map px) into the impassable area.
   const isX = new Uint8ClampedArray(n);
   for (let p = 0; p < n; p++) isX[p] = kind[p] === 4 ? 255 : 0;
@@ -327,7 +335,7 @@ export function proceduralTerrain(tile: TileData, opt: ProceduralOptions = {}): 
   const rough = new Uint8ClampedArray(n);
   // Embers in burnt ground give off light of their own (emissive): only faces with fire have the map.
   const glow = present[7] ? new Uint8ClampedArray(n) : undefined;
-  const [sR, sO, sM, sX, sG, sD, sP, sF, sS] = wSoft;
+  const [sR, sO, sM, sX, sG, sD, sP, sF, sS, sOil] = wSoft;
   const col: Rgb = [0, 0, 0];
   const add = (c: Rgb, k: number): void => { col[0] += c[0] * k; col[1] += c[1] * k; col[2] += c[2] * k; };
   for (let j = 0; j < h; j++) {
@@ -336,7 +344,7 @@ export function proceduralTerrain(tile: TileData, opt: ProceduralOptions = {}): 
       const p = j * w + i;
       if (!mask[p]) continue;
       const fx = (i + 0.5) * px;
-      const tot = sR[p] + sO[p] + sM[p] + sX[p] + sG[p] + sD[p] + sP[p] + sF[p] + sS[p] || 1;
+      const tot = sR[p] + sO[p] + sM[p] + sX[p] + sG[p] + sD[p] + sP[p] + sF[p] + sS[p] + sOil[p] || 1;
       col[0] = col[1] = col[2] = 0;
       if (sR[p] > 0) add(asphaltColor(fx, fy, seed, st), sR[p] / tot);
       if (sO[p] > 0) add(sandColor(fx, fy, i, j, seed, st), sO[p] / tot);
@@ -350,6 +358,13 @@ export function proceduralTerrain(tile: TileData, opt: ProceduralOptions = {}): 
         glow![p] = 255 * emberGlow(fx, fy, seed) * sF[p] / tot;
       }
       if (sS[p] > 0) add(saltColor(fx, fy, seed, st), sS[p] / tot);
+      let slick = 0;
+      if (sOil[p] > 0) {
+        slick = oilSlick(fx, fy, seed) * sOil[p] / tot;
+        add(asphaltColor(fx, fy, seed, st), sOil[p] / tot);
+        const oc = oilColor(fx, fy, seed, st);
+        for (let q = 0; q < 3; q++) col[q] = mix(col[q], oc[q], slick);
+      }
       // Sand blown over the edge of the asphalt.
       if (sR[p] > 0.05 && sO[p] > 0.05) {
         const dust = smooth(0.2, 0.7, sO[p] / tot + 0.35 * fbm(fx / 14, fy / 14, seed + 10, 2));
@@ -359,7 +374,8 @@ export function proceduralTerrain(tile: TileData, opt: ProceduralOptions = {}): 
       const q4 = p * 4;
       albedo[q4] = col[0]; albedo[q4 + 1] = col[1]; albedo[q4 + 2] = col[2]; albedo[q4 + 3] = 255;
       rough[p] = 255 * (sR[p] * st.rough.R + sO[p] * st.rough.o + sM[p] * st.rough.M + sX[p] * st.rough.X + sG[p] * st.rough.G
-        + sD[p] * st.rough.D + sP[p] * st.rough.P + sF[p] * st.rough.F + sS[p] * st.rough.S) / tot;
+        + sD[p] * st.rough.D + sP[p] * st.rough.P + sF[p] * st.rough.F + sS[p] * st.rough.S + sOil[p] * st.rough.O) / tot;
+      if (slick > 0) rough[p] = mix(rough[p], 18, slick); // the oil is glossy
     }
   }
 
@@ -438,6 +454,30 @@ function saltColor(fx: number, fy: number, seed: number, st: TerrainStyle): Rgb 
   const t = clamp01(0.5 + 0.5 * fbm(fx / 60, fy / 60, seed + 88, 3));
   const rim = saltRim(fx, fy, seed);
   return [0, 1, 2].map(q => mix(mix(st.salt[0][q], st.salt[1][q], t), st.saltCrack[q], rim * 0.8)) as Rgb;
+}
+
+/**
+ * An oil slick on a space, 0..1: one big blot with a wobbly edge and a few drips around it,
+ * centred on the space (the slick's frame-pixel coordinates wrap per space via the grid cell).
+ */
+function oilSlick(fx: number, fy: number, seed: number): number {
+  const c = cellAt(fx, fy);
+  if (!c) return 0;
+  const [cx, cy] = spaceCenterPx(c.r, c.c);
+  const dx = (fx - cx) / 150, dy = (fy - cy) / 105; // the blot covers most of the space
+  const d = Math.hypot(dx, dy) + 0.45 * (fbm(fx / 40, fy / 40, seed + 95, 3));
+  const blot = 1 - smooth(0.75, 0.9, d);
+  const drips = smooth(0.72, 0.8, vnoise(fx / 14, fy / 14, seed + 96)) * (1 - smooth(1.0, 1.5, d));
+  return Math.max(blot, drips);
+}
+
+/** Oil: near black, with a thin-film rainbow sheen swirling over it. */
+function oilColor(fx: number, fy: number, seed: number, st: TerrainStyle): Rgb {
+  const t = fbm(fx / 25 + 2 * fbm(fx / 80, fy / 80, seed + 97), fy / 25, seed + 98, 3);
+  const band = (t * 3 + 3) % 3, i = Math.floor(band), f = band - i;
+  const a = st.sheen[i % 3], b = st.sheen[(i + 1) % 3];
+  const sheen = smooth(0.35, 0.65, fbm(fx / 30, fy / 30, seed + 99, 2)) * 0.4;
+  return [0, 1, 2].map(q => mix(st.oil[q], mix(a[q], b[q], f), sheen)) as Rgb;
 }
 
 /** Embers in burnt ground, 0..1: glowing cracks and a few hot spots. */

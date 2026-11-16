@@ -10,7 +10,7 @@ import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import {
   newGame, play, tileDef, ROWS, COLS, TILE_COLS, leaderOf, commandsOf, leaders, commandName, upgrades, type CommandSlot,
-  snapshot, type Game, type Decision, type Pos, type Setup, type LogEntry, type Player, type Frame, type Snapshot, type Vehicle, type Blocked,
+  snapshot, type Game, type Decision, type Pos, type Setup, type TileRef, type LogEntry, type Player, type Frame, type Snapshot, type Vehicle, type Blocked,
 } from '../../src/game/trv/engine';
 import { BASE_CATALOG as CAT, sizeOf, ofKind } from '../../src/game/trv/catalog';
 import { Pieces, TextureBank } from '../../src/view/pieces3d';
@@ -129,16 +129,85 @@ function world(p: Pos): THREE.Vector3 {
 // Road tiles built from the terrain data, cached per face.
 const tileCache = new Map<string, THREE.Group>();
 const tileSlots: (THREE.Group | null)[] = [null, null, null];
+/**
+ * Revealed hazards that stay on the board as terrain, and the terrain code each one draws in 3D on
+ * its space (asked by the user, 2026-11-16): the token goes, the ground changes. O is an oil slick
+ * on asphalt (look only: for the rules oil is road, src/game/trv/engine.ts).
+ */
+const HAZARD_GROUND: Partial<Record<string, string>> = {
+  road: 'R', mud: 'M', oil: 'O', desert_glass: 'D', ramp: 'P', fire: 'F', pit_trap: 'X',
+};
+/** Seconds a revealed terrain hazard's token stays face up before the ground takes its place. */
+const HAZARD_TO_GROUND_S = 1.2;
+/** Hazards revealed for long enough to be drawn as ground (board key -> since when it is face up). */
+const groundSince = new Map<string, number>();
+/** The table last drawn, so the ground can be redrawn once a revealed token has had its moment. */
+let lastSnap: Snapshot | null = null;
+/** Revealed hazards already drawn as ground on their tile. */
+const grounded = new Set<string>();
+/** The faces on the table last time (to notice the road moving on a tile). */
+let lastBoard = '';
+/** Each frame: when a revealed terrain hazard's moment is over, the table is drawn again (tile and token). */
+function groundTick(now: number): void {
+  if (!lastSnap) return;
+  for (const [k, since] of groundSince) {
+    if (now - since >= HAZARD_TO_GROUND_S && !grounded.has(k)) { drawTable(lastSnap); return; }
+  }
+}
+
+/** A tile face with the revealed terrain hazards of board slot `slot` drawn into its terrain. */
+function tileWithGround(t: TileRef, slot: number, s: Snapshot): { def: ReturnType<typeof tileDef>; tag: string } {
+  const def = tileDef(t);
+  const rows = def.terrain.map(r => [...r]);
+  const marks: string[] = [];
+  const now = performance.now() / 1000;
+  for (const [k, h] of s.hazards) {
+    const code = HAZARD_GROUND[h.type];
+    const [r, c] = k.split(',').map(Number);
+    if (!code || !h.faceUp || Math.floor(c / TILE_COLS) !== slot) continue;
+    const since = groundSince.get(k);
+    if (since === undefined) { groundSince.set(k, now); continue; }
+    if (now - since < HAZARD_TO_GROUND_S) continue;
+    rows[r][c % TILE_COLS] = code;
+    marks.push(`${r}${c % TILE_COLS}${code}`);
+    grounded.add(k);
+  }
+  return marks.length ? { def: { ...def, terrain: rows.map(r => r.join('')) }, tag: `|${marks.sort().join(',')}` } : { def, tag: '' };
+}
+
 function showTiles(s: Snapshot): void {
   if (!g) return;
+  // The road moved on a tile: the hazards' columns moved back by one tile's width; so do these.
+  const lead = s.board.map(t => `${t.tile}${t.side}`).join();
+  if (lastBoard && lastBoard.split(',').slice(1).join() === s.board.slice(0, 2).map(t => `${t.tile}${t.side}`).join()) {
+    const move = (m: Map<string, number> | Set<string>): void => {
+      const entries = m instanceof Map ? [...m] : [...m].map(k => [k, 0] as [string, number]);
+      m.clear();
+      for (const [k, v] of entries) {
+        const [r, c] = k.split(',').map(Number);
+        if (c < TILE_COLS) continue;
+        const nk = `${r},${c - TILE_COLS}`;
+        if (m instanceof Map) m.set(nk, v); else m.add(nk);
+      }
+    };
+    move(groundSince);
+    move(grounded);
+  }
+  lastBoard = lead;
+  for (const k of [...groundSince.keys()]) if (!s.hazards.some(([hk]) => hk === k)) { groundSince.delete(k); grounded.delete(k); }
   s.board.forEach((t, i) => {
     const startFace = t.tile === 1 && g!.tilesPlaced === 3;
-    const key = `${t.tile}${t.side}${startFace ? g!.players.length : ''}`;
+    const { def, tag } = tileWithGround(t, i, s);
+    const key = `${t.tile}${t.side}${startFace ? g!.players.length : ''}${tag}`;
     let grp = tileCache.get(key);
     if (!grp) {
-      grp = buildTile(tileDef(t), { width: TILE_W, depth: TILE_H, thickness: TILE_T, ...(startFace ? { players: g!.players.length } : {}) });
+      grp = buildTile(def, { width: TILE_W, depth: TILE_H, thickness: TILE_T, ...(startFace ? { players: g!.players.length } : {}) });
       tileCache.set(key, grp);
+      // The same face drawn before (without this ground) keeps its place on the table: no slide-in.
+      const old = tileSlots[i];
+      if (old && old.userData.face === `${t.tile}${t.side}`) { grp.position.copy(old.position); grp.userData.x = old.userData.x; }
     }
+    grp.userData.face = `${t.tile}${t.side}`;
     const x = BOARD_X0 + i * PITCH_W + (GRID.frameW / 2) * KX;
     if (tileSlots[i] !== grp) {
       const fresh = !tileSlots.includes(grp);
@@ -482,6 +551,7 @@ function render(): void {
 /** Draws the table from a snapshot (the rules' state now, or a beat being replayed). */
 function drawTable(s: Snapshot): void {
   if (!g) return;
+  lastSnap = s;
   showTiles(s);
   finish.visible = s.finalTile;
   const hz = new Map(s.hazards);
@@ -496,11 +566,9 @@ function drawTable(s: Snapshot): void {
     rec.obj.group.position.y += 0.003;
     rec.obj.group.position.x += GRID.tip / 2 * KX;
     rec.obj.setFaceUp(h.faceUp);
-    // Carnage at Devil's Run: a revealed fire hazard burns on its space.
-    const burning = h.faceUp && h.type === 'fire';
-    const fl = rec.obj.group.userData.flames as THREE.Object3D | undefined;
-    if (burning && !fl) { const f = flameCluster(TILE_W / 8, r * 31 + c * 7); rec.obj.group.add(f); rec.obj.group.userData.flames = f; }
-    if (!burning && fl) { rec.obj.group.remove(fl); delete rec.obj.group.userData.flames; }
+    // A revealed terrain hazard: once the tile draws it as ground (showTiles), the token goes.
+    const since = groundSince.get(k);
+    rec.obj.group.visible = !(HAZARD_GROUND[h.type] && h.faceUp && since !== undefined && performance.now() / 1000 - since >= HAZARD_TO_GROUND_S);
   }
   // A hazard discarded after resolving (mine, wreck) stays face up for a moment, then goes.
   for (const [k, rec] of hazardObjs) if (!hz.has(k) && rec.gone === undefined) {
@@ -2948,6 +3016,7 @@ renderer.setAnimationLoop(t => {
     if (e.t >= 1) effects.splice(i, 1);
   }
   tickFlames(now, camera, renderer.domElement.height);
+  groundTick(now);
   for (const grp of tileSlots) {
     if (!grp) continue;
     if (grp.userData.x !== undefined) grp.position.x += (grp.userData.x - grp.position.x) * k * 0.6;
