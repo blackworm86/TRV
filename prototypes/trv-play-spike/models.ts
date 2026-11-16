@@ -13,7 +13,7 @@ const TILE_MM = sizeOf(CAT, 'road_tile');
 const MM = 13.14 / TILE_MM[0];
 const CREWS = ['#c9c8c2', '#5b7a52', '#ec9230', '#a9c1dd'];
 
-const renderer = new THREE.WebGLRenderer({ antialias: true });
+const renderer = new THREE.WebGLRenderer({ antialias: true, stencil: true });
 renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
 renderer.setSize(innerWidth, innerHeight);
 renderer.toneMapping = THREE.ACESFilmicToneMapping;

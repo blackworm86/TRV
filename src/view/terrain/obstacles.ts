@@ -22,7 +22,7 @@ type Rgb = [number, number, number];
 const hex = (n: number): Rgb => new THREE.Color(n).toArray() as Rgb;
 
 /** Small seeded generator (mulberry32), 0..1. */
-function rng(seed: number): () => number {
+export function rng(seed: number): () => number {
   let a = seed >>> 0;
   return () => {
     a = (a + 0x6d2b79f5) >>> 0;
@@ -33,13 +33,13 @@ function rng(seed: number): () => number {
 }
 
 /** Cheap smooth 3D noise, about -1.5..1.5, for lumpy rock. */
-function lump(x: number, y: number, z: number, s: number): number {
+export function lump(x: number, y: number, z: number, s: number): number {
   return Math.sin(x * 2.1 + s) * Math.cos(y * 1.7 + s * 1.3) * Math.sin(z * 2.3 + s * 0.7)
     + 0.5 * Math.sin(x * 4.7 + z * 3.9 + s * 2.1) * Math.cos(y * 5.3 + s);
 }
 
 /** Gives a geometry flat faces and one colour per face from `colour(first corner)`. */
-function paint(geo: THREE.BufferGeometry, colour: (p: THREE.Vector3) => Rgb): THREE.BufferGeometry {
+export function paint(geo: THREE.BufferGeometry, colour: (p: THREE.Vector3) => Rgb): THREE.BufferGeometry {
   const g = geo.index ? geo.toNonIndexed() : geo;
   g.deleteAttribute('uv');
   const pos = g.getAttribute('position');
@@ -67,7 +67,7 @@ const SANDBAG = hex(0xa89a72);
  * A rock of radius about 1 standing on y = 0. `flatTop` cuts it level at that height (a mesa)
  * and paints strata.
  */
-function rock(seed: number, flatTop?: number): THREE.BufferGeometry {
+export function rock(seed: number, flatTop?: number): THREE.BufferGeometry {
   const g = new THREE.IcosahedronGeometry(1, 2);
   const pos = g.getAttribute('position');
   const v = new THREE.Vector3();
@@ -95,7 +95,7 @@ function box(w: number, h: number, d: number, pal: Rgb[], r: () => number, top?:
 }
 
 /** Moves a geometry: position, turn about y (then x, z), scale. */
-function place(g: THREE.BufferGeometry, x: number, y: number, z: number, ry = 0, s: number | [number, number, number] = 1, rx = 0, rz = 0): THREE.BufferGeometry {
+export function place(g: THREE.BufferGeometry, x: number, y: number, z: number, ry = 0, s: number | [number, number, number] = 1, rx = 0, rz = 0): THREE.BufferGeometry {
   const sc = typeof s === 'number' ? new THREE.Vector3(s, s, s) : new THREE.Vector3(...s);
   return g.applyMatrix4(new THREE.Matrix4().compose(new THREE.Vector3(x, y, z), new THREE.Quaternion().setFromEuler(new THREE.Euler(rx, ry, rz, 'YXZ')), sc));
 }
