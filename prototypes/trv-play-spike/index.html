@@ -142,23 +142,31 @@
      take clicks; elsewhere the pointer reaches the table (pan, zoom, dice). */
   #bottom { position: fixed; left: 0; right: 0; bottom: 0; display: flex; justify-content: center; padding: 0 12px 4px; pointer-events: none; z-index: 2; }
   #strip { width: var(--stripw); position: relative; }
-  /* A tab on top of the command board, in the board's colours: the command and token choices,
-     and Undo (Ctrl+Z). Placed by placeDock() in main.ts. */
-  #cmddock { position: fixed; z-index: 4; display: none; flex-direction: column; align-items: stretch; gap: 6px; transform: translate(-50%, -100%);
-    min-width: 230px; max-width: 360px; padding: 8px 10px 9px; box-sizing: border-box; border-radius: 12px 12px 0 0;
-    background: #23262e; border: 2px solid #3a3f4b; border-bottom: 0; box-shadow: 0 -4px 14px rgba(0,0,0,.45); }
-  #cmddock.on { display: flex; }
-  #cmddock .q { text-align: center; font: 400 22px/1.05 'League Gothic', Impact, sans-serif; letter-spacing: .5px; color: var(--ink); }
+  /* The command board's drawer: it slides out from behind the top of the command board (base or
+     crew leader), like the leader's power tab, in the same colours, when a command or a command
+     token is to be chosen; at rest only its handle shows, with Undo (Ctrl+Z). The wrapper clips it
+     at the board's edge and sits under the strip, so it really comes from behind the board.
+     Placed by placeDock() in main.ts. */
+  #cmdwrap { position: fixed; z-index: 1; overflow: hidden; pointer-events: none; transform: translateX(-50%); padding: 14px 14px 0; display: none; }
+  #cmdwrap.on { display: block; }
+  #cmddock { position: relative; pointer-events: auto; display: flex; flex-direction: column; align-items: stretch; gap: 6px;
+    padding: 12px 10px 26px; box-sizing: border-box; border-radius: 14px 14px 0 0;
+    background: #26232b; border: 2px solid #aba3a6; border-bottom: 0; box-shadow: 0 -6px 16px rgba(0,0,0,.45);
+    transform: translateY(calc(100% - 66px)); /* at rest: the handle (stripe and Undo) above the board */ transition: transform .45s cubic-bezier(.2,.85,.25,1); }
+  #cmddock.ask { transform: translateY(0); }
+  #cmddock .stripe { position: absolute; left: 16px; right: 16px; top: 6px; height: 4px; border-radius: 2px; background: var(--who); }
+  #cmddock .q { text-align: center; font: 400 21px/1.05 'League Gothic', Impact, sans-serif; letter-spacing: .5px; color: #f6c46a; }
   #cmddock .q:empty, #cmddock .row:empty { display: none; }
   #cmddock .row { display: flex; flex-wrap: wrap; gap: 6px; justify-content: center; }
-  #cmddock .row button { flex: 1 1 auto; min-height: 38px; padding: 6px 12px; font: inherit; font-weight: 700; font-size: 15px; border: 0; border-radius: 8px; cursor: pointer;
+  #cmddock .row button { flex: 1 1 40%; min-width: 0; min-height: 32px; padding: 4px 6px; font: inherit; font-weight: 700; font-size: 13px; line-height: 1.1; border: 0; border-radius: 8px; cursor: pointer;
     background: var(--who); color: #16100b; }
-  #cmddock .row button.quiet { background: #efe3cf; color: #1a120c; font-weight: 600; }
+  #cmddock .row button.quiet { flex-basis: 100%;  background: #f3e6d0; color: #1a120c; font-weight: 600; }
   #cmddock .row button:hover { filter: brightness(1.1); }
-  #cmddock .undo { align-self: center; padding: 4px 10px; font: 600 13px system-ui, sans-serif; border: 1px solid #4a5060; border-radius: 8px; background: #2d313b; color: var(--ink); cursor: pointer; }
-  #cmddock .undo:disabled { opacity: .35; cursor: default; }
-  #cmddock .undo kbd { margin-left: 6px; padding: 0 4px; border-radius: 4px; background: #16181d; font: 11px system-ui, sans-serif; opacity: .8; }
-  #cmddock.ask { box-shadow: 0 -4px 14px rgba(0,0,0,.45), 0 0 0 2px var(--who), 0 0 18px 2px var(--who); }
+  /* The handle: Undo, the part of the drawer that always shows above the board. */
+  #cmddock .undo { order: -1; align-self: center; padding: 3px 10px; font: 600 13px system-ui, sans-serif; border: 1px solid #5a5560; border-radius: 8px; background: #34303a; color: #f3e6d0; cursor: pointer; }
+  #cmddock.ask .undo { order: 9; }
+  #cmddock .undo:disabled { opacity: .4; cursor: default; }
+  #cmddock .undo kbd { margin-left: 6px; padding: 0 4px; border-radius: 4px; background: #16141a; font: 11px system-ui, sans-serif; opacity: .8; }
   /* On each dashboard: the view from behind that car. */
   .chasebtn { position: absolute; transform: translateX(-100%); z-index: 2; pointer-events: auto; cursor: pointer; padding: 4px 9px; white-space: nowrap; border-radius: 8px; border: 0;
     font: 600 12px system-ui, sans-serif; background: rgba(20,14,10,.85); color: var(--ink); box-shadow: 0 2px 6px rgba(0,0,0,.5); }
@@ -377,7 +385,7 @@
   <button id="quit"><span>⏏</span> Esci dalla partita (menu principale)</button>
 </div>
 <div id="actions"></div>
-<div id="cmddock"><div class="q" id="cmdq"></div><div class="row" id="cmdbtns"></div><button class="undo" id="undo2" title="Annulla l’ultima scelta (Ctrl+Z)">↶ Annulla <kbd>Ctrl+Z</kbd></button></div>
+<div id="cmdwrap"><div id="cmddock"><i class="stripe"></i><div class="q" id="cmdq"></div><div class="row" id="cmdbtns"></div><button class="undo" id="undo2" title="Annulla l’ultima scelta (Ctrl+Z)">↶ Annulla <kbd>Ctrl+Z</kbd></button></div></div>
 <div id="leaderpick"></div>
 <div id="bottom"><div id="strip"></div></div>
 <div id="hand"></div>

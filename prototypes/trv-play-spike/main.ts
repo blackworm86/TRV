@@ -2750,20 +2750,28 @@ function drawDock(d: Decision | null, mine: boolean): void {
   }
   dock.classList.toggle('ask', asking);
   ($('undo2') as HTMLElement).style.display = net ? 'none' : '';
-  dock.classList.toggle('on', !!g && !menuOpen() && (asking || !net));
+  $('cmdwrap').classList.toggle('on', !!g && !menuOpen() && (asking || !net));
 }
-/** Keeps the tab on top of the command board (its slots mark where the board is). */
+/** How far the drawer reaches behind the command board's top edge (hidden by the board), in px. */
+const DOCK_TUCK = 22;
+/**
+ * Keeps the drawer on the command board: as wide as the board's top edge (between its two upper
+ * corner slots) and coming out of that edge: the crew leader's name plate, or the top of the base board.
+ */
 function placeDock(): void {
-  const dock = $('cmddock');
-  if (!dock.classList.contains('on')) return;
+  const wrap = $('cmdwrap'), dock = $('cmddock');
+  if (!wrap.classList.contains('on')) return;
   const slots = [...document.querySelectorAll<SVGElement>('#strip [data-drop^="cmd:"]')].map(el => el.getBoundingClientRect()).filter(r => r.width);
   const svg = $('strip').querySelector('svg, .loose')?.getBoundingClientRect();
   if (!slots.length || !svg) return;
-  const left = Math.min(...slots.map(r => r.left)), right = Math.max(...slots.map(r => r.right));
-  dock.style.left = `${Math.max(dock.offsetWidth / 2 + 6, (left + right) / 2)}px`;
-  // With a crew leader the name plate is the top of the board; without, the corner slots stand
-  // out of the board's edge by a little.
-  dock.style.top = `${document.body.classList.contains('tall') ? svg.top + 2 : Math.min(...slots.map(r => r.top)) + 2}px`; // never over the corner slots: dice are dropped there
+  const top = Math.min(...slots.map(r => r.top));
+  const upper = slots.filter(r => r.top < top + 30); // the two corner slots at the top (and the quarters next to them)
+  const left = Math.min(...upper.map(r => r.left + r.width / 2)), right = Math.max(...upper.map(r => r.left + r.width / 2));
+  const edge = document.body.classList.contains('tall') ? svg.top + 4 : top - 4; // base board: its top edge runs just above the corner slots
+  const width = `${Math.round(right - left)}px`;
+  if (dock.style.width !== width) dock.style.width = width;
+  wrap.style.left = `${(left + right) / 2}px`;
+  wrap.style.bottom = `${innerHeight - edge - DOCK_TUCK}px`;
 }
 
 function placeActions(): void {
@@ -2877,7 +2885,7 @@ timer.connect(document);
 renderer.setAnimationLoop(t => {
   timer.update(t);
   // Behind the first screen nothing is drawn: it is a screen of its own, and the computer rests.
-  if (menuOpen()) { $('cmddock').classList.remove('on'); return; }
+  if (menuOpen()) { $('cmdwrap').classList.remove('on'); return; }
   const rawDt = Math.min(timer.getDelta(), 0.1);
   frameTimes(rawDt);
   const dt = rawDt * timeScale * (playing ? SPEED_SCALE[settings.speed] : 1);
