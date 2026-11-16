@@ -653,6 +653,9 @@ function* enter(g: Game, v: Vehicle, to: Pos, ctx: MoveCtx | null, dir?: Dir): G
   if (g.winner !== null) return true;
   if (to.c >= COLS && to.r >= 0 && to.r < ROWS) {
     if (v.isWreck) { eliminate(g, v, 'è uscito dal fronte'); return true; }
+    // Dead Alternator (ongoing effect): when another car drives off the lead tile, the damaged car is eliminated.
+    for (const o of g.vehicles) if (o !== v && o.status !== 'elim' && hasOngoing(o, 'dead_alternator')) eliminate(g, o, 'Dead Alternator: un\'altra auto è uscita dalla tessera di testa');
+    if (g.winner !== null) return true;
     if (g.finalTile) {
       g.winner = v.owner!;
       say(g, `${capital(carName(g, v))} taglia il traguardo! ${g.players[v.owner!].name} VINCE!`, 'good');
@@ -671,6 +674,8 @@ function* enter(g: Game, v: Vehicle, to: Pos, ctx: MoveCtx | null, dir?: Dir): G
   const h = g.hazards.get(k);
   // Tank Treads: a face-down hazard is passed over; moveCar reveals the one the car stops on.
   if (h && !(ctx?.quiet && !h.faceUp)) {
+    // Faulty Airbag (ongoing effect): onto a face-down hazard, the car is eliminated; the token stays face down.
+    if (!h.faceUp && hasOngoing(v, 'faulty_airbag')) { eliminate(g, v, 'Faulty Airbag: è entrata su un pericolo coperto', to); return true; }
     if (!h.faceUp) {
       // Trash into Treasure (Cruft): gain a command token, then flip the hazard.
       if (hasPower(g, v.owner, 'trash_into_treasure') && g.tokenSupply > 0) {
@@ -695,7 +700,9 @@ function* enter(g: Game, v: Vehicle, to: Pos, ctx: MoveCtx | null, dir?: Dir): G
     } else if (h.type === 'oil') {
       const d = rollFx(g, 'direction', 'oil-slick');
       say(g, `Olio! Dado direzione: ${DIR_NAME[d]}.`, 'dice');
-      return yield* enter(g, v, neighbor(to, d), ctx, d);
+      const stop = yield* enter(g, v, neighbor(to, d), ctx, d);
+      yield* baldTires(g, v, d);
+      return stop;
     } else if (h.type === 'quake') {
       g.hazards.delete(k); g.hazardDiscard.push('quake');
       yield* quake(g);
@@ -783,13 +790,19 @@ function* slam(g: Game, at: Pos): Gen<void> {
     const stack = vehiclesAt(g, at);
     if (stack.length < 2) return;
     const top = stack[stack.length - 1], bottom = stack[stack.length - 2];
+    // Nitro Leak (ongoing effect): a car involved in a slam is eliminated.
+    const leaking = [top, bottom].filter(x => hasOngoing(x, 'nitro_leak'));
+    if (leaking.length) { for (const x of leaking) eliminate(g, x, 'Nitro Leak: coinvolta in uno slam'); continue; }
     beat(g, 'slam', { at: { ...at }, vehicleId: top.id });
     say(g, `SLAM! ${capital(carName(g, top))} contro ${carName(g, bottom)}.`, 'bad');
     // Bump! (Bumpo): the first time the player slams this turn, only the direction die, and the other car moves.
     const mine = top.owner === g.current && !top.isWreck;
     const bump = mine && g.fx.bump && g.fx.slams === 0;
     if (mine) g.fx.slams++;
-    let which: 'top' | 'bottom' = bump ? 'bottom' : rollFx(g, 'slam', 'slam');
+    // Bent Frame (ongoing effect): the slammed car moves, without rolling the slam die.
+    const bent = !bump && top !== bottom && hasOngoing(bottom, 'bent_frame');
+    if (bent) say(g, 'Bent Frame: si muove l\'auto urtata, senza dado slam.', 'info');
+    let which: 'top' | 'bottom' = bump || bent ? 'bottom' : rollFx(g, 'slam', 'slam');
     let d = rollFx(g, 'direction', 'slam');
     if (bump) say(g, `Bump! Si muove ${carName(g, bottom)}; direzione ${DIR_NAME[d]}.`, 'dice');
     else say(g, `Dado slam: si muove il veicolo ${which === 'top' ? 'sopra' : 'sotto'}; direzione ${DIR_NAME[d]}.`, 'dice');
@@ -804,7 +817,7 @@ function* slam(g: Game, at: Pos): Gen<void> {
         options: [{ label: 'Tieni il risultato' }, { label: 'Ritira i due dadi' }],
       });
       if (i === 1) {
-        which = rollFx(g, 'slam', 'slam-reroll');
+        which = bent ? 'bottom' : rollFx(g, 'slam', 'slam-reroll');
         d = rollFx(g, 'direction', 'slam-reroll');
         say(g, `Ritiro: si muove il veicolo ${which === 'top' ? 'sopra' : 'sotto'}; direzione ${DIR_NAME[d]}.`, 'dice');
       }
@@ -843,6 +856,7 @@ function* slam(g: Game, at: Pos): Gen<void> {
     }
     const other = affected === top ? bottom : top;
     yield* enter(g, affected, dest, null, d);
+    if (samePos(affected.pos, dest)) yield* baldTires(g, affected, d);
     // Assault Bumper: the car it moved in a slam goes one extra space in the same direction.
     if (up(other, 'assault_bumper') && !affected.isWreck && affected.status !== 'elim' && samePos(affected.pos, dest) && g.winner === null) {
       say(g, 'Assault Bumper: una casella in più nella stessa direzione.', 'info');
@@ -887,6 +901,8 @@ function* damage(g: Game, v: Vehicle): Gen<void> {
 
 /** A car becomes inoperable. Big Red Button: its owner may eliminate it, with every adjacent car and chopper. */
 function* breakDown(g: Game, v: Vehicle): Gen<void> {
+  // Shattered Windshield (ongoing effect): a car that becomes inoperable is eliminated.
+  if (hasOngoing(v, 'shattered_windshield')) { eliminate(g, v, 'Shattered Windshield: è andata fuori uso'); return; }
   const button = up(v, 'big_red_button');
   v.status = 'inop';
   if (v.onFire) putOut(g, v); // CDR p3: an inoperable vehicle loses its ON FIRE! token
@@ -943,6 +959,7 @@ function* damageEffect(g: Game, v: Vehicle, t: DamageToken): Gen<void> {
         say(g, `Stordito: verso ${DIR_NAME[d]}.`, 'dice');
         ctx.left = Math.max(0, ctx.left - (onBoard(to) && terrainAt(g, to) === 'M' ? 2 : 1));
         if (yield* enter(g, v, to, ctx, d)) break;
+        yield* baldTires(g, v, d);
       }
       return;
     }
@@ -966,6 +983,7 @@ function* damageEffect(g: Game, v: Vehicle, t: DamageToken): Gen<void> {
       let p = v.pos;
       for (let i = 0; i < n; i++) p = neighbor(p, d);
       yield* enter(g, v, p, null, d);
+      yield* baldTires(g, v, d);
       return;
     }
   }
@@ -1014,6 +1032,16 @@ export function carnageTilesReady(): boolean {
 /** The name of an ongoing effect card (its id when the data does not name it). */
 export function ongoingName(id: string): string {
   return (carnageData.ongoing_effects as { id: string; name: string }[]).find(c => c.id === id)?.name ?? id;
+}
+
+/** Nitro Leak: the value an assigned die is set to (carnage.json). */
+const NITRO_LEAK_DIE = (carnageData.ongoing_effects as { id: string; die?: number }[]).find(c => c.id === 'nitro_leak')?.die ?? 6;
+
+/** Bald Tires (ongoing effect): after the direction die moved the car, one more space the same way. */
+function* baldTires(g: Game, v: Vehicle, d: Dir): Gen<void> {
+  if (!hasOngoing(v, 'bald_tires') || v.status === 'elim' || !v.pos || g.winner !== null) return;
+  say(g, `Bald Tires: ${carName(g, v)} scivola di un'altra casella ${DIR_NAME[d]}.`, 'info');
+  yield* enter(g, v, neighbor(v.pos, d), null, d);
 }
 
 /** Whether ongoing effect card `id` lies under one of the car's damage tokens (CDR p4). */
@@ -1108,6 +1136,7 @@ function* quake(g: Game): Gen<void> {
   for (const v of shuffled(g, landed, 'quake-order')) {
     if (v.status === 'elim' || !v.pos || g.winner !== null) continue;
     yield* enter(g, v, v.pos, null, d);
+    yield* baldTires(g, v, d);
   }
 }
 
@@ -1133,6 +1162,7 @@ export const __test = {
   damageWith: (g: Game, v: Vehicle, t: DamageToken): Gen<void> => { g.damagePile = [t]; return damage(g, v); },
   beforeMove,
   repair,
+  slam,
 };
 
 // ---------------------------------------------------------------- shooting
@@ -1193,7 +1223,8 @@ function* shootFrom(g: Game, player: number, from: Pos, who: string, shooter: Ve
     hit = shot('shoot');
     // Objection! (Machine Gun Joe): you may reroll the shooting die.
     // Heavy Machine Gun: the same, when shooting with the car that has it.
-    if (!hit && (hasPower(g, player, 'objection') || up(shooter, 'heavy_machine_gun'))) {
+    // Exposed Hardware (ongoing effect on the target): another player shooting it may reroll too.
+    if (!hit && (hasPower(g, player, 'objection') || up(shooter, 'heavy_machine_gun') || (hasOngoing(t, 'exposed_hardware') && t.owner !== player))) {
       const r = yield* ask({
         kind: 'shootReroll', player, prompt: `${g.players[player].name}: mancato. Ritirare il dado sparo?`,
         options: [{ label: 'Tieni il risultato' }, { label: 'Ritira il dado sparo' }],
@@ -1239,8 +1270,13 @@ function longArc(p: Pos, range: number): Pos[] {
   return all;
 }
 
-const canRepair = (g: Game, p: Player): boolean =>
-  g.vehicles.some(v => v.owner === p.id && v.status !== 'elim' && v.damage.length > 0);
+const canRepair = (g: Game, p: Player): boolean => repairable(g, p).length > 0;
+/** The cars of `p` that can be repaired. Lost Tools (ongoing effect, CDR): only next to another of the player's cars. */
+function repairable(g: Game, p: Player): Vehicle[] {
+  return g.vehicles.filter(v => v.owner === p.id && v.status !== 'elim' && v.damage.length > 0
+    && (!hasOngoing(v, 'lost_tools') || g.vehicles.some(o => o !== v && o.owner === p.id && o.status !== 'elim' && o.pos && v.pos
+      && ALL_DIRS.some(d => samePos(neighbor(v.pos!, d), o.pos)))));
+}
 
 // ---------------------------------------------------------------- the turn
 
@@ -1341,7 +1377,9 @@ function* turn(g: Game, p: Player): Gen<void> {
   const mine = g.vehicles.filter(v => v.owner === p.id && v.status === 'ok');
   const fresh = mine.filter(v => !v.moved);
   const assign: { die: number; car: Vehicle; coast: boolean }[] = [];
-  if (fresh.length) for (const d of free) for (const car of fresh) assign.push({ die: d, car, coast: false });
+  // Cracked Flywheel (ongoing effect): that car must be the first one the player moves each round, if able.
+  const flywheel = fresh.length === mine.length ? fresh.find(v => hasOngoing(v, 'cracked_flywheel')) : undefined;
+  if (fresh.length) for (const d of free) for (const car of flywheel ? [flywheel] : fresh) assign.push({ die: d, car, coast: false });
   else for (const d of free) for (const car of mine) if (car.coasts < base.max_coasts_per_round) assign.push({ die: d, car, coast: true });
   if (!assign.length) { say(g, `${p.name} non ha mosse disponibili e salta il turno.`, 'turn'); return; }
   say(g, `— Turno di ${p.name} (round ${g.round}) —`, 'turn');
@@ -1359,7 +1397,10 @@ function* turn(g: Game, p: Player): Gen<void> {
   g.activeCar = car.id;
   // Redline (Cris Crass): a movement die of 6 assigned to a car counts as 7.
   const redline = !a.coast && hasPower(g, p.id, 'redline') && p.dice[a.die] === shoppe.redline.from;
-  const mv = { moves: a.coast ? 1 : redline ? shoppe.redline.to : p.dice[a.die], drift: false };
+  // Nitro Leak (ongoing effect): a die assigned to the car is set to 6.
+  const leak = !a.coast && hasOngoing(car, 'nitro_leak');
+  if (leak) say(g, `Nitro Leak: il dado vale ${NITRO_LEAK_DIE}.`, 'info');
+  const mv = { moves: a.coast ? 1 : leak ? NITRO_LEAK_DIE : redline ? shoppe.redline.to : p.dice[a.die], drift: false };
   if (redline) say(g, `Redline: il ${shoppe.redline.from} vale ${shoppe.redline.to}.`, 'good');
   const board = commandsOf(p);
 
@@ -1410,6 +1451,13 @@ function* turn(g: Game, p: Player): Gen<void> {
   }
   // Boost Switch: the car gains +1 move.
   if (up(car, 'boost_switch')) { mv.moves += upN('boost_switch'); say(g, `Boost Switch: +${upN('boost_switch')} movimento.`, 'good'); }
+  // Loose Wiring (ongoing effect): before the car moves, the direction die moves it one space.
+  if (hasOngoing(car, 'loose_wiring') && car.pos && car.status === 'ok' && g.winner === null) {
+    const d = rollFx(g, 'direction', 'loose-wiring');
+    say(g, `Loose Wiring: una casella ${DIR_NAME[d]}.`, 'dice');
+    yield* enter(g, car, neighbor(car.pos, d), null, d);
+    yield* baldTires(g, car, d);
+  }
   const { fixed, mustMoveAll } = beforeMove(g, car, mv);
   const { moves, drift } = mv;
 
@@ -1518,7 +1566,8 @@ function* painTransfer(g: Game, p: Player): Gen<void> {
 }
 
 function* repair(g: Game, p: Player): Gen<void> {
-  const cars = g.vehicles.filter(v => v.owner === p.id && v.status !== 'elim' && v.damage.length);
+  const cars = repairable(g, p);
+  if (!cars.length) return;
   const i = yield* ask({
     kind: 'repair', player: p.id, prompt: `${p.name}: quale auto riparare?`,
     options: cars.map(c => ({ label: `Auto ${SIZE_NAME[c.size]} (${c.damage.length} danni)`, carId: c.id, ...(c.pos ? { pos: c.pos } : {}) })),
