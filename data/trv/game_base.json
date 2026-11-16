@@ -42,6 +42,7 @@
     "direction": ["F", "FL", "FR", "B", "BL", "BR"]
   },
   "hazard_tokens": { "mud": 6, "road": 6, "oil": 6, "mine": 4, "wreck": 4 },
+  "_damage_tokens_note": "4 of each kind, as on the components. The summary sheet TRV - All official dice, boards, cards and tokens lists other counts (Blast off 5, Dazed 3, Dent 3, Shrapnel 3, Skid 6): those include tokens added by expansions; the base game stays as it is (rules owner, 2026-11-16).",
   "damage_tokens": [
     { "type": "shrapnel", "count": 4 },
     { "type": "dazed", "count": 4 },

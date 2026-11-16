@@ -1,12 +1,8 @@
 {
   "_note": "Thunder Road: Vendetta, Part 3: Carnage at Devil's Run. Transcribed from the official rulebook supplied by the user (TRV-CDR_Rulebook.pdf, 4 pages). Values marked null are NOT in the rulebook and must come from the user (component scans or confirmation); the engine refuses to deal what it does not know. Page numbers: p1 cover, p2 parts list and setup, p3 terrain, hazards and ON FIRE!, p4 damage tokens and credits.",
   "_missing": [
-    "dice.fire: the six faces of the fire die (p3 shows four kinds: +1, +2, fire goes out, eliminated; not how many of each)",
-    "hazard_tokens: how many of each new hazard (22 in all, p2)",
-    "damage_tokens: how many ON FIRE and how many ONGOING EFFECT (10 in all, p2)",
-    "ongoing_effects: the 21 cards (only Transmission Failure is fully legible, p4; Shattered Windshield's name only)",
     "tiles: the layout of the 5 new double-sided road tiles (names on p2: Drifts, Salty Dogleg, Zag, Scorcher, Glass Oasis; the other five sides unknown)",
-    "ramp: the direction a ramp space faces on the tiles (p3: entered only from the space directly behind it, then jumps directly forward)"
+    "ramp: the direction a ramp space faces on the tiles (ruling: only jumped forward)"
   ],
   "_rulings": {
     "_source": "Rules owner (the user), 2026-11-16, and the official FAQ where noted.",
@@ -111,25 +107,27 @@
     }
   },
   "hazard_tokens": {
-    "quake": null,
-    "sand_worm": null,
-    "desert_glass": null,
-    "ramp": null,
-    "fire": null,
-    "pit_trap": null
+    "desert_glass": 4,
+    "ramp": 5,
+    "fire": 6,
+    "pit_trap": 4,
+    "quake": 2,
+    "sand_worm": 1,
+    "_source": "summary sheet 'TRV - All official dice, boards, cards & tokens' supplied by the user, 2026-11-16 (22 in all, as the rulebook p2)"
   },
   "damage_tokens": {
     "_rule": "When you get one, resolve its effect. If your car was moving, it loses any remaining moves. A car with two damage is inoperable.",
     "on_fire": {
-      "count": null,
+      "count": 5,
       "name": "On Fire",
       "rule": "Take an ON FIRE! token from the supply and place it on that car's dashboard. Then place the damage token face down."
     },
     "ongoing_effect": {
-      "count": null,
+      "count": 5,
       "name": "Ongoing Effect",
       "rule": "Draw an ongoing effect card and place it face up in an available damage slot. Place the damage token face down on top of it. The card remains in effect until that damage token is repaired. When that damage is repaired, remove both the damage token and the ongoing effect card and place them in their respective discard piles."
-    }
+    },
+    "_source": "summary sheet 'TRV - All official dice, boards, cards & tokens' supplied by the user, 2026-11-16 (10 in all, as the rulebook p2)"
   },
   "on_fire": {
     "rules": [
@@ -149,21 +147,98 @@
     ]
   },
   "dice": {
-    "fire": null
+    "fire": [
+      "+1",
+      "+2",
+      "+2",
+      "out",
+      "out",
+      "eliminated"
+    ],
+    "_source": "summary sheet 'TRV - All official dice, boards, cards & tokens' supplied by the user, 2026-11-16: 1x +1, 2x +2, 2x smoke (fire goes out), 1x burning death skull"
   },
   "ongoing_effects": [
     {
-      "id": "transmission_failure",
-      "name": "Transmission Failure",
-      "text": "Before this car moves, set its movement die to 1. It cannot gain additional moves.",
-      "source": "p4 example card"
+      "id": "bald_tires",
+      "name": "Bald Tires",
+      "text": "Whenever the direction die moved this damaged car before, move it 1 extra space in the same direction.",
+      "count": 2,
+      "source": "summary sheet 'TRV - All official dice, boards, cards & tokens' supplied by the user, 2026-11-16"
+    },
+    {
+      "id": "bent_frame",
+      "name": "Bent Frame",
+      "text": "Your car moves without rolling the slam die if it's slammed by another car.",
+      "count": 2,
+      "source": "summary sheet 'TRV - All official dice, boards, cards & tokens' supplied by the user, 2026-11-16"
+    },
+    {
+      "id": "cracked_flywheel",
+      "name": "Cracked Flywheel",
+      "text": "This car must be the first car you move each round if it's operable.",
+      "count": 2,
+      "source": "summary sheet 'TRV - All official dice, boards, cards & tokens' supplied by the user, 2026-11-16"
+    },
+    {
+      "id": "dead_alternator",
+      "name": "Dead Alternator",
+      "text": "If another car drives off the lead road tile, this damaged car is eliminated.",
+      "count": 2,
+      "source": "summary sheet 'TRV - All official dice, boards, cards & tokens' supplied by the user, 2026-11-16"
+    },
+    {
+      "id": "exposed_hardware",
+      "name": "Exposed Hardware",
+      "text": "When another player shoots this damaged car, they may reroll the shooting die to your damaged car again.",
+      "count": 2,
+      "source": "summary sheet 'TRV - All official dice, boards, cards & tokens' supplied by the user, 2026-11-16"
+    },
+    {
+      "id": "faulty_airbag",
+      "name": "Faulty Airbag",
+      "text": "If this damaged car enters a space with a face-down hazard token, it's eliminated without flipping the hazard token.",
+      "count": 2,
+      "source": "summary sheet 'TRV - All official dice, boards, cards & tokens' supplied by the user, 2026-11-16"
+    },
+    {
+      "id": "loose_wiring",
+      "name": "Loose Wiring",
+      "text": "Before this damaged car moves, roll the direction die and move this car 1 space in that direction.",
+      "count": 2,
+      "source": "summary sheet 'TRV - All official dice, boards, cards & tokens' supplied by the user, 2026-11-16"
+    },
+    {
+      "id": "lost_tools",
+      "name": "Lost Tools",
+      "text": "This damaged car cannot be repaired unless one of your other cars is adjacent.",
+      "count": 2,
+      "source": "summary sheet 'TRV - All official dice, boards, cards & tokens' supplied by the user, 2026-11-16"
+    },
+    {
+      "id": "nitro_leak",
+      "name": "Nitro Leak",
+      "text": "Any assigned die to this damaged car is set to 6, but a slam eliminates it.",
+      "count": 2,
+      "source": "summary sheet 'TRV - All official dice, boards, cards & tokens' supplied by the user, 2026-11-16"
     },
     {
       "id": "shattered_windshield",
       "name": "Shattered Windshield",
-      "text": null,
-      "source": "p2 parts list, name only"
+      "text": "If this car is ever inoperable, it's eliminated.",
+      "count": 2,
+      "source": "summary sheet 'TRV - All official dice, boards, cards & tokens' supplied by the user, 2026-11-16"
+    },
+    {
+      "id": "transmission_failure",
+      "name": "Transmission Failure",
+      "text": "Before this car moves, set its movement die to 3. It cannot gain additional moves.",
+      "count": 2,
+      "source": "summary sheet; value 3 confirmed by the rules owner 2026-11-16 (the rulebook p4 example shows 1)",
+      "move": 3
     }
   ],
-  "_engine": "Implemented in src/game/trv/engine.ts (Setup.carnage; tests in tests/unit/trv/carnage.test.ts with test numbers). Until the _missing values are filled in, a game cannot start with the expansion."
+  "_engine": "Implemented in src/game/trv/engine.ts (Setup.carnage; tests in tests/unit/trv/carnage.test.ts with test numbers). Until the _missing values are filled in, a game cannot start with the expansion.",
+  "_conflicts": [
+    "ongoing_effects: the summary sheet lists 11 cards x 2 = 22; the rulebook parts list (p2) says 21 ongoing effect cards. The rules owner will send scans of the 21 cards (2026-11-16)."
+  ]
 }

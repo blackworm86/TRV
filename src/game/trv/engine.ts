@@ -372,6 +372,26 @@ export function vehiclesAt(g: Game, p: Pos): Vehicle[] {
 }
 
 /** Empty space: no road vehicle, chopper, hazard token or impassable terrain (p. 7). */
+/**
+ * Revealed hazards that stay on the board only as terrain (road, mud, oil slick; Carnage: desert
+ * glass, ramp, fire; a pit trap is impassable terrain). For the chopper they are no obstacle (rules
+ * owner, 2026-11-16); a face-down hazard token still is.
+ */
+const TERRAIN_HAZARDS = new Set<HazardType>(['road', 'mud', 'oil', 'desert_glass', 'ramp', 'fire']);
+
+/** The spaces where a chopper may be placed (Airstrike, p. 8): empty, but a revealed terrain hazard does not count. */
+export function chopperSpaces(g: Game): Pos[] {
+  const out: Pos[] = [];
+  for (let r = 0; r < ROWS; r++) {
+    for (let c = 0; c < COLS; c++) {
+      const p = { r, c }, h = g.hazards.get(key(p));
+      const clearHazard = !h || (h.faceUp && TERRAIN_HAZARDS.has(h.type));
+      if (terrainAt(g, p) !== 'X' && clearHazard && !vehiclesAt(g, p).length && !g.players.some(pl => samePos(pl.chopper, p))) out.push(p);
+    }
+  }
+  return out;
+}
+
 export function isEmpty(g: Game, p: Pos): boolean {
   if (terrainAt(g, p) === 'X') return false;
   if (g.hazards.has(key(p))) return false;
@@ -955,7 +975,9 @@ export function carnageNumbers(): CarnageNumbers {
     ongoing_effects: { id: string; text: string | null; count?: number }[];
   };
   const missing: string[] = [];
-  for (const [k, n] of Object.entries(d.hazard_tokens)) if (typeof n !== 'number') missing.push(`hazard_tokens.${k}`);
+  // Keys starting with '_' are notes (sources), not token kinds.
+  const hazards = Object.fromEntries(Object.entries(d.hazard_tokens).filter(([k]) => !k.startsWith('_'))) as Record<CarnageHazard, number | null>;
+  for (const [k, n] of Object.entries(hazards)) if (typeof n !== 'number') missing.push(`hazard_tokens.${k}`);
   if (typeof d.damage_tokens.on_fire.count !== 'number') missing.push('damage_tokens.on_fire.count');
   if (typeof d.damage_tokens.ongoing_effect.count !== 'number') missing.push('damage_tokens.ongoing_effect.count');
   if (!d.dice.fire || d.dice.fire.length !== 6) missing.push('dice.fire');
@@ -963,11 +985,14 @@ export function carnageNumbers(): CarnageNumbers {
   if (deck.length !== d.components.ongoing_effect_cards || d.ongoing_effects.some(c => !c.text)) missing.push('ongoing_effects');
   if (missing.length) throw new Error(`Carnage at Devil's Run: missing data in carnage.json: ${missing.join(', ')}`);
   return {
-    hazards: d.hazard_tokens as Record<CarnageHazard, number>,
+    hazards: hazards as Record<CarnageHazard, number>,
     damage: { on_fire: d.damage_tokens.on_fire.count!, ongoing_effect: d.damage_tokens.ongoing_effect.count! },
     fireDie: d.dice.fire!, ongoing: deck,
   };
 }
+
+/** Transmission Failure: the value the movement die is set to (carnage.json, confirmed 3 by the rules owner). */
+const TRANSMISSION_FAILURE_MOVE = (carnageData.ongoing_effects as { id: string; move?: number }[]).find(c => c.id === 'transmission_failure')?.move ?? 3;
 
 /** The name of an ongoing effect card (its id when the data does not name it). */
 export function ongoingName(id: string): string {
@@ -1023,7 +1048,7 @@ function putOut(g: Game, v: Vehicle): void {
  */
 function beforeMove(g: Game, car: Vehicle, mv: { moves: number }): { fixed: boolean; mustMoveAll: boolean } {
   const fixed = hasOngoing(car, 'transmission_failure');
-  if (fixed) { mv.moves = 1; say(g, 'Transmission Failure: il dado movimento vale 1.', 'bad'); }
+  if (fixed) { mv.moves = TRANSMISSION_FAILURE_MOVE; say(g, `Transmission Failure: il dado movimento vale ${TRANSMISSION_FAILURE_MOVE}.`, 'bad'); }
   let mustMoveAll = false;
   if (car.onFire && g.carnage && g.winner === null && car.status === 'ok') {
     const f = rollFire(g);
@@ -1480,8 +1505,7 @@ function* repair(g: Game, p: Player): Gen<void> {
 }
 
 function* airstrike(g: Game, p: Player): Gen<void> {
-  const spaces: Pos[] = [];
-  for (let r = 0; r < ROWS; r++) for (let c = 0; c < COLS; c++) if (isEmpty(g, { r, c })) spaces.push({ r, c });
+  const spaces = chopperSpaces(g);
   if (!spaces.length) { say(g, 'Nessuna casella vuota per l\'elicottero.'); return; }
   const i = yield* ask({
     kind: 'airstrike', player: p.id, prompt: `${p.name}: clicca la casella vuota dove piazzare l'elicottero.`,
