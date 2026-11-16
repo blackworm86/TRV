@@ -85,6 +85,8 @@ export interface Vehicle {
   z: number;
   /** Upgrade card id (Choppe Shoppe), or null. */
   upgrade: string | null;
+  /** A second upgrade card: only Ms. Betty's large car can have one (Bring the Bling). */
+  upgrade2?: string | null;
   /** How many times the upgrade's limited ability was used this game (dispensers). */
   uses: number;
   /** Carries an ON FIRE! token (Carnage at Devil's Run, CDR p3); not damage. */
@@ -148,7 +150,8 @@ export interface Decision {
   blocked?: Blocked[];
   kind: 'assign' | 'command' | 'airstrike' | 'repair' | 'step' | 'roadDie' | 'slamReroll' | 'shoot'
     | 'leader' | 'token' | 'shootReroll' | 'dirReroll' | 'peek' | 'peekResult' | 'transfer'
-    | 'draft' | 'upgradeAssign' | 'swap' | 'plow' | 'rollCage' | 'pickDamage' | 'redButton' | 'dispense' | 'radar';
+    | 'draft' | 'upgradeAssign' | 'swap' | 'plow' | 'rollCage' | 'pickDamage' | 'redButton' | 'dispense' | 'radar'
+    | 'tinker' | 'showTime';
   player: number;
   prompt: string;
   options: Option[];
@@ -231,7 +234,10 @@ export interface Game {
   /** Upgrade cards are drafted and assigned at the start of `play`. */
   dealUpgrades: boolean;
   /** Effects that last for the current turn. */
-  fx: { bump: boolean; calledShot: boolean; slams: number };
+  fx: { bump: boolean; calledShot: boolean; slams: number; /** Flamethrower (Emberco): this turn a hit also sets the target on fire. */ flamethrower: boolean };
+  /** Upgrade cards not dealt, and those discarded (Tinker draws from the first). */
+  upgradeDeck: string[];
+  upgradeDiscard: string[];
   /** Carnage at Devil's Run, when in play: its numbers and the ongoing effect deck (ON FIRE! tokens are unlimited). */
   carnage: { n: CarnageNumbers; deck: string[]; discard: string[] } | null;
 }
@@ -287,12 +293,12 @@ const UPGRADES = shoppe.upgrades as Upgrade[];
 /** Every upgrade card. */
 export const upgrades = (): Upgrade[] => UPGRADES;
 /** Whether a car has an upgrade and it is active: an inoperable car's upgrade is not. */
-const up = (v: Vehicle | null | undefined, id: string): boolean => !!v && !v.isWreck && v.status === 'ok' && v.upgrade === id;
+const up = (v: Vehicle | null | undefined, id: string): boolean => !!v && !v.isWreck && v.status === 'ok' && (v.upgrade === id || v.upgrade2 === id);
 /** The number printed on an upgrade card. */
 const upN = (id: string): number => UPGRADES.find(u => u.id === id)?.n ?? 0;
 const upName = (id: string): string => UPGRADES.find(u => u.id === id)?.name ?? id;
 /** Damage tokens that make a car inoperable (Heavy Frame: one more). */
-const limit = (v: Vehicle): number => base.damage_to_inoperable + (v.upgrade === 'heavy_frame' ? upN('heavy_frame') : 0);
+const limit = (v: Vehicle): number => base.damage_to_inoperable + (v.upgrade === 'heavy_frame' || v.upgrade2 === 'heavy_frame' ? upN('heavy_frame') : 0);
 const SIZE_RANK: Record<Size, number> = { S: 0, M: 1, L: 2 };
 export const DIR_NAME: Record<Dir, string> = {
   F: 'avanti', FL: 'avanti-sinistra', FR: 'avanti-destra',
@@ -476,8 +482,8 @@ export function newGame(s: Setup): Game {
     rng: r.value, players: [], vehicles: [], board: [], pile: [], tilesPlaced: 3, finalTile: false,
     hazards: new Map(), hazardPile: [], hazardDiscard: [], damagePile: [], round: 0, firstPlayer: 0,
     current: 0, roadDie: 0, winner: null, log: [], zTop: 0, activeCar: null, lastRoll: [], pendingDice: [], frames: [],
-    tokenSupply: shoppe.command_tokens, dealLeaders: !!s.leaders, dealUpgrades: !!s.upgrades, fx: { bump: false, calledShot: false, slams: 0 },
-    carnage: null,
+    tokenSupply: shoppe.command_tokens, dealLeaders: !!s.leaders, dealUpgrades: !!s.upgrades, fx: { bump: false, calledShot: false, slams: 0, flamethrower: false },
+    carnage: null, upgradeDeck: [], upgradeDiscard: [],
   };
   if (s.carnage) {
     if (s.carnage === true && !carnageTilesReady()) throw new Error("Carnage at Devil's Run: missing data in carnage.json: tiles");
@@ -1067,6 +1073,7 @@ function beforeMove(g: Game, car: Vehicle, mv: { moves: number }): { fixed: bool
       if (fixed) say(g, `Dado fuoco ${f}: Transmission Failure, nessun movimento in più.`, 'dice');
       else { mv.moves += Number(f); mustMoveAll = true; say(g, `Dado fuoco ${f}: ${mv.moves} movimenti, da fare tutti.`, 'dice'); }
     } else if (f === 'out') { putOut(g, car); say(g, 'Dado fuoco: il fuoco si spegne.', 'dice'); }
+    else if (hasPower(g, car.owner, 'smokin')) say(g, 'Dado fuoco: teschio, ma Smokin\': nessun effetto.', 'dice');
     else { say(g, 'Dado fuoco: teschio!', 'dice'); eliminate(g, car, 'è bruciata'); }
   }
   return { fixed, mustMoveAll };
@@ -1196,6 +1203,8 @@ function* shootFrom(g: Game, player: number, from: Pos, who: string, shooter: Ve
   }
   if (!hit) return;
   yield* damage(g, t);
+  // Flamethrower (Emberco): the target hit this turn also catches fire.
+  if (g.fx.flamethrower && player === g.current && t.status === 'ok') catchFire(g, t);
   // Grappling Hook: after resolving the damage, the car may swap spaces with the car it hit.
   if (g.winner === null && up(shooter, 'grappling_hook') && shooter!.pos && !t.isWreck && t.status !== 'elim' && t.pos && !samePos(t.pos, shooter!.pos)) {
     const s = yield* ask({
@@ -1325,7 +1334,7 @@ function stepOption(g: Game, car: Vehicle, to: Pos, left: number, name: string, 
 function* turn(g: Game, p: Player): Gen<void> {
   g.current = p.id;
   g.lastRoll = [];
-  g.fx = { bump: false, calledShot: false, slams: 0 };
+  g.fx = { bump: false, calledShot: false, slams: 0, flamethrower: false };
   const allFree = p.dice.map((_, i) => i).filter(i => !p.used[i]);
   // Two dice with the same value are the same choice: offer each value once.
   const free = allFree.filter(i => allFree.find(j => p.dice[j] === p.dice[i]) === i);
@@ -1458,7 +1467,11 @@ function canActivate(g: Game, p: Player, cmd: CommandId): boolean {
     case 'repair': return canRepair(g, p);
     case 'pain_transfer': return cars.some(a => a.damage.length > 0 && cars.some(b => b !== a && b.damage.length < limit(b)));
     case 'need_for_speed': return p.used.some(u => !u);
-    case 'tinker': case 'show_time': case 'flamethrower': return false;
+    // Tinker (Ms. Betty): one of her cars has an upgrade to swap, and the deck has a card.
+    case 'tinker': return g.upgradeDeck.length + g.upgradeDiscard.length > 0 && cars.some(v => v.upgrade || v.upgrade2);
+    // Show Time and Flamethrower (Emberco) need Carnage at Devil's Run's fire.
+    case 'show_time': return !!g.carnage && cars.some(v => v.status === 'ok' && !v.onFire);
+    case 'flamethrower': return !!g.carnage;
     default: return true;
   }
 }
@@ -1477,6 +1490,9 @@ function* activate(g: Game, p: Player, cmd: CommandId, value: number, mv: { move
       say(g, `Need for Speed: i dadi non assegnati di ${p.name} diventano ${value}.`, 'good');
       return;
     case 'pain_transfer': yield* painTransfer(g, p); return;
+    case 'tinker': yield* tinker(g, p); return;
+    case 'show_time': yield* showTime(g, p); return;
+    case 'flamethrower': g.fx.flamethrower = true; say(g, 'Flamethrower: se colpisce in questo turno, il bersaglio prende fuoco.', 'info'); return;
     default: return;
   }
 }
@@ -1590,7 +1606,10 @@ export function* play(g: Game): Gen<void> {
 
 /** Crew leaders, setup steps 2-5: two boards at random to each player, who keeps one. */
 function* chooseLeaders(g: Game): Gen<void> {
-  const deck = shuffled(g, LEADERS.filter(l => !l.needs?.length), 'crew-leaders');
+  // A leader that depends on an expansion part is dealt only when it is in play (Ms. Betty: the
+  // upgrade cards; Emberco: Carnage at Devil's Run's fire).
+  const ready = (need: string): boolean => (need === 'upgrades' ? g.dealUpgrades : need === 'carnage' ? !!g.carnage : false);
+  const deck = shuffled(g, LEADERS.filter(l => (l.needs ?? []).every(ready)), 'crew-leaders');
   for (const p of g.players) {
     if (p.leader) continue;
     const hand = deck.splice(0, shoppe.leaders_dealt);
@@ -1604,6 +1623,36 @@ function* chooseLeaders(g: Game): Gen<void> {
   }
 }
 
+/** Tinker (Ms. Betty): she discards an upgrade of one of her cars and draws a new one for that car. */
+function* tinker(g: Game, p: Player): Gen<void> {
+  const slots = g.vehicles.filter(v => v.owner === p.id && v.status !== 'elim')
+    .flatMap(v => [v.upgrade ? { v, second: false, id: v.upgrade } : null, v.upgrade2 ? { v, second: true, id: v.upgrade2 } : null])
+    .filter((x): x is { v: Vehicle; second: boolean; id: string } => !!x);
+  if (!slots.length) return;
+  const i = yield* ask({
+    kind: 'tinker', player: p.id, prompt: `${p.name}: Tinker, quale potenziamento scartare?`,
+    options: slots.map(x => ({ label: `${upName(x.id)} (auto ${SIZE_NAME[x.v.size]})`, carId: x.v.id, upgrade: x.id, ...(x.v.pos ? { pos: x.v.pos } : {}) })),
+  });
+  const s = slots[i];
+  if (!g.upgradeDeck.length) { g.upgradeDeck = shuffled(g, g.upgradeDiscard, 'upgrades'); g.upgradeDiscard = []; }
+  const fresh = g.upgradeDeck.shift();
+  if (!fresh) return;
+  g.upgradeDiscard.push(s.id);
+  if (s.second) s.v.upgrade2 = fresh; else s.v.upgrade = fresh;
+  say(g, `Tinker: ${upName(s.id)} scartato, l'auto ${SIZE_NAME[s.v.size]} prende ${upName(fresh)}.`, 'good');
+}
+
+/** Show Time (Emberco): one of his operable cars, chosen, catches fire (Carnage at Devil's Run). */
+function* showTime(g: Game, p: Player): Gen<void> {
+  const cars = g.vehicles.filter(v => v.owner === p.id && v.status === 'ok' && !v.onFire);
+  if (!cars.length) return;
+  const i = yield* ask({
+    kind: 'showTime', player: p.id, prompt: `${p.name}: Show Time, quale tua auto prende fuoco?`,
+    options: cars.map(v => ({ label: `Auto ${SIZE_NAME[v.size]}`, carId: v.id, ...(v.pos ? { pos: v.pos } : {}) })),
+  });
+  catchFire(g, cars[i]);
+}
+
 /**
  * Upgrade cards, setup steps 1-6: four cards each, keep one and pass the rest to the left until
  * everyone has three, then one upgrade on each car. (On one device the picks come one after the
@@ -1613,11 +1662,16 @@ function* draftUpgrades(g: Game): Gen<void> {
   const deck = shuffled(g, UPGRADES.map(u => u.id), 'upgrades');
   const hands = g.players.map(() => deck.splice(0, shoppe.upgrades_dealt));
   const kept: string[][] = g.players.map(() => []);
-  for (let r = 0; r < shoppe.upgrades_kept; r++) {
+  // Bring the Bling (Ms. Betty): she keeps one card more than the others (the last one of her hand).
+  const keeps = (p: Player): number => shoppe.upgrades_kept + (hasPower(g, p.id, 'bring_the_bling') ? 1 : 0);
+  const rounds = Math.max(...g.players.map(keeps));
+  for (let r = 0; r < rounds; r++) {
     for (const p of g.players) {
+      if (r >= keeps(p)) continue;
       const hand = hands[p.id];
+      if (!hand.length) continue;
       const i = yield* ask({
-        kind: 'draft', player: p.id, prompt: `${p.name}: scegli un potenziamento (${r + 1} di ${shoppe.upgrades_kept}).`,
+        kind: 'draft', player: p.id, prompt: `${p.name}: scegli un potenziamento (${r + 1} di ${keeps(p)}).`,
         options: hand.map(id => ({ label: upName(id), upgrade: id })),
       });
       kept[p.id].push(hand.splice(i, 1)[0]);
@@ -1628,7 +1682,9 @@ function* draftUpgrades(g: Game): Gen<void> {
   // (the interface lets the card be dragged onto the car). The last card goes on the last car.
   for (const p of g.players) {
     const left = [...kept[p.id]];
-    const cars = g.vehicles.filter(v => v.owner === p.id);
+    // Bring the Bling: the large car takes a second card (it appears twice among the places).
+    const own = g.vehicles.filter(v => v.owner === p.id);
+    const cars = hasPower(g, p.id, 'bring_the_bling') ? [...own, ...own.filter(v => v.size === 'L')] : own;
     while (cars.length && left.length) {
       let card = 0, car = 0;
       if (left.length > 1 || cars.length > 1) {
@@ -1639,11 +1695,13 @@ function* draftUpgrades(g: Game): Gen<void> {
         });
         card = pairs[i].ci; car = pairs[i].vi;
       }
-      cars.splice(car, 1)[0].upgrade = left.splice(card, 1)[0];
+      const v = cars.splice(car, 1)[0], id = left.splice(card, 1)[0];
+      if (v.upgrade) v.upgrade2 = id; else v.upgrade = id;
     }
   }
+  g.upgradeDeck = [...deck, ...hands.flat()];
   for (const p of g.players) {
-    say(g, `${p.name}: ${g.vehicles.filter(v => v.owner === p.id).map(v => `${SIZE_NAME[v.size]} ${upName(v.upgrade ?? '')}`).join(', ')}.`, 'info');
+    say(g, `${p.name}: ${g.vehicles.filter(v => v.owner === p.id).map(v => `${SIZE_NAME[v.size]} ${upName(v.upgrade ?? '')}${v.upgrade2 ? ` + ${upName(v.upgrade2)}` : ''}`).join(', ')}.`, 'info');
   }
 }
 

@@ -1619,7 +1619,11 @@ function drawHud(): void {
     carId: v.id, size: v.size, color: me.color, status: v.status, placed: v.placed, damage: v.damage.length,
     dropMove: hot.has(`move:${v.id}`), dropCoast: hot.has(`coast:${v.id}`), pick: pickIds.has(v.id),
     label: v.status === 'elim' ? '' : v.inStart ? 'IN PARTENZA' : '',
-    ...(v.upgrade && v.status !== 'elim' ? { upgrade: { name: upgradeName(v.upgrade), text: UPGRADE_INFO[v.upgrade] ?? '' } } : {}),
+    // Ms. Betty's large car may carry two upgrades: one card naming both.
+    ...(v.upgrade && v.status !== 'elim' ? { upgrade: {
+      name: v.upgrade2 ? `${upgradeName(v.upgrade)} + ${upgradeName(v.upgrade2)}` : upgradeName(v.upgrade),
+      text: [v.upgrade, v.upgrade2].filter((x): x is string => !!x).map(x => UPGRADE_INFO[x] ?? '').join(' · '),
+    } } : {}),
   }));
   // With crew leaders the strip is wider (the leader's panel on its left): it keeps that size all game.
   const tall = g.players.some(p => leaderOf(p)); // class "tall": the strip has the leader's panel
@@ -2051,11 +2055,12 @@ function carTipHtml(v: Vehicle): string {
   const owner = v.owner !== null && g ? g.players[v.owner] : null;
   const title = v.isWreck ? 'Relitto' : `Auto ${SIZE_NAME[v.size]}${owner ? ` di ${esc(owner.name)}` : ''}`;
   const state = v.status === 'elim' ? 'Eliminata' : v.status === 'inop' ? 'Fuori uso' : v.inStart ? 'In partenza' : 'In strada';
-  const hidden = v.upgrade === 'onboard_computer';
+  const hidden = v.upgrade === 'onboard_computer' || v.upgrade2 === 'onboard_computer';
   const dmg = v.damage.length
     ? `<ul>${v.damage.map(t => { const [n, does] = DAMAGE_INFO[t.type] ?? [t.type, '']; return hidden ? '<li>Segnalino coperto</li>' : `<li><b>${esc(n)}</b>${does ? ` — ${esc(does)}` : ''}</li>`; }).join('')}</ul>`
     : '<p>Nessun danno.</p>';
-  const ability = v.upgrade ? `<p><b>${esc(upgradeName(v.upgrade))}</b>: ${esc(UPGRADE_INFO[v.upgrade] ?? '')}${v.status !== 'ok' ? ' <i>(non attiva: auto fuori uso)</i>' : ''}</p>` : '<p>Nessuna abilità speciale.</p>';
+  const ups = [v.upgrade, v.upgrade2].filter((x): x is string => !!x);
+  const ability = ups.length ? ups.map(u => `<p><b>${esc(upgradeName(u))}</b>: ${esc(UPGRADE_INFO[u] ?? '')}${v.status !== 'ok' ? ' <i>(non attiva: auto fuori uso)</i>' : ''}</p>`).join('') : '<p>Nessuna abilità speciale.</p>';
   return `<h4>${title}</h4><span class="state">${state} · ${v.damage.length} ${v.damage.length === 1 ? 'danno' : 'danni'}</span>`
     + `<h5>Danni</h5>${dmg}<h5>Abilità speciale</h5>${ability}`;
 }
