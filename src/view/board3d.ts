@@ -374,8 +374,67 @@ export function buildTile(tile: TileData, o: TileMeshOptions): THREE.Group {
  * Hazard token: a cardboard chevron with vector art on both faces; image right = forward (+x).
  * `setFaceUp` flips it; `update(dt)` plays the flip (call it every frame).
  */
+// ------------------------------------------------------------------------------- revealed ground
+
+/** Token outline (art.ts CHEVRON, 120 x 100: a road space's shape). */
+const TOKEN_OUTLINE: [number, number][] = [[1.5, 1.5], [104.7, 1.5], [118.5, 50], [104.7, 98.5], [1.5, 98.5], [15.3, 50]];
+const groundCache = new Map<string, THREE.CanvasTexture>();
+
+/**
+ * The top of a revealed hazard token drawn as the ground it stands for (asked by the user,
+ * 2026-11-16): the procedural terrain of `code` (R road, M mud, O oil on asphalt, D desert glass,
+ * P ramp sand, F burnt ground), cut to the token's shape; `pit` draws the Pit Trap's hole instead.
+ */
+export function tokenGroundTexture(code: string): THREE.CanvasTexture {
+  const hit = groundCache.get(code);
+  if (hit) return hit;
+  const W = 360, H = 300;
+  const c = document.createElement('canvas');
+  c.width = W; c.height = H;
+  const x = c.getContext('2d')!;
+  x.beginPath();
+  TOKEN_OUTLINE.forEach(([px, py], i) => (i ? x.lineTo(px * W / 120, py * H / 100) : x.moveTo(px * W / 120, py * H / 100)));
+  x.closePath();
+  x.save();
+  x.clip();
+  const ground = code === 'pit' ? 'o' : code;
+  // A small face made only of this terrain; one space from its middle is the token's top.
+  const m = proceduralTerrain({ name: `ground-${code}`, terrain: Array(GRID.rows).fill(ground.repeat(GRID.cols)), hazards: [] }, { width: 700, infoWidth: 64 });
+  const img = new ImageData(new Uint8ClampedArray(m.albedo), m.w, m.h);
+  const src = document.createElement('canvas');
+  src.width = m.w; src.height = m.h;
+  src.getContext('2d')!.putImageData(img, 0, 0);
+  const pts = spaceOutlinePx(2, 3);
+  const xs = pts.map(p => p[0]), ys = pts.map(p => p[1]);
+  const k = m.w / GRID.frameW;
+  const sx = Math.min(...xs) * k, sy = Math.min(...ys) * k, sw = (Math.max(...xs) - Math.min(...xs)) * k, sh = (Math.max(...ys) - Math.min(...ys)) * k;
+  x.drawImage(src, sx, sy, sw, sh, 0, 0, W, H);
+  if (code === 'pit') {
+    // The pit: a dark hole with a crumbling rim, broken planks of the cover and spikes at the bottom.
+    const cx = W * 0.5, cy = H * 0.5, rx = W * 0.3, ry = H * 0.33;
+    const g = x.createRadialGradient(cx, cy, 4, cx, cy, rx);
+    g.addColorStop(0, '#050403'); g.addColorStop(0.6, '#140d08'); g.addColorStop(0.85, '#3a2414'); g.addColorStop(1, 'rgba(90,60,30,0)');
+    x.fillStyle = g;
+    x.beginPath(); x.ellipse(cx, cy, rx * 1.15, ry * 1.15, 0, 0, Math.PI * 2); x.fill();
+    x.fillStyle = '#060504';
+    x.beginPath(); x.ellipse(cx, cy, rx * 0.78, ry * 0.78, 0.2, 0, Math.PI * 2); x.fill();
+    x.fillStyle = '#5a4a3c';
+    for (let i = 0; i < 9; i++) { const a = i * 0.7, r = 0.25 + (i % 3) * 0.12; x.beginPath(); x.moveTo(cx + Math.cos(a) * rx * r - 4, cy + Math.sin(a) * ry * r); x.lineTo(cx + Math.cos(a) * rx * r, cy + Math.sin(a) * ry * r - 16); x.lineTo(cx + Math.cos(a) * rx * r + 4, cy + Math.sin(a) * ry * r); x.fill(); }
+    x.strokeStyle = '#8a6a44'; x.lineWidth = 12;
+    for (const [a, l] of [[0.4, 0.5], [2.6, 0.45], [4.3, 0.4]]) { x.beginPath(); x.moveTo(cx + Math.cos(a) * rx * 0.95, cy + Math.sin(a) * ry * 0.95); x.lineTo(cx + Math.cos(a + 0.5) * rx * (0.95 - l), cy + Math.sin(a + 0.5) * ry * (0.95 - l)); x.stroke(); }
+  }
+  x.restore();
+  const t = new THREE.CanvasTexture(c);
+  t.colorSpace = THREE.SRGBColorSpace;
+  t.anisotropy = 4;
+  groundCache.set(code, t);
+  return t;
+}
+
 export function hazardToken(type: string, size: { length: number; depth: number; thickness: number }): {
   group: THREE.Group; setFaceUp: (up: boolean) => void; update: (dt: number) => void;
+  /** Shows the token's top as ground (a revealed terrain hazard), with `piece` standing on it; null puts the printed face back. */
+  setGround: (code: string | null, piece?: THREE.Object3D) => void;
 } {
   const kx = size.length / 120, kz = size.depth / 100;
   // Token outline (art.ts CHEVRON, 120 x 100: a road space's shape), centred, in shape x / y = world x / -z.
@@ -396,7 +455,10 @@ export function hazardToken(type: string, size: { length: number; depth: number;
     return m;
   };
   const chip = new THREE.Group();
-  chip.add(card, face(hazardTokenSvg(type, true), true), face(hazardTokenSvg(null, false), false));
+  const top = face(hazardTokenSvg(type, true), true);
+  const printed = (top.material as THREE.MeshStandardMaterial).map;
+  chip.add(card, top, face(hazardTokenSvg(null, false), false));
+  let ground: string | null = null, piece: THREE.Object3D | null = null;
   chip.position.y = size.thickness / 2;
   const group = new THREE.Group();
   group.add(chip);
@@ -407,6 +469,16 @@ export function hazardToken(type: string, size: { length: number; depth: number;
   };
   return {
     group,
+    setGround: (code, p) => {
+      if (code === ground) return;
+      ground = code;
+      const mat = top.material as THREE.MeshStandardMaterial;
+      mat.map = code ? tokenGroundTexture(code) : printed;
+      mat.roughness = code === 'O' || code === 'D' ? 0.15 : 0.8;
+      mat.needsUpdate = true;
+      if (piece) { chip.remove(piece); piece = null; }
+      if (code && p) { piece = p; p.position.y = size.thickness / 2 + 0.002; chip.add(p); }
+    },
     setFaceUp: up => {
       const t = up ? 0 : Math.PI;
       if (first) { first = false; target = angle = t; pose(); return; }
