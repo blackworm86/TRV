@@ -421,14 +421,18 @@ function rollDice(g: Game, specs: { id: string; n: number }[], cause: string): n
   return r.value.content.results.map(x => x.face);
 }
 
-function rollFx<K extends 'road' | 'stunt' | 'slam' | 'shooting' | 'direction'>(g: Game, die: K, cause: string): (typeof DICE)[K][number] {
+/**
+ * Rolls one FX die. `at` is where on the road the roll belongs (the shooter, the slam, the damaged
+ * vehicle...): the interface throws the die there. Presentation only: it changes no rule.
+ */
+function rollFx<K extends 'road' | 'stunt' | 'slam' | 'shooting' | 'direction'>(g: Game, die: K, cause: string, at?: Pos | null): (typeof DICE)[K][number] {
   const faces = DICE[die];
   const [f] = rollDice(g, [{ id: die, n: faces.length }], cause);
   const v = faces[f] as (typeof DICE)[K][number];
   const rolled = { die, face: f, value: v as string | number };
   g.lastRoll.push(rolled);
   g.pendingDice.push(rolled);
-  beat(g, 'roll', { die: rolled });
+  beat(g, 'roll', { die: rolled, ...(at ? { at: { ...at } } : {}) });
   return v;
 }
 
@@ -698,7 +702,7 @@ function* enter(g: Game, v: Vehicle, to: Pos, ctx: MoveCtx | null, dir?: Dir): G
       if (v.status !== 'elim' && v.pos && vehiclesAt(g, v.pos).length > 1) yield* slam(g, v.pos);
       return true;
     } else if (h.type === 'oil') {
-      const d = rollFx(g, 'direction', 'oil-slick');
+      const d = rollFx(g, 'direction', 'oil-slick', to);
       say(g, `Olio! Dado direzione: ${DIR_NAME[d]}.`, 'dice');
       const stop = yield* enter(g, v, neighbor(to, d), ctx, d);
       yield* baldTires(g, v, d);
@@ -714,7 +718,7 @@ function* enter(g: Game, v: Vehicle, to: Pos, ctx: MoveCtx | null, dir?: Dir): G
     } else if (h.type === 'pit_trap') {
       // CDR p3: the shooting die against the vehicle that revealed it; a hit eliminates it.
       // The token stays and the space is impassable from now on.
-      const f = rollFx(g, 'shooting', 'pit-trap');
+      const f = rollFx(g, 'shooting', 'pit-trap', to);
       const hit = f === 'ANY' || f === v.size || (f === 'SM' && (v.size === 'S' || v.size === 'M'));
       say(g, `Trappola: dado sparo ${f} — ${hit ? 'presa!' : 'scampata.'}`, 'dice');
       if (hit) { eliminate(g, v, 'è caduta nella trappola', to); return true; }
@@ -739,7 +743,7 @@ function* enter(g: Game, v: Vehicle, to: Pos, ctx: MoveCtx | null, dir?: Dir): G
     // Only from the space directly behind (taken as moving forward onto it: ramps face the
     // lead tile, provisional until the tiles are known), else the vehicle is eliminated.
     if (dir !== 'F') { eliminate(g, v, 'è entrata nella rampa di traverso', to); return true; }
-    const n = rollFx(g, 'stunt', 'ramp');
+    const n = rollFx(g, 'stunt', 'ramp', to);
     say(g, `Rampa! Dado acrobazia ${n}: salta ${n} caselle in avanti.`, 'dice');
     let land = to;
     for (let i = 0; i < n; i++) land = neighbor(land, 'F');
@@ -802,8 +806,8 @@ function* slam(g: Game, at: Pos): Gen<void> {
     // Bent Frame (ongoing effect): the slammed car moves, without rolling the slam die.
     const bent = !bump && top !== bottom && hasOngoing(bottom, 'bent_frame');
     if (bent) say(g, 'Bent Frame: si muove l\'auto urtata, senza dado slam.', 'info');
-    let which: 'top' | 'bottom' = bump || bent ? 'bottom' : rollFx(g, 'slam', 'slam');
-    let d = rollFx(g, 'direction', 'slam');
+    let which: 'top' | 'bottom' = bump || bent ? 'bottom' : rollFx(g, 'slam', 'slam', at);
+    let d = rollFx(g, 'direction', 'slam', at);
     if (bump) say(g, `Bump! Si muove ${carName(g, bottom)}; direzione ${DIR_NAME[d]}.`, 'dice');
     else say(g, `Dado slam: si muove il veicolo ${which === 'top' ? 'sopra' : 'sotto'}; direzione ${DIR_NAME[d]}.`, 'dice');
     const big = SIZE_RANK[top.size] > SIZE_RANK[bottom.size] ? top : SIZE_RANK[bottom.size] > SIZE_RANK[top.size] ? bottom : null;
@@ -817,8 +821,8 @@ function* slam(g: Game, at: Pos): Gen<void> {
         options: [{ label: 'Tieni il risultato' }, { label: 'Ritira i due dadi' }],
       });
       if (i === 1) {
-        which = bent ? 'bottom' : rollFx(g, 'slam', 'slam-reroll');
-        d = rollFx(g, 'direction', 'slam-reroll');
+        which = bent ? 'bottom' : rollFx(g, 'slam', 'slam-reroll', at);
+        d = rollFx(g, 'direction', 'slam-reroll', at);
         say(g, `Ritiro: si muove il veicolo ${which === 'top' ? 'sopra' : 'sotto'}; direzione ${DIR_NAME[d]}.`, 'dice');
       }
     }
@@ -832,7 +836,7 @@ function* slam(g: Game, at: Pos): Gen<void> {
         options: [{ label: 'Tieni il risultato' }, { label: 'Ritira il dado direzione' }],
       });
       if (i === 1) {
-        d = rollFx(g, 'direction', 'junk-in-the-trunk');
+        d = rollFx(g, 'direction', 'junk-in-the-trunk', at);
         say(g, `${up(affected, 'stability_control') ? 'Stability Control' : 'Junk in the Trunk'}: nuova direzione ${DIR_NAME[d]}.`, 'dice');
       }
     }
@@ -932,7 +936,7 @@ function* damageEffect(g: Game, v: Vehicle, t: DamageToken): Gen<void> {
   switch (t.type) {
     case 'dent': return;
     case 'shrapnel': {
-      const d = rollFx(g, 'direction', 'shrapnel');
+      const d = rollFx(g, 'direction', 'shrapnel', v.pos);
       say(g, `Schegge verso ${DIR_NAME[d]}.`, 'dice');
       let p = neighbor(v.pos, d);
       while (onBoard(p)) {
@@ -950,11 +954,11 @@ function* damageEffect(g: Game, v: Vehicle, t: DamageToken): Gen<void> {
       return;
     }
     case 'dazed': {
-      const n = rollFx(g, 'stunt', 'dazed');
+      const n = rollFx(g, 'stunt', 'dazed', v.pos);
       say(g, `Stordito: dado acrobazia ${n}.`, 'dice');
       const ctx: MoveCtx = { left: n, drift: false, driftUsed: false };
       while (ctx.left > 0 && v.pos && v.status !== 'elim' && g.winner === null) {
-        const d = rollFx(g, 'direction', 'dazed');
+        const d = rollFx(g, 'direction', 'dazed', v.pos);
         const to = neighbor(v.pos, d);
         say(g, `Stordito: verso ${DIR_NAME[d]}.`, 'dice');
         ctx.left = Math.max(0, ctx.left - (onBoard(to) && terrainAt(g, to) === 'M' ? 2 : 1));
@@ -977,8 +981,8 @@ function* damageEffect(g: Game, v: Vehicle, t: DamageToken): Gen<void> {
       return;
     }
     case 'blastoff': {
-      const d = rollFx(g, 'direction', 'blastoff');
-      const n = rollFx(g, 'stunt', 'blastoff');
+      const d = rollFx(g, 'direction', 'blastoff', v.pos);
+      const n = rollFx(g, 'stunt', 'blastoff', v.pos);
       say(g, `Decollo: ${n} caselle verso ${DIR_NAME[d]}.`, 'dice');
       let p = v.pos;
       for (let i = 0; i < n; i++) p = neighbor(p, d);
@@ -1212,7 +1216,7 @@ function* shootFrom(g: Game, player: number, from: Pos, who: string, shooter: Ve
   if (hit) say(g, `${spotter ? 'Spotter' : 'Called Shot'}: colpo automatico!`, 'good');
   else {
     const shot = (cause: string): boolean => {
-      const f = rollFx(g, 'shooting', cause);
+      const f = rollFx(g, 'shooting', cause, from);
       // Armor Plating: a result of ANY against the car is a miss.
       const armor = f === 'ANY' && up(t, 'armor_plating');
       const ok = !armor && (f === 'ANY' || f === t.size || (f === 'SM' && (t.size === 'S' || t.size === 'M')));
@@ -1453,7 +1457,7 @@ function* turn(g: Game, p: Player): Gen<void> {
   if (up(car, 'boost_switch')) { mv.moves += upN('boost_switch'); say(g, `Boost Switch: +${upN('boost_switch')} movimento.`, 'good'); }
   // Loose Wiring (ongoing effect): before the car moves, the direction die moves it one space.
   if (hasOngoing(car, 'loose_wiring') && car.pos && car.status === 'ok' && g.winner === null) {
-    const d = rollFx(g, 'direction', 'loose-wiring');
+    const d = rollFx(g, 'direction', 'loose-wiring', car.pos);
     say(g, `Loose Wiring: una casella ${DIR_NAME[d]}.`, 'dice');
     yield* enter(g, car, neighbor(car.pos, d), null, d);
     yield* baldTires(g, car, d);

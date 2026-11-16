@@ -17,6 +17,7 @@ import { Pieces, TextureBank } from '../../src/view/pieces3d';
 import { tickFlames, flameCluster, useRampModel, rampPiece } from '../../src/view/terrain/carnage3d';
 import { pitPiece } from '../../src/view/terrain/pit3d';
 import { buildTile, hazardToken, spaceCenterPx, spaceGeometry, spaceRimGeometry, GRID, TILE_PITCH_PX } from '../../src/view/board3d';
+import { upgradeArt } from '../../src/view/cards';
 import { dieSvg, damageTokenSvg, dashboardSvg, commandBoardSvg, playerStripSvg, STRIP_ASPECT, STRIP_ASPECT_LEADER, STRIP_LEADER_PLATE, avatarSvg, dataUrl } from '../../src/view/vector/art';
 import { newSeed } from '../../src/platform/entropy';
 import {
@@ -234,8 +235,19 @@ const TRAY_SCALE = 2;
 /** FX dice land among the cars: a little smaller than the player's own, so they hide less of the road. */
 const FX_SCALE = 1.6;
 const TRAY_Z = TILE_H / 2 + 0.9;
-interface TableDie { kind: string; d: Die3D; from: THREE.Vector3; to: THREE.Vector3; q0: THREE.Quaternion; q1: THREE.Quaternion; t: number }
+/** One FX die on the table and its current flight: from `from` to `to`, turning from q0 to q1, `t` from 0 to 1 over `dur` seconds, rising `hop` on the way. */
+interface TableDie { kind: string; d: Die3D; from: THREE.Vector3; to: THREE.Vector3; q0: THREE.Quaternion; q1: THREE.Quaternion; t: number; dur: number; hop: number }
+/**
+ * The FX dice: one copy of each, as in the box (asked by the user, 2026-11-16). They rest in a row
+ * off the board, beside the player's own dice; a roll throws the die to the action, and once the
+ * effect is over it goes back to its resting place.
+ */
+const fxSupply = new Map<string, TableDie>();
+/** The FX dice out on the road for the effect being played, in the order they were thrown. */
 let trayDice: TableDie[] = [];
+/** When the dice out on the road go back to rest (seconds, performance clock), or null. */
+let fxHomeAt: number | null = null;
+const FX_ORDER = ['road', 'stunt', 'slam', 'shooting', 'direction', 'fire'];
 const FORWARD = new THREE.Vector3(1, 0, 0), AWAY = new THREE.Vector3(0, 0, -1);
 const ringGeo = new THREE.RingGeometry(0.42, 0.56, 32);
 const carRingGeo = new THREE.RingGeometry(0.55, 0.78, 40);
@@ -946,7 +958,7 @@ function skipBeats(): void {
     // The dice rolled in the skipped beats still lie by the action, at rest: a question may be about them.
     if (f.kind === 'roll' && !replaying) rollOnTable(f);
   }
-  for (const td of trayDice) { td.t = 1; td.d.mesh.position.copy(td.to); td.d.mesh.quaternion.copy(td.q1); }
+  for (const td of fxSupply.values()) { td.t = 1; td.d.mesh.position.copy(td.to); td.d.mesh.quaternion.copy(td.q1); }
   queue.length = 0;
   $('roundbox').classList.remove('show');
   finishBeats();
@@ -963,7 +975,11 @@ function finishBeats(): void {
   if (decision && FX_ASK.has(decision.kind) && trayDice.length) {
     const c = trayDice.reduce((a, t) => a.add(t.to), new THREE.Vector3()).multiplyScalar(1 / trayDice.length);
     actionShot(c);
-  } else actionDone();
+  } else {
+    actionDone();
+    // The effect is over: its dice go back to rest, after a moment to read them.
+    if (trayDice.length) fxHomeAt = performance.now() / 1000 + 1.4;
+  }
   render();
 }
 
@@ -1289,60 +1305,109 @@ function flash(id: string): void {
   } });
 }
 
-/**
- * A rolled FX die tumbles onto the road right beside the car that rolled it, where the action is
- * (asked by the user, 2026-11-16: the dice must stay in view), on a free spot: off the cars,
- * the spaces that can be picked and the other dice, inside the road.
- */
-function rollOnTable(f: Frame): void {
-  if (!f.die) return;
-  if (trayFresh) { for (const t of trayDice) scene.remove(t.d.mesh); trayDice = []; trayFresh = false; }
-  // One die per kind on the table: a new roll of the same die replaces the old one, in its place.
-  const old = trayDice.findIndex(t => t.kind === f.die!.die);
-  if (old >= 0) scene.remove(trayDice[old].d.mesh); // its materials are shared by every die: keep them
-  const i = old >= 0 ? old : trayDice.length;
-  const car = f.snap.vehicles.find(v => v.id === f.snap.activeCar);
-  const d = makeDie(FACES, f.die.die, DIE_W);
-  d.mesh.scale.setScalar(FX_SCALE);
-  const half = DIE_W * FX_SCALE / 2;
-  let to = old >= 0 ? trayDice[old].to.clone() : null;
-  if (!to && car?.pos) to = fxSpot(world(car.pos), trayDice.filter((t, k) => k !== i && t).map(t => t.to), f.snap);
-  to ??= new THREE.Vector3(BOARD_X0 + 2 + i * DIE_W * FX_SCALE * 1.6, DIE_W * TRAY_SCALE / 2, TRAY_Z);
-  to.y = Math.max(to.y, half);
-  // Dropped from above with a little drift, less than the gap between slots: it never crosses a neighbour.
-  const from = to.clone().add(new THREE.Vector3((Math.random() - 0.5) * 0.4, 3.2, (Math.random() - 0.5) * 0.3));
-  const q1 = d.orientation(f.die.face, f.die.die === 'direction' ? FORWARD : AWAY)
-    .premultiply(new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 1, 0), f.die.die === 'direction' ? 0 : (Math.random() - 0.5) * 0.4));
-  const q0 = new THREE.Quaternion().setFromEuler(new THREE.Euler(Math.random() * 6, Math.random() * 6, Math.random() * 6));
-  d.mesh.position.copy(from);
-  d.mesh.quaternion.copy(q0);
-  scene.add(d.mesh);
-  trayDice[i] = { kind: f.die.die, d, from, to, q0, q1, t: 0 };
+/** Where an FX die rests off the board: a row to the right of the player's own dice, under the road. */
+function fxRestSpot(kind: string): THREE.Vector3 {
+  const step = DIE_W * TRAY_SCALE * 1.55;
+  const k = Math.max(0, FX_ORDER.indexOf(kind));
+  return new THREE.Vector3(BOARD_X0 + PITCH_W + TILE_W / 2 - 1.6 + (3.2 + k * 1.05) * step, DIE_W * FX_SCALE / 2, TRAY_Z);
+}
+
+/** The FX die of a kind, made and put to rest on first use. */
+function fxDie(kind: string): TableDie {
+  let td = fxSupply.get(kind);
+  if (!td) {
+    const d = makeDie(FACES, kind, DIE_W);
+    d.mesh.scale.setScalar(FX_SCALE);
+    const rest = fxRestSpot(kind);
+    const q = d.orientation(0, kind === 'direction' ? FORWARD : AWAY);
+    d.mesh.position.copy(rest);
+    d.mesh.quaternion.copy(q);
+    scene.add(d.mesh);
+    td = { kind, d, from: rest.clone(), to: rest.clone(), q0: q.clone(), q1: q.clone(), t: 1, dur: 0.75, hop: 0 };
+    fxSupply.set(kind, td);
+  }
+  return td;
+}
+
+/** Puts every FX die of the game in its resting place (the fire die only with Carnage at Devil's Run). */
+function syncFxSupply(): void {
+  if (!g) return;
+  for (const k of FX_ORDER) if (k !== 'fire' || g.carnage) fxDie(k);
+  const fire = fxSupply.get('fire');
+  if (fire) fire.d.mesh.visible = !!g.carnage;
+}
+
+/** Sends the dice out on the road back to their resting places, showing the face they rolled. */
+function fxGoHome(): void {
+  fxHomeAt = null;
+  for (const td of trayDice) {
+    td.from = td.d.mesh.position.clone();
+    td.to = fxRestSpot(td.kind);
+    td.q0 = td.d.mesh.quaternion.clone();
+    td.q1 = td.q0.clone();
+    td.t = 0; td.dur = 0.6; td.hop = 0.9;
+  }
+  trayDice = [];
 }
 
 /**
- * Where an FX die lands near the car at `c`: the free spot nearest the car, on the camera's side
- * first. Spots are tried on two rings around the car; a spot is free when it is on the road and
- * clear of every vehicle, every space that can be picked and the dice already there.
+ * A rolled FX die flies from wherever it is (its resting place, mostly) to the action: the space the
+ * engine names for the roll (the shooter, the slam, the damaged vehicle), else the car whose turn it
+ * is. The dice of one effect line up in a row there, on free road (asked by the user, 2026-11-16).
+ */
+function rollOnTable(f: Frame): void {
+  if (!f.die) return;
+  if (trayFresh) { fxGoHome(); trayFresh = false; }
+  fxHomeAt = null;
+  const td = fxDie(f.die.die);
+  td.d.mesh.visible = true;
+  const car = f.snap.vehicles.find(v => v.id === f.snap.activeCar);
+  const at = f.at ? world(f.at) : car?.pos ? world(car.pos) : null;
+  // A die already out stays where it is and is rolled again there.
+  let to = trayDice.includes(td) ? td.to.clone() : null;
+  if (!to && at) to = fxSpot(at, trayDice.map(t => t.to), f.snap);
+  to ??= fxRestSpot(f.die.die).add(new THREE.Vector3(0, 0, -1.2));
+  if (!trayDice.includes(td)) trayDice.push(td);
+  td.from = td.d.mesh.position.clone();
+  td.to = to;
+  td.q0 = new THREE.Quaternion().setFromEuler(new THREE.Euler(Math.random() * 6, Math.random() * 6, Math.random() * 6));
+  td.q1 = td.d.orientation(f.die.face, f.die.die === 'direction' ? FORWARD : AWAY); // all square to the road: a tidy row
+  td.t = 0; td.dur = 0.75; td.hop = 2.2;
+}
+
+/**
+ * Where an FX die lands near the action at `c`. The first die of an effect takes the free spot
+ * nearest the action (two rings of spots around it, the camera's side first); the next ones line
+ * up beside it, in a row along the road. A spot is free when it is on the road and clear of the
+ * vehicles, the spaces that can be picked and the dice already there.
  */
 function fxSpot(c: THREE.Vector3, dice: THREE.Vector3[], snap: Frame['snap']): THREE.Vector3 | null {
   const space = GRID.pitch * KX; // one road space, in world units
-  const gap = DIE_W * FX_SCALE * 1.5;
+  const gap = DIE_W * FX_SCALE * 1.45;
   const cars = snap.vehicles.filter(v => v.pos && v.status !== 'elim').map(v => world(v.pos!));
   const roadZ = TILE_H / 2 - DIE_W * FX_SCALE;
+  const free = (p: THREE.Vector3): boolean => Math.abs(p.z) <= roadZ && p.x >= BOARD_X0 + 0.5
+    && !cars.some(v => Math.hypot(v.x - p.x, v.z - p.z) < space * 0.75)
+    && !markers.some(m => Math.hypot(m.at.x - p.x, m.at.z - p.z) < space * 0.6)
+    && !dice.some(q => Math.hypot(q.x - p.x, q.z - p.z) < gap * 0.95);
+  if (dice.length) {
+    // In the row of the first die: right beside the last one, then on either end.
+    const row = dice[0];
+    const xs = dice.map(q => q.x);
+    for (const x of [Math.max(...xs) + gap, Math.min(...xs) - gap, Math.max(...xs) + 2 * gap, Math.min(...xs) - 2 * gap]) {
+      const p = new THREE.Vector3(x, row.y, row.z);
+      if (free(p)) return p;
+    }
+  }
   let best: THREE.Vector3 | null = null, bestScore = Infinity;
   for (const r of [0.95, 1.25, 1.5, 1.8, 2.1]) {
     for (let a = 0; a < 24; a++) {
       const ang = (a / 24) * Math.PI * 2;
       const p = new THREE.Vector3(c.x + Math.cos(ang) * r * space, c.y + DIE_W * FX_SCALE / 2, c.z + Math.sin(ang) * r * space);
-      if (Math.abs(p.z) > roadZ || p.x < BOARD_X0 + 0.5) continue;
-      if (cars.some(v => Math.hypot(v.x - p.x, v.z - p.z) < space * 0.75)) continue;
-      if (markers.some(m => Math.hypot(m.at.x - p.x, m.at.z - p.z) < space * 0.6)) continue;
-      if (dice.some(q => Math.hypot(q.x - p.x, q.z - p.z) < gap)) continue;
-      // Nearer is better; toward the camera (down the screen) a little better, so the car stays readable;
-      // the dice of one event keep together, so next to a die already there is best of all.
-      const near = dice.length ? Math.min(...dice.map(q => Math.hypot(q.x - p.x, q.z - p.z))) / space : 0;
-      const score = r * 10 - Math.sin(ang) * 2 + near * 25;
+      if (!free(p)) continue;
+      // Room for a row of three: the spots on its sides count too.
+      const room = [gap, -gap].filter(dx => free(p.clone().add(new THREE.Vector3(dx, 0, 0)))).length;
+      const score = r * 10 - Math.sin(ang) * 2 - room * 3;
       if (score < bestScore) { bestScore = score; best = p; }
     }
   }
@@ -1663,6 +1728,7 @@ function drawHud(): void {
   const hot = hotZones();
   const mine = d && d.player === me.id;
   syncTableDice(me, !!mine);
+  syncFxSupply();
   const lead = leaderOf(me);
   const cmds = boardCommands(me);
   const cmdArt = {
@@ -1680,10 +1746,12 @@ function drawHud(): void {
     carId: v.id, size: v.size, color: me.color, status: v.status, placed: v.placed, damage: v.damage.length,
     dropMove: hot.has(`move:${v.id}`), dropCoast: hot.has(`coast:${v.id}`), pick: pickIds.has(v.id),
     label: v.status === 'elim' ? '' : v.inStart ? 'IN PARTENZA' : '',
+    ...(v.onFire && v.status !== 'elim' ? { onFire: true } : {}),
     // Ms. Betty's large car may carry two upgrades: one card naming both.
     ...(v.upgrade && v.status !== 'elim' ? { upgrade: {
       name: v.upgrade2 ? `${upgradeName(v.upgrade)} + ${upgradeName(v.upgrade2)}` : upgradeName(v.upgrade),
       text: [v.upgrade, v.upgrade2].filter((x): x is string => !!x).map(x => UPGRADE_INFO[x] ?? '').join(' · '),
+      art: upgradeArt(v.upgrade),
     } } : {}),
   }));
   // With crew leaders the strip is wider (the leader's panel on its left): it keeps that size all game.
@@ -1895,8 +1963,16 @@ function tableDiceRect(): { left: number; right: number; top: number; bottom: nu
 // Drafted, the cards are shown as cards; to put one on a car, drag it onto the car's dashboard
 // (or onto the car on the table), or click it and then the car.
 
-/** An upgrade card: name, a space for the art (to come), what it does. */
+/**
+ * An upgrade card: the official card (illustration and torn edge, src/view/cards.ts) with the
+ * Italian name and text on its black panel; without the art file, a plain frame with a space for it.
+ */
 function cardHtml(id: string, color: string, attrs = ''): string {
+  const art = upgradeArt(id);
+  if (art) {
+    return `<div class="ucard official" style="--c:${color};--art:url('${art}')" ${attrs}><b class="gothic">${esc(upgradeName(id))}</b>`
+      + `<p>${esc(UPGRADE_INFO[id] ?? '')}</p></div>`;
+  }
   return `<div class="ucard" style="--c:${color}" ${attrs}><b class="gothic">${esc(upgradeName(id))}</b>`
     + `<div class="art"></div><p>${esc(UPGRADE_INFO[id] ?? '')}</p></div>`;
 }
@@ -3144,12 +3220,15 @@ renderer.setAnimationLoop(t => {
     h.obj.update(dt);
     if (h.gone !== undefined && now > h.gone) { scene.remove(h.obj.group); hazardObjs.delete(k); }
   }
-  for (const td of trayDice) {
+  if (fxHomeAt !== null && !playing && performance.now() / 1000 > fxHomeAt) fxGoHome();
+  for (const td of fxSupply.values()) {
     if (td.t >= 1) continue;
-    td.t = Math.min(1, td.t + dt / 0.75);
+    td.t = Math.min(1, td.t + dt / td.dur);
     const u = Math.max(0, td.t), e = 1 - Math.pow(1 - u, 3);
     td.d.mesh.position.lerpVectors(td.from, td.to, e);
-    td.d.mesh.position.y = td.to.y + Math.abs(Math.cos(u * Math.PI * 1.5)) * (1 - u) * 2.2;
+    // A throw lands bouncing; the way home is one low arc.
+    const rise = td.hop > 1.5 ? Math.abs(Math.cos(u * Math.PI * 1.5)) * (1 - u) * td.hop : Math.sin(u * Math.PI) * td.hop;
+    td.d.mesh.position.y = THREE.MathUtils.lerp(td.from.y, td.to.y, e) + rise;
     td.d.mesh.quaternion.slerpQuaternions(td.q0, td.q1, e);
   }
   if (!chaseCamera(rawDt)) {

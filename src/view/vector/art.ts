@@ -87,7 +87,7 @@ export const USER_BOARDS = !!boardsRaw;
 let userBoards: ReturnType<typeof makeBoards> | null | undefined;
 function boards(): ReturnType<typeof makeBoards> | null {
   if (userBoards === undefined) {
-    userBoards = USER_BOARDS ? makeBoards(boardsRaw, { dieSvg, damageTokenSvg: (t, up) => damageTokenSvg(t, up), inkOn, font: FONT }, leaderBoardRaw) : null;
+    userBoards = USER_BOARDS ? makeBoards(boardsRaw, { dieSvg, damageTokenSvg: (t, up) => damageTokenSvg(t, up), onFireTokenSvg: () => onFireTokenSvg(), inkOn, font: FONT }, leaderBoardRaw) : null;
   }
   return userBoards;
 }
@@ -293,8 +293,10 @@ export interface DashboardArt {
   /** Highlight the whole dashboard (choose this car, e.g. for repair). */
   pick?: boolean;
   label?: string;
+  /** The car is burning (Carnage at Devil's Run): its ON FIRE! token lies over the move die slot. */
+  onFire?: boolean;
   /** The car's upgrade card (Choppe Shoppe): drawn above the dashboard in the player's strip. */
-  upgrade?: { name: string; text: string };
+  upgrade?: { name: string; text: string; /** URL of the official card art, when there is one (src/view/cards.ts). */ art?: string };
 }
 
 const SIZE_LABEL: Record<ArtSize, string> = { S: 'PICCOLA', M: 'MEDIA', L: 'GRANDE' };
@@ -468,7 +470,15 @@ function flame(cx: number, cy: number, s: number, outer: string, innerFill: stri
 }
 
 /** One face of the fire die, 100 x 100 (open drawing: yellow die, red flame and the face's sign). */
+// The official fire die faces, traced from the scan (tools/art/trace_fire_die.py): licensed, used when present.
+type TracedFireDie = { bg: string; ink: string; faces: Record<string, string> };
+const tracedFire = Object.values(import.meta.glob<TracedFireDie>('/assets/licensed/vector/traced/fire_die.json', { eager: true, import: 'default' }))[0];
+
 export function fireDieSvg(face: FireFace, extra = ''): string {
+  if (tracedFire?.faces[face] && !openOnly) {
+    return svg(100, 100, `<rect x="2" y="2" width="96" height="96" rx="16" fill="${tracedFire.bg}" stroke="rgba(0,0,0,.35)" stroke-width="2"/>`
+      + `<path d="${tracedFire.faces[face]}" fill="${tracedFire.ink}" fill-rule="evenodd"/>`, extra);
+  }
   let b = `<rect x="3" y="3" width="94" height="94" rx="16" fill="${PALETTE.dieFire}" stroke="#8a6a00" stroke-width="3"/>`;
   b += flame(50, 46, 0.78, PALETTE.fireRed, PALETTE.fireOrange);
   if (face === '+1' || face === '+2') {

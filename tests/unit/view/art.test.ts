@@ -3,7 +3,7 @@ import { describe, it, expect } from 'vitest';
 import rules from '../../../data/trv/game_base.json';
 import { ownerDieFaces, OWNER_DIE_ORDER } from '../../../src/view/vector/dice';
 import { ownerDamage } from '../../../src/view/vector/damage';
-import { dieSvg, hazardTokenSvg, damageTokenSvg, dashboardSvg, commandBoardSvg } from '../../../src/view/vector/art';
+import { dieSvg, hazardTokenSvg, damageTokenSvg, dashboardSvg, commandBoardSvg, onFireTokenSvg } from '../../../src/view/vector/art';
 
 describe('vector art', () => {
   it('draws every face of every die in the rules', () => {
@@ -60,5 +60,11 @@ describe('vector art', () => {
       expect(s).toMatch(/<text[^>]*>[A-Z ]+<\/text>/);
     }
     expect(damageTokenSvg(null, false)).toContain('translate(-293.09 -44)');
+  });
+  it('lays the ON FIRE token over the move slot of a burning car', () => {
+    const dash = { carId: 'p0S', size: 'S' as const, color: '#ec9230', status: 'ok' as const, placed: [], damage: 0 };
+    const token = onFireTokenSvg().replace(/^<svg[^>]*>|<\/svg>$/g, '');
+    expect(dashboardSvg({ ...dash, onFire: true })).toContain(token);
+    expect(dashboardSvg(dash)).not.toContain(token);
   });
 });

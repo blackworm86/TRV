@@ -10,6 +10,8 @@ import type { DashboardArt, CommandBoardArt, ArtSize } from './art';
 export interface BoardBase {
   dieSvg(f: { kind: string; value: number | string; color?: string }, extra?: string): string;
   damageTokenSvg(type: string | null, faceUp: boolean): string;
+  /** The ON FIRE! token (Carnage at Devil's Run), 120 x 120. */
+  onFireTokenSvg(): string;
   inkOn(hex: string): string;
   /** The font-family attribute of the interface's display font. */
   font: string;
@@ -204,6 +206,11 @@ export function makeBoards(raw: string, base: BoardBase, leaderRaw?: string): {
       if (move) b += die(ax + as / 2, ay + as / 2, as * 0.86, move.value, d.color);
       else b += text('DADO', ax + as / 2, ay + as / 2 + 4.5, 13, CREAM, 'middle');
       b += text('MOVIMENTO', ax + as / 2, ay + as + 34, 13, CREAM, 'middle', 'opacity=".85"');
+      // A burning car: its ON FIRE! token lies over the move slot (asked by the user, 2026-11-16). It lets clicks through to the slot.
+      if (d.onFire) {
+        const ts = as * 1.15;
+        b += `<g transform="translate(${ax + as / 2 - ts / 2} ${ay + as / 2 - ts / 2}) scale(${ts / 120})" pointer-events="none">${inner(base.onFireTokenSvg())}</g>`;
+      }
       // Coast slot (+1).
       b += `<path d="${diamond(cx, cy, cr)}" fill="${d.dropCoast ? '#1f5a30' : DARK}" stroke="${d.dropCoast ? HOT : LINE}" stroke-width="${d.dropCoast ? 3 : 1}" stroke-dasharray="${coasts.length || d.dropCoast ? '0' : '3 3'}" stroke-linejoin="round" data-drop="coast:${d.carId}"/>`;
       if (coasts.length) b += die(cx, cy, cr * 0.95, coasts[coasts.length - 1].value, d.color);
@@ -390,7 +397,14 @@ export function makeBoards(raw: string, base: BoardBase, leaderRaw?: string): {
     const textTop = top + ch - CARD_TUCK - 8 - lines.length * 14;
     // The space for the card's art, to come: between the name and the effect. Art and effect show only
     // when the card is raised (class upbody), so nothing of them peeks out under the board.
-    b += `<g class="upbody"><rect x="${x + 6}" y="${top + CARD_PEEK + 4}" width="${cw - 12}" height="${Math.max(10, textTop - top - CARD_PEEK - 18)}" rx="4" fill="#3a3540"/>`;
+    const artY = top + CARD_PEEK + 4, artH = Math.max(10, textTop - top - CARD_PEEK - 18);
+    b += `<g class="upbody"><rect x="${x + 6}" y="${artY}" width="${cw - 12}" height="${artH}" rx="4" fill="#3a3540"/>`;
+    if (d.upgrade.art) {
+      // The official illustration (the card's top part, above its torn edge), framed in the art window.
+      const ac = `upart-${d.carId}`;
+      b += `<clipPath id="${ac}"><rect x="${x + 6}" y="${artY}" width="${cw - 12}" height="${artH}" rx="4"/></clipPath>`
+        + `<image href="${d.upgrade.art}" x="${x + 6}" y="${artY - (cw - 12) * 0.08}" width="${cw - 12}" height="${(cw - 12) * 88 / 63}" preserveAspectRatio="none" clip-path="url(#${ac})"/>`;
+    }
     lines.forEach((l, i) => { b += prose(l, x + 8, textTop + i * 14, 11.5, CREAM); });
     if (off) b += text('INATTIVO: AUTO FUORI USO', x + cw / 2, textTop - 8, 11, '#ff8a7a', 'middle');
     b += '</g>';

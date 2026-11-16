@@ -201,6 +201,12 @@
     white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .ucard .art { flex: 1; min-height: 40px; border-radius: 6px; background: repeating-linear-gradient(135deg, #e3d4ba 0 10px, #ddccaf 10px 20px); }
   .ucard p { margin: 0; font-size: 16px; line-height: 1.28; font-weight: 500; }
+  /* The official upgrade card: illustration and torn edge from the scan, the Italian name and text on its black panel (from 60% down). */
+  .ucard.official { gap: 3px; padding: calc(var(--w) * 88 / 63 * .6 + 2px) 10px 8px; border: 0; color: #f3e6d0;
+    background: linear-gradient(to bottom, transparent 60%, #141313 60%), var(--art) top / 100% auto no-repeat, #141313;
+    box-shadow: 0 0 0 2.5px var(--c), 0 8px 20px rgba(0,0,0,.55); }
+  .ucard.official > b { background: none; color: #f3e6d0; padding: 0; border-radius: 0; font-size: calc(var(--w) * .12); font-style: italic; letter-spacing: .3px; text-transform: uppercase; }
+  .ucard.official p, #hand .ucard.official p, .ucard.official.flying p { font-size: calc(var(--w) * .064); line-height: 1.22; color: #e9dcc6; font-weight: 500; }
   #leaderpick .hand { display: flex; gap: 18px; justify-content: center; flex-wrap: wrap; }
   #leaderpick .pickcard { padding: 0; border: 0; background: none; cursor: pointer; border-radius: 14px; transition: transform .15s; }
   #leaderpick .pickcard .ucard { --w: 230px; }

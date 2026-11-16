@@ -51,7 +51,8 @@ describe("Carnage at Devil's Run look", () => {
   it('has a fire die face for each kind of result in the rulebook', () => {
     expect(carnage.on_fire.face_kinds).toEqual(['+1', '+2', 'out', 'eliminated']);
     for (const f of carnage.on_fire.face_kinds as FireFace[]) expect(fireDieSvg(f)).toMatch(/^<svg [^>]*viewBox="0 0 100 100"/);
-    expect(fireDieSvg('+2')).toContain('>+2<');
+    // Each kind of result has a face of its own (official traced faces or the open drawing).
+    expect(new Set((carnage.on_fire.face_kinds as FireFace[]).map(f => fireDieSvg(f))).size).toBe(4);
   });
   it('draws the ON FIRE token with its name', () => {
     expect(onFireTokenSvg()).toContain('ON FIRE!');

@@ -187,10 +187,15 @@ $RECYCLE.BIN/
 !/assets/licensed/vector/traced/hazards.json
 !/assets/licensed/vector/traced/damage.json
 !/assets/licensed/vector/traced/boards.json
+!/assets/licensed/vector/traced/fire_die.json
 !/assets/licensed/vector/fonts/
 /assets/licensed/vector/fonts/*
 !/assets/licensed/vector/fonts/CompactaBT-BoldItalic.json
 !/assets/licensed/vector/fonts/TradeGothicNextLTPro-Cn.json
+!/assets/licensed/cards/
+/assets/licensed/cards/*
+!/assets/licensed/cards/upgrades/
+!/assets/licensed/leaders/
 reference/rulebook/
 /rulebook/
 
