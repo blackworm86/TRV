@@ -810,6 +810,25 @@ function ongoingCardHtml(id: string): string {
     + `<b>${esc(name)}</b><span>${esc(text)}</span></div>`;
 }
 
+/** Hovering an ongoing effect card under a damage token shows the whole card, big enough to read. */
+function ongoingZoom(): void {
+  const pop = document.createElement('div');
+  pop.id = 'ozoom';
+  document.body.append(pop);
+  let shown: string | null = null;
+  addEventListener('pointermove', e => {
+    const el = (e.target as Element | null)?.closest?.('[data-ongoing]');
+    const id = el?.getAttribute('data-ongoing') ?? null;
+    if (id !== shown) { shown = id; pop.innerHTML = id ? ongoingCardHtml(id) : ''; pop.classList.toggle('show', !!id); }
+    if (!id) return;
+    // Above the pointer (the cards sit at the bottom of the screen), kept on screen.
+    const w = pop.offsetWidth, h = pop.offsetHeight;
+    pop.style.left = `${Math.min(innerWidth - w - 8, Math.max(8, e.clientX - w / 2))}px`;
+    pop.style.top = `${Math.max(8, e.clientY - h - 16)}px`;
+  });
+}
+ongoingZoom();
+
 function showDamage(f: Frame): void {
   if (!g || f.token === undefined) return;
   if (f.faceDown) {
@@ -1784,6 +1803,8 @@ function drawHud(): void {
     dropMove: hot.has(`move:${v.id}`), dropCoast: hot.has(`coast:${v.id}`), pick: pickIds.has(v.id),
     label: v.status === 'elim' ? '' : v.inStart ? 'IN PARTENZA' : '',
     ...(v.onFire && v.status !== 'elim' ? { onFire: true } : {}),
+    // Ongoing effect cards (Carnage at Devil's Run) lie under their damage tokens.
+    ...(v.damage.some(t => t.card) ? { cards: v.damage.map(t => t.card ? { id: t.card, name: ONGOING_INFO[t.card]?.[0] ?? t.card, art: ongoingArt(t.card) } : null) } : {}),
     // Ms. Betty's large car may carry two upgrades: one card naming both.
     ...(v.upgrade && v.status !== 'elim' ? { upgrade: {
       name: v.upgrade2 ? `${upgradeName(v.upgrade)} + ${upgradeName(v.upgrade2)}` : upgradeName(v.upgrade),

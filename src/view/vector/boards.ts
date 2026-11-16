@@ -5,6 +5,7 @@
 // art.ts uses it when the drawing is present.
 
 import type { DashboardArt, CommandBoardArt, ArtSize } from './art';
+import { ONGOING_PANEL_TOP, CARD_RED } from '../cards';
 
 /** What this module needs from art.ts (passed in, so the two files do not import each other). */
 export interface BoardBase {
@@ -36,6 +37,12 @@ const RECESS = { w: 157.46, y: 57.43 };
 const CARD_PEEK = 30, CARD_TUCK = 12;
 /** A damage token under a dashboard: its width, and how far its top is tucked under the board. */
 const TOKEN_W = 100, TOKEN_TUCK = 9;
+/**
+ * A token with an ongoing effect card under it (Carnage at Devil's Run) is pushed further under the
+ * board by this much, so the card's red panel with its name shows below the token, as the rulebook
+ * lays the card under the token. The card is as wide as the token (440 x 680 scans).
+ */
+const CARD_RAISE = 30, ONGOING_H = TOKEN_W * 680 / 440;
 /**
  * The strip's frame in the drawing's units: the boards as the owner drew them (and as the rulebook
  * lays them out), plus the damage tokens hanging under the dashboards. Expansions grow it upward:
@@ -183,7 +190,9 @@ export function makeBoards(raw: string, base: BoardBase, leaderRaw?: string): {
     const k = TOKEN_W / vb[2], th = vb[3] * k;
     for (let i = 0; i < Math.max(2, d.damage); i++) {
       const sx = DASH_MID[d.size] + (i % 2 ? SLOT_DX : -SLOT_DX) - TOKEN_W / 2 + Math.floor(i / 2) * 10;
-      const sy = SLOT_Y - TOKEN_TUCK + Math.floor(i / 2) * 8;
+      const card = i < d.damage ? d.cards?.[i] : null;
+      const sy = SLOT_Y - TOKEN_TUCK + Math.floor(i / 2) * 8 - (card ? CARD_RAISE : 0);
+      if (card) b += ongoingCard(card, sx, sy + th - 4 - ONGOING_PANEL_TOP * ONGOING_H, `${d.carId}-${i}`);
       if (i < d.damage) b += `<g transform="translate(${sx} ${sy}) scale(${k})">${inner(token)}</g>`;
       else if (!dead) b += `<rect x="${sx + 4}" y="${sy}" width="${TOKEN_W - 8}" height="${th - 12}" rx="6" fill="#000" fill-opacity=".18" stroke="${LINE}" stroke-opacity=".3" stroke-dasharray="4 4"><title>Slot danno</title></rect>`;
     }
@@ -383,6 +392,23 @@ export function makeBoards(raw: string, base: BoardBase, leaderRaw?: string): {
    * edge (RECESS wide, as the owner drew it), behind the board. Only its name shows above the recess;
    * with the pointer on the dashboard the card rises (CSS: `.upcard` and `--rise`) and shows its effect.
    */
+  /**
+   * An ongoing effect card under a damage token, its top at `y`: the official art with the red panel
+   * redrawn over the English text and the Italian name on it. Hovering it shows the whole card
+   * (data-ongoing, read by the page).
+   */
+  function ongoingCard(c: { id: string; name: string; art?: string }, x: number, y: number, key: string): string {
+    const w = TOKEN_W, h = ONGOING_H, panel = y + ONGOING_PANEL_TOP * h;
+    const clip = `ogclip-${key}`;
+    let b = `<clipPath id="${clip}"><rect x="${x}" y="${y}" width="${w}" height="${h}" rx="6"/></clipPath><g clip-path="url(#${clip})">`;
+    b += c.art ? `<image href="${c.art}" x="${x}" y="${y}" width="${w}" height="${h}" preserveAspectRatio="none"/>` : `<rect x="${x}" y="${y}" width="${w}" height="${h}" fill="${DARK}"/>`;
+    b += `<rect x="${x}" y="${panel}" width="${w}" height="${h}" fill="${CARD_RED}"/></g>`;
+    const words = c.name.toUpperCase().split(' ');
+    const lines = words.length > 1 && c.name.length > 11 ? [words.slice(0, Math.ceil(words.length / 2)).join(' '), words.slice(Math.ceil(words.length / 2)).join(' ')] : [c.name.toUpperCase()];
+    lines.forEach((l, i) => { b += text(l, x + 6, panel + 15 + i * 14, 14, '#fff', 'start', 'font-style="italic"'); });
+    return `<g data-ongoing="${esc(c.id)}" style="cursor:zoom-in">${b}</g>`;
+  }
+
   function upgradeCard(d: DashboardArt): string {
     if (!d.upgrade) return '';
     const cw = RECESS.w - 3, ch = Math.round(cw * 88 / 63), x = DASH_MID[d.size] - cw / 2;

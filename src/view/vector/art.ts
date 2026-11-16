@@ -287,6 +287,11 @@ export interface DashboardArt {
   /** Dice on the dashboard this round: the move die, then coast dice. */
   placed: { value: number; coast: boolean }[];
   damage: number;
+  /**
+   * The ongoing effect card under each damage token, in the tokens' order (Carnage at Devil's Run,
+   * CDR p4): its id, Italian name and official art; null for a token without a card.
+   */
+  cards?: ({ id: string; name: string; art?: string } | null)[];
   /** Highlight the move or coast slot as a place to drop a die. */
   dropMove?: boolean;
   dropCoast?: boolean;
