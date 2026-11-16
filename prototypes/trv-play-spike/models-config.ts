@@ -13,7 +13,8 @@ export const MODEL = {
   car: { S: file('Car_Small.glb'), M: file('Car_Medium.glb'), L: file('Car_Large.glb') },
   chopper: file('Chopper.glb'),
   /** Wreck variants; each wreck on the table takes one, by its id. Add files here as they come. */
-  wrecks: [file('wreck_1.glb')],
+  // 1 the first wreck; 2 tank, 3 muscle car, 4 school bus, 5 pickup (Meshy, from design/art/wreck-prompts.md).
+  wrecks: [file('wreck_1.glb'), file('wreck_2.glb'), file('wreck_3.glb'), file('wreck_4.glb'), file('wreck_5.glb')],
   /** Carnage at Devil's Run: the launch ramp (Meshy, from design/art/carnage-ramp-prompts.md). */
   ramp: file('Ramp.glb'),
 };
