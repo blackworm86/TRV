@@ -27,5 +27,7 @@ export default defineConfig(({ mode }) => ({
   },
   test: {
     include: ['tests/unit/**/*.test.ts'],
+    // Whole simulated games and terrain generation take seconds; the CI machine is slower than a desk one.
+    testTimeout: 30_000,
   },
 }));
