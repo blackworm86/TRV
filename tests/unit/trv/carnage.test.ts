@@ -63,9 +63,29 @@ const AT: Pos = { r: 2, c: 4 };
 const BEHIND: Pos = neighbor(AT, 'B');
 
 describe('Carnage at Devil’s Run setup', () => {
-  it('refuses to start the expansion while its road tiles are missing from the data file', () => {
-    expect(() => newGame({ seed: SEED, players: PLAYERS, startSide: 'a', carnage: true })).toThrow(/missing data in carnage\.json: tiles$/);
+  it('starts with the real components and shuffles the new road tiles into the pile', () => {
+    const g = newGame({ seed: SEED, players: PLAYERS, startSide: 'a', carnage: true });
+    const tiles = [...g.board, ...g.pile].map(t => t.tile);
+    expect(new Set(tiles)).toEqual(new Set([1, 2, 3, 4, 5, 6, 7, 8, 9, 10]));
+    expect(g.board[0].tile).toBe(1);
+    for (const t of [...g.board, ...g.pile]) expect(tileDef(t).terrain).toHaveLength(6);
   });
+  it('plays whole games with the real components, the new tiles included', () => {
+    for (let s = 1; s <= 15; s++) {
+      const g = newGame({ seed: s.toString(16).padStart(8, '0').padEnd(64, 'd'), players: PLAYERS, startSide: 'a', carnage: true });
+      const it = play(g);
+      let r = it.next(0);
+      let x = s * 104729;
+      for (let k = 0; !r.done; k++) {
+        if (k > 20000) throw new Error('game did not end');
+        x = (x * 1103515245 + 12345) & 0x7fffffff;
+        const safe = r.value.options.map((o, i) => ({ o, i })).filter(e => !e.o.danger);
+        const pool = safe.length ? safe : r.value.options.map((o, i) => ({ o, i }));
+        r = it.next(pool[x % pool.length].i);
+      }
+      expect(g.winner).not.toBeNull();
+    }
+  }, 60_000);
   it('reads the components from the data file: fire die, 22 hazards, 10 damage tokens, 21 cards', () => {
     const n = carnageNumbers();
     expect([...n.fireDie].sort()).toEqual(['+1', '+2', '+2', 'eliminated', 'out', 'out']);

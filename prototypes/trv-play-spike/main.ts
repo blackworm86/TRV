@@ -27,8 +27,10 @@ import { ModelBank, dressed, fitToLength, splitParts, splitWheels, type Tint } f
 import { MODEL, SHOW_LENGTH_MM, MODEL_YAW, CHOPPER_PARTS, ROTOR_SPEED, WHEELS, GUNS, type GunSpec, crewTint, WRECK_TINT, wreckModel, phaseOf, hover, CarRig } from './models-config';
 import { makeDie, withOwnMaterials, type Die3D, type DiceFaces } from '../../src/view/dice3d';
 import RULES from '../../data/trv/game_base.json';
+import CARNAGE from '../../data/trv/carnage.json';
 
-const FACES = RULES.dice as unknown as DiceFaces;
+// The fire die of Carnage at Devil's Run joins the dice the table can draw.
+const FACES = { ...RULES.dice, fire: CARNAGE.dice.fire } as unknown as DiceFaces;
 
 const SAVE_KEY = 'trv-hotseat-v3';
 const $ = (id: string): HTMLElement => document.getElementById(id)!;
@@ -576,8 +578,9 @@ const BEAT: Partial<Record<Frame['kind'], number>> = {
 };
 
 /** What each rolled die decides, said in a few words under the big die in the middle of the screen. */
-const ROLL_NAME: Record<string, string> = { slam: 'Dado slam', direction: 'Direzione', shooting: 'Dado sparo', stunt: 'Dado acrobazia', road: 'Dado strada' };
+const ROLL_NAME: Record<string, string> = { slam: 'Dado slam', direction: 'Direzione', shooting: 'Dado sparo', stunt: 'Dado acrobazia', road: 'Dado strada', fire: 'Dado fuoco' };
 const ROLL_MEANS: Record<string, Record<string, string>> = {
+  fire: { '+1': '+1 movimento, da fare tutti', '+2': '+2 movimenti, da fare tutti', out: 'il fuoco si spegne', eliminated: 'l’auto brucia: eliminata' },
   slam: { top: 'si muove il veicolo che ha urtato (sopra)', bottom: 'si muove il veicolo urtato (sotto)' },
   direction: { F: 'avanti', FL: 'avanti a sinistra', FR: 'avanti a destra', B: 'indietro', BL: 'indietro a sinistra', BR: 'indietro a destra' },
   shooting: { L: 'colpisce solo le auto grandi', M: 'colpisce medie e grandi', SM: 'colpisce piccole e medie', ANY: 'colpisce qualsiasi auto' },
@@ -2152,7 +2155,8 @@ $('start').onclick = () => {
   clearTable();
   $('setup').style.display = 'none';
   const leaders = ($('leaders') as HTMLInputElement).checked, cards = ($('upgrades') as HTMLInputElement).checked;
-  startGame({ setup: { seed: seed.value, players, startSide: ($('side') as HTMLSelectElement).value as 'a' | 'b', ...(leaders ? { leaders } : {}), ...(cards ? { upgrades: cards } : {}) }, choices: [] });
+  const carnage = ($('carnage') as HTMLInputElement).checked;
+  startGame({ setup: { seed: seed.value, players, startSide: ($('side') as HTMLSelectElement).value as 'a' | 'b', ...(leaders ? { leaders } : {}), ...(cards ? { upgrades: cards } : {}), ...(carnage ? { carnage } : {}) }, choices: [] });
 };
 
 // ---------------------------------------------------------------- online
@@ -2297,14 +2301,15 @@ function drawLobby(): void {
       <select id="lside"><option value="a" ${o.startSide === 'a' ? 'selected' : ''}>1a — The Parking Lot</option><option value="b" ${o.startSide === 'b' ? 'selected' : ''}>1b — Runway to Ruin</option></select>
       <label>Espansioni</label>
       <label class="check"><input type="checkbox" id="lleaders" ${o.leaders ? 'checked' : ''}> Choppe Shoppe: capisquadra e segnalini comando</label>
-      <label class="check"><input type="checkbox" id="lupgrades" ${o.upgrades ? 'checked' : ''}> Choppe Shoppe: carte potenziamento</label>`;
+      <label class="check"><input type="checkbox" id="lupgrades" ${o.upgrades ? 'checked' : ''}> Choppe Shoppe: carte potenziamento</label>
+      <label class="check"><input type="checkbox" id="lcarnage" ${o.carnage ? 'checked' : ''}> Carnage at Devil’s Run: tessere, pericoli e fuoco</label>`;
     const push = (): void => {
       void n.store.write(roomPath(n.code, 'options'), { startSide: ($('lside') as HTMLSelectElement).value, leaders: ($('lleaders') as HTMLInputElement).checked,
-        upgrades: ($('lupgrades') as HTMLInputElement).checked }).catch(netError);
+        upgrades: ($('lupgrades') as HTMLInputElement).checked, carnage: ($('lcarnage') as HTMLInputElement).checked }).catch(netError);
     };
-    for (const id of ['lside', 'lleaders', 'lupgrades']) $(id).onchange = push;
+    for (const id of ['lside', 'lleaders', 'lupgrades', 'lcarnage']) $(id).onchange = push;
   } else {
-    const exp = [o.leaders ? 'capisquadra' : '', o.upgrades ? 'carte potenziamento' : ''].filter(Boolean).join(', ');
+    const exp = [o.leaders ? 'capisquadra' : '', o.upgrades ? 'carte potenziamento' : '', o.carnage ? 'Carnage at Devil’s Run' : ''].filter(Boolean).join(', ');
     $('lopts').innerHTML = `<p class="hint">Partenza: tessera 1${o.startSide}. Espansioni: ${exp || 'nessuna'}.</p>`;
   }
   const problem = startProblem(r);
@@ -2358,7 +2363,8 @@ $('ocreate').onclick = async () => {
   $('oerr').textContent = 'Creo la stanza…';
   try {
     const store = await openStore();
-    const options = { startSide: ($('oside') as HTMLSelectElement).value as 'a' | 'b', leaders: ($('oleaders') as HTMLInputElement).checked, upgrades: ($('oupgrades') as HTMLInputElement).checked };
+    const options = { startSide: ($('oside') as HTMLSelectElement).value as 'a' | 'b', leaders: ($('oleaders') as HTMLInputElement).checked, upgrades: ($('oupgrades') as HTMLInputElement).checked,
+      ...(($('ocarnage') as HTMLInputElement).checked ? { carnage: true } : {}) };
     const code = await createRoom(store, { name, crew: CREW_IDS[0] }, options, randomBytes, Date.now());
     enterRoom(store, code, await store.uid());
   } catch (e) { netError(e); }
