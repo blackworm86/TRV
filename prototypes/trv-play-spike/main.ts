@@ -690,6 +690,9 @@ const DAMAGE_INFO: Record<string, [string, string]> = {
   skid: ['Sbandata', 'L’auto si sposta di 1 casella nella direzione indicata.'],
   dazed: ['Stordito', 'Dado acrobazia: tante caselle, ognuna nella direzione tirata.'],
   blastoff: ['Decollo', 'Dadi direzione e acrobazia: l’auto vola di tante caselle in quella direzione.'],
+  // Carnage at Devil's Run (CDR p4).
+  on_fire: ['In fiamme', 'L’auto prende un segnalino ON FIRE!; il segnalino danno resta coperto.'],
+  ongoing_effect: ['Effetto continuo', 'Si pesca una carta effetto continuo: resta finché il danno non viene riparato.'],
 };
 /**
  * A car takes damage: the token drawn is turned over big in the middle of the screen, with whose
@@ -2057,7 +2060,14 @@ function carTipHtml(v: Vehicle): string {
   const state = v.status === 'elim' ? 'Eliminata' : v.status === 'inop' ? 'Fuori uso' : v.inStart ? 'In partenza' : 'In strada';
   const hidden = v.upgrade === 'onboard_computer' || v.upgrade2 === 'onboard_computer';
   const dmg = v.damage.length
-    ? `<ul>${v.damage.map(t => { const [n, does] = DAMAGE_INFO[t.type] ?? [t.type, '']; return hidden ? '<li>Segnalino coperto</li>' : `<li><b>${esc(n)}</b>${does ? ` — ${esc(does)}` : ''}</li>`; }).join('')}</ul>`
+    ? `<ul>${v.damage.map(t => {
+      if (hidden) return '<li>Segnalino coperto</li>';
+      // An ongoing effect card (Carnage at Devil's Run) under the token: its name and text.
+      const card = t.card ? (CARNAGE.ongoing_effects as { id: string; name: string; text: string }[]).find(c => c.id === t.card) : undefined;
+      if (card) return `<li><b>${esc(card.name)}</b> — ${esc(card.text)}</li>`;
+      const [n, does] = DAMAGE_INFO[t.type] ?? [t.type, ''];
+      return `<li><b>${esc(n)}</b>${does ? ` — ${esc(does)}` : ''}</li>`;
+    }).join('')}</ul>`
     : '<p>Nessun danno.</p>';
   const ups = [v.upgrade, v.upgrade2].filter((x): x is string => !!x);
   const ability = ups.length ? ups.map(u => `<p><b>${esc(upgradeName(u))}</b>: ${esc(UPGRADE_INFO[u] ?? '')}${v.status !== 'ok' ? ' <i>(non attiva: auto fuori uso)</i>' : ''}</p>`).join('') : '<p>Nessuna abilità speciale.</p>';
