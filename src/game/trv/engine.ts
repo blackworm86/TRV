@@ -115,7 +115,12 @@ export interface Option {
   token?: DamageToken;
 }
 
+/** A vehicle in range that cannot be chosen because of an ability (an upgrade id), for the UI to explain. */
+export interface Blocked { carId: string; pos: Pos; because: string }
+
 export interface Decision {
+  /** Shoot: vehicles in range that an ability keeps from being targets (Smoke Screen, Stealth Technology). */
+  blocked?: Blocked[];
   kind: 'assign' | 'command' | 'airstrike' | 'repair' | 'step' | 'roadDie' | 'slamReroll' | 'shoot'
     | 'leader' | 'token' | 'shootReroll' | 'dirReroll' | 'peek' | 'peekResult' | 'transfer'
     | 'draft' | 'upgradeAssign' | 'swap' | 'plow' | 'rollCage' | 'pickDamage' | 'redButton' | 'dispense' | 'radar';
@@ -829,6 +834,7 @@ function frontArc(p: Pos): Pos[] {
 function* shootFrom(g: Game, player: number, from: Pos, who: string, shooter: Vehicle | null = null): Gen<void> {
   if (g.winner !== null) return;
   let targets: Vehicle[] = [];
+  const blocked: Blocked[] = [];
   // Long Arm of the Law (Wong): also the spaces two away, straight on from the front arc.
   const spaces = hasPower(g, player, 'long_arm_of_the_law') ? longArc(from, shoppe.long_arm_range) : frontArc(from);
   // Punt Gun: two spaces away. Rail Gun: three spaces straight ahead. Rear Guns: any adjacent space.
@@ -840,14 +846,18 @@ function* shootFrom(g: Game, player: number, from: Pos, who: string, shooter: Ve
     const st = vehiclesAt(g, p);
     const t = st[st.length - 1];
     // Smoke Screen: not from the space directly behind the car.
-    if (t && !(up(t, 'smoke_screen') && samePos(from, neighbor(p, 'B')))) targets.push(t);
+    if (t && up(t, 'smoke_screen') && samePos(from, neighbor(p, 'B'))) blocked.push({ carId: t.id, pos: { ...p }, because: 'smoke_screen' });
+    else if (t) targets.push(t);
   }
   // Stealth Technology: not a target while there is another vehicle to shoot.
   const seen = targets.filter(t => !up(t, 'stealth_technology'));
-  if (seen.length) targets = seen;
+  if (seen.length) {
+    for (const t of targets) if (!seen.includes(t)) blocked.push({ carId: t.id, pos: { ...t.pos! }, because: 'stealth_technology' });
+    targets = seen;
+  }
   if (!targets.length) { say(g, `${who}: nessun bersaglio nell'arco frontale, niente sparo.`, 'info'); return; }
   const i = yield* ask({
-    kind: 'shoot', player, prompt: `${g.players[player].name}: sparare con ${who}?`,
+    kind: 'shoot', player, prompt: `${g.players[player].name}: sparare con ${who}?`, ...(blocked.length ? { blocked } : {}),
     options: [{ label: 'Non sparare' }, ...targets.map(t => ({ label: `Spara ${carName(g, t).replace(/^l'/, "all'").replace(/^il /, 'al ')}`, carId: t.id, pos: t.pos! }))],
   });
   if (i === 0) return;

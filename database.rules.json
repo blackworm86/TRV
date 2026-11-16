@@ -1,5 +1,11 @@
 {
   "rules": {
+    "admins": {
+      "$uid": {
+        ".read": "auth != null && auth.uid === $uid",
+        ".write": false
+      }
+    },
     "rooms": {
       "$code": {
         ".read": "auth != null",

@@ -2,7 +2,8 @@
 // npm run build:single -> dist-single/index.html: one file with everything
 //                         inlined, which every check opens from disk
 // npm run build:pages  -> dist-pages/: the site published on GitHub Pages. For now it is the
-//                         playable prototype (prototypes/trv-play-spike/) and its gallery;
+//                         playable prototype (prototypes/trv-play-spike/), its gallery and
+//                         the admin asset inspector (admin.html);
 //                         tools/pages/index.html at the top sends visitors to it.
 // Vitest reads the test block; Playwright has its own config.
 import { defineConfig } from 'vitest/config';
@@ -22,7 +23,7 @@ export default defineConfig(({ mode }) => ({
   build: {
     outDir: mode === 'single' ? 'dist-single' : mode === 'pages' ? 'dist-pages' : 'dist',
     emptyOutDir: true,
-    ...(mode === 'pages' ? { rolldownOptions: { input: ['prototypes/trv-play-spike/index.html', 'prototypes/trv-play-spike/gallery.html'] } } : {}),
+    ...(mode === 'pages' ? { rolldownOptions: { input: ['prototypes/trv-play-spike/index.html', 'prototypes/trv-play-spike/gallery.html', 'prototypes/trv-play-spike/admin.html'] } } : {}),
   },
   test: {
     include: ['tests/unit/**/*.test.ts'],

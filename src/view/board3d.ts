@@ -50,6 +50,18 @@ export function spaceGeometry(r: number, c: number, width: number, depth: number
   return new THREE.ShapeGeometry(new THREE.Shape(pts));
 }
 
+/**
+ * A band along the edge of a space: the outline between scale `inner` and scale `outer`, with the
+ * middle left empty so the terrain underneath stays visible. Same frame as {@link spaceGeometry}.
+ */
+export function spaceRimGeometry(r: number, c: number, width: number, depth: number, outer = 1.0, inner = 0.84): THREE.ShapeGeometry {
+  const kx = width / GRID.frameW, kz = depth / GRID.frameH;
+  const v = (scale: number): THREE.Vector2[] => spaceOutlinePx(r, c, scale).map(([x, y]) => new THREE.Vector2((x - GRID.frameW / 2) * kx, -(y - GRID.frameH / 2) * kz));
+  const shape = new THREE.Shape(v(outer));
+  shape.holes.push(new THREE.Path(v(inner).reverse()));
+  return new THREE.ShapeGeometry(shape);
+}
+
 const TERRAIN_COLOR: Record<string, string> = { R: PALETTE.road, o: PALETTE.offroad, M: PALETTE.mud, X: PALETTE.impassable };
 
 // ------------------------------------------------------------------------------- relief terrain

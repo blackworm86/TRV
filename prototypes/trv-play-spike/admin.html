@@ -1,0 +1,148 @@
+<!-- PROTOTYPE - NOT FOR PRODUCTION. Area admin: ispettore degli asset con i template da scaricare (accesso Google). -->
+<!doctype html>
+<html lang="it">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex">
+<title>Admin Thunder Road</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=League+Gothic&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  /* Desktop only (min ~1024 x 768): a sidebar of categories, a grid of pieces, a detail drawer. */
+  :root {
+    --bg: #17120e; --surface: #221a14; --surface2: #2b2119; --line: #3a2c20; --ink: #f1e6d4; --muted: #b3a186; --accent: #f6c46a; --hot: #e8742a; --bad: #d42a2f;
+    --display: 'League Gothic', 'Arial Narrow', Impact, sans-serif;
+    --body: 'Inter', system-ui, -apple-system, 'Segoe UI', sans-serif;
+    color-scheme: dark;
+  }
+  * { box-sizing: border-box; }
+  html, body { height: 100%; }
+  body { margin: 0; background: var(--bg); color: var(--ink); font: 14px/1.5 var(--body); min-width: 1000px; }
+  h1, h2, h3 { font-family: var(--display); font-weight: 400; letter-spacing: .5px; margin: 0; }
+  button { font: inherit; cursor: pointer; }
+  .btn { background: var(--accent); color: var(--bg); border: 0; border-radius: 8px; padding: 9px 16px; font-weight: 600; }
+  .btn:hover, .btn:focus-visible { background: #ffd789; }
+  .btn.ghost { background: transparent; color: var(--ink); border: 1px solid var(--line); }
+  .btn.ghost:hover, .btn.ghost:focus-visible { border-color: var(--accent); background: transparent; }
+  .btn:disabled { opacity: .5; cursor: wait; }
+  code { font-size: 13px; background: var(--surface2); padding: 2px 6px; border-radius: 4px; }
+  [hidden] { display: none !important; }
+
+  /* Sign-in and not-admin screens. */
+  .gate { min-height: 100%; display: grid; place-items: center; padding: 24px; }
+  .gate .box { width: min(560px, 100%); background: var(--surface); border: 1px solid var(--line); border-radius: 14px; padding: 28px 30px; }
+  .gate h1 { font-size: 46px; color: var(--accent); line-height: 1; }
+  .gate p { color: var(--muted); }
+  .gate ol { color: var(--ink); padding-left: 20px; }
+  .gate li { margin-bottom: 6px; }
+  .uid { display: flex; gap: 8px; align-items: center; margin: 14px 0; }
+  .uid code { flex: 1; font-size: 14px; padding: 8px 10px; user-select: all; word-break: break-all; }
+  .err { color: #ff8a7a; min-height: 1.5em; }
+
+  /* Inspector. */
+  #app { height: 100%; display: grid; grid-template-rows: auto 1fr; }
+  #app > header { display: flex; align-items: center; gap: 16px; padding: 10px 20px; border-bottom: 1px solid var(--line); background: var(--surface); }
+  #app > header h1 { font-size: 30px; color: var(--accent); }
+  #app > header .who { margin-left: auto; color: var(--muted); font-size: 13px; }
+  .layout { display: grid; grid-template-columns: 230px 1fr; min-height: 0; }
+  nav { border-right: 1px solid var(--line); overflow-y: auto; padding: 14px 10px; }
+  nav h2 { font-size: 20px; color: var(--muted); margin: 14px 8px 4px; }
+  nav h2:first-child { margin-top: 0; }
+  nav button { display: flex; justify-content: space-between; width: 100%; text-align: left; background: none; border: 0; color: var(--ink); padding: 6px 10px; border-radius: 6px; }
+  nav button span { color: var(--muted); font-variant-numeric: tabular-nums; }
+  nav button:hover { background: var(--surface2); }
+  nav button.on { background: var(--accent); color: var(--bg); }
+  nav button.on span { color: var(--bg); }
+  main { overflow-y: auto; padding: 18px 22px 40px; min-width: 0; }
+  .cat-head { display: flex; align-items: baseline; gap: 16px; margin-bottom: 4px; }
+  .cat-head h2 { font-size: 40px; }
+  .cat-head .btn { margin-left: auto; }
+  .cat-note { color: var(--muted); margin: 0 0 16px; max-width: 80ch; }
+  .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 14px; }
+  .item { background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 10px; display: flex; flex-direction: column; gap: 8px; text-align: left; color: var(--ink); }
+  .item:hover, .item:focus-visible { border-color: var(--accent); outline: none; }
+  .item.on { border-color: var(--hot); box-shadow: 0 0 0 1px var(--hot); }
+  .pv { height: 150px; display: grid; place-items: center; background: radial-gradient(circle at 50% 35%, #3a2c20, #1d1712); border-radius: 6px; overflow: hidden; padding: 8px; }
+  .pv > * { max-width: 100%; max-height: 100%; }
+  .pv svg { width: 100%; height: 100%; display: block; }
+  .pv img { width: 100%; height: 100%; object-fit: contain; display: block; }
+  .pv .wait { color: var(--muted); font-size: 12px; }
+  .item h3 { font-size: 21px; line-height: 1.05; }
+  .item small { color: var(--muted); font-size: 12px; overflow-wrap: anywhere; }
+
+  /* Detail drawer. */
+  #detail { position: fixed; top: 0; right: 0; bottom: 0; width: min(560px, 46vw); background: var(--surface); border-left: 1px solid var(--line); box-shadow: -12px 0 30px #0008; display: flex; flex-direction: column; z-index: 10; }
+  #detail .bar { display: flex; align-items: center; gap: 10px; padding: 12px 16px; border-bottom: 1px solid var(--line); }
+  #detail .bar h2 { font-size: 30px; flex: 1; line-height: 1; }
+  #detail .big { flex: 1; min-height: 0; margin: 14px 16px; background: radial-gradient(circle at 50% 35%, #3a2c20, #1d1712); border-radius: 10px; display: grid; place-items: center; overflow: hidden; padding: 12px; position: relative; }
+  #detail .big svg { width: 100%; height: 100%; display: block; }
+  #detail .big canvas { width: 100% !important; height: 100% !important; display: block; touch-action: none; }
+  #detail .big.model { padding: 0; }
+  #detail .big .hint { position: absolute; right: 10px; bottom: 6px; font-size: 12px; color: var(--muted); pointer-events: none; }
+  #detail dl { display: grid; grid-template-columns: auto 1fr; gap: 4px 14px; margin: 0 16px 12px; }
+  #detail dt { color: var(--muted); }
+  #detail dd { margin: 0; overflow-wrap: anywhere; }
+  #detail .actions { display: flex; flex-wrap: wrap; gap: 8px; padding: 0 16px 18px; }
+  .close { background: none; border: 1px solid var(--line); color: var(--ink); border-radius: 8px; width: 34px; height: 34px; font-size: 18px; line-height: 1; }
+  .close:hover { border-color: var(--accent); }
+  #toast { position: fixed; left: 50%; bottom: 20px; transform: translateX(-50%); background: var(--accent); color: var(--bg); padding: 8px 16px; border-radius: 8px; font-weight: 600; z-index: 20; }
+</style>
+</head>
+<body>
+<section class="gate" id="login" hidden>
+  <div class="box">
+    <h1>Area admin</h1>
+    <p>Ispettore degli asset di Thunder Road Vendetta: anteprime di tutti i pezzi e template modificabili da scaricare. Riservato agli amministratori.</p>
+    <button class="btn" id="google">Accedi con Google</button>
+    <p class="err" id="login-err"></p>
+  </div>
+</section>
+
+<section class="gate" id="denied" hidden>
+  <div class="box">
+    <h1>Accesso non autorizzato</h1>
+    <p>Hai effettuato l’accesso come <strong id="denied-who"></strong>, ma questo account non è amministratore.</p>
+    <div class="uid"><code id="uid"></code><button class="btn ghost" id="copy-uid">Copia UID</button></div>
+    <p>Per renderlo amministratore (solo il proprietario del progetto Firebase può farlo):</p>
+    <ol>
+      <li>Apri la <a href="https://console.firebase.google.com/project/trv-online/database" target="_blank" rel="noopener" style="color:var(--accent)">console Firebase</a> → <strong>Realtime Database</strong> → scheda <strong>Dati</strong>.</li>
+      <li>Accanto alla radice premi <strong>+</strong> e aggiungi il nodo <code>admins</code> (se non c’è).</li>
+      <li>Dentro <code>admins</code> aggiungi una chiave uguale all’UID qui sopra, con valore <code>true</code> (booleano, non testo).</li>
+      <li>Controlla che le regole pubblicate contengano la sezione <code>admins</code> di <code>database.rules.json</code>.</li>
+      <li>Torna qui e ricarica la pagina.</li>
+    </ol>
+    <p><button class="btn ghost" id="denied-out">Esci</button> <button class="btn" id="denied-retry">Ricarica</button></p>
+  </div>
+</section>
+
+<section class="gate" id="nocfg" hidden>
+  <div class="box">
+    <h1>Firebase non configurato</h1>
+    <p>Manca la configurazione in <code>src/net/firebase-config.ts</code>. Per un controllo in locale apri la pagina con <code>?admin=local</code>.</p>
+  </div>
+</section>
+
+<div id="app" hidden>
+  <header>
+    <h1>Ispettore asset</h1>
+    <span id="art-note" style="color:var(--muted);font-size:13px"></span>
+    <span class="who" id="who"></span>
+    <button class="btn ghost" id="sign-out">Esci</button>
+  </header>
+  <div class="layout">
+    <nav id="nav"></nav>
+    <main id="main"></main>
+  </div>
+</div>
+
+<aside id="detail" hidden>
+  <div class="bar"><h2 id="d-title"></h2><button class="close" id="d-close" aria-label="Chiudi">×</button></div>
+  <div class="big" id="d-big"></div>
+  <dl id="d-info"></dl>
+  <div class="actions" id="d-actions"></div>
+</aside>
+<div id="toast" hidden></div>
+<script type="module" src="./admin.ts"></script>
+</body>
+</html>
