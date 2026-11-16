@@ -2257,6 +2257,55 @@ $('ojoin').onclick = async () => {
 };
 ($('ocode') as HTMLInputElement).addEventListener('keydown', e => { if (e.key === 'Enter') $('ojoin').click(); });
 
+// ---------------------------------------------------------------- account
+// Optional Google sign-in on the first screen. A signed-in player keeps the same identity on
+// every device (the anonymous one of the online rooms is linked to it); an admin
+// (admins/<uid> in the database) also gets the asset inspector, from here and from the Menu.
+
+let isAdminUser = false;
+/** Shows who is signed in and the buttons that apply. */
+function drawAccount(user: { name: string | null; email: string | null; anonymous: boolean } | null): void {
+  const google = !!user && !user.anonymous;
+  $('accwho').textContent = google ? `Accesso: ${user!.name ?? user!.email ?? 'account Google'}${isAdminUser ? ' · admin' : ''}` : 'Facoltativo: con Google ritrovi nome e posti online su ogni dispositivo.';
+  $('acclogin').style.display = google ? 'none' : '';
+  $('acclogout').style.display = google ? '' : 'none';
+  $('accadmin').style.display = isAdminUser ? '' : 'none';
+  $('adminopen').style.display = isAdminUser ? '' : 'none';
+}
+/** Loads the sign-in (only where the Firebase project is set) and keeps the account box up to date. */
+async function bootAccount(): Promise<void> {
+  $('adminopen').style.display = 'none';
+  if (netMode() !== 'firebase' || !FIREBASE_CONFIG) return;
+  const { createAdminAuth } = await import('../../src/net/admin-auth');
+  const auth = createAdminAuth(FIREBASE_CONFIG);
+  $('account').classList.add('on');
+  drawAccount(null);
+  auth.onUser(async user => {
+    isAdminUser = !!user && !user.anonymous && await auth.isAdmin(user.uid);
+    drawAccount(user);
+    const name = $('oname') as HTMLInputElement;
+    if (user && !user.anonymous && user.name && !name.value) name.value = user.name.slice(0, NAME_MAX);
+  });
+  $('acclogin').onclick = async () => {
+    $('oerr').textContent = '';
+    try {
+      await auth.signInWithGoogle();
+      location.reload(); // the room store keeps the identity it read at start: reload with the new one
+    } catch (e) {
+      const code = (e as { code?: string }).code ?? '';
+      $('oerr').textContent = code === 'auth/popup-closed-by-user' ? 'Finestra di accesso chiusa.'
+        : code === 'auth/popup-blocked' ? 'Il browser ha bloccato la finestra di accesso: consenti i popup per questo sito.'
+          : 'Accesso non riuscito, riprova.';
+    }
+  };
+  $('acclogout').onclick = async () => {
+    if (net && !confirm('Sei in una stanza online: uscendo dall’account perdi il posto. Continuare?')) return;
+    await auth.signOut();
+    location.reload();
+  };
+}
+$('adminopen').onclick = () => { closePops(); window.open('./admin.html', '_blank'); };
+
 /** First screen: says whether online is available; with an invite link, goes to the room. Returns true when a room is being entered. */
 function bootOnline(): boolean {
   try { ($('oname') as HTMLInputElement).value = localStorage.getItem(NAME_KEY) ?? ''; } catch { /* storage off */ }
@@ -2728,6 +2777,7 @@ renderer.setAnimationLoop(t => {
 });
 
 applyLevel(level);
+void bootAccount().catch(e => console.error(e));
 const invited = bootOnline();
 try {
   const raw = invited ? null : localStorage.getItem(SAVE_KEY);

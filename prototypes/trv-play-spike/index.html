@@ -245,6 +245,12 @@
   #setup label.check { display: flex; align-items: center; gap: 8px; font-weight: 400; margin: 2px 0; }
   #setup label.check input { width: 18px; height: 18px; padding: 0; }
   /* Online: create or join a room from the first screen; the lobby is a card of the same family. */
+  /* Account: optional Google sign-in at the top of the first screen; admins get their panel. */
+  #account { display: none; align-items: center; gap: 8px; margin: -6px 0 8px; padding-bottom: 10px; border-bottom: 1px solid #4a3523; font-size: 13px; }
+  #account.on { display: flex; }
+  #accwho { flex: 1; min-width: 0; line-height: 1.3; opacity: .85; }
+  #account .tool { min-height: 30px; padding: 4px 10px; font-size: 13px; text-decoration: none; display: inline-flex; align-items: center; }
+  #accadmin { background: var(--acc); color: #16100b; font-weight: 700; }
   #online { margin-top: 18px; padding-top: 12px; border-top: 1px solid #4a3523; }
   #online h2, #lobby h1 { font: 400 28px 'League Gothic', Impact, sans-serif; color: var(--acc); margin: 0 0 4px; }
   #lobby h1 { font-size: 44px; } #lcode { letter-spacing: 6px; color: var(--ink); user-select: text; -webkit-user-select: text; }
@@ -332,6 +338,7 @@
   <button id="undo"><span>↶</span> Annulla l’ultima scelta</button>
   <button id="newgame"><span>⟳</span> Nuova partita</button>
   <button id="roomopen"><span>⌁</span> Stanza online</button>
+  <button id="adminopen"><span>⚿</span> Pannello admin</button>
   <button id="quit"><span>⏏</span> Esci dalla partita (menu principale)</button>
 </div>
 <div id="actions"></div>
@@ -342,6 +349,12 @@
 <div id="cartip"></div>
 <div id="setup">
   <div class="card">
+    <div id="account">
+      <span id="accwho"></span>
+      <button class="tool" id="acclogin">Accedi con Google</button>
+      <a class="tool" id="accadmin" href="./admin.html">Pannello admin</a>
+      <button class="tool" id="acclogout">Esci</button>
+    </div>
     <h1>Thunder Road Vendetta</h1>
     <label>Giocatori</label>
     <select id="np"><option>2</option><option selected>3</option><option>4</option></select>

@@ -511,7 +511,8 @@ async function boot(): Promise<void> {
     try { await navigator.clipboard.writeText($('uid').textContent ?? ''); toast('UID copiato'); } catch { toast('Copia non riuscita: seleziona il testo'); }
   };
   auth.onUser(async user => {
-    if (!user) { if (!started) show('login'); return; }
+    // The anonymous identity of the online rooms is not an account: ask for Google.
+    if (!user || user.anonymous) { if (!started) show('login'); return; }
     if (await auth.isAdmin(user.uid)) {
       show(null);
       if (!started) { started = true; startInspector(user.email ?? user.name ?? user.uid, out); }
