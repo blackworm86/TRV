@@ -14,7 +14,7 @@ import {
 } from '../../src/game/trv/engine';
 import { BASE_CATALOG as CAT, sizeOf, ofKind } from '../../src/game/trv/catalog';
 import { Pieces, TextureBank } from '../../src/view/pieces3d';
-import { tickFlames, flameCluster } from '../../src/view/terrain/carnage3d';
+import { tickFlames, flameCluster, useRampModel } from '../../src/view/terrain/carnage3d';
 import { buildTile, hazardToken, spaceCenterPx, spaceGeometry, spaceRimGeometry, GRID, TILE_PITCH_PX } from '../../src/view/board3d';
 import { dieSvg, damageTokenSvg, dashboardSvg, commandBoardSvg, playerStripSvg, STRIP_ASPECT, STRIP_ASPECT_LEADER, STRIP_LEADER_PLATE, avatarSvg, dataUrl } from '../../src/view/vector/art';
 import { newSeed } from '../../src/platform/entropy';
@@ -379,6 +379,7 @@ function dieUsable(i: number): boolean {
 
 // Generated models (assets/models, made by the project owner): one per piece type, tinted with the crew colour.
 const models = new ModelBank();
+void useRampModel(MODEL.ramp, u => models.load(u)); // the ramps on the tiles take the model once it has loaded
 function collectMaterials(root: THREE.Object3D): THREE.MeshStandardMaterial[] {
   const out: THREE.MeshStandardMaterial[] = [];
   root.traverse(x => {
@@ -2946,7 +2947,7 @@ renderer.setAnimationLoop(t => {
     e.step(e.t);
     if (e.t >= 1) effects.splice(i, 1);
   }
-  tickFlames(now, camera);
+  tickFlames(now, camera, renderer.domElement.height);
   for (const grp of tileSlots) {
     if (!grp) continue;
     if (grp.userData.x !== undefined) grp.position.x += (grp.userData.x - grp.position.x) * k * 0.6;

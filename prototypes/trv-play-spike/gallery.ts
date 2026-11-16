@@ -13,7 +13,10 @@ import {
   dieSvg, hazardTokenSvg, damageTokenSvg, dashboardSvg, commandBoardSvg, chopperSvg, carSvg, avatarSvg, PALETTE, OFFICIAL_ART,
 } from '../../src/view/vector/art';
 import { buildTile, hazardToken, type TileData } from '../../src/view/board3d';
-import { tickFlames } from '../../src/view/terrain/carnage3d';
+import { tickFlames, useRampModel } from '../../src/view/terrain/carnage3d';
+import { ModelBank } from '../../src/view/models3d';
+import { MODEL } from './models-config';
+void useRampModel(MODEL.ramp, u => new ModelBank().load(u));
 import { makeDie, type DiceFaces } from '../../src/view/dice3d';
 import { Pieces, TextureBank } from '../../src/view/pieces3d';
 import { texturesReady } from '../../src/view/texture';
@@ -121,7 +124,7 @@ function fitViewer(): void {
 }
 addEventListener('resize', fitViewer);
 viewRenderer.setAnimationLoop(() => {
-  tickFlames(performance.now() / 1000, viewCam);
+  tickFlames(performance.now() / 1000, viewCam, viewRenderer.domElement.height);
   orbit.update();
   viewRenderer.render(viewScene, viewCam);
 });

@@ -26,7 +26,7 @@ export interface TerrainStyle {
   goo: [Rgb, Rgb]; gooBubble: Rgb;
   glass: [Rgb, Rgb]; glassGlint: Rgb;
   salt: [Rgb, Rgb]; saltCrack: Rgb;
-  scorch: [Rgb, Rgb]; ember: Rgb;
+  scorch: [Rgb, Rgb]; ash: Rgb; ember: Rgb;
   plant: [Rgb, Rgb];
   line: Rgb; tape: [Rgb, Rgb]; hazard: Rgb;
   rough: Record<Kind, number>;
@@ -45,7 +45,7 @@ export const TERRAIN_STYLE: TerrainStyle = {
   goo: [[134, 214, 58], [74, 160, 40]], gooBubble: [206, 246, 140],
   glass: [[176, 222, 232], [118, 182, 206]], glassGlint: [244, 252, 255],
   salt: [[244, 240, 230], [226, 220, 206]], saltCrack: [176, 164, 146],
-  scorch: [[58, 40, 34], [96, 64, 48]], ember: [255, 128, 32],
+  scorch: [[18, 15, 14], [46, 36, 31]], ash: [128, 122, 116], ember: [255, 104, 24],
   plant: [[112, 138, 118], [62, 84, 70]],
   line: [246, 196, 62], tape: [[246, 196, 62], [28, 24, 22]], hazard: [214, 22, 28],
   rough: { R: 0.86, o: 0.97, M: 0.3, X: 0.82, G: 0.18, D: 0.08, P: 0.95, F: 0.9, S: 0.93 },
@@ -66,6 +66,8 @@ export interface ProceduralMaps {
   rough: Uint8ClampedArray;
   /** 255 on the tile's spaces, 0 outside its cut edge. */
   mask: Uint8ClampedArray;
+  /** Light given off (embers in burnt ground), 0..255 per pixel; only on faces with fire. */
+  glow?: Uint8ClampedArray;
   /**
    * The information layer, apart from the terrain: grid lines, the tape around impassable spaces and
    * the hazard triangles, RGBA on a transparent ground, at its own (finer) size.
@@ -323,6 +325,8 @@ export function proceduralTerrain(tile: TileData, opt: ProceduralOptions = {}): 
   // 4. Colour and roughness.
   const albedo = new Uint8ClampedArray(n * 4);
   const rough = new Uint8ClampedArray(n);
+  // Embers in burnt ground give off light of their own (emissive): only faces with fire have the map.
+  const glow = present[7] ? new Uint8ClampedArray(n) : undefined;
   const [sR, sO, sM, sX, sG, sD, sP, sF, sS] = wSoft;
   const col: Rgb = [0, 0, 0];
   const add = (c: Rgb, k: number): void => { col[0] += c[0] * k; col[1] += c[1] * k; col[2] += c[2] * k; };
@@ -341,7 +345,10 @@ export function proceduralTerrain(tile: TileData, opt: ProceduralOptions = {}): 
       if (sG[p] > 0) add(gooColor(fx, fy, seed, st), sG[p] / tot);
       if (sD[p] > 0) add(glassColor(fx, fy, seed, st), sD[p] / tot);
       if (sP[p] > 0) add(sandColor(fx, fy, i, j, seed, st).map(v => v * 0.92) as Rgb, sP[p] / tot);
-      if (sF[p] > 0) add(scorchColor(fx, fy, seed, st), sF[p] / tot);
+      if (sF[p] > 0) {
+        add(scorchColor(fx, fy, seed, st), sF[p] / tot);
+        glow![p] = 255 * emberGlow(fx, fy, seed) * sF[p] / tot;
+      }
       if (sS[p] > 0) add(saltColor(fx, fy, seed, st), sS[p] / tot);
       // Sand blown over the edge of the asphalt.
       if (sR[p] > 0.05 && sO[p] > 0.05) {
@@ -358,7 +365,7 @@ export function proceduralTerrain(tile: TileData, opt: ProceduralOptions = {}): 
 
   plants(tile, kind, albedo, w, h, px, seed, st);
   const info = infoLayer(tile, opt.players, st, opt.infoWidth ?? w * 2);
-  return { w, h, height, albedo, rough, mask, info };
+  return { w, h, height, albedo, rough, mask, info, ...(glow ? { glow } : {}) };
 }
 
 /** Crack strength 0..1 at a frame point (thin wandering lines). */
@@ -433,11 +440,19 @@ function saltColor(fx: number, fy: number, seed: number, st: TerrainStyle): Rgb 
   return [0, 1, 2].map(q => mix(mix(st.salt[0][q], st.salt[1][q], t), st.saltCrack[q], rim * 0.8)) as Rgb;
 }
 
+/** Embers in burnt ground, 0..1: glowing cracks and a few hot spots. */
+function emberGlow(fx: number, fy: number, seed: number): number {
+  const cracks = crack(fx, fy, seed + 71) * smooth(0.0, 0.4, fbm(fx / 70, fy / 70, seed + 74));
+  const spots = smooth(0.66, 0.82, fbm(fx / 9, fy / 9, seed + 73, 2)) * 0.8;
+  return Math.max(cracks, spots);
+}
+
+/** Burnt ground: charcoal black, patches of grey ash, embers glowing in the cracks. */
 function scorchColor(fx: number, fy: number, seed: number, st: TerrainStyle): Rgb {
   const t = clamp01(0.5 + 0.6 * fbm(fx / 25, fy / 25, seed + 72, 3));
-  // Embers glow in the cracks of the burnt ground.
-  const glow = Math.max(crack(fx, fy, seed + 71), smooth(0.6, 0.8, fbm(fx / 12, fy / 12, seed + 73, 2)) * 0.7);
-  return [0, 1, 2].map(q => mix(mix(st.scorch[0][q], st.scorch[1][q], t), st.ember[q], glow)) as Rgb;
+  const ash = smooth(0.55, 0.75, fbm(fx / 40, fy / 40, seed + 75, 3)) * 0.8;
+  const glow = emberGlow(fx, fy, seed);
+  return [0, 1, 2].map(q => mix(mix(mix(st.scorch[0][q], st.scorch[1][q], t), st.ash[q], ash), st.ember[q], glow)) as Rgb;
 }
 
 function rockColor(fx: number, fy: number, hgt: number, seed: number, st: TerrainStyle): Rgb {
