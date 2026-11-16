@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { newGame, play, neighbor, type Game, type Decision } from '../../../src/game/trv/engine';
+import { newGame, play, neighbor, chopperSpaces, key, type Game, type Decision } from '../../../src/game/trv/engine';
 
 const SEED = (n: number): string => n.toString(16).padStart(8, '0').padEnd(64, 'a');
 const PLAYERS = [
@@ -80,5 +80,21 @@ describe('whole games', () => {
     const a = autoplay(SEED(42), 3, pick).g;
     const b = autoplay(SEED(42), 3, pick).g;
     expect(b.log).toEqual(a.log);
+  });
+});
+
+describe('airstrike', () => {
+  it('lets the chopper land on revealed road, mud and oil slick hazards but not on a face-down one', () => {
+    const g = newGame({ seed: SEED(1), players: PLAYERS.slice(0, 2), startSide: 'a' });
+    g.hazards.clear();
+    const free = chopperSpaces(g).filter(p => p.c >= 8);
+    const [a, b, c, d] = free;
+    g.hazards.set(key(a), { type: 'road', faceUp: true });
+    g.hazards.set(key(b), { type: 'mud', faceUp: true });
+    g.hazards.set(key(c), { type: 'oil', faceUp: true });
+    g.hazards.set(key(d), { type: 'mine', faceUp: false });
+    const spaces = chopperSpaces(g).map(key);
+    expect(spaces).toEqual(expect.arrayContaining([key(a), key(b), key(c)]));
+    expect(spaces).not.toContain(key(d));
   });
 });

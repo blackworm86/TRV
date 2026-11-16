@@ -372,6 +372,26 @@ export function vehiclesAt(g: Game, p: Pos): Vehicle[] {
 }
 
 /** Empty space: no road vehicle, chopper, hazard token or impassable terrain (p. 7). */
+/**
+ * Revealed hazards that stay on the board only as terrain (road, mud, oil slick; Carnage: desert
+ * glass, ramp, fire; a pit trap is impassable terrain). For the chopper they are no obstacle (rules
+ * owner, 2026-11-16); a face-down hazard token still is.
+ */
+const TERRAIN_HAZARDS = new Set<HazardType>(['road', 'mud', 'oil', 'desert_glass', 'ramp', 'fire']);
+
+/** The spaces where a chopper may be placed (Airstrike, p. 8): empty, but a revealed terrain hazard does not count. */
+export function chopperSpaces(g: Game): Pos[] {
+  const out: Pos[] = [];
+  for (let r = 0; r < ROWS; r++) {
+    for (let c = 0; c < COLS; c++) {
+      const p = { r, c }, h = g.hazards.get(key(p));
+      const clearHazard = !h || (h.faceUp && TERRAIN_HAZARDS.has(h.type));
+      if (terrainAt(g, p) !== 'X' && clearHazard && !vehiclesAt(g, p).length && !g.players.some(pl => samePos(pl.chopper, p))) out.push(p);
+    }
+  }
+  return out;
+}
+
 export function isEmpty(g: Game, p: Pos): boolean {
   if (terrainAt(g, p) === 'X') return false;
   if (g.hazards.has(key(p))) return false;
@@ -1485,8 +1505,7 @@ function* repair(g: Game, p: Player): Gen<void> {
 }
 
 function* airstrike(g: Game, p: Player): Gen<void> {
-  const spaces: Pos[] = [];
-  for (let r = 0; r < ROWS; r++) for (let c = 0; c < COLS; c++) if (isEmpty(g, { r, c })) spaces.push({ r, c });
+  const spaces = chopperSpaces(g);
   if (!spaces.length) { say(g, 'Nessuna casella vuota per l\'elicottero.'); return; }
   const i = yield* ask({
     kind: 'airstrike', player: p.id, prompt: `${p.name}: clicca la casella vuota dove piazzare l'elicottero.`,
