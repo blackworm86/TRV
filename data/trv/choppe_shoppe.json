@@ -1,0 +1,85 @@
+{
+  "_note": "Thunder Road: Vendetta, part 4: Choppe Shoppe. Crew leaders read from the component scans (design/notes/espansioni-componenti.md); rules from reference/rulebook/TRV-CS_Rulebook.pdf. A command with \"token\": true has a command token icon instead of a number. \"needs\" names what a leader depends on that is not implemented yet: such leaders are not dealt.",
+  "command_tokens": 15,
+  "leaders_dealt": 2,
+  "long_arm_range": 2,
+  "redline": { "from": 6, "to": 7 },
+  "upgrades_dealt": 4,
+  "upgrades_kept": 3,
+  "_upgrades_note": "The 27 upgrade cards. \"n\" is the card's own number: extra moves (ghost_mode, boost_switch), range in spaces (rail_gun, punt_gun), uses per game (oil_dispenser, mine_dispenser), extra damage tokens (heavy_frame), road die value (spoiler), highest assigned die (tank_treads).",
+  "upgrades": [
+    { "id": "grappling_hook", "name": "Grappling Hook" },
+    { "id": "snowplow", "name": "Snowplow" },
+    { "id": "big_red_button", "name": "Big Red Button" },
+    { "id": "armor_plating", "name": "Armor Plating" },
+    { "id": "onboard_computer", "name": "Onboard Computer" },
+    { "id": "ghost_mode", "name": "Ghost Mode", "n": 2 },
+    { "id": "smoke_screen", "name": "Smoke Screen" },
+    { "id": "skull_shift_knob", "name": "Skull Shift Knob" },
+    { "id": "heavy_machine_gun", "name": "Heavy Machine Gun" },
+    { "id": "rail_gun", "name": "Rail Gun", "n": 3 },
+    { "id": "oil_dispenser", "name": "Oil Dispenser", "n": 3 },
+    { "id": "roll_cage", "name": "Roll Cage" },
+    { "id": "crumple_zones", "name": "Crumple Zones" },
+    { "id": "sandbags", "name": "Sandbags" },
+    { "id": "deep_treads", "name": "Deep Treads" },
+    { "id": "heavy_frame", "name": "Heavy Frame", "n": 1 },
+    { "id": "spoiler", "name": "Spoiler", "n": 2 },
+    { "id": "anti_aircraft_radar", "name": "Anti-Aircraft Radar" },
+    { "id": "stability_control", "name": "Stability Control" },
+    { "id": "punt_gun", "name": "Punt Gun", "n": 2 },
+    { "id": "tank_treads", "name": "Tank Treads", "n": 3 },
+    { "id": "off_road_suspension", "name": "Off-Road Suspension" },
+    { "id": "rear_guns", "name": "Rear Guns" },
+    { "id": "boost_switch", "name": "Boost Switch", "n": 1 },
+    { "id": "assault_bumper", "name": "Assault Bumper" },
+    { "id": "stealth_technology", "name": "Stealth Technology" },
+    { "id": "mine_dispenser", "name": "Mine Dispenser", "n": 3 }
+  ],
+  "leaders": [
+    { "id": "betty", "name": "Ms. Betty", "title": "The Tinkerer", "tokens": 2, "power": "bring_the_bling", "needs": ["upgrades"],
+      "commands": [
+        { "id": "airstrike", "values": [1, 2, 3, 4, 5, 6] }, { "id": "nitro", "values": [1, 2] },
+        { "id": "repair", "values": [1, 2, 3] }, { "id": "tinker", "values": [5, 6] }] },
+    { "id": "bumpo", "name": "Bumpo the Clown", "title": "The Bumpmeister", "tokens": 0, "power": "junk_in_the_trunk",
+      "commands": [
+        { "id": "airstrike", "values": [1, 2, 3, 4, 5, 6] }, { "id": "nitro", "values": [1, 2] },
+        { "id": "repair", "values": [6] }, { "id": "bump", "values": [6] }] },
+    { "id": "abigail", "name": "Abigail", "title": "The Street Sergeant", "tokens": 1, "power": "spotter",
+      "commands": [
+        { "id": "airstrike", "values": [1, 2, 3, 4, 5, 6] }, { "id": "nitro", "values": [1, 2, 3] },
+        { "id": "drift", "values": [3, 4] }, { "id": "repair", "values": [5] }] },
+    { "id": "asha", "name": "Asha", "title": "The Road Mistress", "tokens": 3, "power": "jury_rigging",
+      "commands": [
+        { "id": "repair", "values": [1] }, { "id": "nitro", "values": [2, 3] },
+        { "id": "drift", "values": [3, 4] }, { "id": "airstrike", "values": [5, 6] }] },
+    { "id": "emberco", "name": "Emberco", "title": "The Firestarter", "tokens": 2, "power": "smokin", "needs": ["carnage"],
+      "commands": [
+        { "id": "show_time", "values": [1, 2, 3, 4, 5, 6] }, { "id": "airstrike", "values": [1, 2, 3, 4, 5, 6] },
+        { "id": "flamethrower", "values": [5, 6] }, { "id": "repair", "values": [6] }] },
+    { "id": "vince", "name": "Vince Vamp", "title": "The Nitromancer", "tokens": 1, "power": "soul_siphon",
+      "commands": [
+        { "id": "airstrike", "values": [1, 2, 3, 4, 5, 6] }, { "id": "nitro", "values": [1, 2] },
+        { "id": "drift", "values": [2, 3, 4] }, { "id": "pain_transfer", "values": [6] }] },
+    { "id": "cruft", "name": "Cruft", "title": "The Scrap Merchant", "tokens": 0, "power": "trash_into_treasure",
+      "commands": [
+        { "id": "airstrike", "values": [1, 2, 3, 4, 5, 6] }, { "id": "nitro", "values": [2, 3] },
+        { "id": "drift", "values": [5] }, { "id": "repair", "values": [], "token": true }] },
+    { "id": "cris", "name": "Cris Crass", "title": "The Fastest of the Fast", "tokens": 2, "power": "redline",
+      "commands": [
+        { "id": "airstrike", "values": [1, 2, 3, 4, 5, 6] }, { "id": "nitro", "values": [1, 2, 3, 4] },
+        { "id": "need_for_speed", "values": [4, 5] }, { "id": "repair", "values": [], "token": true }] },
+    { "id": "joe", "name": "Machine Gun Joe, Esq.", "title": "The Bullet King", "tokens": 2, "power": "objection",
+      "commands": [
+        { "id": "airstrike", "values": [1, 2, 3, 4, 5, 6] }, { "id": "nitro", "values": [1] },
+        { "id": "drift", "values": [2, 3, 4, 5] }, { "id": "repair", "values": [6] }] },
+    { "id": "boudreaux", "name": "Madame Boudreaux", "title": "The Prophet", "tokens": 2, "power": "third_eye",
+      "commands": [
+        { "id": "airstrike", "values": [1, 2, 3, 4, 5, 6] }, { "id": "nitro", "values": [1, 2, 3] },
+        { "id": "repair", "values": [6] }, { "id": "called_shot", "values": [6] }] },
+    { "id": "wong", "name": "Wong Lei Hong", "title": "The Marksman", "tokens": 3, "power": "long_arm_of_the_law",
+      "commands": [
+        { "id": "airstrike", "values": [1, 2, 3, 4, 5, 6] }, { "id": "nitro", "values": [1, 2] },
+        { "id": "drift", "values": [2, 3, 4] }, { "id": "repair", "values": [6] }] }
+  ]
+}

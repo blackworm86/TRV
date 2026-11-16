@@ -2,8 +2,11 @@
 // Pure TypeScript with no browser in it. The game runs as a generator: it yields a
 // Decision whenever a player must choose and receives the index of the chosen option.
 // All randomness goes through src/core/rng, so seed + list of choices replays a game.
+// Part 4, Choppe Shoppe (TRV-CS_Rulebook): crew leaders and command tokens, from
+// data/trv/choppe_shoppe.json, and upgrade cards (one per car, inactive while the car is inoperable).
 
 import base from '../../../data/trv/game_base.json';
+import shoppe from '../../../data/trv/choppe_shoppe.json';
 import {
   createRng, roll, shuffle, applyPermutation, type RngState,
 } from '../../core/rng/rng';
@@ -16,7 +19,24 @@ export type Size = 'S' | 'M' | 'L';
 export type Terrain = 'R' | 'o' | 'M' | 'X';
 export type HazardType = 'mud' | 'road' | 'oil' | 'mine' | 'wreck';
 export type DamageType = 'shrapnel' | 'dazed' | 'dent' | 'skid' | 'blastoff';
-export type CommandId = 'airstrike' | 'nitro' | 'drift' | 'repair';
+export type CommandId = 'airstrike' | 'nitro' | 'drift' | 'repair'
+  | 'bump' | 'pain_transfer' | 'need_for_speed' | 'called_shot' | 'tinker' | 'show_time' | 'flamethrower';
+
+/** One command of a command board: the die values that activate it, or a command token only. */
+export interface CommandSlot { id: CommandId; values: number[]; token?: boolean }
+
+/** A crew leader command board (Choppe Shoppe). */
+export interface Leader {
+  id: string;
+  name: string;
+  title: string;
+  /** Command tokens taken at setup (the stars at the bottom of the board). */
+  tokens: number;
+  power: string;
+  commands: CommandSlot[];
+  /** What the leader depends on that is not implemented yet; such leaders are not dealt. */
+  needs?: string[];
+}
 
 /** A board space. `c` counts from the rear edge of the rear tile (0..23). */
 export interface Pos { r: number; c: number }
@@ -40,7 +60,14 @@ export interface Vehicle {
   placed: { value: number; coast: boolean }[];
   /** Stacking order: higher is on top. */
   z: number;
+  /** Upgrade card id (Choppe Shoppe), or null. */
+  upgrade: string | null;
+  /** How many times the upgrade's limited ability was used this game (dispensers). */
+  uses: number;
 }
+
+/** An upgrade card (Choppe Shoppe). `n` is the card's own number (see choppe_shoppe.json). */
+export interface Upgrade { id: string; name: string; n?: number }
 
 export interface Player {
   id: number;
@@ -55,6 +82,12 @@ export interface Player {
   chopper: Pos | null;
   /** Catalog crew id (colour set of boards and pieces), if the interface chose one. */
   crew?: string;
+  /** Crew leader id (Choppe Shoppe), or null with the standard command board. */
+  leader: string | null;
+  /** Command tokens in hand. */
+  tokens: number;
+  /** Commands holding a die or a command token this round. */
+  slots: Partial<Record<CommandId, 'die' | 'token'>>;
 }
 
 export interface TileRef { tile: number; side: 'a' | 'b' }
@@ -74,10 +107,18 @@ export interface Option {
   command?: CommandId;
   /** Assign / command: the value of the die being placed. */
   dieValue?: number;
+  /** Leader choice: the crew leader id. */
+  leader?: string;
+  /** Upgrade draft and assignment: the upgrade card id. */
+  upgrade?: string;
+  /** Damage choice (Crumple Zones): the token offered. */
+  token?: DamageToken;
 }
 
 export interface Decision {
-  kind: 'assign' | 'command' | 'airstrike' | 'repair' | 'step' | 'roadDie' | 'slamReroll' | 'shoot';
+  kind: 'assign' | 'command' | 'airstrike' | 'repair' | 'step' | 'roadDie' | 'slamReroll' | 'shoot'
+    | 'leader' | 'token' | 'shootReroll' | 'dirReroll' | 'peek' | 'peekResult' | 'transfer'
+    | 'draft' | 'upgradeAssign' | 'swap' | 'plow' | 'rollCage' | 'pickDamage' | 'redButton' | 'dispense' | 'radar';
   player: number;
   prompt: string;
   options: Option[];
@@ -116,6 +157,8 @@ export interface Frame {
   why?: string;
   /** Damage: the token drawn and turned over (null when the pile is empty). */
   token?: DamageToken | null;
+  /** Damage: the token stays face down and its effect is ignored (Jury-Rigging). */
+  faceDown?: boolean;
   die?: RolledDie;
   /** Round start: each player's movement dice, the road die and who rolled it. */
   round?: { n: number; dice: { player: number; values: number[] }[]; roadDie: number; roller: number };
@@ -150,12 +193,26 @@ export interface Game {
   pendingDice: RolledDie[];
   /** Beats for the UI to animate (see Frame). */
   frames: Frame[];
+  /** Command tokens left in the supply (Choppe Shoppe). */
+  tokenSupply: number;
+  /** Crew leaders are dealt and chosen at the start of `play`. */
+  dealLeaders: boolean;
+  /** Upgrade cards are drafted and assigned at the start of `play`. */
+  dealUpgrades: boolean;
+  /** Effects that last for the current turn. */
+  fx: { bump: boolean; calledShot: boolean; slams: number };
 }
 
 export interface Setup {
   seed: string;
-  players: { name: string; color: string; crew?: string }[];
+  /** `leader` fixes a player's crew leader without dealing. */
+  /** `upgrades` fixes the upgrade of the small, medium and large car without drafting. */
+  players: { name: string; color: string; crew?: string; leader?: string; upgrades?: (string | null)[] }[];
   startSide: 'a' | 'b';
+  /** Choppe Shoppe: deal two crew leaders to each player, who keeps one. */
+  leaders?: boolean;
+  /** Choppe Shoppe: draft three upgrade cards each and assign one to each car. */
+  upgrades?: boolean;
 }
 
 type Gen<T> = Generator<Decision, T, number>;
@@ -169,7 +226,35 @@ const DICE = base.dice as unknown as {
   movement: number[]; road: number[]; stunt: number[];
   slam: ('top' | 'bottom')[]; shooting: string[]; direction: Dir[];
 };
-const COMMANDS = base.commands as Record<CommandId, number[]>;
+const BASE_BOARD: CommandSlot[] = Object.entries(base.commands).map(([id, values]) => ({ id: id as CommandId, values }));
+const LEADERS = shoppe.leaders as Leader[];
+
+/** Every crew leader in the data, including those that cannot be dealt yet. */
+export const leaders = (): Leader[] => LEADERS;
+
+/** A player's crew leader, or null with the standard command board. */
+export function leaderOf(p: Player): Leader | null {
+  return p.leader ? LEADERS.find(l => l.id === p.leader) ?? null : null;
+}
+
+/** The commands on a player's command board. */
+export function commandsOf(p: Player): CommandSlot[] {
+  return leaderOf(p)?.commands ?? BASE_BOARD;
+}
+
+const hasPower = (g: Game, player: number | null, power: string): boolean =>
+  player !== null && leaderOf(g.players[player])?.power === power;
+
+const UPGRADES = shoppe.upgrades as Upgrade[];
+/** Every upgrade card. */
+export const upgrades = (): Upgrade[] => UPGRADES;
+/** Whether a car has an upgrade and it is active: an inoperable car's upgrade is not. */
+const up = (v: Vehicle | null | undefined, id: string): boolean => !!v && !v.isWreck && v.status === 'ok' && v.upgrade === id;
+/** The number printed on an upgrade card. */
+const upN = (id: string): number => UPGRADES.find(u => u.id === id)?.n ?? 0;
+const upName = (id: string): string => UPGRADES.find(u => u.id === id)?.name ?? id;
+/** Damage tokens that make a car inoperable (Heavy Frame: one more). */
+const limit = (v: Vehicle): number => base.damage_to_inoperable + (v.upgrade === 'heavy_frame' ? upN('heavy_frame') : 0);
 const SIZE_RANK: Record<Size, number> = { S: 0, M: 1, L: 2 };
 export const DIR_NAME: Record<Dir, string> = {
   F: 'avanti', FL: 'avanti-sinistra', FR: 'avanti-destra',
@@ -184,7 +269,11 @@ const DAMAGE_NAME: Record<DamageType, string> = {
 };
 const COMMAND_NAME: Record<CommandId, string> = {
   airstrike: 'Attacco aereo', nitro: 'Nitro', drift: 'Drift', repair: 'Riparazione',
+  bump: 'Bump!', pain_transfer: 'Pain Transfer', need_for_speed: 'Need for Speed', called_shot: 'Called Shot',
+  tinker: 'Tinker', show_time: 'Show Time', flamethrower: 'Flamethrower',
 };
+/** The name of a command, as shown to the players. */
+export const commandName = (c: CommandId): string => COMMAND_NAME[c];
 
 interface TileDef { tile: number; side: string; name: string; terrain: string[]; hazards: unknown[][] }
 const TILES = base.tiles as unknown as TileDef[];
@@ -317,13 +406,16 @@ export function newGame(s: Setup): Game {
     rng: r.value, players: [], vehicles: [], board: [], pile: [], tilesPlaced: 3, finalTile: false,
     hazards: new Map(), hazardPile: [], hazardDiscard: [], damagePile: [], round: 0, firstPlayer: 0,
     current: 0, roadDie: 0, winner: null, log: [], zTop: 0, activeCar: null, lastRoll: [], pendingDice: [], frames: [],
+    tokenSupply: shoppe.command_tokens, dealLeaders: !!s.leaders, dealUpgrades: !!s.upgrades, fx: { bump: false, calledShot: false, slams: 0 },
   };
   s.players.forEach((p, i) => {
     g.players.push({ id: i, name: p.name, color: p.color, dice: [], used: [], commandUsed: false, command: null, out: false, chopper: null,
-      ...(p.crew ? { crew: p.crew } : {}) });
+      leader: null, tokens: 0, slots: {}, ...(p.crew ? { crew: p.crew } : {}) });
+    if (p.leader) takeLeader(g, g.players[i], p.leader);
     for (const size of ['S', 'M', 'L'] as Size[]) {
       g.vehicles.push({ id: `p${i}${size}`, owner: i, size, isWreck: false, pos: null, inStart: true,
-        status: 'ok', damage: [], moved: false, coasts: 0, placed: [], z: 0 });
+        status: 'ok', damage: [], moved: false, coasts: 0, placed: [], z: 0,
+        upgrade: p.upgrades?.[SIZE_RANK[size]] ?? null, uses: 0 });
     }
   });
   // Road tiles: the starting tile, then the others shuffled into a pile.
@@ -343,6 +435,15 @@ export function newGame(s: Setup): Game {
   }
   for (let t = 0; t < 3; t++) placeHazards(g, t, t === 0 ? s.players.length : null);
   return g;
+}
+
+/** Setup steps 4-5 of the crew leaders: the board, and command tokens equal to its stars. */
+function takeLeader(g: Game, p: Player, id: string): void {
+  const l = LEADERS.find(x => x.id === id);
+  if (!l) throw new Error(`unknown crew leader ${id}`);
+  p.leader = l.id;
+  p.tokens = Math.min(l.tokens, g.tokenSupply);
+  g.tokenSupply -= p.tokens;
 }
 
 function drawHazard(g: Game): HazardType | null {
@@ -439,7 +540,17 @@ function advanceBoard(g: Game): void {
 
 // ---------------------------------------------------------------- entering a space
 
-interface MoveCtx { left: number; drift: boolean; driftUsed: boolean }
+interface MoveCtx { left: number; drift: boolean; driftUsed: boolean; /** Tank Treads: face-down hazards are not revealed. */ quiet?: boolean }
+
+/** The terrain as a car feels it: mud counts as road with Deep Treads. */
+function groundFor(g: Game, v: Vehicle, p: Pos): Terrain {
+  const t = terrainAt(g, p);
+  return t === 'M' && up(v, 'deep_treads') ? 'R' : t;
+}
+
+/** The empty spaces next to a space. */
+const freeAround = (g: Game, p: Pos): Pos[] => ALL_DIRS.map(d => neighbor(p, d)).filter(q => onBoard(q) && isEmpty(g, q));
+const spaceOption = (q: Pos): Option => ({ label: `Casella ${q.r + 1}-${q.c + 1}`, pos: q });
 
 /**
  * A road vehicle enters a space, by moving, slam or damage (pp. 7, 9, 11).
@@ -465,13 +576,22 @@ function* enter(g: Game, v: Vehicle, to: Pos, ctx: MoveCtx | null): Gen<boolean>
   beat(g, 'move', { vehicleId: v.id, at: { ...to } });
   const k = key(to);
   const h = g.hazards.get(k);
-  if (h) {
-    if (!h.faceUp) { h.faceUp = true; beat(g, 'reveal', { at: { ...to } }); say(g, `Pericolo scoperto: ${HAZARD_NAME[h.type]}!`, 'info'); }
+  // Tank Treads: a face-down hazard is passed over; moveCar reveals the one the car stops on.
+  if (h && !(ctx?.quiet && !h.faceUp)) {
+    if (!h.faceUp) {
+      // Trash into Treasure (Cruft): gain a command token, then flip the hazard.
+      if (hasPower(g, v.owner, 'trash_into_treasure') && g.tokenSupply > 0) {
+        g.tokenSupply--;
+        g.players[v.owner!].tokens++;
+        say(g, `Trash into Treasure: ${g.players[v.owner!].name} prende un segnalino comando.`, 'good');
+      }
+      h.faceUp = true; beat(g, 'reveal', { at: { ...to } }); say(g, `Pericolo scoperto: ${HAZARD_NAME[h.type]}!`, 'info');
+    }
     else say(g, `${capital(carName(g, v))} finisce su ${HAZARD_NAME[h.type]}.`, 'info');
     if (h.type === 'wreck') {
       g.hazards.delete(k); g.hazardDiscard.push('wreck');
       const w: Vehicle = { id: `w${g.zTop}`, owner: null, size: 'S', isWreck: true, pos: { ...to }, inStart: false,
-        status: 'inop', damage: [], moved: false, coasts: 0, placed: [], z: v.z };
+        status: 'inop', damage: [], moved: false, coasts: 0, placed: [], z: v.z, upgrade: null, uses: 0 };
       v.z = ++g.zTop;
       g.vehicles.push(w);
     } else if (h.type === 'mine') {
@@ -485,10 +605,31 @@ function* enter(g: Game, v: Vehicle, to: Pos, ctx: MoveCtx | null): Gen<boolean>
       return yield* enter(g, v, neighbor(to, d), ctx);
     }
   }
+  // Snowplow: a wreck or an inoperable vehicle in the way is pushed aside, and the car goes on.
+  const others = vehiclesAt(g, to).filter(x => x !== v);
+  if (ctx && up(v, 'snowplow') && others.length === 1 && (others[0].isWreck || others[0].status === 'inop')) {
+    const free = freeAround(g, to);
+    if (free.length) {
+      const i = yield* ask({
+        kind: 'plow', player: v.owner!, prompt: `${g.players[v.owner!].name}: Snowplow, dove spostare ${carName(g, others[0])}?`,
+        options: [{ label: 'Non spostare (slam)' }, ...free.map(spaceOption)],
+      });
+      if (i > 0) {
+        others[0].pos = { ...free[i - 1] };
+        beat(g, 'move', { vehicleId: others[0].id, at: { ...free[i - 1] } });
+        say(g, `Snowplow: ${carName(g, others[0])} è spostata di lato.`, 'info');
+        return false;
+      }
+    }
+  }
   if (vehiclesAt(g, to).length > 1) {
     if (ctx && ctx.drift && !ctx.driftUsed) {
       ctx.driftUsed = true;
       say(g, 'Drift: passa attraverso il veicolo senza slam.', 'info');
+      if (up(v, 'ghost_mode')) {
+        ctx.left += upN('ghost_mode');
+        say(g, `Ghost Mode: +${upN('ghost_mode')} movimenti.`, 'good');
+      }
       return false;
     }
     yield* slam(g, to);
@@ -506,11 +647,18 @@ function* slam(g: Game, at: Pos): Gen<void> {
     const top = stack[stack.length - 1], bottom = stack[stack.length - 2];
     beat(g, 'slam', { at: { ...at }, vehicleId: top.id });
     say(g, `SLAM! ${capital(carName(g, top))} contro ${carName(g, bottom)}.`, 'bad');
-    let which = rollFx(g, 'slam', 'slam');
+    // Bump! (Bumpo): the first time the player slams this turn, only the direction die, and the other car moves.
+    const mine = top.owner === g.current && !top.isWreck;
+    const bump = mine && g.fx.bump && g.fx.slams === 0;
+    if (mine) g.fx.slams++;
+    let which: 'top' | 'bottom' = bump ? 'bottom' : rollFx(g, 'slam', 'slam');
     let d = rollFx(g, 'direction', 'slam');
-    say(g, `Dado slam: si muove il veicolo ${which === 'top' ? 'sopra' : 'sotto'}; direzione ${DIR_NAME[d]}.`, 'dice');
+    if (bump) say(g, `Bump! Si muove ${carName(g, bottom)}; direzione ${DIR_NAME[d]}.`, 'dice');
+    else say(g, `Dado slam: si muove il veicolo ${which === 'top' ? 'sopra' : 'sotto'}; direzione ${DIR_NAME[d]}.`, 'dice');
     const big = SIZE_RANK[top.size] > SIZE_RANK[bottom.size] ? top : SIZE_RANK[bottom.size] > SIZE_RANK[top.size] ? bottom : null;
-    if (big && big.owner !== null) {
+    // Sandbags: the opponents of a car with sandbags may not reroll the slam die or the direction die.
+    const barred = (owner: number | null): boolean => [top, bottom].some(x => up(x, 'sandbags') && x.owner !== owner);
+    if (!bump && big && big.owner !== null && !barred(big.owner)) {
       const moving = which === 'top' ? top : bottom;
       const i = yield* ask({
         kind: 'slamReroll', player: big.owner,
@@ -524,7 +672,44 @@ function* slam(g: Game, at: Pos): Gen<void> {
       }
     }
     const affected = which === 'top' ? top : bottom;
-    yield* enter(g, affected, neighbor(at, d), null);
+    // Junk in the Trunk (Bumpo): if your car would move in a slam, you may reroll the direction die.
+    // Stability Control: the same, for the car that has the upgrade.
+    if ((hasPower(g, affected.owner, 'junk_in_the_trunk') || up(affected, 'stability_control')) && !affected.isWreck && !barred(affected.owner)) {
+      const i = yield* ask({
+        kind: 'dirReroll', player: affected.owner!,
+        prompt: `${g.players[affected.owner!].name}: ${carName(g, affected)} si muoverebbe verso ${DIR_NAME[d]}. Ritirare il dado direzione?`,
+        options: [{ label: 'Tieni il risultato' }, { label: 'Ritira il dado direzione' }],
+      });
+      if (i === 1) {
+        d = rollFx(g, 'direction', 'junk-in-the-trunk');
+        say(g, `${up(affected, 'stability_control') ? 'Stability Control' : 'Junk in the Trunk'}: nuova direzione ${DIR_NAME[d]}.`, 'dice');
+      }
+    }
+    const dest = neighbor(at, d);
+    // Roll Cage: instead of being slammed into another car, the car goes to an adjacent empty space.
+    if (up(affected, 'roll_cage') && onBoard(dest) && vehiclesAt(g, dest).length) {
+      const free = freeAround(g, at);
+      if (free.length) {
+        const i = yield* ask({
+          kind: 'rollCage', player: affected.owner!, prompt: `${g.players[affected.owner!].name}: Roll Cage, evitare lo slam contro un'altra auto?`,
+          options: [{ label: 'No, subisci lo slam' }, ...free.map(spaceOption)],
+        });
+        if (i > 0) {
+          affected.pos = { ...free[i - 1] };
+          affected.z = ++g.zTop;
+          beat(g, 'move', { vehicleId: affected.id, at: { ...free[i - 1] } });
+          say(g, `Roll Cage: ${carName(g, affected)} si mette in una casella vuota.`, 'info');
+          continue;
+        }
+      }
+    }
+    const other = affected === top ? bottom : top;
+    yield* enter(g, affected, dest, null);
+    // Assault Bumper: the car it moved in a slam goes one extra space in the same direction.
+    if (up(other, 'assault_bumper') && !affected.isWreck && affected.status !== 'elim' && samePos(affected.pos, dest) && g.winner === null) {
+      say(g, 'Assault Bumper: una casella in più nella stessa direzione.', 'info');
+      yield* enter(g, affected, neighbor(dest, d), null);
+    }
   }
 }
 
@@ -533,22 +718,58 @@ function* damage(g: Game, v: Vehicle): Gen<void> {
   if (g.winner !== null || v.status === 'elim') return;
   if (v.isWreck) { eliminate(g, v, 'ha subito danno'); return; }
   if (v.status === 'inop') { say(g, `${capital(carName(g, v))} è già fuori uso: il danno è ignorato.`); return; }
-  let token: DamageToken | null = null;
-  if (g.damagePile.length) {
+  const draw = (): DamageToken | null => {
+    if (!g.damagePile.length) return null;
     const [i] = rollDice(g, [{ id: 'damage-draw', n: g.damagePile.length }], 'damage-draw');
-    token = g.damagePile.splice(i, 1)[0];
+    return g.damagePile.splice(i, 1)[0];
+  };
+  let token = draw();
+  // Jury-Rigging (Asha) and Onboard Computer: the token is placed face down and its effect is ignored.
+  const hidden = !!token && (hasPower(g, v.owner, 'jury_rigging') || up(v, 'onboard_computer'));
+  // Crumple Zones: draw two damage tokens, pick one and discard the other.
+  if (token && !hidden && up(v, 'crumple_zones') && g.damagePile.length) {
+    const pair = [token, draw()!];
+    const i = yield* ask({
+      kind: 'pickDamage', player: v.owner!, prompt: `${g.players[v.owner!].name}: Crumple Zones, quale danno prende ${carName(g, v)}?`,
+      options: pair.map(t => ({ label: DAMAGE_NAME[t.type], token: { ...t }, carId: v.id })),
+    });
+    token = pair[i];
+    g.damagePile.push(pair[1 - i]);
+    say(g, `Crumple Zones: scelto ${DAMAGE_NAME[token.type]}.`, 'info');
   }
-  beat(g, 'damage', { vehicleId: v.id, token: token ? { ...token } : null, ...(v.pos ? { at: { ...v.pos } } : {}) });
-  say(g, `${capital(carName(g, v))} subisce danno: ${token ? DAMAGE_NAME[token.type] : 'nessun segnalino rimasto'}.`, 'bad');
-  if (token) yield* damageEffect(g, v, token);
+  beat(g, 'damage', { vehicleId: v.id, token: token && !hidden ? { ...token } : null, ...(hidden ? { faceDown: true } : {}), ...(v.pos ? { at: { ...v.pos } } : {}) });
+  if (hidden) say(g, `${capital(carName(g, v))} subisce danno: il segnalino resta coperto e senza effetto.`, 'bad');
+  else say(g, `${capital(carName(g, v))} subisce danno: ${token ? DAMAGE_NAME[token.type] : 'nessun segnalino rimasto'}.`, 'bad');
+  if (token && !hidden) yield* damageEffect(g, v, token);
   // The effect may have moved the car off the board (TS narrows status too eagerly here).
   if ((v.status as Vehicle['status']) === 'elim') { if (token) g.damagePile.push(token); return; }
   if (token) v.damage.push(token);
-  if (v.damage.length >= 2) {
-    v.status = 'inop';
-    say(g, `${capital(carName(g, v))} è fuori uso (girata all'indietro).`, 'bad');
-    checkPlayers(g);
+  if (v.damage.length >= limit(v)) yield* breakDown(g, v);
+}
+
+/** A car becomes inoperable. Big Red Button: its owner may eliminate it, with every adjacent car and chopper. */
+function* breakDown(g: Game, v: Vehicle): Gen<void> {
+  const button = up(v, 'big_red_button');
+  v.status = 'inop';
+  say(g, `${capital(carName(g, v))} è fuori uso (girata all'indietro).`, 'bad');
+  if (button && v.pos && g.winner === null) {
+    const i = yield* ask({
+      kind: 'redButton', player: v.owner!, prompt: `${g.players[v.owner!].name}: Big Red Button, eliminare ${carName(g, v)} con tutto ciò che ha accanto?`,
+      options: [{ label: 'No, resta fuori uso' }, { label: 'Premi il bottone', danger: true, pos: v.pos, carId: v.id }],
+    });
+    if (i === 1) {
+      const around = ALL_DIRS.map(d => neighbor(v.pos!, d));
+      say(g, 'Big Red Button: BOOM!', 'bad');
+      eliminate(g, v, 'ha premuto il Big Red Button');
+      for (const q of around) {
+        for (const x of vehiclesAt(g, q)) if (!x.isWreck) eliminate(g, x, 'era accanto al Big Red Button');
+        for (const pl of g.players) {
+          if (samePos(pl.chopper, q)) { pl.chopper = null; say(g, `L'elicottero di ${pl.name} è eliminato dal Big Red Button.`, 'bad'); }
+        }
+      }
+    }
   }
+  checkPlayers(g);
 }
 
 function* damageEffect(g: Game, v: Vehicle, t: DamageToken): Gen<void> {
@@ -605,14 +826,25 @@ function frontArc(p: Pos): Pos[] {
 }
 
 /** Shoot step (p. 10): any road vehicle in the front arc, chosen or skipped. */
-function* shootFrom(g: Game, player: number, from: Pos, who: string): Gen<void> {
+function* shootFrom(g: Game, player: number, from: Pos, who: string, shooter: Vehicle | null = null): Gen<void> {
   if (g.winner !== null) return;
-  const targets: Vehicle[] = [];
-  for (const p of frontArc(from)) {
-    if (p.c >= COLS) continue;
+  let targets: Vehicle[] = [];
+  // Long Arm of the Law (Wong): also the spaces two away, straight on from the front arc.
+  const spaces = hasPower(g, player, 'long_arm_of_the_law') ? longArc(from, shoppe.long_arm_range) : frontArc(from);
+  // Punt Gun: two spaces away. Rail Gun: three spaces straight ahead. Rear Guns: any adjacent space.
+  if (up(shooter, 'punt_gun')) spaces.push(...longArc(from, upN('punt_gun')));
+  if (up(shooter, 'rail_gun')) { let q = from; for (let n = 0; n < upN('rail_gun'); n++) { q = neighbor(q, 'F'); spaces.push(q); } }
+  if (up(shooter, 'rear_guns')) spaces.push(...ALL_DIRS.map(d => neighbor(from, d)));
+  for (const p of spaces.filter((q, i, a) => a.findIndex(x => samePos(x, q)) === i)) {
+    if (!onBoard(p)) continue;
     const st = vehiclesAt(g, p);
-    if (st.length) targets.push(st[st.length - 1]);
+    const t = st[st.length - 1];
+    // Smoke Screen: not from the space directly behind the car.
+    if (t && !(up(t, 'smoke_screen') && samePos(from, neighbor(p, 'B')))) targets.push(t);
   }
+  // Stealth Technology: not a target while there is another vehicle to shoot.
+  const seen = targets.filter(t => !up(t, 'stealth_technology'));
+  if (seen.length) targets = seen;
   if (!targets.length) { say(g, `${who}: nessun bersaglio nell'arco frontale, niente sparo.`, 'info'); return; }
   const i = yield* ask({
     kind: 'shoot', player, prompt: `${g.players[player].name}: sparare con ${who}?`,
@@ -621,21 +853,84 @@ function* shootFrom(g: Game, player: number, from: Pos, who: string): Gen<void> 
   if (i === 0) return;
   const t = targets[i - 1];
   beat(g, 'shot', { from: { ...from }, at: { ...t.pos! }, vehicleId: t.id });
-  const f = rollFx(g, 'shooting', 'shoot');
-  const hit = f === 'ANY' || f === t.size || (f === 'SM' && (t.size === 'S' || t.size === 'M'));
-  const face = f === 'ANY' ? 'qualsiasi' : f === 'SM' ? 'piccola/media' : SIZE_NAME[f as Size];
-  say(g, `Dado sparo: ${face} — ${hit ? 'COLPITO!' : 'mancato.'}`, 'dice');
-  if (hit) yield* damage(g, t);
+  // Spotter (Abigail): another of your operable cars next to the target. Called Shot (Boudreaux).
+  const spotter = hasPower(g, player, 'spotter') && g.vehicles.some(v => v.owner === player && v.status === 'ok'
+    && v.pos && !samePos(v.pos, from) && ALL_DIRS.some(d => samePos(neighbor(t.pos!, d), v.pos)));
+  const called = g.fx.calledShot && player === g.current;
+  let hit = spotter || called;
+  if (hit) say(g, `${spotter ? 'Spotter' : 'Called Shot'}: colpo automatico!`, 'good');
+  else {
+    const shot = (cause: string): boolean => {
+      const f = rollFx(g, 'shooting', cause);
+      // Armor Plating: a result of ANY against the car is a miss.
+      const armor = f === 'ANY' && up(t, 'armor_plating');
+      const ok = !armor && (f === 'ANY' || f === t.size || (f === 'SM' && (t.size === 'S' || t.size === 'M')));
+      const face = f === 'ANY' ? 'qualsiasi' : f === 'SM' ? 'piccola/media' : SIZE_NAME[f as Size];
+      say(g, `Dado sparo: ${face} — ${ok ? 'COLPITO!' : armor ? 'mancato (Armor Plating).' : 'mancato.'}`, 'dice');
+      return ok;
+    };
+    hit = shot('shoot');
+    // Objection! (Machine Gun Joe): you may reroll the shooting die.
+    // Heavy Machine Gun: the same, when shooting with the car that has it.
+    if (!hit && (hasPower(g, player, 'objection') || up(shooter, 'heavy_machine_gun'))) {
+      const r = yield* ask({
+        kind: 'shootReroll', player, prompt: `${g.players[player].name}: mancato. Ritirare il dado sparo?`,
+        options: [{ label: 'Tieni il risultato' }, { label: 'Ritira il dado sparo' }],
+      });
+      if (r === 1) hit = shot('objection');
+    }
+  }
+  if (!hit) return;
+  yield* damage(g, t);
+  // Grappling Hook: after resolving the damage, the car may swap spaces with the car it hit.
+  if (g.winner === null && up(shooter, 'grappling_hook') && shooter!.pos && !t.isWreck && t.status !== 'elim' && t.pos && !samePos(t.pos, shooter!.pos)) {
+    const s = yield* ask({
+      kind: 'swap', player, prompt: `${g.players[player].name}: Grappling Hook, scambiare di posto con ${carName(g, t)}?`,
+      options: [{ label: 'No' }, { label: 'Scambia di posto', carId: t.id, pos: t.pos }],
+    });
+    if (s === 1) {
+      [shooter!.pos, t.pos] = [t.pos, shooter!.pos];
+      beat(g, 'move', { vehicleId: shooter!.id, at: { ...shooter!.pos } });
+      beat(g, 'move', { vehicleId: t.id, at: { ...t.pos } });
+      say(g, `Grappling Hook: ${carName(g, shooter!)} e ${carName(g, t)} si scambiano di posto.`, 'info');
+    }
+  }
+  // Soul Siphon (Vince Vamp): after a hit, remove a damage token from one of your cars.
+  const p = g.players[player];
+  if (g.winner === null && hasPower(g, player, 'soul_siphon') && canRepair(g, p)) {
+    say(g, 'Soul Siphon: un danno in meno su una propria auto.', 'good');
+    yield* repair(g, p);
+  }
 }
+
+const ALL_DIRS: Dir[] = ['F', 'FL', 'FR', 'B', 'BL', 'BR'];
+
+/** The front arc and the spaces further on, up to `range` spaces away. */
+function longArc(p: Pos, range: number): Pos[] {
+  let ring = frontArc(p);
+  const all = [...ring];
+  for (let n = 1; n < range; n++) {
+    ring = ring.flatMap(frontArc).filter((q, i, a) => a.findIndex(x => samePos(x, q)) === i);
+    for (const q of ring) if (!all.some(x => samePos(x, q))) all.push(q);
+  }
+  return all;
+}
+
+const canRepair = (g: Game, p: Player): boolean =>
+  g.vehicles.some(v => v.owner === p.id && v.status !== 'elim' && v.damage.length > 0);
 
 // ---------------------------------------------------------------- the turn
 
-function* moveCar(g: Game, car: Vehicle, moves: number, drift: boolean, coast: boolean): Gen<void> {
-  const ctx: MoveCtx = { left: moves, drift, driftUsed: false };
+function* moveCar(g: Game, car: Vehicle, moves: number, drift: boolean, coast: boolean, die: number): Gen<void> {
+  // Tank Treads: with an assigned die of 3 or less, face-down hazards on the way are not revealed.
+  const ctx: MoveCtx = { left: moves, drift, driftUsed: false, quiet: up(car, 'tank_treads') && die <= upN('tank_treads') };
   // Road die (p. 9): the car must start and move only on road. Leaving the starting area counts
   // as starting on road (decided with the rules owner, 2026-11-15).
-  let onlyRoad = car.inStart || (!!car.pos && terrainAt(g, car.pos) === 'R');
+  let onlyRoad = car.inStart || (!!car.pos && groundFor(g, car, car.pos) === 'R');
   const startedOff = !onlyRoad;
+  // Off-Road Suspension: starting on road is enough. Spoiler: the road die is always 2.
+  const anywhere = up(car, 'off_road_suspension') && !startedOff;
+  const roadDie = up(car, 'spoiler') ? upN('spoiler') : g.roadDie;
   let stopped = false;
   let bonusUsed = coast;
   for (;;) {
@@ -645,19 +940,28 @@ function* moveCar(g: Game, car: Vehicle, moves: number, drift: boolean, coast: b
         ? Array.from({ length: ROWS }, (_, r) => ({ r, c: 0 }))
         : frontArc(car.pos);
       const start = car.inStart || !car.pos;
-      targets.forEach((to, k) => opts.push(stepOption(g, to, ctx.left,
+      targets.forEach((to, k) => opts.push(stepOption(g, car, to, ctx.left,
         start ? `Corsia ${to.r + 1}` : ['Avanti-sinistra', 'Avanti', 'Avanti-destra'][k])));
+      // Skull Shift Knob: the car does not have to use all of its moves.
+      if (!start && up(car, 'skull_shift_knob')) opts.push({ label: 'Fermati qui' });
       const i = yield* ask({
         kind: 'step', player: car.owner!,
         prompt: `${g.players[car.owner!].name}: muovi ${carName(g, car)} — ${ctx.left} ${ctx.left === 1 ? 'movimento' : 'movimenti'} rimasti.`,
         options: opts,
       });
+      if (i >= targets.length) {
+        say(g, 'Skull Shift Knob: l’auto si ferma qui.', 'info');
+        ctx.left = 0;
+        bonusUsed = true;
+        break;
+      }
       const to = targets[i];
-      const t = onBoard(to) ? terrainAt(g, to) : to.c >= COLS ? 'R' : 'o';
+      const t = onBoard(to) ? groundFor(g, car, to) : to.c >= COLS ? 'R' : 'o';
       if (t !== 'R') onlyRoad = false;
       ctx.left = Math.max(0, ctx.left - (t === 'M' ? 2 : 1));
       if (yield* enter(g, car, to, ctx)) { stopped = true; ctx.left = 0; }
     }
+    if (anywhere) onlyRoad = true;
     if (!stopped && !bonusUsed && car.status === 'ok' && !onlyRoad && g.winner === null) {
       say(g, startedOff
         ? 'Niente dado strada: l’auto non è partita da una casella di strada.'
@@ -667,21 +971,27 @@ function* moveCar(g: Game, car: Vehicle, moves: number, drift: boolean, coast: b
     bonusUsed = true;
     const i = yield* ask({
       kind: 'roadDie', player: car.owner!,
-      prompt: `Sempre su strada! Usare il dado strada (+${g.roadDie})? Se lo usi devi muovere tutto.`,
-      options: [{ label: 'No, fermati qui' }, { label: `Sì, altri ${g.roadDie} movimenti` }],
+      prompt: `${anywhere ? 'Off-Road Suspension' : 'Sempre su strada'}! Usare il dado strada (+${roadDie})? Se lo usi devi muovere tutto.`,
+      options: [{ label: 'No, fermati qui' }, { label: `Sì, altri ${roadDie} movimenti`, dieValue: roadDie }],
     });
     if (i === 0) break;
-    ctx.left = g.roadDie;
+    ctx.left = roadDie;
+  }
+  // Tank Treads: the face-down hazard the car ends its move on is revealed.
+  const under = car.pos ? g.hazards.get(key(car.pos)) : undefined;
+  if (ctx.quiet && car.pos && car.status === 'ok' && under && !under.faceUp && g.winner === null) {
+    ctx.quiet = false;
+    if (yield* enter(g, car, car.pos, ctx)) stopped = true;
   }
   if (!stopped && car.pos && vehiclesAt(g, car.pos).length > 1) yield* slam(g, car.pos);
 }
 
-function stepOption(g: Game, to: Pos, left: number, name: string): Option {
+function stepOption(g: Game, car: Vehicle, to: Pos, left: number, name: string): Option {
   if (to.c >= COLS && to.r >= 0 && to.r < ROWS) {
     return { label: `${name}: ${g.finalTile ? 'TRAGUARDO!' : 'nuova tessera'}`, pos: to };
   }
   if (!onBoard(to)) return { label: `${name}: fuori dal bordo (eliminata)`, pos: to, danger: true };
-  const t = terrainAt(g, to);
+  const t = groundFor(g, car, to);
   if (t === 'X') return { label: `${name}: invalicabile (eliminata)`, pos: to, danger: true };
   const parts = [t === 'R' ? 'strada' : t === 'M' ? (left === 1 ? 'fango (ultimo movimento)' : 'fango, costa 2') : 'fuoristrada'];
   const h = g.hazards.get(key(to));
@@ -693,6 +1003,7 @@ function stepOption(g: Game, to: Pos, left: number, name: string): Option {
 function* turn(g: Game, p: Player): Gen<void> {
   g.current = p.id;
   g.lastRoll = [];
+  g.fx = { bump: false, calledShot: false, slams: 0 };
   const allFree = p.dice.map((_, i) => i).filter(i => !p.used[i]);
   // Two dice with the same value are the same choice: offer each value once.
   const free = allFree.filter(i => allFree.find(j => p.dice[j] === p.dice[i]) === i);
@@ -715,18 +1026,21 @@ function* turn(g: Game, p: Player): Gen<void> {
   a.car.placed.push({ value: p.dice[a.die], coast: a.coast });
   const car = a.car;
   g.activeCar = car.id;
-  let moves = a.coast ? 1 : p.dice[a.die];
-  let drift = false;
+  // Redline (Cris Crass): a movement die of 6 assigned to a car counts as 7.
+  const redline = !a.coast && hasPower(g, p.id, 'redline') && p.dice[a.die] === shoppe.redline.from;
+  const mv = { moves: a.coast ? 1 : redline ? shoppe.redline.to : p.dice[a.die], drift: false };
+  if (redline) say(g, `Redline: il ${shoppe.redline.from} vale ${shoppe.redline.to}.`, 'good');
+  const board = commandsOf(p);
 
   if (!a.coast && !p.commandUsed) {
     const cmds: { die: number; cmd: CommandId }[] = [];
     const rest = allFree.filter(d => d !== a.die && !p.used[d]);
     for (const d of rest) {
       if (rest.find(j => p.dice[j] === p.dice[d]) !== d) continue;
-      for (const cmd of Object.keys(COMMANDS) as CommandId[]) {
-        if (!COMMANDS[cmd].includes(p.dice[d])) continue;
-        if (cmd === 'repair' && !g.vehicles.some(v => v.owner === p.id && v.status !== 'elim' && v.damage.length)) continue;
-        cmds.push({ die: d, cmd });
+      for (const slot of board) {
+        if (slot.token || p.slots[slot.id] || !slot.values.includes(p.dice[d])) continue;
+        if (!canActivate(g, p, slot.id)) continue;
+        cmds.push({ die: d, cmd: slot.id });
       }
     }
     if (cmds.length) {
@@ -739,29 +1053,129 @@ function* turn(g: Game, p: Player): Gen<void> {
         p.used[c.die] = true;
         p.command = { cmd: c.cmd, value: p.dice[c.die] };
         p.commandUsed = true;
+        p.slots[c.cmd] = 'die';
         say(g, `${p.name} attiva ${COMMAND_NAME[c.cmd]}.`, 'info');
-        if (c.cmd === 'nitro') moves += p.dice[c.die];
-        if (c.cmd === 'drift') drift = true;
-        if (c.cmd === 'repair') yield* repair(g, p);
-        if (c.cmd === 'airstrike') yield* airstrike(g, p);
+        yield* activate(g, p, c.cmd, p.dice[c.die], mv);
       }
     }
   }
+  // Command token (Choppe Shoppe): one per turn, on a command without a die or a token, not when coasting.
+  if (!a.coast && p.tokens > 0 && g.winner === null) {
+    const free = board.filter(s => !p.slots[s.id] && canActivate(g, p, s.id));
+    if (free.length) {
+      const ti = yield* ask({
+        kind: 'token', player: p.id, prompt: `${p.name}: usare un segnalino comando (${p.tokens} rimasti)?`,
+        options: [{ label: 'Nessun segnalino' }, ...free.map(s => ({ label: `${COMMAND_NAME[s.id]} con un segnalino`, command: s.id }))],
+      });
+      if (ti > 0) {
+        const s = free[ti - 1];
+        p.tokens--;
+        p.slots[s.id] = 'token';
+        say(g, `${p.name} attiva ${COMMAND_NAME[s.id]} con un segnalino comando.`, 'info');
+        // A token on a range of values counts as the lowest.
+        yield* activate(g, p, s.id, s.values.length ? Math.min(...s.values) : 0, mv);
+      }
+    }
+  }
+  // Boost Switch: the car gains +1 move.
+  if (up(car, 'boost_switch')) { mv.moves += upN('boost_switch'); say(g, `Boost Switch: +${upN('boost_switch')} movimento.`, 'good'); }
+  const { moves, drift } = mv;
 
   if (g.winner === null && car.status === 'ok') {
     say(g, `${p.name} muove ${carName(g, car)} di ${moves}${a.coast ? ' (inerzia)' : ''}.`, 'info');
-    yield* moveCar(g, car, moves, drift, a.coast);
+    yield* moveCar(g, car, moves, drift, a.coast, p.dice[a.die]);
   }
   if (a.coast) car.coasts++; else car.moved = true;
+  // Oil Dispenser, Mine Dispenser: after the move, a hazard in an adjacent empty space (three times per game).
+  for (const [id, type] of [['oil_dispenser', 'oil'], ['mine_dispenser', 'mine']] as [string, HazardType][]) {
+    if (g.winner !== null || !up(car, id) || !car.pos || car.uses >= upN(id)) continue;
+    const free = freeAround(g, car.pos);
+    if (!free.length) continue;
+    const i = yield* ask({
+      kind: 'dispense', player: p.id, prompt: `${p.name}: ${upName(id)}, posare ${type === 'oil' ? 'una chiazza d’olio' : 'una mina'}? (${upN(id) - car.uses} rimaste)`,
+      options: [{ label: 'Non posare' }, ...free.map(spaceOption)],
+    });
+    if (i === 0) continue;
+    car.uses++;
+    g.hazards.set(key(free[i - 1]), { type, faceUp: true });
+    beat(g, 'reveal', { at: { ...free[i - 1] } });
+    say(g, `${upName(id)}: ${HAZARD_NAME[type]} in ${free[i - 1].r + 1}-${free[i - 1].c + 1}.`, 'info');
+  }
   // Step 4, shoot (p. 10): skipped in the first round, "your guns are not online".
   if (g.winner === null && g.round === 1) say(g, 'Primo round: le armi non sono ancora attive, niente sparo.', 'info');
-  else if (g.winner === null && car.status === 'ok' && car.pos) yield* shootFrom(g, p.id, car.pos, carName(g, car));
+  else if (g.winner === null && car.status === 'ok' && car.pos) yield* shootFrom(g, p.id, car.pos, carName(g, car), car);
   // End of turn: road vehicles in a chopper's space are eliminated (p. 11).
   for (const pl of g.players) {
     if (!pl.chopper) continue;
-    for (const v of vehiclesAt(g, pl.chopper)) eliminate(g, v, `è nella casella dell'elicottero di ${pl.name}`);
+    for (const v of vehiclesAt(g, pl.chopper)) {
+      // Anti-Aircraft Radar: the car may move to an adjacent empty space instead.
+      const free = up(v, 'anti_aircraft_radar') && g.winner === null ? freeAround(g, pl.chopper) : [];
+      if (free.length) {
+        const i = yield* ask({
+          kind: 'radar', player: v.owner!, prompt: `${g.players[v.owner!].name}: Anti-Aircraft Radar, dove spostare ${carName(g, v)}?`,
+          options: [{ label: 'Resta (eliminata)', danger: true }, ...free.map(spaceOption)],
+        });
+        if (i > 0) {
+          v.pos = { ...free[i - 1] };
+          beat(g, 'move', { vehicleId: v.id, at: { ...free[i - 1] } });
+          say(g, `Anti-Aircraft Radar: ${carName(g, v)} si sposta da sotto l'elicottero.`, 'good');
+          continue;
+        }
+      }
+      eliminate(g, v, `è nella casella dell'elicottero di ${pl.name}`);
+    }
   }
   g.activeCar = null;
+}
+
+/** Whether a command would do anything now; commands of unimplemented content never do. */
+function canActivate(g: Game, p: Player, cmd: CommandId): boolean {
+  const cars = g.vehicles.filter(v => v.owner === p.id && v.status !== 'elim');
+  switch (cmd) {
+    case 'repair': return canRepair(g, p);
+    case 'pain_transfer': return cars.some(a => a.damage.length > 0 && cars.some(b => b !== a && b.damage.length < limit(b)));
+    case 'need_for_speed': return p.used.some(u => !u);
+    case 'tinker': case 'show_time': case 'flamethrower': return false;
+    default: return true;
+  }
+}
+
+/** Step 2, Command: the effect of a command activated with a die or a command token of `value`. */
+function* activate(g: Game, p: Player, cmd: CommandId, value: number, mv: { moves: number; drift: boolean }): Gen<void> {
+  switch (cmd) {
+    case 'nitro': mv.moves += value; return;
+    case 'drift': mv.drift = true; return;
+    case 'repair': yield* repair(g, p); return;
+    case 'airstrike': yield* airstrike(g, p); return;
+    case 'bump': g.fx.bump = true; return;
+    case 'called_shot': g.fx.calledShot = true; return;
+    case 'need_for_speed':
+      p.dice = p.dice.map((d, i) => (p.used[i] ? d : value));
+      say(g, `Need for Speed: i dadi non assegnati di ${p.name} diventano ${value}.`, 'good');
+      return;
+    case 'pain_transfer': yield* painTransfer(g, p); return;
+    default: return;
+  }
+}
+
+/** Pain Transfer (Vince Vamp): move a face-down damage token from one of your cars to another. */
+function* painTransfer(g: Game, p: Player): Gen<void> {
+  const cars = g.vehicles.filter(v => v.owner === p.id && v.status !== 'elim');
+  const opt = (c: Vehicle): Option => ({ label: `Auto ${SIZE_NAME[c.size]} (${c.damage.length} danni)`, carId: c.id, ...(c.pos ? { pos: c.pos } : {}) });
+  const from = cars.filter(a => a.damage.length > 0 && cars.some(b => b !== a && b.damage.length < limit(b)));
+  const fi = yield* ask({ kind: 'transfer', player: p.id, prompt: `${p.name}: da quale auto togliere un danno?`, options: from.map(opt) });
+  const src = from[fi];
+  const to = cars.filter(b => b !== src && b.damage.length < limit(b));
+  const ti = yield* ask({ kind: 'transfer', player: p.id, prompt: `${p.name}: a quale auto dare il danno?`, options: to.map(opt) });
+  const dst = to[ti];
+  dst.damage.push(src.damage.pop()!);
+  say(g, `Pain Transfer: un danno passa da ${carName(g, src)} a ${carName(g, dst)}.`, 'info');
+  if (src.status === 'inop' && src.damage.length < limit(src)) { src.status = 'ok'; say(g, `${capital(carName(g, src))} torna operativa!`, 'good'); }
+  if (dst.status === 'ok' && dst.damage.length >= limit(dst)) {
+    dst.status = 'inop';
+    say(g, `${capital(carName(g, dst))} è fuori uso (girata all'indietro).`, 'bad');
+    checkPlayers(g);
+  }
 }
 
 function* repair(g: Game, p: Player): Gen<void> {
@@ -772,7 +1186,7 @@ function* repair(g: Game, p: Player): Gen<void> {
   });
   const c = cars[i];
   g.damagePile.push(c.damage.pop()!);
-  if (c.status === 'inop') { c.status = 'ok'; say(g, `${capital(carName(g, c))} torna operativa!`, 'good'); }
+  if (c.status === 'inop' && c.damage.length < limit(c)) { c.status = 'ok'; say(g, `${capital(carName(g, c))} torna operativa!`, 'good'); }
   else say(g, `${capital(carName(g, c))} è riparata.`, 'good');
 }
 
@@ -808,6 +1222,8 @@ function nextActive(g: Game, from: number): number {
 
 /** The whole game: first player, then rounds until someone wins. */
 export function* play(g: Game): Gen<void> {
+  if (g.dealLeaders) yield* chooseLeaders(g);
+  if (g.dealUpgrades) yield* draftUpgrades(g);
   // Setup step 6: lowest total goes first; a tie for lowest rerolls everyone.
   for (;;) {
     for (const p of g.players) rollMovement(g, p, 'setup:first-player');
@@ -822,6 +1238,9 @@ export function* play(g: Game): Gen<void> {
     for (const p of g.players) {
       p.commandUsed = false;
       p.command = null;
+      // End of round: assigned command tokens go back to the supply.
+      g.tokenSupply += Object.values(p.slots).filter(x => x === 'token').length;
+      p.slots = {};
       if (g.round > 1 && !p.out) rollMovement(g, p, `round-${g.round}`);
     }
     for (const v of g.vehicles) { v.moved = false; v.coasts = 0; v.placed = []; }
@@ -831,6 +1250,7 @@ export function* play(g: Game): Gen<void> {
       dice: g.players.filter(p => !p.out).map(p => ({ player: p.id, values: [...p.dice] })),
     } });
     say(g, `Round ${g.round}: ${g.players[g.firstPlayer].name} tira il dado strada: ${g.roadDie}.`, 'dice');
+    for (const p of g.players) if (!p.out && hasPower(g, p.id, 'third_eye')) yield* thirdEye(g, p);
     for (let t = 0; t < base.turns_per_round && g.winner === null; t++) {
       let i = g.firstPlayer;
       for (let k = 0; k < g.players.length && g.winner === null; k++) {
@@ -842,6 +1262,77 @@ export function* play(g: Game): Gen<void> {
     if (g.winner === null) g.firstPlayer = nextActive(g, g.firstPlayer);
   }
   g.round--;
+}
+
+/** Crew leaders, setup steps 2-5: two boards at random to each player, who keeps one. */
+function* chooseLeaders(g: Game): Gen<void> {
+  const deck = shuffled(g, LEADERS.filter(l => !l.needs?.length), 'crew-leaders');
+  for (const p of g.players) {
+    if (p.leader) continue;
+    const hand = deck.splice(0, shoppe.leaders_dealt);
+    if (!hand.length) break;
+    const i = yield* ask({
+      kind: 'leader', player: p.id, prompt: `${p.name}: scegli il tuo caposquadra.`,
+      options: hand.map(l => ({ label: `${l.name}, ${l.title}`, leader: l.id })),
+    });
+    takeLeader(g, p, hand[i].id);
+    say(g, `${p.name} sceglie ${hand[i].name}.`, 'info');
+  }
+}
+
+/**
+ * Upgrade cards, setup steps 1-6: four cards each, keep one and pass the rest to the left until
+ * everyone has three, then one upgrade on each car. (On one device the picks come one after the
+ * other, not all at once.)
+ */
+function* draftUpgrades(g: Game): Gen<void> {
+  const deck = shuffled(g, UPGRADES.map(u => u.id), 'upgrades');
+  const hands = g.players.map(() => deck.splice(0, shoppe.upgrades_dealt));
+  const kept: string[][] = g.players.map(() => []);
+  for (let r = 0; r < shoppe.upgrades_kept; r++) {
+    for (const p of g.players) {
+      const hand = hands[p.id];
+      const i = yield* ask({
+        kind: 'draft', player: p.id, prompt: `${p.name}: scegli un potenziamento (${r + 1} di ${shoppe.upgrades_kept}).`,
+        options: hand.map(id => ({ label: upName(id), upgrade: id })),
+      });
+      kept[p.id].push(hand.splice(i, 1)[0]);
+    }
+    hands.unshift(hands.pop()!);
+  }
+  for (const p of g.players) {
+    const left = [...kept[p.id]];
+    for (const car of g.vehicles.filter(v => v.owner === p.id)) {
+      let i = 0;
+      if (left.length > 1) {
+        i = yield* ask({
+          kind: 'upgradeAssign', player: p.id, prompt: `${p.name}: quale potenziamento all'auto ${SIZE_NAME[car.size]}?`,
+          options: left.map(id => ({ label: upName(id), upgrade: id, carId: car.id })),
+        });
+      }
+      car.upgrade = left.splice(i, 1)[0] ?? null;
+    }
+  }
+  for (const p of g.players) {
+    say(g, `${p.name}: ${g.vehicles.filter(v => v.owner === p.id).map(v => `${SIZE_NAME[v.size]} ${upName(v.upgrade ?? '')}`).join(', ')}.`, 'info');
+  }
+}
+
+/** Third Eye (Madame Boudreaux): at the beginning of the round, peek at one hazard token. */
+function* thirdEye(g: Game, p: Player): Gen<void> {
+  const down = [...g.hazards].filter(([, h]) => !h.faceUp);
+  if (!down.length) return;
+  const pos = down.map(([k]) => { const [r, c] = k.split(',').map(Number); return { r, c }; });
+  const i = yield* ask({
+    kind: 'peek', player: p.id, prompt: `${p.name}: Third Eye, quale pericolo coperto guardare?`,
+    options: pos.map(q => ({ label: `Casella ${q.r + 1}-${q.c + 1}`, pos: q })),
+  });
+  say(g, `Third Eye: ${p.name} guarda un pericolo coperto.`, 'info');
+  // Shown only in the prompt: the log is public.
+  yield* ask({
+    kind: 'peekResult', player: p.id, prompt: `Solo per ${p.name}: è ${HAZARD_NAME[down[i][1].type]}.`,
+    options: [{ label: 'Visto', pos: pos[i] }],
+  });
 }
 
 function capital(s: string): string {

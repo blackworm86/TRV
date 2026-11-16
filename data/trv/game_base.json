@@ -55,6 +55,7 @@
     "drift": [3, 4, 5],
     "repair": [6]
   },
+  "damage_to_inoperable": 2,
   "max_coasts_per_round": 2,
   "turns_per_round": 3,
   "movement_dice_per_player": 4,

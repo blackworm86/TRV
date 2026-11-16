@@ -168,3 +168,87 @@ git). Senza quei file il gioco usa i disegni liberi e le tessere a chevron color
   effetto; i dadi che richiede compaiono accanto. Sulla plancia resta coperto, come da regolamento.
   Il motore mette il segnalino nel fotogramma `damage` (`Frame.token`).
 - Dalla console: `__fx.replay()`, `__fx.damage('p1M','shrapnel')`.
+
+## Choppe Shoppe: capisquadra e segnalini comando (2026-11-16)
+
+Prima parte dell'espansione, attivabile dalla schermata iniziale ("Choppe Shoppe: capisquadra e
+segnalini comando"). Dati in `data/trv/choppe_shoppe.json`, regole in `src/game/trv/engine.ts`,
+test in `tests/unit/trv/choppe_shoppe.test.ts`.
+
+- A inizio partita ogni giocatore riceve due capisquadra a caso e ne tiene uno. La sua plancia
+  sostituisce quella dei comandi; in alto a sinistra c'è il potere del giocatore di turno.
+- Segnalini comando: uno per turno, su un comando senza dado né segnalino, mai nel turno di
+  inerzia. Su un intervallo vale il numero più basso. A fine round tornano alla riserva.
+- Giocabili: Bumpo, Abigail, Asha, Vince Vamp, Cruft, Cris Crass, Machine Gun Joe, Madame
+  Boudreaux, Wong Lei Hong. Fuori dal mazzo per ora: Ms. Betty (serve il mazzo dei
+  potenziamenti) ed Emberco (serve il fuoco di Carnage at Devil's Run).
+- **Non ancora fatto**: le 27 carte potenziamento e la loro scelta a rotazione.
+
+Interpretazioni provvisorie, da confermare con il proprietario delle regole:
+
+1. (Confermato il 2026-11-16) Un dado non può andare su un comando che ha già un segnalino, e viceversa: il comando è occupato.
+2. Bump!: nessuno ritira; vale quando è l'auto del giocatore di turno a entrare nella casella.
+3. Long Arm of the Law: vale anche per l'elicottero, e i veicoli in mezzo non coprono il bersaglio.
+4. Spotter e Called Shot: non si tira il dado sparo. Spotter vale anche per l'elicottero.
+5. Objection!: il ritiro è offerto solo dopo un colpo mancato.
+6. Pain Transfer: l'auto che riceve il danno può andare fuori uso, quella che lo cede può tornare
+   operativa; non si può dare un danno a un'auto che ne ha già due.
+7. Soul Siphon: il danno si toglie dopo aver risolto il danno del bersaglio; vale anche sparando
+   a un relitto.
+8. Third Eye: in hot seat il pericolo guardato compare a schermo, quindi lo vedono tutti.
+9. Trash into Treasure: vale per ogni ingresso su un pericolo coperto, anche per slam o danno.
+
+## Choppe Shoppe: plancia dei capisquadra e carte potenziamento (2026-11-16)
+
+- **Plancia dei capisquadra** dal secondo disegno del proprietario
+  (`assets/ui/command_dashboard_characters.svg`): potere in alto a sinistra, ritratto in alto a
+  destra, nome al centro, i quattro comandi sotto. Il pannello dei comandi coincide con quello
+  della plancia standard, quindi nella striscia chiusa si vedono comandi e dashboard come sempre;
+  aprendola (tasto P o passandoci sopra) compare tutta la plancia.
+- **Ritratti**: file locali, mai nel repository, in `assets/licensed/leaders/<id>.png` (o `.jpg`,
+  `.webp`). Gli id sono quelli di `data/trv/choppe_shoppe.json`: `bumpo`, `abigail`, `asha`,
+  `vince`, `cruft`, `cris`, `joe`, `boudreaux`, `wong`, `betty`, `emberco`. Senza file: colore
+  della squadra e iniziale.
+- **Carte potenziamento** (casella "Choppe Shoppe: carte potenziamento"): quattro carte a testa,
+  se ne tiene una e si passa il resto, fino a tre; poi una per auto. La carta sta sopra la
+  dashboard della sua auto, nella striscia aperta. Tutte e 27 hanno il loro effetto nel motore.
+- Ms. Betty resta fuori dal mazzo: il suo potere (un potenziamento in più, due sull'auto grande)
+  e il comando Tinker non sono ancora fatti.
+
+Interpretazioni provvisorie sulle carte, da confermare:
+
+1. La scelta delle carte è "in contemporanea" sul regolamento; su un solo dispositivo si sceglie
+   uno dopo l'altro, quindi chi passa il dispositivo può vedere la mano altrui.
+2. (Confermato il 2026-11-16) Oil Dispenser e Mine Dispenser posano il pericolo scoperto.
+3. Ghost Mode dà i 2 movimenti quando l'auto attraversa davvero un veicolo con Drift.
+4. Boost Switch vale anche nel turno di inerzia.
+5. Grappling Hook: lo scambio non fa scattare pericoli né slam.
+6. Snowplow, Roll Cage, Anti-Aircraft Radar: l'auto o il relitto è posato nella casella scelta,
+   senza gli effetti di un ingresso.
+7. Big Red Button elimina le auto adiacenti di chiunque, anche le proprie; non i relitti.
+8. Stealth Technology: se tutti i bersagli possibili hanno la carta, si può sparare a ognuno.
+9. Rail Gun e Punt Gun si aggiungono all'arco frontale; i veicoli in mezzo non coprono.
+10. Smoke Screen e Stealth Technology valgono anche contro gli elicotteri.
+11. Tank Treads conta il dado assegnato, anche con Nitro; i pericoli già scoperti agiscono.
+12. Skull Shift Knob: fermandosi prima, l'auto rinuncia anche al dado strada.
+13. Sandbags blocca anche Junk in the Trunk e Stability Control degli avversari.
+14. Heavy Frame conta anche mentre l'auto è fuori uso (altrimenti non potrebbe andarci).
+
+## Cruscotto fisso (2026-11-16)
+
+Sostituisce le plance a scomparsa: il pannello sotto il tavolo non si apre, non si chiude e non
+cambia misura durante la partita (niente effetto al passaggio del puntatore, tolti pulsante e
+tasto P).
+
+- **Finestra larga (da 1500 px)**: caposquadra a sinistra, carte potenziamento sopra il cruscotto
+  della propria auto, plance al centro, dadi e scelte a destra.
+- **Finestra stretta**: plance a tutta larghezza; caposquadra, carte e dadi in una riga sopra.
+- **Testo vero**: potere del caposquadra e carte potenziamento sono testo della pagina (15-16 px),
+  non disegno rimpicciolito. Le plance sono grandi quanto la finestra permette (testo dei comandi
+  circa 15 px a 1920x1080, circa 11,5 px a 1280x800).
+- **Plancia del caposquadra**: del disegno alto resta la testa (ritratto, nome, segnalini comando)
+  nella colonna di sinistra; i suoi quattro comandi stanno sulla plancia comandi della striscia.
+- **Scelte**: quelle legate a un'auto restano vicino all'auto; le altre hanno un posto fisso sotto
+  i dadi (finestra stretta: sopra l'estremità destra della barra).
+- **Barra** più alta, con fasi, domanda e strumenti più grandi (pulsanti da 46 px).
+- Prove: `production/qa/evidence/trv-play-spike/cruscotto-fisso-*.jpg`.

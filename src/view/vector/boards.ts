@@ -37,12 +37,33 @@ const TOKEN_W = 100, TOKEN_TUCK = 9;
  * bottom, so a taller frame only takes room from the table.
  */
 export const STRIP_BOX = { x: 0, y: 0, w: DRAW_W, h: 292 };
+/**
+ * The crew leader board (Choppe Shoppe) is the owner's second drawing, twice as tall: its command
+ * panel is the standard one, moved down by LEAD_DY. In the strip the board is moved up by as much,
+ * so the commands stay where they are and the leader's part rises above the dashboards.
+ */
+const LEAD_DY = 252.91, LEAD_W = 292.54, LEAD_H = 512.4;
+const LEAD_PANEL = [42.56, 295.41, 248.4, 470.67];
+/** Where the leader board is cut to show its upper part alone: just under the title. */
+const LEAD_HEAD_H = 272;
+/** The strip's frame with a crew leader board: the same strip, grown upward. */
+export const STRIP_BOX_TALL = { x: 0, y: -LEAD_DY, w: DRAW_W, h: STRIP_BOX.h + LEAD_DY };
 /** The command board's coloured panel: left, top, right, bottom. */
 const PANEL = [42.5, 42.5, 248.4, 217.8];
 
 const num = (attrs: string, name: string): number => Number(new RegExp(`\\b${name}="([-\\d.]+)"`).exec(attrs)?.[1] ?? NaN);
 const inner = (s: string): string => s.replace(/^<svg[^>]*>|<\/svg>$/g, '');
 const esc = (s: string): string => s.replace(/&/g, '&amp;').replace(/</g, '&lt;');
+/** Breaks a sentence into lines of at most `max` characters, at the spaces. */
+function wrap(s: string, max: number): string[] {
+  const out: string[] = [];
+  for (const w of s.split(/\s+/)) {
+    const last = out[out.length - 1];
+    if (last !== undefined && last.length + 1 + w.length <= max) out[out.length - 1] = `${last} ${w}`;
+    else out.push(w);
+  }
+  return out;
+}
 
 /** Splits the drawing into its shapes, each with the x that tells which board it belongs to. */
 function parse(raw: string): El[] {
@@ -95,12 +116,20 @@ const COMMANDS: { cmd: string; name: string; dice: string; slot: string; lines: 
  * Builds the two board drawings from the owner's SVG text.
  * Example: `const b = makeBoards(rawSvg, { dieSvg, damageTokenSvg, inkOn, font })`.
  */
-export function makeBoards(raw: string, base: BoardBase): {
+export function makeBoards(raw: string, base: BoardBase, leaderRaw?: string): {
   dashboardSvg(d: DashboardArt, extra?: string): string;
   commandBoardSvg(c: CommandBoardArt, extra?: string): string;
   stripSvg(c: CommandBoardArt, dashes: DashboardArt[], extra?: string): string;
+  /**
+   * The upper part of the crew leader board alone (portrait, name, title, command tokens), for an
+   * interface that shows the commands in the strip and the power as text. Null without the drawing.
+   */
+  leaderHeadSvg(c: CommandBoardArt, extra?: string): string | null;
+  /** True when the crew leader drawing is there: a board with `leader` makes the strip tall. */
+  hasLeaderBoard: boolean;
 } {
   const all = parse(raw);
+  const lead = leaderRaw ? parse(leaderRaw) : null;
   const of = (id: BoardId): El[] => all.filter(e => boardOf(e.x) === id);
   const svg = (box: string, body: string, extra: string): string => `<svg xmlns="http://www.w3.org/2000/svg" viewBox="${box}" ${extra}>${body}</svg>`;
   const text = (s: string, x: number, y: number, size: number, fill: string, anchor = 'start', extra = ''): string =>
@@ -180,6 +209,7 @@ export function makeBoards(raw: string, base: BoardBase): {
 
   /** The command board: four commands with what they do, a die slot in each corner. */
   function commandBoardSvg(c: CommandBoardArt, extra = ''): string {
+    if (c.leader && lead) return svg(`0 0 ${LEAD_W} ${LEAD_H}`, leaderBody(c), `style="aspect-ratio:${LEAD_W}/${LEAD_H}" ${extra}`);
     return svg(`0 0 ${SPAN.cmd[1]} ${CMD_H}`, cmdBody(c), `style="aspect-ratio:${SPAN.cmd[1]}/${CMD_H}" ${extra}`);
   }
 
@@ -196,24 +226,88 @@ export function makeBoards(raw: string, base: BoardBase): {
       if (corner.includes(e)) continue;
       b += e.tag === 'line' ? shape(e, c.color, `stroke="${ink}" stroke-opacity=".35" stroke-width="1"`) : shape(e, c.color);
     }
-    for (const k of COMMANDS) {
+    b += commandsPart(c, { corner, midX, midY, panel: PANEL, yTop: 70, yBottom: 153 }, ink);
+    b += text(c.caption ?? 'COMANDI', (SPAN.cmd[0] + SPAN.cmd[1]) / 2, 250.6, 12, DARK, 'middle');
+    return `<g>${b}</g>`;
+  }
+
+  /**
+   * The crew leader board in its drawing's own coordinates: the power top left, the portrait top
+   * right, the name across the middle, the four commands below as on the standard board.
+   */
+  function leaderBody(c: CommandBoardArt, head = false): string {
+    const els = lead!, L = c.leader!;
+    const ink = base.inkOn(c.color);
+    const corner = els.filter(e => e.tag === 'rect');
+    const cross = els.filter(e => e.tag === 'line');
+    const midX = num(cross.find(e => num(e.attrs, 'x1') === num(e.attrs, 'x2'))!.attrs, 'x1');
+    const midY = num(cross.find(e => num(e.attrs, 'y1') === num(e.attrs, 'y2'))!.attrs, 'y1');
+    const bg = els.find(e => e.layer === 'background')!;
+    const panel = els.find(e => e.layer === 'foreground' && e.tag === 'polygon')!;
+    const frame = els.find(e => e.layer === 'foreground' && e.tag === 'path')!;
+    const tag = els.find(e => e.layer === 'lines' && e.tag === 'polygon')!;
+    let b = `<path ${bg.attrs.trim()} fill="${DARK}"/><polygon ${panel.attrs.trim()} fill="${c.color}"/>`;
+    for (const e of cross) b += `<line ${e.attrs.trim()} stroke="${ink}" stroke-opacity=".35" stroke-width="1"/>`;
+    b += `<polygon ${tag.attrs.trim()} fill="${METAL}"/>`;
+    // The portrait fills its frame; without an image, the crew colour and the leader's initial.
+    const [fx, fy, fw, fh] = [130, 6, 137, 178];
+    b += `<clipPath id="leader-portrait"><path ${frame.attrs.trim()}/></clipPath>`;
+    b += L.portrait
+      ? `<image href="${L.portrait}" x="${fx}" y="${fy}" width="${fw}" height="${fh}" preserveAspectRatio="xMidYMid slice" clip-path="url(#leader-portrait)"/>`
+      : `<path ${frame.attrs.trim()} fill="${c.color}"/>` + text(L.name.charAt(0).toUpperCase(), fx + fw / 2, fy + fh / 2 + 34, 100, ink, 'middle', 'opacity=".45"');
+    b += `<path ${frame.attrs.trim()} fill="none" stroke="${LINE}" stroke-width="2"/>`;
+    // The special power, in the dark space beside the portrait.
+    if (head) {
+      // The head alone: the power is written beside it by the interface; here, the command tokens left.
+      b += text('SEGNALINI', 34, 44, 15, METAL, 'start', 'letter-spacing="1"') + text('COMANDO', 34, 60, 15, METAL, 'start', 'letter-spacing="1"');
+      b += L.tokens ? text('★'.repeat(L.tokens), 34, 96, 30, '#f6c46a') : text('—', 34, 96, 30, METAL);
+    } else {
+      b += text(L.power.toUpperCase(), 34, 44, 18, '#f6c46a');
+      wrap(L.powerText, 22).forEach((l, i) => { b += text(l, 34, 62 + i * 14.5, 13, CREAM); });
+    }
+    // Name and title, across the board.
+    const name = L.name.toUpperCase();
+    b += text(name, LEAD_W / 2, 238, Math.min(48, 500 / name.length), CREAM, 'middle');
+    b += text(L.title.toUpperCase(), LEAD_W / 2, 258, 14, METAL, 'middle', 'letter-spacing="1"');
+    if (head) return `<g>${b}</g>`;
+    b += commandsPart(c, { corner, midX, midY, panel: LEAD_PANEL, yTop: 70 + LEAD_DY, yBottom: 153 + LEAD_DY }, ink);
+    b += text(c.caption ?? (L.tokens ? `${'★'.repeat(L.tokens)}` : 'NESSUN SEGNALINO'), LEAD_W / 2, 503.5, 12, DARK, 'middle');
+    return `<g>${b}</g>`;
+  }
+
+  /** The crew leader board's upper part, cut just under the title (see the returned type). */
+  function leaderHeadSvg(c: CommandBoardArt, extra = ''): string | null {
+    if (!c.leader || !lead) return null;
+    return svg(`0 0 ${LEAD_W} ${LEAD_HEAD_H}`, leaderBody(c, true), `style="aspect-ratio:${LEAD_W}/${LEAD_HEAD_H}" ${extra}`);
+  }
+
+  /** The four commands of a board: their writing, drop zones, dice and command tokens. */
+  function commandsPart(c: CommandBoardArt, geo: { corner: El[]; midX: number; midY: number; panel: number[]; yTop: number; yBottom: number }, ink: string): string {
+    const { corner, midX, midY, panel: PANEL } = geo;
+    let b = '';
+    const list = c.commands?.length === COMMANDS.length
+      ? c.commands.map((k, i) => ({ ...k, dice: k.slot, left: i % 2 === 0, top: i < 2 }))
+      : COMMANDS;
+    for (const k of list) {
       const slot = corner.find(e => (num(e.attrs, 'x') < midX) === k.left && (num(e.attrs, 'y') < midY) === k.top)!;
       const sx = num(slot.attrs, 'x') + num(slot.attrs, 'width') / 2, sy = num(slot.attrs, 'y') + num(slot.attrs, 'height') / 2;
       const r = num(slot.attrs, 'width') / Math.SQRT2;
-      const hot = !!c.drop?.includes(k.cmd), active = c.used?.cmd === k.cmd, dim = !!c.used && !active;
+      const hot = !!c.drop?.includes(k.cmd), active = c.used?.cmd === k.cmd, token = !!c.tokenOn?.includes(k.cmd);
+      const dim = !!c.used && !active && !token && !c.keepOpen;
       // The whole quarter takes the die, not only the diamond.
       const qx = k.left ? PANEL[0] : midX, qy = k.top ? PANEL[1] : midY;
       b += `<rect x="${qx}" y="${qy}" width="${k.left ? midX - PANEL[0] : PANEL[2] - midX}" height="${k.top ? midY - PANEL[1] : PANEL[3] - midY}" fill="${hot ? HOT : '#000'}" fill-opacity="${hot ? 0.25 : 0}" data-drop="cmd:${k.cmd}"><title>${esc(`${k.name} (${k.dice}): ${k.lines.join(' ')}`)}</title></rect>`;
       const tx = k.left ? midX - 7 : midX + 7, anchor = k.left ? 'end' : 'start';
-      const y0 = k.top ? 70 : 153;
+      const y0 = k.top ? geo.yTop : geo.yBottom;
       b += `<g opacity="${dim ? 0.35 : 1}">${text(k.name, tx, y0, k.name.length > 8 ? 15.5 : 23, ink, anchor)}`
         + k.lines.map((l, i) => text(l, tx, y0 + 17 + i * 14.5, 13.5, ink, anchor)).join('') + '</g>';
       b += `<path d="${diamond(sx, sy, r)}" fill="${hot ? '#1f5a30' : DARK}" stroke="${hot ? HOT : LINE}" stroke-width="${hot ? 3 : 1}" stroke-linejoin="round" data-drop="cmd:${k.cmd}"/>`;
       if (active) b += die(sx, sy, r * 0.95, c.used!.value, c.color);
+      // A command token: a cream disc with a star, in the die space.
+      else if (token) b += `<circle cx="${sx}" cy="${sy}" r="${r * 0.62}" fill="${CREAM}" stroke="${DARK}" stroke-width="2"/>` + text('★', sx, sy + 6.5, 19, DARK, 'middle');
       else b += text(k.slot, sx, sy + 5.5, 16, CREAM, 'middle', `opacity="${dim ? 0.35 : 1}"`);
     }
-    b += text('COMANDI', (SPAN.cmd[0] + SPAN.cmd[1]) / 2, 250.6, 12, DARK, 'middle');
-    return `<g>${b}</g>`;
+    return b;
   }
 
   /**
@@ -223,9 +317,24 @@ export function makeBoards(raw: string, base: BoardBase): {
   function stripSvg(c: CommandBoardArt, dashes: DashboardArt[], extra = ''): string {
     // The medium dashboard's side points lie over its neighbours, as in the drawing's layer order.
     const order = [...dashes].sort((a, b) => 'SLM'.indexOf(a.size) - 'SLM'.indexOf(b.size));
-    const { x, y, w, h } = STRIP_BOX;
-    return svg(`${x} ${y} ${w} ${h}`, cmdBody(c) + order.map(dashBody).join(''), `style="aspect-ratio:${w}/${h}" ${extra}`);
+    const leader = !!c.leader && !!lead;
+    const tall = leader || (!!lead && dashes.some(d => d.upgrade));
+    const { x, y, w, h } = tall ? STRIP_BOX_TALL : STRIP_BOX;
+    const board = leader ? `<g transform="translate(0 ${-LEAD_DY})">${leaderBody(c)}</g>` : cmdBody(c);
+    return svg(`${x} ${y} ${w} ${h}`, board + (tall ? order.map(upgradeCard).join('') : '') + order.map(dashBody).join(''), `style="aspect-ratio:${w}/${h}" ${extra}`);
   }
 
-  return { dashboardSvg, commandBoardSvg, stripSvg };
+  /** A car's upgrade card (Choppe Shoppe), standing above its dashboard with its foot tucked behind it. */
+  function upgradeCard(d: DashboardArt): string {
+    if (!d.upgrade) return '';
+    const cx = DASH_MID[d.size], cw = 236, top = -172, off = d.status !== 'ok';
+    let b = `<rect x="${cx - cw / 2}" y="${top}" width="${cw}" height="${DASH_Y[0] + 30 - top}" rx="10" fill="${DARK}" stroke="${off ? LINE : d.color}" stroke-width="3"/>`;
+    b += `<rect x="${cx - cw / 2 + 6}" y="${top + 6}" width="${cw - 12}" height="38" rx="6" fill="${off ? '#6d6b70' : d.color}"/>`;
+    b += text(d.upgrade.name.toUpperCase(), cx, top + 34, Math.min(27, 360 / d.upgrade.name.length), base.inkOn(off ? '#6d6b70' : d.color), 'middle');
+    wrap(d.upgrade.text, 34).forEach((l, i) => { b += text(l, cx, top + 68 + i * 19, 16.5, CREAM, 'middle'); });
+    if (off) b += text('INATTIVO: AUTO FUORI USO', cx, DASH_Y[0] - 6, 14, '#ff8a7a', 'middle');
+    return `<g opacity="${off ? 0.6 : 1}"><title>${esc(`${d.upgrade.name}: ${d.upgrade.text}`)}</title>${b}</g>`;
+  }
+
+  return { dashboardSvg, commandBoardSvg, stripSvg, leaderHeadSvg, hasLeaderBoard: !!lead };
 }

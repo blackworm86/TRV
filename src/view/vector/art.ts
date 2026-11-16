@@ -3,7 +3,7 @@
 // as a data URL, onto 3D pieces. These open drawings never copy the licensed artwork; the faithful
 // official art, when present locally, takes their place (see "official art" below).
 
-import { makeBoards, STRIP_BOX } from './boards';
+import { makeBoards, STRIP_BOX, STRIP_BOX_TALL } from './boards';
 
 /** Board-absolute direction names used by the rules (src/game/trv/engine.ts). */
 export type ArtDir = 'F' | 'FL' | 'FR' | 'B' | 'BL' | 'BR';
@@ -64,12 +64,14 @@ function off(): OfficialArt | null {
 // The project owner's own drawing of the command board and dashboards (one SVG, outlines only).
 // When it is there, the boards are drawn from it (./boards.ts), also with `?art=open`: it is open material, in the repository.
 const boardsRaw = Object.values(import.meta.glob<string>('/assets/ui/command_dashboard.svg', { eager: true, query: '?raw', import: 'default' }))[0];
+// The owner's drawing of the crew leader command board (Choppe Shoppe), twice as tall.
+const leaderBoardRaw = Object.values(import.meta.glob<string>('/assets/ui/command_dashboard_characters.svg', { eager: true, query: '?raw', import: 'default' }))[0];
 /** True when the boards come from the owner's drawing. */
 export const USER_BOARDS = !!boardsRaw;
 let userBoards: ReturnType<typeof makeBoards> | null | undefined;
 function boards(): ReturnType<typeof makeBoards> | null {
   if (userBoards === undefined) {
-    userBoards = USER_BOARDS ? makeBoards(boardsRaw, { dieSvg, damageTokenSvg: (t, up) => damageTokenSvg(t, up), inkOn, font: FONT }) : null;
+    userBoards = USER_BOARDS ? makeBoards(boardsRaw, { dieSvg, damageTokenSvg: (t, up) => damageTokenSvg(t, up), inkOn, font: FONT }, leaderBoardRaw) : null;
   }
   return userBoards;
 }
@@ -248,6 +250,8 @@ export interface DashboardArt {
   /** Highlight the whole dashboard (choose this car, e.g. for repair). */
   pick?: boolean;
   label?: string;
+  /** The car's upgrade card (Choppe Shoppe): drawn above the dashboard in the player's strip. */
+  upgrade?: { name: string; text: string };
 }
 
 const SIZE_LABEL: Record<ArtSize, string> = { S: 'PICCOLA', M: 'MEDIA', L: 'GRANDE' };
@@ -259,6 +263,8 @@ const SIZE_LABEL: Record<ArtSize, string> = { S: 'PICCOLA', M: 'MEDIA', L: 'GRAN
  */
 /** Width over height of the player's strip (see playerStripSvg). */
 export const STRIP_ASPECT = STRIP_BOX.w / STRIP_BOX.h;
+/** How many times taller the strip is with a crew leader board (1 without the leader drawing). */
+export const STRIP_TALL = USER_BOARDS && leaderBoardRaw ? STRIP_BOX_TALL.h / STRIP_BOX.h : 1;
 /**
  * The player's whole strip in one drawing: command board, the three dashboards against it as in
  * the rulebook, damage tokens under them. Null without the owner's drawing (assets/ui).
@@ -267,6 +273,17 @@ export const STRIP_ASPECT = STRIP_BOX.w / STRIP_BOX.h;
 export function playerStripSvg(c: CommandBoardArt, dashes: DashboardArt[], extra = ''): string | null {
   return boards()?.stripSvg(c, dashes, extra) ?? null;
 }
+
+/**
+ * The upper part of a crew leader board alone: portrait, name, title and command tokens left.
+ * Null without the owner's leader drawing or without `c.leader`.
+ * Example: `el.innerHTML = leaderHeadSvg({ color, leader }) ?? ''`.
+ */
+export function leaderHeadSvg(c: CommandBoardArt, extra = ''): string | null {
+  return boards()?.leaderHeadSvg(c, extra) ?? null;
+}
+/** Where the dashboards start in the strip, as a fraction of its width (to line things up with them). */
+export const STRIP_DASH_START = 268 / STRIP_BOX.w;
 
 export function dashboardSvg(d: DashboardArt, extra = ''): string {
   const u = boards()?.dashboardSvg(d, extra);
@@ -313,6 +330,22 @@ export interface CommandBoardArt {
   used: { cmd: string; value: number } | null;
   /** Commands that can take the die being placed: highlighted drop zones. */
   drop?: string[];
+  /**
+   * The four commands of a crew leader board (top-left, top-right, bottom-left, bottom-right),
+   * in place of the standard ones. `slot` is the text in the die space ("1-3", "★").
+   */
+  commands?: { cmd: string; name: string; slot: string; lines: string[] }[];
+  /** Commands holding a command token this round. */
+  tokenOn?: string[];
+  /** Text under the board in place of "COMANDI" (the leader's name and tokens). */
+  caption?: string;
+  /** Other commands stay usable after a die is placed (the player has command tokens). */
+  keepOpen?: boolean;
+  /**
+   * A crew leader: the board is drawn from the owner's taller drawing, with the power, the name and
+   * a portrait (`portrait` is an image address; without it, the crew colour and an initial).
+   */
+  leader?: { name: string; title: string; power: string; powerText: string; tokens: number; portrait?: string };
 }
 
 /** The four commands in the board's corners, with the die values each accepts (data/trv/game_base.json). */

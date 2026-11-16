@@ -9,13 +9,13 @@
 import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import {
-  newGame, play, tileDef, ROWS, COLS, TILE_COLS,
+  newGame, play, tileDef, ROWS, COLS, TILE_COLS, leaderOf, commandsOf, leaders, commandName, upgrades, type CommandSlot,
   snapshot, type Game, type Decision, type Pos, type Setup, type LogEntry, type Player, type Frame, type Snapshot,
 } from '../../src/game/trv/engine';
 import { BASE_CATALOG as CAT, sizeOf, ofKind } from '../../src/game/trv/catalog';
 import { Pieces, TextureBank } from '../../src/view/pieces3d';
 import { buildTile, hazardToken, spaceCenterPx, spaceGeometry, GRID, TILE_PITCH_PX } from '../../src/view/board3d';
-import { dieSvg, damageTokenSvg, dashboardSvg, commandBoardSvg, playerStripSvg, STRIP_ASPECT, avatarSvg, dataUrl } from '../../src/view/vector/art';
+import { dieSvg, damageTokenSvg, dashboardSvg, commandBoardSvg, playerStripSvg, STRIP_ASPECT, STRIP_DASH_START, leaderHeadSvg, avatarSvg, dataUrl } from '../../src/view/vector/art';
 import { newSeed } from '../../src/platform/entropy';
 import { ModelBank, dressed, fitToLength, splitParts, splitWheels, type Tint } from '../../src/view/models3d';
 import { MODEL, SHOW_LENGTH_MM, MODEL_YAW, CHOPPER_PARTS, ROTOR_SPEED, WHEELS, GUNS, type GunSpec, crewTint, WRECK_TINT, wreckModel, phaseOf, hover, CarRig } from './models-config';
@@ -26,7 +26,7 @@ const FACES = RULES.dice as unknown as DiceFaces;
 
 const SAVE_KEY = 'trv-hotseat-v3';
 const $ = (id: string): HTMLElement => document.getElementById(id)!;
-const esc = (s: string): string => s.replace(/&/g, '&amp;').replace(/</g, '&lt;');
+const esc = (s: string): string => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/"/g, '&quot;');
 const cssPx = (name: string): number => parseFloat(getComputedStyle(document.documentElement).getPropertyValue(name));
 
 // ---------------------------------------------------------------- scene
@@ -532,8 +532,94 @@ const DAMAGE_INFO: Record<string, [string, string]> = {
  * A car takes damage: the token drawn is turned over big in the middle of the screen, with whose
  * car it is and what the token does. The dice it calls for appear beside it as they are rolled.
  */
+/**
+ * Crew leader portraits, by leader id: licensed art, so local only (assets/licensed/leaders/<id>.png,
+ * .jpg or .webp). A leader without a file shows the crew colour and an initial.
+ */
+const PORTRAITS: Record<string, string> = Object.fromEntries(Object.entries(
+  import.meta.glob<string>('/assets/licensed/leaders/*.{png,jpg,jpeg,webp}', { eager: true, query: '?url', import: 'default' }),
+).map(([path, url]) => [path.replace(/^.*\/|\.\w+$/g, '').toLowerCase(), url]));
+
+/** Choppe Shoppe: what each upgrade card does, in the interface's words. */
+const UPGRADE_INFO: Record<string, string> = {
+  grappling_hook: 'Dopo aver colpito un’auto e risolto il danno, può scambiarsi di posto con lei.',
+  snowplow: 'Entrando su un relitto o un veicolo fuori uso, lo sposta in una casella vuota adiacente e prosegue.',
+  big_red_button: 'Quando va fuori uso puoi eliminarla: elimini anche auto ed elicotteri adiacenti.',
+  armor_plating: 'Il risultato “qualsiasi” del dado sparo contro di lei è un colpo mancato.',
+  onboard_computer: 'Ignora gli effetti dei suoi danni: restano coperti.',
+  ghost_mode: 'Quando fa Drift guadagna 2 movimenti.',
+  smoke_screen: 'Non le si può sparare dalla casella direttamente dietro.',
+  skull_shift_knob: 'Non deve usare tutti i suoi movimenti.',
+  heavy_machine_gun: 'Quando spara e manca, può ritirare il dado sparo.',
+  rail_gun: 'Spara fino a tre caselle dritto davanti a sé.',
+  oil_dispenser: 'Dopo il movimento può posare una chiazza d’olio in una casella vuota adiacente. Tre volte a partita.',
+  roll_cage: 'Se uno slam la spingerebbe contro un’altra auto, può mettersi in una casella vuota adiacente.',
+  crumple_zones: 'Quando subisce un danno ne peschi due e ne scegli uno.',
+  sandbags: 'Negli slam che la coinvolgono gli avversari non possono ritirare i dadi.',
+  deep_treads: 'Per lei il fango vale come strada.',
+  heavy_frame: 'Regge un danno in più prima di andare fuori uso.',
+  spoiler: 'Per lei il dado strada vale sempre 2.',
+  anti_aircraft_radar: 'Se finisce il turno sotto un elicottero può spostarsi in una casella vuota adiacente.',
+  stability_control: 'Se uno slam la muoverebbe, puoi ritirare il dado direzione.',
+  punt_gun: 'Spara fino a due caselle di distanza.',
+  tank_treads: 'Con un dado da 3 o meno non rivela i pericoli coperti che attraversa: solo quello su cui si ferma.',
+  off_road_suspension: 'Se parte su strada può usare il dado strada, ovunque si muova.',
+  rear_guns: 'Spara in qualunque casella adiacente.',
+  boost_switch: 'Ha un movimento in più.',
+  assault_bumper: 'L’auto che sposta in uno slam va una casella più in là.',
+  stealth_technology: 'Non le si può sparare se c’è un altro veicolo a cui sparare.',
+  mine_dispenser: 'Dopo il movimento può posare una mina in una casella vuota adiacente. Tre volte a partita.',
+};
+const upgradeName = (id: string): string => upgrades().find(u => u.id === id)?.name ?? id;
+
+/** Choppe Shoppe: each leader's special power, name and what it does (the crew leader boards). */
+const POWER_INFO: Record<string, [string, string]> = {
+  junk_in_the_trunk: ['Junk in the Trunk', 'Se la tua auto verrebbe mossa in uno slam, puoi ritirare il dado direzione.'],
+  spotter: ['Spotter', 'Quando spari, se un’altra tua auto operativa è adiacente al bersaglio, colpisci automaticamente.'],
+  jury_rigging: ['Jury-Rigging', 'Ignori gli effetti dei segnalini danno: restano coperti.'],
+  soul_siphon: ['Soul Siphon', 'Quando colpisci un veicolo sparando, togli un danno da una tua auto.'],
+  trash_into_treasure: ['Trash into Treasure', 'Quando entri su un pericolo coperto prendi un segnalino comando, poi lo giri.'],
+  redline: ['Redline', 'Un dado movimento da 6 assegnato a un’auto vale 7.'],
+  objection: ['Objection!', 'Quando spari e manchi puoi ritirare il dado sparo.'],
+  third_eye: ['Third Eye', 'A inizio round guardi un pericolo coperto.'],
+  long_arm_of_the_law: ['Long Arm of the Law', 'Puoi sparare a un bersaglio a due caselle.'],
+};
+/** What each command does, in three short lines for the command board. */
+const CMD_LINES: Record<string, string[]> = {
+  airstrike: ['Piazza l’elicottero', 'su una casella vuota.', 'Dal 2° round spara.'],
+  nitro: ['Aggiungi il dado', 'al movimento', 'dell’auto.'],
+  drift: ['Attraversa il primo', 'veicolo che incontri,', 'senza slam.'],
+  repair: ['Togli un danno', 'da una tua auto.'],
+  bump: ['Al primo slam del turno', 'solo dado direzione:', 'si muove l’altra auto.'],
+  pain_transfer: ['Sposta un danno', 'da una tua auto', 'a un’altra.'],
+  need_for_speed: ['I dadi non assegnati', 'prendono il valore', 'di questo dado.'],
+  called_shot: ['In questo turno', 'colpisci', 'automaticamente.'],
+};
+/** The text of a command's die space: "1-3", "6", or a star for a command token only. */
+function slotText(s: CommandSlot): string {
+  if (s.token || !s.values.length) return '★';
+  const lo = Math.min(...s.values), hi = Math.max(...s.values);
+  return lo === hi ? `${lo}` : `${lo}-${hi}`;
+}
+/** A crew leader's commands as the command board draws them. */
+function boardCommands(p: Player): { cmd: string; name: string; slot: string; lines: string[] }[] | undefined {
+  if (!leaderOf(p)) return undefined;
+  return commandsOf(p).map(s => ({ cmd: s.id, name: commandName(s.id).toUpperCase(), slot: slotText(s), lines: CMD_LINES[s.id] ?? [] }));
+}
+
 function showDamage(f: Frame): void {
   if (!g || f.token === undefined) return;
+  if (f.faceDown) {
+    const car = g.vehicles.find(x => x.id === f.vehicleId);
+    const pl = car && car.owner !== null ? g.players[car.owner] : null;
+    const el = $('rolls');
+    el.innerHTML = `<div class="roll dmg" style="--c:${pl?.color ?? '#d42f30'}"><small>${esc(pl ? `Auto di ${pl.name}` : '')} · danno</small>`
+      + `<i class="tok">${damageTokenSvg(null, false)}</i><b>Jury-Rigging</b><span>Il segnalino resta coperto: nessun effetto, ma conta come danno.</span></div>`;
+    el.classList.add('show');
+    clearTimeout(rollsTimer);
+    rollsTimer = window.setTimeout(() => el.classList.remove('show'), 4500);
+    return;
+  }
   const v = g.vehicles.find(x => x.id === f.vehicleId);
   const owner = v && v.owner !== null ? g.players[v.owner] : null;
   const who = v ? `Auto ${{ S: 'piccola', M: 'media', L: 'grande' }[v.size]}${owner ? ` di ${owner.name}` : ''}` : '';
@@ -994,7 +1080,7 @@ function drawMarkers(): void {
     });
     return;
   }
-  if (!['step', 'airstrike', 'shoot'].includes(d.kind)) return;
+  if (!['step', 'airstrike', 'shoot', 'peek', 'peekResult', 'plow', 'rollCage', 'dispense', 'radar'].includes(d.kind)) return;
   d.options.forEach((o, i) => {
     if (!o.pos) return;
     const at = world(o.pos);
@@ -1083,7 +1169,6 @@ function drawHud(): void {
   const d = playing ? null : decision;
   if (d) handoff(d);
   // A new kind of choice forgets a strip opened or closed by hand.
-  syncStrip();
 
   // Top: the round, then a bubble per player in seating order (the one on turn glows), the road die.
   document.documentElement.style.setProperty('--who', me.color);
@@ -1097,7 +1182,9 @@ function drawHud(): void {
     }).join('');
     const tag = p.out ? '<span class="tag quiet">fuori</span>' : turn ? '<span class="tag">di turno</span>' : decides ? '<span class="tag">decide</span>'
       : p.id === g!.firstPlayer ? '<span class="tag quiet">1° giocatore</span>' : '';
-    const extra = [p.command ? `<b>${CMD_NAME[p.command.cmd] ?? p.command.cmd}</b> con ${p.command.value}` : '', p.chopper ? 'elicottero in campo' : ''].filter(Boolean).join(' · ');
+    const pl = leaderOf(p);
+    const extra = [pl ? `${esc(pl.name)}${p.tokens ? ` ${'★'.repeat(p.tokens)}` : ''}` : '',
+      p.command ? `<b>${CMD_NAME[p.command.cmd] ?? commandName(p.command.cmd)}</b> con ${p.command.value}` : '', p.chopper ? 'elicottero in campo' : ''].filter(Boolean).join(' · ');
     return `<div class="bubble pl ${turn ? 'turn' : ''} ${decides ? 'decides' : ''} ${p.out ? 'out' : ''}" style="--c:${p.color}">
       <div class="av">${avatarSvg(p.color, p.name)}</div>
       <div class="who"><span class="nm gothic">${esc(p.name)}</span>${tag}</div>
@@ -1115,6 +1202,8 @@ function drawHud(): void {
   const SHORT: Partial<Record<Decision['kind'], string>> = {
     assign: 'assegna un dado', command: 'comando?', airstrike: 'piazza l’elicottero', repair: 'quale auto ripari?',
     roadDie: `dado strada: +${g.roadDie}?`, slamReroll: 'slam: ritiri i dadi?', shoot: 'scegli il bersaglio',
+    leader: 'scegli il caposquadra', token: 'segnalino comando?', shootReroll: 'ritiri il dado sparo?', dirReroll: 'ritiri il dado direzione?',
+    peek: 'guarda un pericolo coperto',
   };
   if (d && SHORT[d.kind]) $('prompt').innerHTML = `<b style="color:${g.players[d.player].color}">${esc(name)}</b>${esc(SHORT[d.kind]!)}`;
   ($('skip') as HTMLButtonElement).style.display = playing ? '' : 'none';
@@ -1134,19 +1223,53 @@ function drawHud(): void {
     else if (d.kind === 'shoot') btn(0, 'Non sparare', 'quiet'); // the targets are lit on the table
     else if (d.kind === 'roadDie') { btn(1, `+${g.roadDie} movimenti`, 'road'); btn(0, 'Fermati', 'quiet'); }
     else if (d.kind === 'slamReroll') { btn(0, 'Tieni', 'quiet'); btn(1, 'Ritira i dadi'); }
-    else if (!['assign', 'step', 'airstrike', 'repair'].includes(d.kind)) d.options.forEach((o, i) => btn(i, o.label));
+    else if (d.kind === 'shootReroll' || d.kind === 'dirReroll') { btn(0, 'Tieni', 'quiet'); btn(1, 'Ritira il dado'); }
+    else if (d.kind === 'token') { btn(0, 'Nessun segnalino', 'quiet'); d.options.slice(1).forEach((o, i) => btn(i + 1, `★ ${commandName(o.command!)}`)); }
+    // Choices on the table with a way out: the spaces are lit, the button says no.
+    else if (['plow', 'rollCage', 'dispense', 'radar'].includes(d.kind)) btn(0, d.options[0].label, d.options[0].danger ? 'danger' : 'quiet');
+    // Skull Shift Knob: the one step choice that is not a space.
+    else if (d.kind === 'step') d.options.forEach((o, i) => { if (!o.pos) btn(i, o.label, 'quiet'); });
+    else if (!['assign', 'airstrike', 'repair', 'leader', 'peek', 'draft', 'upgradeAssign'].includes(d.kind)) d.options.forEach((o, i) => btn(i, o.label));
+  }
+  // Choppe Shoppe setup: the upgrade cards to draft, then one for each car.
+  if (d && (d.kind === 'draft' || d.kind === 'upgradeAssign')) {
+    const who = g.players[d.player];
+    const el = $('leaderpick');
+    el.innerHTML = `<h2 class="gothic" style="color:${who.color}">${esc(d.prompt)}</h2><div class="pair cards">`
+      + d.options.map((o, i) => `<button class="leader" data-i="${i}" style="--c:${who.color}"><b class="gothic">${esc(upgradeName(o.upgrade!))}</b>`
+        + `<p>${esc(UPGRADE_INFO[o.upgrade!] ?? '')}</p></button>`).join('') + '</div>';
+    el.querySelectorAll<HTMLElement>('.leader').forEach(b => { b.onclick = () => choose(Number(b.dataset.i)); });
+  }
+  // Choppe Shoppe setup: the two crew leaders dealt to the player, as cards to pick from.
+  const pick = $('leaderpick');
+  pick.style.display = d && ['leader', 'draft', 'upgradeAssign'].includes(d.kind) ? 'grid' : 'none';
+  if (d?.kind === 'leader') {
+    const who = g.players[d.player];
+    pick.innerHTML = `<h2 class="gothic" style="color:${who.color}">${esc(who.name)}: scegli il caposquadra</h2><div class="pair">`
+      + d.options.map((o, i) => {
+        const l = leaders().find(x => x.id === o.leader)!;
+        const [pn, pd] = POWER_INFO[l.power] ?? [l.power, ''];
+        return `<button class="leader" data-i="${i}" style="--c:${who.color}"><b class="gothic">${esc(l.name)}</b><small>${esc(l.title)}</small>`
+          + `<p><i>${esc(pn)}</i> ${esc(pd)}</p><ul>`
+          + l.commands.map(s => `<li><em>${esc(slotText(s))}</em><span><b>${esc(commandName(s.id))}</b> ${esc((CMD_LINES[s.id] ?? []).join(' '))}</span></li>`).join('')
+          + `</ul><span class="stars">${l.tokens ? `${'★'.repeat(l.tokens)} ${l.tokens === 1 ? 'segnalino comando' : 'segnalini comando'}` : 'nessun segnalino comando'}</span></button>`;
+      }).join('') + '</div>';
+    pick.querySelectorAll<HTMLElement>('.leader').forEach(b => { b.onclick = () => choose(Number(b.dataset.i)); });
   }
   // The question sits with its answer: over the buttons, or alone by the car or the dice.
   const left = d?.kind === 'step' ? /(\d+) moviment/.exec(d.prompt)?.[1] : undefined;
   const ASK: Partial<Record<Decision['kind'], string>> = {
-    command: 'Comando?', roadDie: `Dado strada: +${g.roadDie}?`, slamReroll: 'Slam: ritiri i dadi?', shoot: 'Scegli il bersaglio',
+    assign: 'Assegna un dado: trascinalo su un’auto', command: 'Un dado su un comando?', roadDie: `Dado strada: +${g.roadDie}?`, slamReroll: 'Slam: ritiri i dadi?', shoot: 'Scegli il bersaglio',
     step: left ? `${left} moviment${left === '1' ? 'o' : 'i'}` : 'Muovi', airstrike: 'Scegli una casella vuota', repair: 'Scegli l’auto da riparare',
+    token: `Segnalino comando? (${d ? g.players[d.player].tokens : 0})`, shootReroll: 'Mancato: ritiri il dado sparo?', dirReroll: 'Slam: ritiri la direzione?',
+    peek: 'Third Eye: scegli un pericolo coperto', peekResult: d?.prompt.replace(/^Solo per [^:]+: /, 'Third Eye: ') ?? '', transfer: d?.prompt.replace(/^[^:]+: /, '') ?? '',
   };
-  if (d && ASK[d.kind]) actions.insertAdjacentHTML('afterbegin', `<span class="q">${esc(ASK[d.kind]!)}</span>`);
+  // The upgrades' own questions are asked in full: they name the card.
+  const asked = d ? ASK[d.kind] ?? (['plow', 'rollCage', 'dispense', 'radar', 'swap', 'pickDamage', 'redButton'].includes(d.kind) ? d.prompt.replace(/^[^:]+: /, '') : '') : '';
+  if (asked) actions.insertAdjacentHTML('afterbegin', `<span class="q">${esc(asked)}</span>`);
   actions.classList.toggle('only', !actions.querySelector('button'));
-  $('mydice').dataset.label = d?.kind === 'assign' ? 'Assegna un dado' : d?.kind === 'command' ? 'Un dado sul comando' : '';
   actions.dataset.car = g.activeCar ?? '';
-  actions.dataset.anchor = d?.kind === 'command' ? 'dice' : g.activeCar ? 'car' : 'bar';
+  actions.dataset.anchor = d?.kind === 'command' || d?.kind === 'token' ? 'dice' : g.activeCar ? 'car' : 'bar';
   if ($('drawer').style.display === 'block') drawDrawer();
 
   // The four steps of a turn (rulebook p. 8), the current one lit.
@@ -1164,13 +1287,48 @@ function drawHud(): void {
     const cls = me.used[i] ? 'used' : !mine || !dieUsable(i) ? 'idle' : selDie === i ? 'sel' : '';
     return dieHtml('movement', n, me.color, cls, `data-die="${i}"`);
   }).join('');
-  const cmdArt = { color: me.color, used: me.command, drop: [...hot].filter(z => z.startsWith('cmd:')).map(z => z.slice(4)) };
+  const lead = leaderOf(me);
+  const cmds = boardCommands(me);
+  const cmdArt = {
+    color: me.color, used: me.command, drop: [...hot].filter(z => z.startsWith('cmd:')).map(z => z.slice(4)),
+    tokenOn: Object.entries(me.slots).filter(([, v]) => v === 'token').map(([k]) => k), keepOpen: me.tokens > 0,
+    ...(cmds ? { commands: cmds } : {}),
+    ...(lead ? { caption: `COMANDI DI ${lead.name.toUpperCase()}` } : {}),
+  };
+  // The crew leader, beside the boards: the head of the leader board, and the power in plain text.
+  const leadEl = $('lead');
+  if (lead) {
+    const [pn, pd] = POWER_INFO[lead.power] ?? [lead.power, ''];
+    const portrait = PORTRAITS[lead.id];
+    const head = leaderHeadSvg({ color: me.color, used: null, leader: { name: lead.name, title: lead.title, power: pn, powerText: pd, tokens: me.tokens, ...(portrait ? { portrait } : {}) } });
+    leadEl.innerHTML = (head ? `<div class="lb">${head}</div>` : '')
+      + `<div class="lt${head ? '' : ' nohead'}"><div class="nm"><b class="gothic" style="color:${me.color}">${esc(lead.name)}</b><em title="Segnalini comando rimasti">${me.tokens ? '★'.repeat(me.tokens) : 'nessun segnalino'}</em></div>`
+      + `<p><i>${esc(pn)}</i> ${esc(pd)}</p></div>`;
+  } else leadEl.innerHTML = '';
   const pickIds = new Set(d?.kind === 'repair' ? d.options.map(o => o.carId) : []);
-  const dashArt = g.vehicles.filter(v => v.owner === me.id).map(v => ({
+  const myCarsNow = g.vehicles.filter(v => v.owner === me.id);
+  const dashArt = myCarsNow.map(v => ({
     carId: v.id, size: v.size, color: me.color, status: v.status, placed: v.placed, damage: v.damage.length,
     dropMove: hot.has(`move:${v.id}`), dropCoast: hot.has(`coast:${v.id}`), pick: pickIds.has(v.id),
     label: v.status === 'elim' ? '' : v.inStart ? 'IN PARTENZA' : '',
   }));
+  // The upgrade cards, in plain text over the dashboard of the car that carries each.
+  const SIZE_NAME = { S: 'Piccola', M: 'Media', L: 'Grande' };
+  $('cards').innerHTML = (['S', 'M', 'L'] as const).map(sz => {
+    const v = myCarsNow.find(x => x.size === sz);
+    if (!v?.upgrade || v.status === 'elim') return '<div class="up none"></div>';
+    const off = v.status !== 'ok';
+    return `<div class="up${off ? ' off' : ''}" style="--c:${me.color}" title="${esc(`${upgradeName(v.upgrade)}: ${UPGRADE_INFO[v.upgrade] ?? ''}`)}"><div class="h"><small>${SIZE_NAME[sz]}</small><b class="gothic">${esc(upgradeName(v.upgrade))}</b></div>`
+      + `<p>${esc(UPGRADE_INFO[v.upgrade] ?? '')}</p>${off ? '<em>Inattivo: auto fuori uso</em>' : ''}</div>`;
+  }).join('');
+  // The panel keeps one size for the whole game: it depends on the expansions, not on whose turn it is.
+  const key = `${g.players.some(p => leaderOf(p)) ? 'L' : ''}${g.vehicles.some(v => v.upgrade) ? 'U' : ''}`;
+  if (key !== layoutKey) {
+    layoutKey = key;
+    document.body.classList.toggle('haslead', key.includes('L'));
+    document.body.classList.toggle('hascards', key.includes('U'));
+    fit();
+  }
   // One drawing, laid out as in the rulebook; without the owner's drawing, the boards side by side.
   $('strip').innerHTML = playerStripSvg(cmdArt, dashArt) ?? `<div class="loose">${commandBoardSvg(cmdArt)}${dashArt.map(a => dashboardSvg(a)).join('')}</div>`;
 
@@ -1295,8 +1453,6 @@ addEventListener('keydown', e => {
     if (v) focusOn(carObjs.get(v.id));
   } else if (key === 'g') {
     toggleGrid();
-  } else if (key === 'p') {
-    toggleStrip();
   } else if (key === 'r') {
     startReplay();
   } else if (key === 'f') {
@@ -1403,19 +1559,43 @@ $('start').onclick = () => {
   winShown = false;
   $('win').style.display = 'none';
   $('setup').style.display = 'none';
-  startGame({ setup: { seed: seed.value, players, startSide: ($('side') as HTMLSelectElement).value as 'a' | 'b' }, choices: [] });
+  const leaders = ($('leaders') as HTMLInputElement).checked, cards = ($('upgrades') as HTMLInputElement).checked;
+  startGame({ setup: { seed: seed.value, players, startSide: ($('side') as HTMLSelectElement).value as 'a' | 'b', ...(leaders ? { leaders } : {}), ...(cards ? { upgrades: cards } : {}) }, choices: [] });
 };
 
 // ---------------------------------------------------------------- loop
 
+let layoutKey = '';
+/**
+ * Lays out the fixed panel under the table. Nothing in it moves or resizes during a game: the
+ * boards strip as large as the window allows, the leader on its left, the upgrade cards over the
+ * dashboards, dice and choices on the right. On a narrow window the strip takes the full width and
+ * the rest sits in a row above it.
+ */
 function fit(): void {
-  // The boards strip is as tall as the bottom panel allows, or as the width allows (dice and chopper beside it).
-  const sh = Math.max(150, Math.min(innerHeight * 0.36, 420, (innerWidth - 24) / STRIP_ASPECT));
-  // Folded, the strip is about half that; the table is framed above the folded strip.
-  const small = Math.max(110, sh * 0.5) + 14;
-  document.documentElement.style.setProperty('--big', `${sh + 14}px`);
-  document.documentElement.style.setProperty('--small', `${small}px`);
-  const top = cssPx('--top'), bottom = small + cssPx('--bar');
+  const W = innerWidth, H = innerHeight;
+  const hasLead = document.body.classList.contains('haslead'), hasCards = document.body.classList.contains('hascards');
+  const wide = W >= 1500;
+  document.body.classList.toggle('wide', wide);
+  const leadW = hasLead ? (wide ? 250 : 270) : 0, ctlW = wide ? 290 : 276;
+  const maxH = H * (wide ? 0.34 : 0.31);
+  let stripW: number, panel: number, row = 0;
+  if (wide) {
+    stripW = Math.min(W - leadW - ctlW - 24 - (hasLead ? 28 : 14), maxH * STRIP_ASPECT);
+    panel = stripW / STRIP_ASPECT + (hasCards ? 132 : 0) + 20;
+  } else {
+    row = hasLead || hasCards ? 118 : 84;
+    stripW = Math.min(W - 24, maxH * STRIP_ASPECT);
+    panel = stripW / STRIP_ASPECT + row + 24;
+  }
+  const root = document.documentElement.style;
+  root.setProperty('--stripw', `${Math.round(stripW)}px`);
+  root.setProperty('--leadw', `${leadW}px`);
+  root.setProperty('--ctlw', `${ctlW}px`);
+  root.setProperty('--row', `${row}px`);
+  root.setProperty('--dash', `${(STRIP_DASH_START * 100).toFixed(2)}%`);
+  root.setProperty('--bottom', `${Math.round(panel)}px`);
+  const top = cssPx('--top'), bottom = panel + cssPx('--bar');
   const h = Math.max(200, innerHeight - bottom);
   // The player bubbles float over the top of the map: keep the road below them.
   const topLim = 1 - 2 * top / h;
@@ -1527,21 +1707,6 @@ function syncHudDice(now: number): void {
 }
 
 /**
- * The strip is small. It grows while the pointer is on it, and the button (or P) keeps it open
- * until it is pressed again.
- */
-let stripPin = false, stripHover = false;
-function syncStrip(): void {
-  const open = stripPin || stripHover;
-  document.body.classList.toggle('open', open);
-  $('stripmode').firstElementChild!.textContent = open ? '▾' : '▴';
-}
-function toggleStrip(): void { stripPin = !stripPin; if (!stripPin) stripHover = false; syncStrip(); }
-$('stripmode').addEventListener('click', toggleStrip);
-$('bottom').addEventListener('pointerenter', () => { stripHover = true; syncStrip(); });
-$('bottom').addEventListener('pointerleave', () => { stripHover = false; syncStrip(); });
-
-/**
  * Keeps the floating choices where the player is looking (`data-anchor`): under the car they are
  * about (above it only when there is no room below), on the command board for "no command",
  * otherwise just above the bar. Never under the strip, never off the screen.
@@ -1554,14 +1719,14 @@ function placeActions(): void {
   const floor = $('bar').getBoundingClientRect().top - 8; // nothing floats lower than this over the table
   const w = el.offsetWidth, h = el.offsetHeight;
   let x = innerWidth / 2, top = floor - h;
-  // With no car to stand by, it stays clear of the dice, which sit on the bar's upper edge.
-  const dice = $('mydice').getBoundingClientRect();
-  if (dice.height > 0) top = Math.min(top, dice.top - h - 26);
+  // With no car to stand by, the choices have a place of their own: under the dice on a wide
+  // window, over the right end of the bar on a narrow one.
+  const slot = $('actslot').getBoundingClientRect();
+  if (document.body.classList.contains('wide')) { x = slot.left + slot.width / 2; top = slot.top; }
+  else x = innerWidth - w / 2 - 12;
   const o = el.dataset.anchor === 'car' && el.dataset.car ? carObjs.get(el.dataset.car) : undefined;
-  if (el.dataset.anchor === 'dice' && dice.height > 0) {
-    // Beside the dice: the die goes on a command, or this button says "none".
-    x = dice.right + 14 + w / 2;
-    top = dice.top + (dice.height - h) / 2;
+  if (el.dataset.anchor !== 'car') {
+    // placed above
   } else if (o) {
     // Around the car, wherever it hides the least: the spaces that can be picked (targets, moves)
     // and the vehicles must stay in view. Under the car first, then behind it, above, ahead.
@@ -1739,6 +1904,8 @@ try {
 // `__fx.crash(__fx.cars()[0], 2, 0)` or `__fx.explode(0, 0)`.
 Object.assign(window, { __fx: {
   cars: () => [...carObjs.keys()],
+  decision: () => decision && { kind: decision.kind, player: decision.player, prompt: decision.prompt, options: decision.options.map(o => o.label) },
+  choose: (i: number) => choose(i),
   damage: (id: string, type: string) => showDamage({ kind: 'damage', vehicleId: id, token: { type } } as unknown as Frame),
   replay: (n = 14) => { if (!g) return 0; replayFrames = g.frames.slice(-n).filter(f => f.kind !== 'log' && f.kind !== 'round' && f.kind !== 'tile'); const f = replayFrames.find(x => x.at); replayAt = f?.at ? world(f.at) : null; startReplay(); return replayFrames.length; },
   aim: (id: string, yaw: number | null) => { const o = carObjs.get(id); if (o) o.userData.aim = yaw; },

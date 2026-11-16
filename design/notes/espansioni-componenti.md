@@ -276,7 +276,7 @@ con carte, ma come si usano non è scritto in nessun file letto.
   stiano Computer di puntamento e Dispensa pericoli, né quali comandi siano bersagliabili.
   `espansioni-regole.md` mette il Computer di puntamento nella sezione anteriore: da ricontrollare.
 - **11 plance capisquadra** contro le 10 del regolamento: una potrebbe essere promozionale.
-- **Mina e chiazza d'olio**: l'effetto non è nei file letti.
+- **Mina e chiazza d’olio**: sono gli stessi pericoli del gioco base; i 3+3 di Choppe Shoppe sono copie in più per i due potenziamenti che li posano.
 - **Segnalini comando** e **danni minori delle Final Five**: non trovati tra le scansioni.
 - **Un retro di pericolo arancione con una chiave inglese**: non so a quale mazzo appartenga.
 - **Nav System**: sulla carta non è chiaro se si sposta il pericolo o il veicolo; ho scritto il
