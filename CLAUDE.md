@@ -20,6 +20,9 @@ Lingua di lavoro con l'utente: **italiano**.
   repository pubblico. Il codice è open source, gli asset no.
 - **Modalità di gioco**: hot seat in locale (stesso dispositivo) **e** online
   remoto su internet, con server autorevole.
+- **Pull request**: dopo ogni push sul branch di lavoro, apri sempre (o aggiorna)
+  la pull request verso `main`, senza chiedere (richiesta dell'utente, 2026-11-16).
+  Il merge resta all'utente.
 - **Piattaforme**: computer desktop, al massimo tablet. **Niente smartphone**:
   viewport minimo circa 1024×768, input mouse e touch.
 
