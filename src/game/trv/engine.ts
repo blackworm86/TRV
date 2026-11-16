@@ -955,7 +955,9 @@ export function carnageNumbers(): CarnageNumbers {
     ongoing_effects: { id: string; text: string | null; count?: number }[];
   };
   const missing: string[] = [];
-  for (const [k, n] of Object.entries(d.hazard_tokens)) if (typeof n !== 'number') missing.push(`hazard_tokens.${k}`);
+  // Keys starting with '_' are notes (sources), not token kinds.
+  const hazards = Object.fromEntries(Object.entries(d.hazard_tokens).filter(([k]) => !k.startsWith('_'))) as Record<CarnageHazard, number | null>;
+  for (const [k, n] of Object.entries(hazards)) if (typeof n !== 'number') missing.push(`hazard_tokens.${k}`);
   if (typeof d.damage_tokens.on_fire.count !== 'number') missing.push('damage_tokens.on_fire.count');
   if (typeof d.damage_tokens.ongoing_effect.count !== 'number') missing.push('damage_tokens.ongoing_effect.count');
   if (!d.dice.fire || d.dice.fire.length !== 6) missing.push('dice.fire');
@@ -963,11 +965,14 @@ export function carnageNumbers(): CarnageNumbers {
   if (deck.length !== d.components.ongoing_effect_cards || d.ongoing_effects.some(c => !c.text)) missing.push('ongoing_effects');
   if (missing.length) throw new Error(`Carnage at Devil's Run: missing data in carnage.json: ${missing.join(', ')}`);
   return {
-    hazards: d.hazard_tokens as Record<CarnageHazard, number>,
+    hazards: hazards as Record<CarnageHazard, number>,
     damage: { on_fire: d.damage_tokens.on_fire.count!, ongoing_effect: d.damage_tokens.ongoing_effect.count! },
     fireDie: d.dice.fire!, ongoing: deck,
   };
 }
+
+/** Transmission Failure: the value the movement die is set to (carnage.json, confirmed 3 by the rules owner). */
+const TRANSMISSION_FAILURE_MOVE = (carnageData.ongoing_effects as { id: string; move?: number }[]).find(c => c.id === 'transmission_failure')?.move ?? 3;
 
 /** The name of an ongoing effect card (its id when the data does not name it). */
 export function ongoingName(id: string): string {
@@ -1023,7 +1028,7 @@ function putOut(g: Game, v: Vehicle): void {
  */
 function beforeMove(g: Game, car: Vehicle, mv: { moves: number }): { fixed: boolean; mustMoveAll: boolean } {
   const fixed = hasOngoing(car, 'transmission_failure');
-  if (fixed) { mv.moves = 1; say(g, 'Transmission Failure: il dado movimento vale 1.', 'bad'); }
+  if (fixed) { mv.moves = TRANSMISSION_FAILURE_MOVE; say(g, `Transmission Failure: il dado movimento vale ${TRANSMISSION_FAILURE_MOVE}.`, 'bad'); }
   let mustMoveAll = false;
   if (car.onFire && g.carnage && g.winner === null && car.status === 'ok') {
     const f = rollFire(g);

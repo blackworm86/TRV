@@ -64,7 +64,7 @@ const BEHIND: Pos = neighbor(AT, 'B');
 
 describe('Carnage at Devil’s Run setup', () => {
   it('refuses to start the expansion while its numbers are missing from the data file', () => {
-    expect(() => newGame({ seed: SEED, players: PLAYERS, startSide: 'a', carnage: true })).toThrow(/missing data in carnage\.json: .*dice\.fire/);
+    expect(() => newGame({ seed: SEED, players: PLAYERS, startSide: 'a', carnage: true })).toThrow(/missing data in carnage\.json: ongoing_effects$/);
   });
   it('mixes the new hazard and damage tokens into the piles', () => {
     const g = newGame({ seed: SEED, players: PLAYERS, startSide: 'a', carnage: fixture() });
@@ -282,14 +282,14 @@ describe('new damage tokens', () => {
     expect(v.damage).toHaveLength(0);
     expect(g.carnage!.discard).toEqual([card]);
   });
-  it('sets the move to 1 with Transmission Failure, and no fire bonus', () => {
+  it('sets the move to 3 with Transmission Failure, and no fire bonus', () => {
     const g = game(Array(6).fill('+2'));
     const v = place(g, 'p0M', AT);
     v.damage.push({ type: 'ongoing_effect', card: 'transmission_failure' });
     v.onFire = true;
     const mv = { moves: 5 };
     expect(__test.beforeMove(g, v, mv)).toEqual({ fixed: true, mustMoveAll: false });
-    expect(mv.moves).toBe(1);
+    expect(mv.moves).toBe(3);
   });
 });
 
