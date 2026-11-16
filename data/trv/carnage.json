@@ -8,8 +8,27 @@
     "tiles: the layout of the 5 new double-sided road tiles (names on p2: Drifts, Salty Dogleg, Zag, Scorcher, Glass Oasis; the other five sides unknown)",
     "ramp: the direction a ramp space faces on the tiles (p3: entered only from the space directly behind it, then jumps directly forward)"
   ],
+  "_interpretations": [
+    "Ramp: entered 'from the space directly behind' = moving forward (F) onto it, jump forward; to confirm once the tiles show which way ramps face.",
+    "Quake: vehicles pushed off the sides/back or onto impassable spaces are eliminated, those pushed past the front edge stay put; the landing spaces reveal no hazard and apply no terrain; vehicles sharing a space then slam. To confirm.",
+    "Desert glass, ramp, fire revealed as hazards: the revealing vehicle feels the new terrain at once (it has just entered that space). To confirm.",
+    "Pit trap missed: the vehicle stays on the space, now impassable, and goes on with its moves. To confirm.",
+    "Sand worm: 'farthest back' counts odd rows half a space forward, as the board is drawn (game_base.json). To confirm.",
+    "Toxic goo with another vehicle on the space: the slam happens, then the car stops.",
+    "No ON FIRE! token left in the supply: the vehicle does not catch fire. To confirm."
+  ],
   "components": {
-    "road_tiles": { "count": 5, "double_sided": true, "names_seen": ["Drifts", "Salty Dogleg", "Zag", "Scorcher", "Glass Oasis"] },
+    "road_tiles": {
+      "count": 5,
+      "double_sided": true,
+      "names_seen": [
+        "Drifts",
+        "Salty Dogleg",
+        "Zag",
+        "Scorcher",
+        "Glass Oasis"
+      ]
+    },
     "on_fire_tokens": 12,
     "fire_die": 1,
     "hazard_tokens": 22,
@@ -25,29 +44,86 @@
   ],
   "terrain": {
     "_codes": "One character per space in a tile's terrain rows, as in game_base.json (R road, o off-road, M mud, X impassable).",
-    "G": { "id": "toxic_goo", "name": "Toxic Goo", "rule": "When a road vehicle enters a toxic goo space, it stops and loses the rest of its moves." },
-    "D": { "id": "desert_glass", "name": "Desert Glass", "rule": "When a road vehicle enters a desert glass space, it immediately moves one space in the direction it was already moving without using any moves." },
-    "P": { "id": "ramp", "name": "Ramp", "rule": "A road vehicle can only enter a ramp from the space directly behind the ramp. When it does, roll the stunt die and move that many spaces directly forward, ignoring all spaces in between. After landing, lose all remaining moves. If a road vehicle enters a ramp space from any other space, the road vehicle is eliminated." },
-    "F": { "id": "fire", "name": "Fire!", "rule": "When a road vehicle enters this space, it catches on fire: place an ON FIRE! token on that vehicle's dashboard." },
-    "S": { "id": "salt_flats", "name": "Salt Flats", "rule": "When a road vehicle enters a salt flat space, it may use the road die this turn regardless of whether or not it moved on only road spaces." }
+    "G": {
+      "id": "toxic_goo",
+      "name": "Toxic Goo",
+      "rule": "When a road vehicle enters a toxic goo space, it stops and loses the rest of its moves."
+    },
+    "D": {
+      "id": "desert_glass",
+      "name": "Desert Glass",
+      "rule": "When a road vehicle enters a desert glass space, it immediately moves one space in the direction it was already moving without using any moves."
+    },
+    "P": {
+      "id": "ramp",
+      "name": "Ramp",
+      "rule": "A road vehicle can only enter a ramp from the space directly behind the ramp. When it does, roll the stunt die and move that many spaces directly forward, ignoring all spaces in between. After landing, lose all remaining moves. If a road vehicle enters a ramp space from any other space, the road vehicle is eliminated."
+    },
+    "F": {
+      "id": "fire",
+      "name": "Fire!",
+      "rule": "When a road vehicle enters this space, it catches on fire: place an ON FIRE! token on that vehicle's dashboard."
+    },
+    "S": {
+      "id": "salt_flats",
+      "name": "Salt Flats",
+      "rule": "When a road vehicle enters a salt flat space, it may use the road die this turn regardless of whether or not it moved on only road spaces."
+    }
   },
   "hazards": {
     "discarded_after_revealed": {
-      "quake": { "name": "Quake", "rule": "Roll the direction die. Move all road vehicles one space in that direction, simultaneously." },
-      "sand_worm": { "name": "Sand Worm", "rule": "Eliminate the road vehicle that is the farthest back on the board. If more than one road vehicle is tied for that position, eliminate each of them." }
+      "quake": {
+        "name": "Quake",
+        "rule": "Roll the direction die. Move all road vehicles one space in that direction, simultaneously."
+      },
+      "sand_worm": {
+        "name": "Sand Worm",
+        "rule": "Eliminate the road vehicle that is the farthest back on the board. If more than one road vehicle is tied for that position, eliminate each of them."
+      }
     },
     "remain_on_the_board": {
-      "desert_glass": { "name": "Desert Glass", "becomes": "D", "rule": "This space becomes a desert glass space." },
-      "ramp": { "name": "Ramp", "becomes": "P", "rule": "This space becomes a ramp space." },
-      "fire": { "name": "Fire!", "becomes": "F", "rule": "This space becomes a fire! space." },
-      "pit_trap": { "name": "Pit Trap", "becomes": "X", "rule": "Roll the shooting die against the road vehicle that revealed the trap. If it's a hit, the vehicle is eliminated. Otherwise, it may continue moving if it has moves left. Pit Trap remains on the board and is treated as an impassable space." }
+      "desert_glass": {
+        "name": "Desert Glass",
+        "becomes": "D",
+        "rule": "This space becomes a desert glass space."
+      },
+      "ramp": {
+        "name": "Ramp",
+        "becomes": "P",
+        "rule": "This space becomes a ramp space."
+      },
+      "fire": {
+        "name": "Fire!",
+        "becomes": "F",
+        "rule": "This space becomes a fire! space."
+      },
+      "pit_trap": {
+        "name": "Pit Trap",
+        "becomes": "X",
+        "rule": "Roll the shooting die against the road vehicle that revealed the trap. If it's a hit, the vehicle is eliminated. Otherwise, it may continue moving if it has moves left. Pit Trap remains on the board and is treated as an impassable space."
+      }
     }
   },
-  "hazard_tokens": { "quake": null, "sand_worm": null, "desert_glass": null, "ramp": null, "fire": null, "pit_trap": null },
+  "hazard_tokens": {
+    "quake": null,
+    "sand_worm": null,
+    "desert_glass": null,
+    "ramp": null,
+    "fire": null,
+    "pit_trap": null
+  },
   "damage_tokens": {
     "_rule": "When you get one, resolve its effect. If your car was moving, it loses any remaining moves. A car with two damage is inoperable.",
-    "on_fire": { "count": null, "name": "On Fire", "rule": "Take an ON FIRE! token from the supply and place it on that car's dashboard. Then place the damage token face down." },
-    "ongoing_effect": { "count": null, "name": "Ongoing Effect", "rule": "Draw an ongoing effect card and place it face up in an available damage slot. Place the damage token face down on top of it. The card remains in effect until that damage token is repaired. When that damage is repaired, remove both the damage token and the ongoing effect card and place them in their respective discard piles." }
+    "on_fire": {
+      "count": null,
+      "name": "On Fire",
+      "rule": "Take an ON FIRE! token from the supply and place it on that car's dashboard. Then place the damage token face down."
+    },
+    "ongoing_effect": {
+      "count": null,
+      "name": "Ongoing Effect",
+      "rule": "Draw an ongoing effect card and place it face up in an available damage slot. Place the damage token face down on top of it. The card remains in effect until that damage token is repaired. When that damage is repaired, remove both the damage token and the ongoing effect card and place them in their respective discard piles."
+    }
   },
   "on_fire": {
     "rules": [
@@ -59,11 +135,29 @@
       "If a vehicle that is on fire becomes inoperable, remove the ON FIRE! token.",
       "A vehicle that is already on fire cannot take additional ON FIRE! tokens. If it would, ignore it."
     ],
-    "face_kinds": ["+1", "+2", "out", "eliminated"]
+    "face_kinds": [
+      "+1",
+      "+2",
+      "out",
+      "eliminated"
+    ]
   },
-  "dice": { "fire": null },
+  "dice": {
+    "fire": null
+  },
   "ongoing_effects": [
-    { "id": "transmission_failure", "name": "Transmission Failure", "text": "Before this car moves, set its movement die to 1. It cannot gain additional moves.", "source": "p4 example card" },
-    { "id": "shattered_windshield", "name": "Shattered Windshield", "text": null, "source": "p2 parts list, name only" }
-  ]
+    {
+      "id": "transmission_failure",
+      "name": "Transmission Failure",
+      "text": "Before this car moves, set its movement die to 1. It cannot gain additional moves.",
+      "source": "p4 example card"
+    },
+    {
+      "id": "shattered_windshield",
+      "name": "Shattered Windshield",
+      "text": null,
+      "source": "p2 parts list, name only"
+    }
+  ],
+  "_engine": "Implemented in src/game/trv/engine.ts (Setup.carnage; tests in tests/unit/trv/carnage.test.ts with test numbers). Until the _missing values are filled in, a game cannot start with the expansion."
 }

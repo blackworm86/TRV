@@ -7,6 +7,7 @@
 
 import base from '../../../data/trv/game_base.json';
 import shoppe from '../../../data/trv/choppe_shoppe.json';
+import carnageData from '../../../data/trv/carnage.json';
 import {
   createRng, roll, shuffle, applyPermutation, type RngState,
 } from '../../core/rng/rng';
@@ -16,9 +17,30 @@ import {
 /** Board-absolute directions: F is towards the lead tile, L towards row 0. */
 export type Dir = 'F' | 'FL' | 'FR' | 'B' | 'BL' | 'BR';
 export type Size = 'S' | 'M' | 'L';
-export type Terrain = 'R' | 'o' | 'M' | 'X';
-export type HazardType = 'mud' | 'road' | 'oil' | 'mine' | 'wreck';
-export type DamageType = 'shrapnel' | 'dazed' | 'dent' | 'skid' | 'blastoff';
+/** R road, o off-road, M mud, X impassable; Carnage at Devil's Run (CDR p3): G toxic goo, D desert glass, P ramp, F fire!, S salt flats. */
+export type Terrain = 'R' | 'o' | 'M' | 'X' | 'G' | 'D' | 'P' | 'F' | 'S';
+/** Base hazards, then those of Carnage at Devil's Run (CDR p3). */
+export type HazardType = 'mud' | 'road' | 'oil' | 'mine' | 'wreck'
+  | 'quake' | 'sand_worm' | 'desert_glass' | 'ramp' | 'fire' | 'pit_trap';
+/** Base damage, then the two of Carnage at Devil's Run (CDR p4). */
+export type DamageType = 'shrapnel' | 'dazed' | 'dent' | 'skid' | 'blastoff' | 'on_fire' | 'ongoing_effect';
+/** The faces of the fire die (CDR p3). */
+export type FireFace = '+1' | '+2' | 'out' | 'eliminated';
+/** The hazards that Carnage at Devil's Run adds to the pile. */
+export type CarnageHazard = 'quake' | 'sand_worm' | 'desert_glass' | 'ramp' | 'fire' | 'pit_trap';
+
+/**
+ * The numbers of Carnage at Devil's Run that the rulebook does not give (data/trv/carnage.json
+ * `_missing`): how many tokens of each kind, the fire die's faces, the ongoing effect deck. Read from
+ * the data file; a test can pass its own (Setup.carnage).
+ */
+export interface CarnageNumbers {
+  hazards: Record<CarnageHazard, number>;
+  damage: { on_fire: number; ongoing_effect: number };
+  fireDie: FireFace[];
+  /** The ongoing effect deck: one card id per card. */
+  ongoing: string[];
+}
 export type CommandId = 'airstrike' | 'nitro' | 'drift' | 'repair'
   | 'bump' | 'pain_transfer' | 'need_for_speed' | 'called_shot' | 'tinker' | 'show_time' | 'flamethrower';
 
@@ -41,7 +63,8 @@ export interface Leader {
 /** A board space. `c` counts from the rear edge of the rear tile (0..23). */
 export interface Pos { r: number; c: number }
 
-export interface DamageToken { type: DamageType; dir?: Dir }
+/** A damage token; `card`: the ongoing effect card under it (Carnage at Devil's Run, CDR p4). */
+export interface DamageToken { type: DamageType; dir?: Dir; card?: string }
 
 /** A road vehicle: a car or a wreck (a wreck is an inoperable small car with no owner). */
 export interface Vehicle {
@@ -64,6 +87,8 @@ export interface Vehicle {
   upgrade: string | null;
   /** How many times the upgrade's limited ability was used this game (dispensers). */
   uses: number;
+  /** Carries an ON FIRE! token (Carnage at Devil's Run, CDR p3); not damage. */
+  onFire?: boolean;
 }
 
 /** An upgrade card (Choppe Shoppe). `n` is the card's own number (see choppe_shoppe.json). */
@@ -138,7 +163,7 @@ export interface LogEntry { text: string; kind: 'info' | 'dice' | 'bad' | 'good'
 export interface Snapshot {
   board: TileRef[];
   finalTile: boolean;
-  vehicles: Pick<Vehicle, 'id' | 'owner' | 'size' | 'isWreck' | 'pos' | 'inStart' | 'status' | 'z'>[];
+  vehicles: Pick<Vehicle, 'id' | 'owner' | 'size' | 'isWreck' | 'pos' | 'inStart' | 'status' | 'z' | 'onFire'>[];
   hazards: [string, HazardOnBoard][];
   choppers: (Pos | null)[];
   activeCar: string | null;
@@ -151,7 +176,8 @@ export interface Snapshot {
  * Frames are presentation data: the rules never read them.
  */
 export interface Frame {
-  kind: 'log' | 'move' | 'roll' | 'slam' | 'shot' | 'damage' | 'elim' | 'reveal' | 'tile' | 'round' | 'chopper';
+  /** jump: a ramp jump from `from` to `at`; fire: `vehicleId` catches fire (`why` 'on') or the fire goes out ('out') (CDR p3). */
+  kind: 'log' | 'move' | 'roll' | 'slam' | 'shot' | 'damage' | 'elim' | 'reveal' | 'tile' | 'round' | 'chopper' | 'jump' | 'fire';
   text?: string;
   logKind?: LogEntry['kind'];
   vehicleId?: string;
@@ -206,6 +232,8 @@ export interface Game {
   dealUpgrades: boolean;
   /** Effects that last for the current turn. */
   fx: { bump: boolean; calledShot: boolean; slams: number };
+  /** Carnage at Devil's Run, when in play: its numbers, the ON FIRE! supply, the ongoing effect deck. */
+  carnage: { n: CarnageNumbers; fireTokens: number; deck: string[]; discard: string[] } | null;
 }
 
 export interface Setup {
@@ -218,6 +246,11 @@ export interface Setup {
   leaders?: boolean;
   /** Choppe Shoppe: draft three upgrade cards each and assign one to each car. */
   upgrades?: boolean;
+  /**
+   * Carnage at Devil's Run: true takes its numbers from data/trv/carnage.json (an error names what is
+   * still missing there); an object gives them directly (tests).
+   */
+  carnage?: boolean | CarnageNumbers;
 }
 
 type Gen<T> = Generator<Decision, T, number>;
@@ -268,9 +301,14 @@ export const DIR_NAME: Record<Dir, string> = {
 const SIZE_NAME: Record<Size, string> = { S: 'piccola', M: 'media', L: 'grande' };
 const HAZARD_NAME: Record<HazardType, string> = {
   mud: 'Fango', road: 'Strada', oil: 'Chiazza d\'olio', mine: 'Mina', wreck: 'Relitto',
+  quake: 'Terremoto', sand_worm: 'Verme delle sabbie', desert_glass: 'Vetro del deserto', ramp: 'Rampa', fire: 'Fuoco!', pit_trap: 'Trappola',
 };
 const DAMAGE_NAME: Record<DamageType, string> = {
   shrapnel: 'Schegge', dazed: 'Stordito', dent: 'Ammaccatura', skid: 'Sbandata', blastoff: 'Decollo',
+  on_fire: 'In fiamme', ongoing_effect: 'Effetto continuo',
+};
+const TERRAIN_NAME: Partial<Record<Terrain, string>> = {
+  G: 'melma tossica', D: 'vetro del deserto', P: 'rampa', F: 'fuoco', S: 'saline',
 };
 const COMMAND_NAME: Record<CommandId, string> = {
   airstrike: 'Attacco aereo', nitro: 'Nitro', drift: 'Drift', repair: 'Riparazione',
@@ -319,6 +357,11 @@ export function terrainAt(g: Game, p: Pos): Terrain {
   if (h && h.faceUp) {
     if (h.type === 'road' || h.type === 'oil') return 'R';
     if (h.type === 'mud') return 'M';
+    // Carnage at Devil's Run (CDR p3): these stay on the board and change the space.
+    if (h.type === 'desert_glass') return 'D';
+    if (h.type === 'ramp') return 'P';
+    if (h.type === 'fire') return 'F';
+    if (h.type === 'pit_trap') return 'X';
   }
   const t = g.board[Math.floor(p.c / TILE_COLS)];
   return tileDef(t).terrain[p.r][p.c % TILE_COLS] as Terrain;
@@ -382,7 +425,7 @@ export function snapshot(g: Game): Snapshot {
   return {
     board: g.board.map(t => ({ ...t })),
     finalTile: g.finalTile,
-    vehicles: g.vehicles.map(v => ({ id: v.id, owner: v.owner, size: v.size, isWreck: v.isWreck, pos: v.pos ? { ...v.pos } : null, inStart: v.inStart, status: v.status, z: v.z })),
+    vehicles: g.vehicles.map(v => ({ id: v.id, owner: v.owner, size: v.size, isWreck: v.isWreck, pos: v.pos ? { ...v.pos } : null, inStart: v.inStart, status: v.status, z: v.z, ...(v.onFire ? { onFire: true } : {}) })),
     hazards: [...g.hazards].map(([k, h]) => [k, { ...h }]),
     choppers: g.players.map(p => (p.chopper ? { ...p.chopper } : null)),
     activeCar: g.activeCar,
@@ -412,7 +455,12 @@ export function newGame(s: Setup): Game {
     hazards: new Map(), hazardPile: [], hazardDiscard: [], damagePile: [], round: 0, firstPlayer: 0,
     current: 0, roadDie: 0, winner: null, log: [], zTop: 0, activeCar: null, lastRoll: [], pendingDice: [], frames: [],
     tokenSupply: shoppe.command_tokens, dealLeaders: !!s.leaders, dealUpgrades: !!s.upgrades, fx: { bump: false, calledShot: false, slams: 0 },
+    carnage: null,
   };
+  if (s.carnage) {
+    const n = s.carnage === true ? carnageNumbers() : s.carnage;
+    g.carnage = { n, fireTokens: carnageData.components.on_fire_tokens, deck: shuffled(g, n.ongoing, 'ongoing-effects'), discard: [] };
+  }
   s.players.forEach((p, i) => {
     g.players.push({ id: i, name: p.name, color: p.color, dice: [], used: [], commandUsed: false, command: null, out: false, chopper: null,
       leader: null, tokens: 0, slots: {}, ...(p.crew ? { crew: p.crew } : {}) });
@@ -434,10 +482,13 @@ export function newGame(s: Setup): Game {
   // Hazard and damage tokens.
   const hz: HazardType[] = [];
   for (const [t, n] of Object.entries(base.hazard_tokens)) for (let i = 0; i < n; i++) hz.push(t as HazardType);
+  // Carnage at Devil's Run setup (CDR p2, steps 2-3): its hazard and damage tokens join the piles.
+  if (g.carnage) for (const [t, n] of Object.entries(g.carnage.n.hazards)) for (let i = 0; i < n; i++) hz.push(t as HazardType);
   g.hazardPile = shuffled(g, hz, 'hazards');
   for (const d of base.damage_tokens as { type: DamageType; dir?: Dir; count: number }[]) {
     for (let i = 0; i < d.count; i++) g.damagePile.push(d.dir ? { type: d.type, dir: d.dir } : { type: d.type });
   }
+  if (g.carnage) for (const [t, n] of Object.entries(g.carnage.n.damage)) for (let i = 0; i < n; i++) g.damagePile.push({ type: t as DamageType });
   for (let t = 0; t < 3; t++) placeHazards(g, t, t === 0 ? s.players.length : null);
   return g;
 }
@@ -486,6 +537,8 @@ function eliminate(g: Game, v: Vehicle, why: string, into?: Pos): void {
   v.status = 'elim';
   v.pos = null;
   v.inStart = false;
+  if (v.onFire) putOut(g, v);
+  for (const t of v.damage) discardCard(g, t);
   g.damagePile.push(...v.damage);
   v.damage = [];
   checkPlayers(g);
@@ -545,7 +598,11 @@ function advanceBoard(g: Game): void {
 
 // ---------------------------------------------------------------- entering a space
 
-interface MoveCtx { left: number; drift: boolean; driftUsed: boolean; /** Tank Treads: face-down hazards are not revealed. */ quiet?: boolean }
+interface MoveCtx {
+  left: number; drift: boolean; driftUsed: boolean;
+  /** Tank Treads: face-down hazards are not revealed. */ quiet?: boolean;
+  /** Salt flats entered: the road die is allowed this turn whatever the ground (CDR p3). */ salt?: boolean;
+}
 
 /** The terrain as a car feels it: mud counts as road with Deep Treads. */
 function groundFor(g: Game, v: Vehicle, p: Pos): Terrain {
@@ -561,7 +618,7 @@ const spaceOption = (q: Pos): Option => ({ label: `Casella ${q.r + 1}-${q.c + 1}
  * A road vehicle enters a space, by moving, slam or damage (pp. 7, 9, 11).
  * Returns true when the vehicle loses its remaining moves.
  */
-function* enter(g: Game, v: Vehicle, to: Pos, ctx: MoveCtx | null): Gen<boolean> {
+function* enter(g: Game, v: Vehicle, to: Pos, ctx: MoveCtx | null, dir?: Dir): Gen<boolean> {
   if (g.winner !== null) return true;
   if (to.c >= COLS && to.r >= 0 && to.r < ROWS) {
     if (v.isWreck) { eliminate(g, v, 'è uscito dal fronte'); return true; }
@@ -607,9 +664,51 @@ function* enter(g: Game, v: Vehicle, to: Pos, ctx: MoveCtx | null): Gen<boolean>
     } else if (h.type === 'oil') {
       const d = rollFx(g, 'direction', 'oil-slick');
       say(g, `Olio! Dado direzione: ${DIR_NAME[d]}.`, 'dice');
-      return yield* enter(g, v, neighbor(to, d), ctx);
+      return yield* enter(g, v, neighbor(to, d), ctx, d);
+    } else if (h.type === 'quake') {
+      g.hazards.delete(k); g.hazardDiscard.push('quake');
+      yield* quake(g);
+      if ((v.status as Vehicle['status']) !== 'ok' || !samePos(v.pos, to)) return true;
+    } else if (h.type === 'sand_worm') {
+      g.hazards.delete(k); g.hazardDiscard.push('sand_worm');
+      sandWorm(g);
+      if ((v.status as Vehicle['status']) === 'elim') return true;
+    } else if (h.type === 'pit_trap') {
+      // CDR p3: the shooting die against the vehicle that revealed it; a hit eliminates it.
+      // The token stays and the space is impassable from now on.
+      const f = rollFx(g, 'shooting', 'pit-trap');
+      const hit = f === 'ANY' || f === v.size || (f === 'SM' && (v.size === 'S' || v.size === 'M'));
+      say(g, `Trappola: dado sparo ${f} — ${hit ? 'presa!' : 'scampata.'}`, 'dice');
+      if (hit) { eliminate(g, v, 'è caduta nella trappola', to); return true; }
+      return false;
     }
   }
+  // Carnage at Devil's Run terrain (CDR p3), as the space is now (a revealed hazard may have changed it).
+  const ground = terrainAt(g, to);
+  if (ground === 'G') {
+    say(g, `${capital(carName(g, v))} finisce nella melma tossica: si ferma.`, 'info');
+    if (vehiclesAt(g, to).length > 1) yield* slam(g, to);
+    return true;
+  }
+  if (ground === 'D' && dir) {
+    say(g, `Vetro del deserto: ${carName(g, v)} scivola di una casella ${DIR_NAME[dir]}.`, 'info');
+    return yield* enter(g, v, neighbor(to, dir), ctx, dir);
+  }
+  if (ground === 'P') {
+    // Only from the space directly behind (taken as moving forward onto it: ramps face the
+    // lead tile, provisional until the tiles are known), else the vehicle is eliminated.
+    if (dir !== 'F') { eliminate(g, v, 'è entrata nella rampa di traverso', to); return true; }
+    const n = rollFx(g, 'stunt', 'ramp');
+    say(g, `Rampa! Dado acrobazia ${n}: salta ${n} caselle in avanti.`, 'dice');
+    let land = to;
+    for (let i = 0; i < n; i++) land = neighbor(land, 'F');
+    beat(g, 'jump', { vehicleId: v.id, from: { ...to }, at: { ...land } });
+    if (ctx) ctx.left = 0;
+    yield* enter(g, v, land, null, 'F');
+    return true;
+  }
+  if (ground === 'F') catchFire(g, v);
+  if (ground === 'S' && ctx) { ctx.salt = true; say(g, 'Saline: il dado strada si può usare in questo turno.', 'info'); }
   // Snowplow: a wreck or an inoperable vehicle in the way is pushed aside, and the car goes on.
   const others = vehiclesAt(g, to).filter(x => x !== v);
   if (ctx && up(v, 'snowplow') && others.length === 1 && (others[0].isWreck || others[0].status === 'inop')) {
@@ -709,11 +808,11 @@ function* slam(g: Game, at: Pos): Gen<void> {
       }
     }
     const other = affected === top ? bottom : top;
-    yield* enter(g, affected, dest, null);
+    yield* enter(g, affected, dest, null, d);
     // Assault Bumper: the car it moved in a slam goes one extra space in the same direction.
     if (up(other, 'assault_bumper') && !affected.isWreck && affected.status !== 'elim' && samePos(affected.pos, dest) && g.winner === null) {
       say(g, 'Assault Bumper: una casella in più nella stessa direzione.', 'info');
-      yield* enter(g, affected, neighbor(dest, d), null);
+      yield* enter(g, affected, neighbor(dest, d), null, d);
     }
   }
 }
@@ -756,6 +855,7 @@ function* damage(g: Game, v: Vehicle): Gen<void> {
 function* breakDown(g: Game, v: Vehicle): Gen<void> {
   const button = up(v, 'big_red_button');
   v.status = 'inop';
+  if (v.onFire) putOut(g, v); // CDR p3: an inoperable vehicle loses its ON FIRE! token
   say(g, `${capital(carName(g, v))} è fuori uso (girata all'indietro).`, 'bad');
   if (button && v.pos && g.winner === null) {
     const i = yield* ask({
@@ -796,7 +896,7 @@ function* damageEffect(g: Game, v: Vehicle, t: DamageToken): Gen<void> {
     case 'skid': {
       const d = t.dir ?? 'F';
       say(g, `Sbandata: 1 casella ${DIR_NAME[d]}.`);
-      yield* enter(g, v, neighbor(v.pos, d), null);
+      yield* enter(g, v, neighbor(v.pos, d), null, d);
       return;
     }
     case 'dazed': {
@@ -808,8 +908,21 @@ function* damageEffect(g: Game, v: Vehicle, t: DamageToken): Gen<void> {
         const to = neighbor(v.pos, d);
         say(g, `Stordito: verso ${DIR_NAME[d]}.`, 'dice');
         ctx.left = Math.max(0, ctx.left - (onBoard(to) && terrainAt(g, to) === 'M' ? 2 : 1));
-        if (yield* enter(g, v, to, ctx)) break;
+        if (yield* enter(g, v, to, ctx, d)) break;
       }
+      return;
+    }
+    case 'on_fire':
+      // CDR p4: an ON FIRE! token from the supply; the damage token stays, face down.
+      catchFire(g, v);
+      return;
+    case 'ongoing_effect': {
+      // CDR p4: a card from the ongoing effect deck under the token, in effect until it is repaired.
+      const c = g.carnage;
+      if (!c) return;
+      if (!c.deck.length && c.discard.length) { c.deck = shuffled(g, c.discard, 'ongoing-effects'); c.discard = []; }
+      const card = c.deck.shift();
+      if (card) { t.card = card; say(g, `Effetto continuo: ${ongoingName(card)}.`, 'bad'); }
       return;
     }
     case 'blastoff': {
@@ -818,11 +931,161 @@ function* damageEffect(g: Game, v: Vehicle, t: DamageToken): Gen<void> {
       say(g, `Decollo: ${n} caselle verso ${DIR_NAME[d]}.`, 'dice');
       let p = v.pos;
       for (let i = 0; i < n; i++) p = neighbor(p, d);
-      yield* enter(g, v, p, null);
+      yield* enter(g, v, p, null, d);
       return;
     }
   }
 }
+
+// ---------------------------------------------------------------- Carnage at Devil's Run
+
+/**
+ * The expansion's numbers from data/trv/carnage.json. Throws, naming them, while some are still
+ * missing there (the rulebook does not give them: see the file's `_missing`).
+ */
+export function carnageNumbers(): CarnageNumbers {
+  const d = carnageData as unknown as {
+    hazard_tokens: Record<CarnageHazard, number | null>;
+    damage_tokens: { on_fire: { count: number | null }; ongoing_effect: { count: number | null } };
+    dice: { fire: FireFace[] | null };
+    components: { ongoing_effect_cards: number };
+    ongoing_effects: { id: string; text: string | null; count?: number }[];
+  };
+  const missing: string[] = [];
+  for (const [k, n] of Object.entries(d.hazard_tokens)) if (typeof n !== 'number') missing.push(`hazard_tokens.${k}`);
+  if (typeof d.damage_tokens.on_fire.count !== 'number') missing.push('damage_tokens.on_fire.count');
+  if (typeof d.damage_tokens.ongoing_effect.count !== 'number') missing.push('damage_tokens.ongoing_effect.count');
+  if (!d.dice.fire || d.dice.fire.length !== 6) missing.push('dice.fire');
+  const deck = d.ongoing_effects.flatMap(c => Array.from({ length: c.count ?? 1 }, () => c.id));
+  if (deck.length !== d.components.ongoing_effect_cards || d.ongoing_effects.some(c => !c.text)) missing.push('ongoing_effects');
+  if (missing.length) throw new Error(`Carnage at Devil's Run: missing data in carnage.json: ${missing.join(', ')}`);
+  return {
+    hazards: d.hazard_tokens as Record<CarnageHazard, number>,
+    damage: { on_fire: d.damage_tokens.on_fire.count!, ongoing_effect: d.damage_tokens.ongoing_effect.count! },
+    fireDie: d.dice.fire!, ongoing: deck,
+  };
+}
+
+/** The name of an ongoing effect card (its id when the data does not name it). */
+export function ongoingName(id: string): string {
+  return (carnageData.ongoing_effects as { id: string; name: string }[]).find(c => c.id === id)?.name ?? id;
+}
+
+/** Whether ongoing effect card `id` lies under one of the car's damage tokens (CDR p4). */
+function hasOngoing(v: Vehicle, id: string): boolean {
+  return v.damage.some(t => t.card === id);
+}
+
+/** A damage token leaves the car: its ongoing effect card goes to the discard pile (CDR p4). */
+function discardCard(g: Game, t: DamageToken): void {
+  if (!t.card) return;
+  g.carnage?.discard.push(t.card);
+  delete t.card;
+}
+
+/** Rolls the fire die (CDR p3), from the faces in the expansion's numbers. */
+function rollFire(g: Game): FireFace {
+  const faces = g.carnage!.n.fireDie;
+  const [f] = rollDice(g, [{ id: 'fire', n: faces.length }], 'fire');
+  const rolled = { die: 'fire', face: f, value: faces[f] };
+  g.lastRoll.push(rolled);
+  g.pendingDice.push(rolled);
+  beat(g, 'roll', { die: rolled });
+  return faces[f];
+}
+
+/**
+ * A vehicle catches fire (CDR p3): an ON FIRE! token from the supply. A car already on fire, an
+ * inoperable one (it would lose the token at once) or a wreck takes none; nor any when the supply is empty.
+ */
+function catchFire(g: Game, v: Vehicle): void {
+  const c = g.carnage;
+  if (!c || v.onFire || v.status !== 'ok' || v.isWreck) return;
+  if (c.fireTokens <= 0) { say(g, 'Nessun segnalino ON FIRE! rimasto.', 'info'); return; }
+  c.fireTokens--;
+  v.onFire = true;
+  beat(g, 'fire', { vehicleId: v.id, why: 'on', ...(v.pos ? { at: { ...v.pos } } : {}) });
+  say(g, `${capital(carName(g, v))} prende fuoco!`, 'bad');
+}
+
+/** The fire goes out: the ON FIRE! token back to the supply. */
+function putOut(g: Game, v: Vehicle): void {
+  if (!v.onFire) return;
+  v.onFire = false;
+  if (g.carnage) g.carnage.fireTokens++;
+  beat(g, 'fire', { vehicleId: v.id, why: 'out', ...(v.pos ? { at: { ...v.pos } } : {}) });
+}
+
+/**
+ * Carnage at Devil's Run, just before a car moves: Transmission Failure (CDR p4) sets the move to 1
+ * and bars more moves; a car ON FIRE! rolls the fire die (CDR p3): +1/+2 moves that must all be
+ * made, the fire goes out, or the car is eliminated.
+ */
+function beforeMove(g: Game, car: Vehicle, mv: { moves: number }): { fixed: boolean; mustMoveAll: boolean } {
+  const fixed = hasOngoing(car, 'transmission_failure');
+  if (fixed) { mv.moves = 1; say(g, 'Transmission Failure: il dado movimento vale 1.', 'bad'); }
+  let mustMoveAll = false;
+  if (car.onFire && g.carnage && g.winner === null && car.status === 'ok') {
+    const f = rollFire(g);
+    if (f === '+1' || f === '+2') {
+      if (fixed) say(g, `Dado fuoco ${f}: Transmission Failure, nessun movimento in più.`, 'dice');
+      else { mv.moves += Number(f); mustMoveAll = true; say(g, `Dado fuoco ${f}: ${mv.moves} movimenti, da fare tutti.`, 'dice'); }
+    } else if (f === 'out') { putOut(g, car); say(g, 'Dado fuoco: il fuoco si spegne.', 'dice'); }
+    else { say(g, 'Dado fuoco: teschio!', 'dice'); eliminate(g, car, 'è bruciata'); }
+  }
+  return { fixed, mustMoveAll };
+}
+
+/** The road vehicles on the board (not in the starting area). */
+const onRoad = (g: Game): Vehicle[] => g.vehicles.filter(v => v.status !== 'elim' && v.pos && !v.inStart);
+
+/**
+ * Quake (CDR p3): the direction die, then every road vehicle one space that way, at the same time.
+ * Provisional, to confirm with the rules owner: a vehicle pushed off the sides or the back, or onto
+ * an impassable space, is eliminated as in a move; one pushed past the front edge stays put; the
+ * spaces they land on do not reveal hazards or apply terrain; vehicles that end on the same space slam.
+ */
+function* quake(g: Game): Gen<void> {
+  const d = rollFx(g, 'direction', 'quake');
+  say(g, `Terremoto! Tutti i veicoli si spostano di una casella ${DIR_NAME[d]}.`, 'dice');
+  const moves = onRoad(g).map(v => ({ v, to: neighbor(v.pos!, d) }));
+  for (const { v, to } of moves) {
+    if (to.c >= COLS && to.r >= 0 && to.r < ROWS) continue;
+    if (!onBoard(to)) { eliminate(g, v, 'è uscita dalla strada nel terremoto', to); continue; }
+    if (terrainAt(g, to) === 'X') { eliminate(g, v, 'è finita su una casella invalicabile nel terremoto', to); continue; }
+    v.pos = { ...to };
+    beat(g, 'move', { vehicleId: v.id, at: { ...to } });
+  }
+  const crowded = new Set(onRoad(g).filter(v => vehiclesAt(g, v.pos!).length > 1).map(v => key(v.pos!)));
+  for (const k of crowded) {
+    const [r, c] = k.split(',').map(Number);
+    yield* slam(g, { r, c });
+  }
+}
+
+/**
+ * Sand Worm (CDR p3): the road vehicle farthest back on the board is eliminated, all of them when
+ * tied. Odd rows sit half a space forward (game_base.json), so they count half a column more.
+ */
+function sandWorm(g: Game): void {
+  const back = (v: Vehicle): number => v.pos!.c + (v.pos!.r % 2 ? 0.5 : 0);
+  const road = onRoad(g);
+  if (!road.length) return;
+  const last = Math.min(...road.map(back));
+  say(g, 'Verme delle sabbie!', 'bad');
+  for (const v of road.filter(x => back(x) === last)) eliminate(g, v, 'è stata inghiottita dal verme delle sabbie');
+}
+
+/** Internals for unit tests only: moving into a space and taking damage, outside a whole game. */
+export const __test = {
+  /** Enters `to` going `dir`; `ctx` carries the moves left (and says whether salt flats were crossed). */
+  enter: (g: Game, v: Vehicle, to: Pos, ctx: { left: number; salt?: boolean }, dir?: Dir): Gen<boolean> =>
+    enter(g, v, to, Object.assign(ctx, { drift: false, driftUsed: false }) as MoveCtx, dir),
+  /** Damages `v` with exactly token `t`. */
+  damageWith: (g: Game, v: Vehicle, t: DamageToken): Gen<void> => { g.damagePile = [t]; return damage(g, v); },
+  beforeMove,
+  repair,
+};
 
 // ---------------------------------------------------------------- shooting
 
@@ -931,7 +1194,11 @@ const canRepair = (g: Game, p: Player): boolean =>
 
 // ---------------------------------------------------------------- the turn
 
-function* moveCar(g: Game, car: Vehicle, moves: number, drift: boolean, coast: boolean, die: number): Gen<void> {
+/**
+ * A car's movement. `fixed`: the car cannot gain more moves (Transmission Failure: no road die)
+ * and must move them all (fire die bonus, CDR p3: "You must move the full amount").
+ */
+function* moveCar(g: Game, car: Vehicle, moves: number, drift: boolean, coast: boolean, die: number, fixed = false, mustMoveAll = false): Gen<void> {
   // Tank Treads: with an assigned die of 3 or less, face-down hazards on the way are not revealed.
   const ctx: MoveCtx = { left: moves, drift, driftUsed: false, quiet: up(car, 'tank_treads') && die <= upN('tank_treads') };
   // Road die (p. 9): the car must start and move only on road. Leaving the starting area counts
@@ -950,10 +1217,12 @@ function* moveCar(g: Game, car: Vehicle, moves: number, drift: boolean, coast: b
         ? Array.from({ length: ROWS }, (_, r) => ({ r, c: 0 }))
         : frontArc(car.pos);
       const start = car.inStart || !car.pos;
+      // The way each step goes: out of the starting area straight on, then the front arc.
+      const dirs: Dir[] = start ? targets.map(() => 'F') : ['FL', 'F', 'FR'];
       targets.forEach((to, k) => opts.push(stepOption(g, car, to, ctx.left,
-        start ? `Corsia ${to.r + 1}` : ['Avanti-sinistra', 'Avanti', 'Avanti-destra'][k])));
-      // Skull Shift Knob: the car does not have to use all of its moves.
-      if (!start && up(car, 'skull_shift_knob')) opts.push({ label: 'Fermati qui' });
+        start ? `Corsia ${to.r + 1}` : ['Avanti-sinistra', 'Avanti', 'Avanti-destra'][k], dirs[k])));
+      // Skull Shift Knob: the car does not have to use all of its moves (unless the fire die says so).
+      if (!start && up(car, 'skull_shift_knob') && !mustMoveAll) opts.push({ label: 'Fermati qui' });
       const i = yield* ask({
         kind: 'step', player: car.owner!,
         prompt: `${g.players[car.owner!].name}: muovi ${carName(g, car)} — ${ctx.left} ${ctx.left === 1 ? 'movimento' : 'movimenti'} rimasti.`,
@@ -969,9 +1238,9 @@ function* moveCar(g: Game, car: Vehicle, moves: number, drift: boolean, coast: b
       const t = onBoard(to) ? groundFor(g, car, to) : to.c >= COLS ? 'R' : 'o';
       if (t !== 'R') onlyRoad = false;
       ctx.left = Math.max(0, ctx.left - (t === 'M' ? 2 : 1));
-      if (yield* enter(g, car, to, ctx)) { stopped = true; ctx.left = 0; }
+      if (yield* enter(g, car, to, ctx, dirs[i])) { stopped = true; ctx.left = 0; }
     }
-    if (anywhere) onlyRoad = true;
+    if (anywhere || ctx.salt) onlyRoad = true;
     if (!stopped && !bonusUsed && car.status === 'ok' && !onlyRoad && g.winner === null) {
       say(g, startedOff
         ? 'Niente dado strada: l’auto non è partita da una casella di strada.'
@@ -979,6 +1248,7 @@ function* moveCar(g: Game, car: Vehicle, moves: number, drift: boolean, coast: b
     }
     if (stopped || bonusUsed || car.status !== 'ok' || !onlyRoad || g.winner !== null) break;
     bonusUsed = true;
+    if (fixed) { say(g, 'Transmission Failure: niente dado strada, l’auto non può guadagnare movimenti.', 'info'); break; }
     const i = yield* ask({
       kind: 'roadDie', player: car.owner!,
       prompt: `${anywhere ? 'Off-Road Suspension' : 'Sempre su strada'}! Usare il dado strada (+${roadDie})? Se lo usi devi muovere tutto.`,
@@ -996,14 +1266,15 @@ function* moveCar(g: Game, car: Vehicle, moves: number, drift: boolean, coast: b
   if (!stopped && car.pos && vehiclesAt(g, car.pos).length > 1) yield* slam(g, car.pos);
 }
 
-function stepOption(g: Game, car: Vehicle, to: Pos, left: number, name: string): Option {
+function stepOption(g: Game, car: Vehicle, to: Pos, left: number, name: string, dir: Dir = 'F'): Option {
   if (to.c >= COLS && to.r >= 0 && to.r < ROWS) {
     return { label: `${name}: ${g.finalTile ? 'TRAGUARDO!' : 'nuova tessera'}`, pos: to };
   }
   if (!onBoard(to)) return { label: `${name}: fuori dal bordo (eliminata)`, pos: to, danger: true };
   const t = groundFor(g, car, to);
   if (t === 'X') return { label: `${name}: invalicabile (eliminata)`, pos: to, danger: true };
-  const parts = [t === 'R' ? 'strada' : t === 'M' ? (left === 1 ? 'fango (ultimo movimento)' : 'fango, costa 2') : 'fuoristrada'];
+  if (t === 'P' && dir !== 'F') return { label: `${name}: rampa di traverso (eliminata)`, pos: to, danger: true };
+  const parts = [t === 'R' ? 'strada' : t === 'M' ? (left === 1 ? 'fango (ultimo movimento)' : 'fango, costa 2') : TERRAIN_NAME[t] ?? 'fuoristrada'];
   const h = g.hazards.get(key(to));
   if (h) parts.push(h.faceUp ? HAZARD_NAME[h.type] : 'pericolo coperto');
   if (vehiclesAt(g, to).length) parts.push('SLAM');
@@ -1089,11 +1360,12 @@ function* turn(g: Game, p: Player): Gen<void> {
   }
   // Boost Switch: the car gains +1 move.
   if (up(car, 'boost_switch')) { mv.moves += upN('boost_switch'); say(g, `Boost Switch: +${upN('boost_switch')} movimento.`, 'good'); }
+  const { fixed, mustMoveAll } = beforeMove(g, car, mv);
   const { moves, drift } = mv;
 
   if (g.winner === null && car.status === 'ok') {
     say(g, `${p.name} muove ${carName(g, car)} di ${moves}${a.coast ? ' (inerzia)' : ''}.`, 'info');
-    yield* moveCar(g, car, moves, drift, a.coast, p.dice[a.die]);
+    yield* moveCar(g, car, moves, drift, a.coast, p.dice[a.die], fixed, mustMoveAll);
   }
   if (a.coast) car.coasts++; else car.moved = true;
   // Oil Dispenser, Mine Dispenser: after the move, a hazard in an adjacent empty space (three times per game).
@@ -1195,7 +1467,9 @@ function* repair(g: Game, p: Player): Gen<void> {
     options: cars.map(c => ({ label: `Auto ${SIZE_NAME[c.size]} (${c.damage.length} danni)`, carId: c.id, ...(c.pos ? { pos: c.pos } : {}) })),
   });
   const c = cars[i];
-  g.damagePile.push(c.damage.pop()!);
+  const fixedToken = c.damage.pop()!;
+  discardCard(g, fixedToken); // CDR p4: its ongoing effect card goes to the discard pile too
+  g.damagePile.push(fixedToken);
   if (c.status === 'inop' && c.damage.length < limit(c)) { c.status = 'ok'; say(g, `${capital(carName(g, c))} torna operativa!`, 'good'); }
   else say(g, `${capital(carName(g, c))} è riparata.`, 'good');
 }
