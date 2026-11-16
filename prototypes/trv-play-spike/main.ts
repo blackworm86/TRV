@@ -908,6 +908,32 @@ function setChase(id: string | null): void {
   else fit();
   drawHud();
 }
+/**
+ * A button on each of the player's dashboards (top right corner) for the view from behind that
+ * car; on the car being followed it brings the map back. Only the button does it (asked by the
+ * user, 2026-11-16): the rest of the dashboard keeps its own clicks (dice, repairs, cards).
+ */
+function chaseButtons(): void {
+  const strip = $('strip');
+  strip.querySelectorAll('.chasebtn').forEach(b => b.remove());
+  const box = strip.getBoundingClientRect();
+  for (const el of strip.querySelectorAll<SVGElement>('[data-car]')) {
+    const id = el.dataset.car!;
+    const v = g?.vehicles.find(x => x.id === id);
+    if (!v || v.status === 'elim' || !carObjs.has(id)) continue;
+    const r = el.getBoundingClientRect();
+    const b = document.createElement('button');
+    b.className = `chasebtn${chase === id ? ' on' : ''}`;
+    b.title = chase === id ? 'Torna alla vista della mappa (V)' : 'Vista alle spalle di questa auto';
+    b.innerHTML = chase === id ? '✕ Mappa' : '🎥 Vista auto';
+    b.style.left = `${r.right - box.left - 8}px`;
+    b.style.top = `${r.top - box.top + 8}px`;
+    b.addEventListener('click', e => { e.stopPropagation(); setChase(id); });
+    strip.append(b);
+  }
+}
+addEventListener('resize', () => requestAnimationFrame(chaseButtons));
+
 /** One frame of the chase view; false when there is none (or its car is gone). */
 function chaseCamera(dt: number): boolean {
   if (!chase) return false;
@@ -1525,13 +1551,7 @@ function drawHud(): void {
       if (i >= 0) { el.classList.add('hotzone'); el.addEventListener('click', () => choose(i)); }
     }
   }
-  for (const el of document.querySelectorAll<SVGElement>('#strip [data-car]')) {
-    el.addEventListener('click', e => {
-      if (d?.kind === 'repair' || d?.kind === 'upgradeAssign') return; // the click picks the car
-      if ((e.target as Element).closest('[data-drop].hotzone')) return; // the click places a die
-      setChase(el.dataset.car!); // the view from behind this car; a second click brings the map back
-    });
-  }
+  chaseButtons();
   // Upgrade cards: a car takes the selected card (the cards can also be dragged onto it).
   if (d?.kind === 'upgradeAssign') {
     for (const el of document.querySelectorAll<SVGElement>('#strip [data-car]')) {
@@ -1625,22 +1645,50 @@ function syncTableDice(me: Player, mine: boolean): void {
   tableDiceState = { used: [...me.used], idle: me.dice.map((_, i) => !mine || !dieUsable(i)) };
 }
 
+/**
+ * In the chase view the dice leave the table and follow the view (asked by the user): they float
+ * in a row just above the boards, `dist` world units in front of the camera, drawn over everything,
+ * the same size and faces as on the table in the map view, so they can still be dragged.
+ */
+const CHASE_DICE = { dist: 2.2, above: 56 };
+/** The camera's turn in the map view, against which the dice's resting faces are set. */
+const mapViewTurn = (() => {
+  const c = new THREE.PerspectiveCamera();
+  c.position.set(0, 1, 0.55);
+  c.lookAt(0, 0, 0);
+  return c.quaternion.clone().invert();
+})();
+/** Moves die `t` (index `i` of `n`) into the chase view's row. */
+function chaseDie(t: TableMyDie, i: number, n: number): void {
+  const k = CHASE_DICE.dist / fitDist; // same size on screen as on the table seen from the map view
+  const step = DIE_W * TRAY_SCALE * 1.55 / (fitDist * Math.tan(THREE.MathUtils.degToRad(camera.fov / 2)) * camera.aspect);
+  const y = innerHeight - cssPx('--bottom') - CHASE_DICE.above;
+  const ndc = new THREE.Vector3((i - (n - 1) / 2) * step, 1 - 2 * y / innerHeight, 0.5).unproject(camera);
+  t.d.mesh.position.copy(camera.position).addScaledVector(ndc.sub(camera.position).normalize(), CHASE_DICE.dist);
+  t.d.mesh.quaternion.copy(camera.quaternion).multiply(mapViewTurn).multiply(t.q);
+  t.d.mesh.scale.setScalar(TRAY_SCALE * k);
+}
+
 /** Each frame: used dice fade, the selected die lifts and sways, the one being dragged dims. */
 function animTableDice(now: number): void {
+  const floating = !!chase;
   tableDice.forEach((t, i) => {
     const sel = selDie === i && !tableDiceState.used[i];
-    t.d.mesh.position.copy(t.base);
-    t.d.mesh.quaternion.copy(t.q);
+    if (floating) chaseDie(t, i, tableDice.length);
+    else { t.d.mesh.position.copy(t.base); t.d.mesh.quaternion.copy(t.q); t.d.mesh.scale.setScalar(TRAY_SCALE); }
+    t.d.mesh.renderOrder = floating ? 20 : 0;
+    t.d.mesh.castShadow = !floating;
     if (sel) {
-      t.d.mesh.position.y += DIE_W * TRAY_SCALE * (0.45 + 0.08 * Math.sin(now * 5));
+      const lift = DIE_W * TRAY_SCALE * (0.45 + 0.08 * Math.sin(now * 5)) * (floating ? CHASE_DICE.dist / fitDist : 1);
+      t.d.mesh.position.addScaledVector(floating ? new THREE.Vector3(0, 1, 0).applyQuaternion(camera.quaternion) : new THREE.Vector3(0, 1, 0), lift);
       t.d.mesh.quaternion.premultiply(new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 1, 0), Math.sin(now * 3) * 0.3));
     }
-    // The dice still to play glow, pulsing, so the player sees they must be played.
+    // The dice still to play glow, pulsing, so the player sees they must be played (on the table only).
     const live = !tableDiceState.used[i] && !tableDiceState.idle[i];
-    t.glow.visible = live;
+    t.glow.visible = live && !floating;
     if (live) (t.glow.material as THREE.MeshBasicMaterial).opacity = 0.55 + 0.35 * Math.sin(now * 4 + i * 0.6);
     const fade = tableDiceState.used[i] ? 0.2 : drag?.moved && drag.die === i ? 0.35 : 1;
-    for (const m of t.d.mesh.material as THREE.MeshStandardMaterial[]) { m.transparent = fade < 1; m.opacity = fade; }
+    for (const m of t.d.mesh.material as THREE.MeshStandardMaterial[]) { m.transparent = fade < 1; m.opacity = fade; m.depthTest = !floating; }
   });
 }
 
@@ -1985,15 +2033,63 @@ for (let i = 0; i < 4; i++) {
   name.value = CAT.crews[i].name;
   name.after(sel);
 }
+/**
+ * Shows the rows for the number of players and keeps every colour to one player: a colour taken
+ * by another row cannot be picked; a row that appears with a taken colour gets the first free one.
+ */
 function syncNames(): void {
   const n = Number(($('np') as HTMLSelectElement).value);
   for (let i = 0; i < 4; i++) {
     ($(`n${i}`) as HTMLInputElement).style.display = i < n ? '' : 'none';
     crewSelects[i].style.display = i < n ? '' : 'none';
   }
+  for (let i = 0; i < n; i++) {
+    const before = crewSelects.slice(0, i).map(x => x.value);
+    if (before.includes(crewSelects[i].value)) setCrew(i, CAT.crews.find(c => !before.includes(c.id) && !crewSelects.slice(i + 1, n).some(x => x.value === c.id))!.id);
+  }
+  for (let i = 0; i < 4; i++) {
+    const taken = new Set(crewSelects.slice(0, n).filter((_, j) => j !== i).map(x => x.value));
+    for (const o of crewSelects[i].options) o.disabled = taken.has(o.value);
+  }
 }
+/** Gives row `i` crew `id`; a name still equal to the old colour's name follows the new colour. */
+function setCrew(i: number, id: string): void {
+  const sel = crewSelects[i], name = $(`n${i}`) as HTMLInputElement;
+  const old = CAT.crews.find(c => c.id === sel.value);
+  sel.value = id;
+  if (!name.value.trim() || name.value === old?.name) name.value = CAT.crews.find(c => c.id === id)!.name;
+}
+crewSelects.forEach((sel, i) => {
+  let prev = sel.value;
+  sel.addEventListener('change', () => { const now = sel.value; sel.value = prev; setCrew(i, now); prev = now; syncNames(); });
+  sel.addEventListener('focus', () => { prev = sel.value; });
+});
 $('np').onchange = syncNames;
 syncNames();
+
+// ---------------------------------------------------------------- first screen
+// A menu of three choices (hot seat, create online, join online), each opening its pane.
+
+type Pane = 'pMain' | 'pHot' | 'pCreate' | 'pJoin';
+function showPane(id: Pane): void {
+  for (const el of document.querySelectorAll<HTMLElement>('#setup .pane')) el.classList.toggle('on', el.id === id);
+  $('oerr').textContent = '';
+  const resumable = !!g && g.winner === null && !net;
+  $('mResume').style.display = id === 'pMain' && resumable ? '' : 'none';
+  if (id === 'pCreate') ($('oname') as HTMLInputElement).focus();
+  if (id === 'pJoin') (($('jname') as HTMLInputElement).value ? $('ocode') : $('jname')).focus();
+}
+/** Opens the first screen on `pane` (the menu by default). */
+function openSetup(pane: Pane = 'pMain'): void {
+  closePops();
+  $('setup').style.display = 'grid';
+  showPane(pane);
+}
+$('mHot').onclick = () => showPane('pHot');
+$('mCreate').onclick = () => showPane('pCreate');
+$('mJoin').onclick = () => showPane('pJoin');
+$('mResume').onclick = () => { $('setup').style.display = 'none'; };
+for (const b of document.querySelectorAll<HTMLElement>('#setup [data-back]')) b.onclick = () => showPane('pMain');
 /** Takes the pieces of the last match off the table, before a new one is set up. */
 function clearTable(): void {
   for (const o of carObjs.values()) scene.remove(o);
@@ -2006,16 +2102,15 @@ function clearTable(): void {
 }
 $('undo').onclick = () => { closePops(); undo(); };
 /** Online, "new game" is the host's call, from the room's card. */
-function newGameScreen(): void { if (net) { net.lobbyOpen = true; drawLobby(); } else $('setup').style.display = 'grid'; }
+function newGameScreen(): void { if (net) { net.lobbyOpen = true; drawLobby(); } else openSetup(); }
 $('newgame').onclick = () => { closePops(); newGameScreen(); };
 $('roomopen').onclick = () => { closePops(); if (net) { net.lobbyOpen = true; drawLobby(); } };
 $('quit').onclick = () => {
   closePops();
   if (net) { exitRoom(); return; } // the seat is kept: the invite link brings this player back
-  if (g && g.winner === null && !confirm('Uscire dalla partita? Potrai riprenderla dal menu iniziale solo se non ne inizi un’altra.')) return;
-  $('setup').style.display = 'grid';
+  openSetup(); // the game stays: "Torna alla partita" resumes it
 };
-$('again').onclick = () => { $('win').style.display = 'none'; if (net) { net.lobbyOpen = true; drawLobby(); } else $('setup').style.display = 'grid'; };
+$('again').onclick = () => { $('win').style.display = 'none'; if (net) { net.lobbyOpen = true; drawLobby(); } else openSetup(); };
 $('close').onclick = () => { $('win').style.display = 'none'; };
 $('start').onclick = () => {
   const n = Number(($('np') as HTMLSelectElement).value);
@@ -2101,7 +2196,7 @@ function exitRoom(why = ''): void {
   u.searchParams.delete('room');
   history.replaceState(null, '', u.toString());
   drawLobby();
-  $('setup').style.display = 'grid';
+  openSetup();
   $('oerr').textContent = why;
   render();
 }
@@ -2224,24 +2319,25 @@ $('lleave').onclick = () => {
   exitRoom();
 };
 
-const onlineName = (): string => {
-  const name = ($('oname') as HTMLInputElement).value.trim().slice(0, NAME_MAX);
+/** The name typed in the create (`oname`) or join (`jname`) pane, remembered for next time. */
+const onlineName = (field: 'oname' | 'jname'): string => {
+  const name = ($(field) as HTMLInputElement).value.trim().slice(0, NAME_MAX);
   try { if (name) localStorage.setItem(NAME_KEY, name); } catch { /* storage off */ }
   return name;
 };
 $('ocreate').onclick = async () => {
-  const name = onlineName();
+  const name = onlineName('oname');
   if (!name) { $('oerr').textContent = 'Scrivi il tuo nome.'; return; }
   $('oerr').textContent = 'Creo la stanza…';
   try {
     const store = await openStore();
-    const options = { startSide: ($('side') as HTMLSelectElement).value as 'a' | 'b', leaders: ($('leaders') as HTMLInputElement).checked, upgrades: ($('upgrades') as HTMLInputElement).checked };
+    const options = { startSide: ($('oside') as HTMLSelectElement).value as 'a' | 'b', leaders: ($('oleaders') as HTMLInputElement).checked, upgrades: ($('oupgrades') as HTMLInputElement).checked };
     const code = await createRoom(store, { name, crew: CREW_IDS[0] }, options, randomBytes, Date.now());
     enterRoom(store, code, await store.uid());
   } catch (e) { netError(e); }
 };
 $('ojoin').onclick = async () => {
-  const name = onlineName(), code = cleanCode(($('ocode') as HTMLInputElement).value);
+  const name = onlineName('jname'), code = cleanCode(($('ocode') as HTMLInputElement).value);
   if (!name) { $('oerr').textContent = 'Scrivi il tuo nome.'; return; }
   if (!code) { $('oerr').textContent = 'Il codice ha cinque caratteri.'; return; }
   $('oerr').textContent = 'Entro nella stanza…';
@@ -2283,8 +2379,10 @@ async function bootAccount(): Promise<void> {
   auth.onUser(async user => {
     isAdminUser = !!user && !user.anonymous && await auth.isAdmin(user.uid);
     drawAccount(user);
-    const name = $('oname') as HTMLInputElement;
-    if (user && !user.anonymous && user.name && !name.value) name.value = user.name.slice(0, NAME_MAX);
+    for (const id of ['oname', 'jname']) {
+      const name = $(id) as HTMLInputElement;
+      if (user && !user.anonymous && user.name && !name.value) name.value = user.name.slice(0, NAME_MAX);
+    }
   });
   $('acclogin').onclick = async () => {
     $('oerr').textContent = '';
@@ -2308,16 +2406,19 @@ $('adminopen').onclick = () => { closePops(); window.open('./admin.html', '_blan
 
 /** First screen: says whether online is available; with an invite link, goes to the room. Returns true when a room is being entered. */
 function bootOnline(): boolean {
-  try { ($('oname') as HTMLInputElement).value = localStorage.getItem(NAME_KEY) ?? ''; } catch { /* storage off */ }
+  try { for (const id of ['oname', 'jname']) ($(id) as HTMLInputElement).value = localStorage.getItem(NAME_KEY) ?? ''; } catch { /* storage off */ }
+  showPane('pMain');
   if (!netMode()) {
-    $('online').classList.add('off');
+    ($('mCreate') as HTMLButtonElement).disabled = true;
+    ($('mJoin') as HTMLButtonElement).disabled = true;
     $('onlinehint').textContent = 'Il gioco online non è ancora attivo su questo sito.';
     return false;
   }
   const code = cleanCode(new URLSearchParams(location.search).get('room') ?? '');
   if (!code) return false;
   ($('ocode') as HTMLInputElement).value = code;
-  $('onlinehint').textContent = `Sei stato invitato nella stanza ${code}: scrivi il tuo nome ed entra.`;
+  showPane('pJoin');
+  $('joinhint').textContent = `Sei stato invitato nella stanza ${code}: scrivi il tuo nome ed entra.`;
   // A device that already sits in the room (a reload, a return) goes straight back in.
   void (async () => {
     const store = await openStore(), uid = await store.uid();
