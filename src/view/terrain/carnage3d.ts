@@ -242,12 +242,11 @@ export function makeRamp(space: number): THREE.Group {
 // ---------------------------------------------------------------- the ramp model
 
 /**
- * The ramp model (assets/models/Ramp.glb, made with Meshy from design/art/carnage-ramp-prompts.md).
- * Meshy turned both views of the concept into objects, so the file holds two ramps side by side:
- * the one at x < 0 (deck with the big yellow arrow, sandbags) is kept. It rises toward -z; it is
- * turned to rise toward +x, the lead tile.
+ * The ramp model (assets/models/Ramp.glb, "Barricade Ramp" made with Meshy from
+ * design/art/carnage-ramp-prompts.md): one object, rising toward -z; it is turned to rise toward +x,
+ * the lead tile. `keepBelowX` can cut a file that holds more than one object (Infinity: keep all).
  */
-const RAMP_MODEL = { keepBelowX: 0, yaw: -Math.PI / 2, length: 0.86 };
+const RAMP_MODEL = { keepBelowX: Infinity, yaw: -Math.PI / 2, length: 0.86 };
 let rampModel: THREE.Object3D | null = null;
 /** Every ramp on the table, so the model replaces the placeholder in all of them once loaded. */
 const rampSlots = new Set<THREE.Group>();
