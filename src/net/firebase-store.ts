@@ -6,10 +6,10 @@
  * Imported on demand, so hot seat never loads the Firebase SDK.
  */
 
-import { initializeApp } from 'firebase/app';
 import { connectAuthEmulator, getAuth, signInAnonymously } from 'firebase/auth';
 import { connectDatabaseEmulator, get, getDatabase, onValue, ref, set } from 'firebase/database';
 import type { FirebaseConfig } from './firebase-config';
+import { firebaseApp } from './admin-auth';
 import type { RoomStore } from './room';
 
 /** Ports of the local Firebase emulators, for checks without a real project. */
@@ -20,7 +20,7 @@ export interface EmulatorPorts { auth: number; database: number }
  * @param emulator when given, talks to the local emulators instead of the real services.
  */
 export function createFirebaseStore(config: FirebaseConfig, emulator?: EmulatorPorts): RoomStore {
-  const app = initializeApp(config);
+  const app = firebaseApp(config); // shared with the Google sign-in (admin-auth.ts)
   const auth = getAuth(app);
   const db = getDatabase(app);
   if (emulator) {

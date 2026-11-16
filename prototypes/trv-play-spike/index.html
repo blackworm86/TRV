@@ -106,7 +106,11 @@
   #menupop button span { width: 20px; text-align: center; font-size: 18px; }
   #menupop button:hover:not(:disabled) { background: #3b2d22; }
   #menupop button:disabled { opacity: .35; cursor: default; }
-  #prompt { font-size: 20px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; flex: 1; min-width: 0; }
+  /* A new player to decide: the prompt flashes in their colour (it replaces the hand-off box). */
+  #prompt.pass { animation: pass 1.8s ease-out; border-radius: 10px; }
+  @keyframes pass { 0%, 60% { background: color-mix(in srgb, var(--who) 45%, transparent); box-shadow: 0 0 0 2px var(--who); } 100% { background: transparent; box-shadow: none; } }
+  #prompt .passing { font-size: 13px; letter-spacing: 1.5px; text-transform: uppercase; opacity: .85; margin-right: 8px; }
+  #prompt { font-size: 20px; padding: 0 8px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; flex: 1; min-width: 0; }
   #prompt b { font-family: 'League Gothic', Impact, sans-serif; font-weight: 400; font-size: 32px; margin-right: 8px; }
   #actions { position: fixed; display: none; gap: 8px; transform: translateX(-50%); z-index: 4; padding: 7px; border-radius: 14px; animation: callout 1.5s ease-in-out infinite;
     background: rgba(20,14,10,.85); box-shadow: 0 6px 18px rgba(0,0,0,.5); }
@@ -174,7 +178,7 @@
 
   /* Rolled dice, big, in the middle of the screen; comic words over the action */
   /* Rolled dice and damage: a compact card at the left edge, off the road (popups were covering the table). */
-  #rolls { position: fixed; left: 12px; top: calc(var(--top) + 8px); transform: translate(-12px, 0); display: flex; gap: 12px; padding: 8px 12px 8px;
+  #rolls { position: fixed; left: 12px; bottom: calc(var(--bottom) + 6px); transform: translate(-12px, 0); display: flex; gap: 12px; padding: 8px 12px 8px;
     opacity: 0; pointer-events: none; transition: opacity .25s, transform .25s; z-index: 5; border-radius: 18px;
     background: rgba(20,14,10,.9); border: 2px solid var(--acc); box-shadow: 0 10px 30px rgba(0,0,0,.6); }
   #rolls.show { opacity: 1; transform: none; }
@@ -206,7 +210,7 @@
   /* Dice are drawn in 3D by an overlay; their SVG stays for layout and clicks. */
   [data-die3d] { opacity: 0; }
   #actions button.shoot { background: #ffd23a; }
-  #roundbox { position: fixed; right: 12px; top: calc(var(--top) + 8px); transform: translate(12px, 0) scale(.96); opacity: 0; pointer-events: none;
+  #roundbox { position: fixed; right: 12px; bottom: calc(var(--bottom) + 6px); transform: translate(12px, 0) scale(.96); opacity: 0; pointer-events: none;
     background: rgba(20,14,10,.94); border: 2px solid var(--acc); border-radius: 14px; padding: 10px 18px 14px; z-index: 6; transition: opacity .25s, transform .25s; }
   #roundbox.show { opacity: 1; transform: none; }
   #roundbox h2 { margin: 0 0 4px; font-size: 30px; font-weight: 400; color: var(--acc); text-align: center; }
@@ -218,14 +222,6 @@
   .road.glow { box-shadow: 0 0 0 2px #f2c230, 0 0 26px 6px #f2c230; }
   .road.glow span { color: #f2c230; }
   #actions button.road { background: #f2c230; }
-  /* Whose turn: a banner just under the bar, off the table. */
-  #handoff { position: fixed; left: 50%; top: calc(var(--bar) + 4px); transform: translate(-50%, -8px); opacity: 0; pointer-events: none; z-index: 8;
-    background: rgba(20,14,10,.95); border: 3px solid var(--who, var(--acc)); border-radius: 12px; padding: 6px 22px 8px; text-align: center;
-    box-shadow: 0 0 40px var(--who, transparent); transition: opacity .25s, transform .25s; }
-  #handoff.show { opacity: 1; transform: translate(-50%, 0); }
-  #handoff small { display: block; font-size: 14px; letter-spacing: 2px; text-transform: uppercase; opacity: .8; }
-  #handoff b { display: block; font-size: 34px; font-weight: 400; line-height: 1.05; color: var(--who); }
-  #handoff span { display: block; margin-top: 4px; font-size: 16px; font-weight: 600; }
   #toast { position: fixed; left: 50%; top: calc(var(--top) + 12px); transform: translate(-50%, -8px); min-width: 280px; max-width: 70vw;
     background: rgba(20,14,10,.92); border: 2px solid var(--acc); border-radius: 10px; padding: 8px 14px; font-size: 16px; font-weight: 600;
     text-align: center; opacity: 0; pointer-events: none; transition: opacity .25s, transform .25s; z-index: 6; }
@@ -249,6 +245,12 @@
   #setup label.check { display: flex; align-items: center; gap: 8px; font-weight: 400; margin: 2px 0; }
   #setup label.check input { width: 18px; height: 18px; padding: 0; }
   /* Online: create or join a room from the first screen; the lobby is a card of the same family. */
+  /* Account: optional Google sign-in at the top of the first screen; admins get their panel. */
+  #account { display: none; align-items: center; gap: 8px; margin: -6px 0 8px; padding-bottom: 10px; border-bottom: 1px solid #4a3523; font-size: 13px; }
+  #account.on { display: flex; }
+  #accwho { flex: 1; min-width: 0; line-height: 1.3; opacity: .85; }
+  #account .tool { min-height: 30px; padding: 4px 10px; font-size: 13px; text-decoration: none; display: inline-flex; align-items: center; }
+  #accadmin { background: var(--acc); color: #16100b; font-weight: 700; }
   #online { margin-top: 18px; padding-top: 12px; border-top: 1px solid #4a3523; }
   #online h2, #lobby h1 { font: 400 28px 'League Gothic', Impact, sans-serif; color: var(--acc); margin: 0 0 4px; }
   #lobby h1 { font-size: 44px; } #lcode { letter-spacing: 6px; color: var(--ink); user-select: text; -webkit-user-select: text; }
@@ -305,7 +307,6 @@
 <div id="rolls"></div>
 <div id="toast"></div>
 <div id="replaybadge"><i></i>INSTANT REPLAY</div>
-<div id="handoff"></div>
 <div id="roundbox"></div>
 <div id="drawer"></div>
 <div id="bar">
@@ -337,6 +338,7 @@
   <button id="undo"><span>↶</span> Annulla l’ultima scelta</button>
   <button id="newgame"><span>⟳</span> Nuova partita</button>
   <button id="roomopen"><span>⌁</span> Stanza online</button>
+  <button id="adminopen"><span>⚿</span> Pannello admin</button>
   <button id="quit"><span>⏏</span> Esci dalla partita (menu principale)</button>
 </div>
 <div id="actions"></div>
@@ -347,6 +349,12 @@
 <div id="cartip"></div>
 <div id="setup">
   <div class="card">
+    <div id="account">
+      <span id="accwho"></span>
+      <button class="tool" id="acclogin">Accedi con Google</button>
+      <a class="tool" id="accadmin" href="./admin.html">Pannello admin</a>
+      <button class="tool" id="acclogout">Esci</button>
+    </div>
     <h1>Thunder Road Vendetta</h1>
     <label>Giocatori</label>
     <select id="np"><option>2</option><option selected>3</option><option>4</option></select>
