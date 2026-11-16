@@ -14,6 +14,7 @@ import SHOPPE from '../../data/trv/choppe_shoppe.json';
 import {
   dieSvg, hazardTokenSvg, damageTokenSvg, dashboardSvg, commandBoardSvg, playerStripSvg, chopperSvg, carSvg, avatarSvg,
   OFFICIAL_ART, type ArtDir, type ArtSize, type CommandBoardArt,
+  fireDieSvg, onFireTokenSvg, type FireFace,
 } from '../../src/view/vector/art';
 import { tileSvg, mapSvg, tileTitle } from '../../src/view/vector/tiles';
 import { cardSvg, sheetSvg, standaloneSvg, templateFileName } from '../../src/view/vector/templates';
@@ -234,6 +235,15 @@ const CATEGORIES: Category[] = [
         () => sheetSvg([{ svg: damageTokenSvg(d.type, true, d.dir as ArtDir | undefined), caption: 'Fronte' }, { svg: damageTokenSvg(null, false), caption: 'Retro' }], { cell: 240 }),
         { size: mm(`damage_${d.type}`), note: `Quantità nei dati: ${d.count}` });
     }),
+  },
+  {
+    id: 'carnage', group: 'Espansioni', name: 'Carnage at Devil’s Run',
+    note: 'Grafica provvisoria (disegni aperti, non l’arte ufficiale) per l’espansione in preparazione: dado fuoco e segnalino ON FIRE!. Le facce del dado sono i quattro tipi del regolamento (p. 3); quante per tipo non è ancora noto.',
+    items: [
+      svgItem('carnage', 'fire_die', 'Dado fuoco',
+        () => sheetSvg((['+1', '+2', 'out', 'eliminated'] as FireFace[]).map(f => ({ svg: fireDieSvg(f), caption: { '+1': '+1', '+2': '+2', out: 'si spegne', eliminated: 'eliminata' }[f] })), { cols: 4, cell: 100, gap: 16 })),
+      svgItem('carnage', 'on_fire_token', 'Segnalino ON FIRE!', () => onFireTokenSvg(), { note: 'Quantità: 12 (CDR p. 2)' }),
+    ],
   },
   {
     id: 'icone', group: 'Icone', name: 'Elicottero e auto',

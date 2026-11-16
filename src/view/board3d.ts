@@ -62,7 +62,13 @@ export function spaceRimGeometry(r: number, c: number, width: number, depth: num
   return new THREE.ShapeGeometry(shape);
 }
 
-const TERRAIN_COLOR: Record<string, string> = { R: PALETTE.road, o: PALETTE.offroad, M: PALETTE.mud, X: PALETTE.impassable };
+const TERRAIN_COLOR: Record<string, string> = {
+  R: PALETTE.road, o: PALETTE.offroad, M: PALETTE.mud, X: PALETTE.impassable,
+  // Carnage at Devil's Run (CDR p3), codes of data/trv/carnage.json.
+  G: PALETTE.toxicGoo, D: PALETTE.desertGlass, P: PALETTE.ramp, F: PALETTE.fire, S: PALETTE.saltFlats,
+};
+/** Terrains of the expansion: the generated relief draws them as road, a coloured layer shows which. */
+export const EXPANSION_TERRAIN = new Set(['G', 'D', 'P', 'F', 'S']);
 
 // ------------------------------------------------------------------------------- relief terrain
 
@@ -326,6 +332,11 @@ export function buildTile(tile: TileData, o: TileMeshOptions): THREE.Group {
     group.add(relief.mesh, relief.info);
     group.userData.heightAt = relief.heightAt;
     group.userData.info = relief.info;
+    // The expansion's terrains: a coloured layer on the space, a hair above the ground there.
+    for (const [t, geos] of tops) {
+      if (!EXPANSION_TERRAIN.has(t)) continue;
+      flat(geos, TERRAIN_COLOR[t], o.thickness + amp * 0.1 + 0.004, t === 'D' ? 0.8 : 0.92);
+    }
   } else {
     /** Height of the ground above the tile's cardboard top at a frame pixel (world units). */
     group.userData.heightAt = (): number => 0.002;
