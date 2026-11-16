@@ -10,11 +10,11 @@ import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import {
   newGame, play, tileDef, ROWS, COLS, TILE_COLS, leaderOf, commandsOf, leaders, commandName, upgrades, type CommandSlot,
-  snapshot, type Game, type Decision, type Pos, type Setup, type LogEntry, type Player, type Frame, type Snapshot,
+  snapshot, type Game, type Decision, type Pos, type Setup, type LogEntry, type Player, type Frame, type Snapshot, type Vehicle,
 } from '../../src/game/trv/engine';
 import { BASE_CATALOG as CAT, sizeOf, ofKind } from '../../src/game/trv/catalog';
 import { Pieces, TextureBank } from '../../src/view/pieces3d';
-import { buildTile, hazardToken, spaceCenterPx, spaceGeometry, GRID, TILE_PITCH_PX } from '../../src/view/board3d';
+import { buildTile, hazardToken, spaceCenterPx, spaceGeometry, spaceRimGeometry, GRID, TILE_PITCH_PX } from '../../src/view/board3d';
 import { dieSvg, damageTokenSvg, dashboardSvg, commandBoardSvg, playerStripSvg, STRIP_ASPECT, STRIP_ASPECT_LEADER, STRIP_LEADER_PLATE, avatarSvg, dataUrl } from '../../src/view/vector/art';
 import { newSeed } from '../../src/platform/entropy';
 import {
@@ -34,6 +34,32 @@ const SAVE_KEY = 'trv-hotseat-v3';
 const $ = (id: string): HTMLElement => document.getElementById(id)!;
 const esc = (s: string): string => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/"/g, '&quot;');
 const cssPx = (name: string): number => parseFloat(getComputedStyle(document.documentElement).getPropertyValue(name));
+
+// ---------------------------------------------------------------- settings
+// The player's display options (Options menu in the bar), kept in this browser.
+
+/** Graphics quality: `auto` picks a level from the frame rate and steps down when it drops. */
+type Quality = 'auto' | 'high' | 'medium' | 'low';
+type Level = Exclude<Quality, 'auto'>;
+/** Animation speed: complete (slow, every beat), fast, or skip to the result. */
+type Speed = 'full' | 'fast' | 'skip';
+interface Settings { quality: Quality; speed: Speed; grid: boolean; actionCam: boolean; effects: boolean; words: boolean }
+const SETTINGS_KEY = 'trv-settings';
+const settings: Settings = { quality: 'auto', speed: 'full', grid: true, actionCam: true, effects: true, words: true };
+try { Object.assign(settings, JSON.parse(localStorage.getItem(SETTINGS_KEY) ?? '{}') as Partial<Settings>); } catch { /* defaults */ }
+function saveSettings(): void {
+  try { localStorage.setItem(SETTINGS_KEY, JSON.stringify(settings)); } catch { /* storage off */ }
+}
+/** How fast the beats play for each speed setting (1 = the old pace, judged too fast by the user). */
+const SPEED_SCALE: Record<Speed, number> = { full: 0.6, fast: 1.15, skip: 1 };
+/** What each quality level changes: render resolution, the lamp's shadow, model texture size, effects. */
+const LEVELS: Record<Level, { pixelRatio: number; shadow: number; texture: number; particles: number }> = {
+  high: { pixelRatio: 2, shadow: 4096, texture: 4096, particles: 1 },
+  medium: { pixelRatio: 1.25, shadow: 2048, texture: 1024, particles: 0.6 },
+  low: { pixelRatio: 0.85, shadow: 0, texture: 512, particles: 0.3 },
+};
+/** The level in use now (under `auto`, the one the frame rate allows). */
+let level: Level = settings.quality === 'auto' ? 'high' : settings.quality;
 
 // ---------------------------------------------------------------- scene
 
@@ -171,6 +197,7 @@ interface Puff { sprite: THREE.Sprite; age: number; life: number; vel: THREE.Vec
 interface Smoke { puffs: Puff[]; follow: THREE.Object3D; until: number; dark: boolean }
 const smokes = new Map<string, Smoke>();
 function smokeOn(id: string, follow: THREE.Object3D, until: number, dark: boolean): void {
+  if (!settings.effects) return;
   const old = smokes.get(id);
   if (old) { old.until = until; old.follow = follow; old.dark = dark; return; }
   const puffs: Puff[] = [];
@@ -411,6 +438,7 @@ function useModel(o: THREE.Group, url: string, lengthMm: number, tint: Tint, id:
       else if (WHEELS[url]) { splitWheels(m, WHEELS[url]); if (GUNS[url]) splitParts(m, [GUNS[url]]); }
       m.userData.split = true;
     }
+    registerTextures(m);
     const d = dressed(m, tint);
     const size = fitToLength(d, lengthMm * MM, MODEL_YAW);
     if (WHEELS[url]) o.userData.rig = new CarRig(d, d.scale.x, size.y, phaseOf(id));
@@ -680,6 +708,7 @@ function showDamage(f: Frame): void {
 interface Word { el: HTMLElement; at: THREE.Vector3; t: number; life: number }
 const words: Word[] = [];
 function word(text: string, at: THREE.Vector3, color: string, big = false): void {
+  if (!settings.words) return;
   const el = document.createElement('div');
   el.className = `word${big ? ' big' : ''}`;
   el.textContent = text;
@@ -709,6 +738,7 @@ function updateWords(dt: number): void {
 function explode(at: THREE.Vector3, size = 1, now = performance.now() / 1000): void {
   const p0 = at.clone().setY(Math.max(at.y, TILE_T) + 0.25);
   shakeUntil = now + 0.5 * size;
+  if (!settings.effects) return;
   const light = new THREE.PointLight(0xffb040, 60 * size, 14 * size);
   light.position.copy(p0).setY(p0.y + 0.8);
   scene.add(light);
@@ -810,6 +840,7 @@ function playBeats(frames: Frame[]): void {
   markerGroup.clear();
   markers = [];
   drawHud();
+  if (settings.speed === 'skip' && !replaying) skipBeats();
 }
 
 /** Jumps to the end of the replay. */
@@ -1008,6 +1039,7 @@ function burst(from: THREE.Vector3, to: THREE.Vector3, targetId?: string): void 
 
 /** Sparks where a round lands: a flash and a few bright bits thrown back. */
 function sparks(at: THREE.Vector3, dir: THREE.Vector3): void {
+  if (!settings.effects) return;
   const fl = new THREE.Sprite(new THREE.SpriteMaterial({ map: smokeTex, color: 0xfff0b0, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending }));
   fl.position.copy(at);
   scene.add(fl);
@@ -1133,18 +1165,18 @@ function drawMarkers(): void {
     const onTable = o.pos.r >= 0 && o.pos.r < ROWS && o.pos.c >= 0 && o.pos.c < COLS;
     let mesh: THREE.Mesh;
     if (onTable) {
-      // The whole space glows: a solid fill, a bright rim and a soft, wider halo. Not tone
-      // mapped, so the colour stays vivid under the table's lighting.
+      // A coloured border around the space, the terrain left visible inside (asked by the user,
+      // 2026-11-16). The space itself is an invisible pick target. Not tone mapped, so the
+      // colour stays vivid under the table's lighting.
       const slot = Math.floor(o.pos.c / TILE_COLS);
       const rc = o.pos.c - slot * TILE_COLS;
       const glow = (opacity: number, additive: boolean): THREE.MeshBasicMaterial => new THREE.MeshBasicMaterial({
         color, transparent: true, opacity, depthWrite: false, toneMapped: false, ...(additive ? { blending: THREE.AdditiveBlending } : {}),
       });
-      mesh = new THREE.Mesh(spaceGeometry(o.pos.r, rc, TILE_W, TILE_H, 0.95), glow(0.7, false));
-      const rim = new THREE.Mesh(spaceGeometry(o.pos.r, rc, TILE_W, TILE_H, 1.0), glow(0.9, true));
-      rim.position.z = -0.002;
-      const halo = new THREE.Mesh(spaceGeometry(o.pos.r, rc, TILE_W, TILE_H, 1.14), glow(0.4, true));
-      halo.position.z = -0.004;
+      mesh = new THREE.Mesh(spaceGeometry(o.pos.r, rc, TILE_W, TILE_H, 1.0), new THREE.MeshBasicMaterial({ visible: false }));
+      const rim = new THREE.Mesh(spaceRimGeometry(o.pos.r, rc, TILE_W, TILE_H, 0.97, 0.8), glow(1, false));
+      rim.position.z = 0.002;
+      const halo = new THREE.Mesh(spaceRimGeometry(o.pos.r, rc, TILE_W, TILE_H, 1.08, 0.97), glow(0.35, true));
       mesh.add(rim, halo);
       mesh.rotation.x = -Math.PI / 2;
       mesh.position.set(BOARD_X0 + slot * PITCH_W + (GRID.frameW / 2) * KX, TILE_T + HAZ_SIZE.thickness + 0.02, 0);
@@ -1173,10 +1205,12 @@ function logLine(e: LogEntry): string {
 
 let winShown = false;
 let toastTimer = 0;
+/** The running log over the table: removed at the user's request (2026-11-16); the Log button keeps the chronicle. */
+const SHOW_TOAST = false;
 const toastLines: string[] = [];
 /** Shows a rules line that matters (shots, damage, hazards, eliminations, turns) over the map. */
 function toastLine(f: Frame): void {
-  if (!f.text) return;
+  if (!f.text || !SHOW_TOAST) return;
   const important = f.logKind !== 'info' || /Pericolo|danno|sparo|bersaglio|armi|dado strada|COLPITO|nuova tessera|traguardo/i.test(f.text);
   if (!important) return;
   toastLines.push(`<div class="${f.logKind}">${esc(f.text)}</div>`);
@@ -1217,23 +1251,20 @@ function drawHud(): void {
   // Top: the round, then a bubble per player in seating order (the one on turn glows), the road die.
   document.documentElement.style.setProperty('--who', me.color);
   $('roundinfo').innerHTML = `<small>ROUND</small><b class="gothic">${g.round}</b><span>${g.finalTile ? 'ultima tessera' : `tessera ${g.tilesPlaced}`}</span>`;
-  const CMD_NAME: Record<string, string> = { airstrike: 'Attacco aereo', nitro: 'Nitro', drift: 'Drift', repair: 'Ripara' };
+  // A bubble per player in seating order (the one on turn glows): avatar and name; under them the
+  // dice (available and used); under those the cars with their state. Pointing at a car shows it.
   $('players').innerHTML = g.players.map(p => {
     const turn = p.id === g!.current && g!.winner === null, decides = !!d && d.player === p.id;
     const cars = g!.vehicles.filter(v => v.owner === p.id).sort((a, b) => 'SML'.indexOf(a.size) - 'SML'.indexOf(b.size)).map(v => {
-      const title = `${{ S: 'Piccola', M: 'Media', L: 'Grande' }[v.size]}: ${v.status === 'elim' ? 'eliminata' : v.status === 'inop' ? 'fuori uso' : v.inStart ? 'in partenza' : 'in strada'}${v.damage.length ? `, ${v.damage.length} danni` : ''}`;
-      return `<span class="car ${v.status === 'ok' ? '' : v.status}" title="${title}">${v.size}${'<i></i>'.repeat(v.damage.length)}</span>`;
+      const state = v.status === 'elim' ? 'eliminata' : v.status === 'inop' ? 'fuori uso' : v.inStart ? 'in partenza' : 'in strada';
+      return `<span class="car ${v.status === 'ok' ? '' : v.status}" data-vid="${v.id}"><b>${v.size}</b><small>${state}</small>${v.damage.length ? `<em>${'<i></i>'.repeat(v.damage.length)}</em>` : ''}${v.upgrade ? '<u>★</u>' : ''}</span>`;
     }).join('');
-    const tag = p.out ? '<span class="tag quiet">fuori</span>' : turn ? '<span class="tag">di turno</span>' : decides ? '<span class="tag">decide</span>'
-      : p.id === g!.firstPlayer ? '<span class="tag quiet">1° giocatore</span>' : '';
     const pl = leaderOf(p);
-    const extra = [pl ? `${esc(pl.name)}${p.tokens ? ` ${'★'.repeat(p.tokens)}` : ''}` : '',
-      p.command ? `<b>${CMD_NAME[p.command.cmd] ?? commandName(p.command.cmd)}</b> con ${p.command.value}` : '', p.chopper ? 'elicottero in campo' : ''].filter(Boolean).join(' · ');
     return `<div class="bubble pl ${turn ? 'turn' : ''} ${decides ? 'decides' : ''} ${p.out ? 'out' : ''}" style="--c:${p.color}">
       <div class="av">${pl && PORTRAITS[pl.id] ? `<img src="${PORTRAITS[pl.id]}" alt="${esc(pl.name)}">` : avatarSvg(p.color, p.name)}</div>
-      <div class="who"><span class="nm gothic">${esc(p.name)}</span>${tag}</div>
-      <div class="row"><div class="dice-row">${p.dice.map((n, i) => dieHtml('movement', n, p.color, p.used[i] ? 'used' : '')).join('')}</div>
-        <div class="cars">${cars}</div>${extra ? `<span class="extra">${extra}</span>` : ''}</div></div>`;
+      <div class="nm gothic">${esc(p.name)}${pl ? `<small>${esc(pl.name)}${p.tokens ? ` ${'★'.repeat(p.tokens)}` : ''}</small>` : ''}</div>
+      <div class="dice-row">${p.dice.length ? p.dice.map((n, i) => dieHtml('movement', n, p.color, p.used[i] ? 'used' : '')).join('') : '<span class="none">nessun dado</span>'}</div>
+      <div class="cars">${cars}</div></div>`;
   }).join('');
   $('roaddie').innerHTML = g.roadDie ? dieHtml('road', g.roadDie, undefined) : '';
   $('roaddie').parentElement!.classList.toggle('glow', d?.kind === 'roadDie');
@@ -1389,6 +1420,7 @@ function drawHud(): void {
     }
   }
   ($('undo') as HTMLButtonElement).disabled = !!net || !saved?.choices.length;
+  ($('roomopen') as HTMLButtonElement).style.display = net ? '' : 'none';
   ($('replay') as HTMLButtonElement).disabled = !replayFrames?.length || playing;
   if (d?.kind === 'assign') drawMarkers();
 
@@ -1742,6 +1774,68 @@ renderer.domElement.addEventListener('pointermove', e => {
       esc(m ? decision.options[m.option].label : decision.prompt.replace(`${nm}: `, ''));
   }
 });
+// ---------------------------------------------------------------- car inspection
+// Pointing at a car, on the table or in a player's bubble, shows its card: owner, state, damage
+// and its special ability (the upgrade card, Choppe Shoppe).
+
+const SIZE_NAME: Record<string, string> = { S: 'piccola', M: 'media', L: 'grande' };
+/** The card of a car, as HTML. */
+function carTipHtml(v: Vehicle): string {
+  const owner = v.owner !== null && g ? g.players[v.owner] : null;
+  const title = v.isWreck ? 'Relitto' : `Auto ${SIZE_NAME[v.size]}${owner ? ` di ${esc(owner.name)}` : ''}`;
+  const state = v.status === 'elim' ? 'Eliminata' : v.status === 'inop' ? 'Fuori uso' : v.inStart ? 'In partenza' : 'In strada';
+  const hidden = v.upgrade === 'onboard_computer';
+  const dmg = v.damage.length
+    ? `<ul>${v.damage.map(t => { const [n, does] = DAMAGE_INFO[t.type] ?? [t.type, '']; return hidden ? '<li>Segnalino coperto</li>' : `<li><b>${esc(n)}</b>${does ? ` — ${esc(does)}` : ''}</li>`; }).join('')}</ul>`
+    : '<p>Nessun danno.</p>';
+  const ability = v.upgrade ? `<p><b>${esc(upgradeName(v.upgrade))}</b>: ${esc(UPGRADE_INFO[v.upgrade] ?? '')}${v.status !== 'ok' ? ' <i>(non attiva: auto fuori uso)</i>' : ''}</p>` : '<p>Nessuna abilità speciale.</p>';
+  return `<h4>${title}</h4><span class="state">${state} · ${v.damage.length} ${v.damage.length === 1 ? 'danno' : 'danni'}</span>`
+    + `<h5>Danni</h5>${dmg}<h5>Abilità speciale</h5>${ability}`;
+}
+let tipFor: string | null = null;
+/** Shows the card of car `id` by the pointer at (x, y), or hides it (null). */
+function showCarTip(id: string | null, x = 0, y = 0): void {
+  const el = $('cartip');
+  const v = id && g ? g.vehicles.find(z => z.id === id) : undefined;
+  if (!v) { el.classList.remove('show'); tipFor = null; return; }
+  if (tipFor !== id) {
+    tipFor = id;
+    el.style.setProperty('--c', v.owner !== null && g ? g.players[v.owner].color : '#9a8f84');
+    el.innerHTML = carTipHtml(v);
+  }
+  el.classList.add('show');
+  const w = el.offsetWidth, h = el.offsetHeight;
+  el.style.left = `${Math.min(innerWidth - w - 8, x + 16)}px`;
+  el.style.top = `${Math.max(8, Math.min(innerHeight - h - 8, y + 16))}px`;
+}
+$('players').addEventListener('pointermove', e => {
+  const car = (e.target as HTMLElement).closest<HTMLElement>('.car[data-vid]');
+  showCarTip(car?.dataset.vid ?? null, e.clientX, e.clientY);
+});
+$('players').addEventListener('pointerleave', () => showCarTip(null));
+/** The car under the pointer on the table, or null. */
+function carAt(e: PointerEvent): string | null {
+  const rect = renderer.domElement.getBoundingClientRect();
+  pointer.set(((e.clientX - rect.left) / rect.width) * 2 - 1, -((e.clientY - rect.top) / rect.height) * 2 + 1);
+  ray.setFromCamera(pointer, camera);
+  let best: string | null = null, bd = Infinity;
+  for (const [id, o] of carObjs) {
+    if (!o.visible) continue;
+    const hit = ray.intersectObject(o, true)[0];
+    if (hit && hit.distance < bd) { bd = hit.distance; best = id; }
+  }
+  return best;
+}
+let tipAt = 0;
+renderer.domElement.addEventListener('pointermove', e => {
+  if (e.buttons || drag) { showCarTip(null); return; }
+  const t = performance.now();
+  if (t - tipAt < 60) return; // a ray against every car is not free: a few times a second is enough
+  tipAt = t;
+  showCarTip(carAt(e), e.clientX, e.clientY);
+});
+renderer.domElement.addEventListener('pointerleave', () => showCarTip(null));
+
 function markerAt(e: PointerEvent): Marker | null {
   const rect = renderer.domElement.getBoundingClientRect();
   pointer.set(((e.clientX - rect.left) / rect.width) * 2 - 1, -((e.clientY - rect.top) / rect.height) * 2 + 1);
@@ -1787,9 +1881,17 @@ function clearTable(): void {
   winShown = false;
   $('win').style.display = 'none';
 }
-$('undo').onclick = undo;
-// Online, "new game" is the host's call, from the room's card.
-$('menu').onclick = () => { if (net) { net.lobbyOpen = true; drawLobby(); } else $('setup').style.display = 'grid'; };
+$('undo').onclick = () => { closePops(); undo(); };
+/** Online, "new game" is the host's call, from the room's card. */
+function newGameScreen(): void { if (net) { net.lobbyOpen = true; drawLobby(); } else $('setup').style.display = 'grid'; }
+$('newgame').onclick = () => { closePops(); newGameScreen(); };
+$('roomopen').onclick = () => { closePops(); if (net) { net.lobbyOpen = true; drawLobby(); } };
+$('quit').onclick = () => {
+  closePops();
+  if (net) { exitRoom(); return; } // the seat is kept: the invite link brings this player back
+  if (g && g.winner === null && !confirm('Uscire dalla partita? Potrai riprenderla dal menu iniziale solo se non ne inizi un’altra.')) return;
+  $('setup').style.display = 'grid';
+};
 $('again').onclick = () => { $('win').style.display = 'none'; if (net) { net.lobbyOpen = true; drawLobby(); } else $('setup').style.display = 'grid'; };
 $('close').onclick = () => { $('win').style.display = 'none'; };
 $('start').onclick = () => {
@@ -2133,6 +2235,120 @@ fit();
 
 const hudRenderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
 hudRenderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+
+// ---------------------------------------------------------------- graphics quality
+// Fixed levels or `auto`: the frame rate is measured all the time and, under `auto`, a level is
+// dropped when the game runs below FPS_LOW for a while (slow computers: 10-15 fps reported by
+// the user). It never climbs back by itself, to avoid flicker; the menu can set it again.
+
+const FPS_LOW = 32, FPS_WINDOW = 2;
+const ORDER: Level[] = ['high', 'medium', 'low'];
+/** Model textures, with their full-size image, so a level can shrink them and a higher one restore them. */
+const modelTextures = new Map<THREE.Texture, CanvasImageSource & { width: number; height: number }>();
+function registerTextures(m: THREE.Object3D): void {
+  m.traverse(o => {
+    const mesh = o as THREE.Mesh;
+    if (!mesh.isMesh) return;
+    for (const mat of Array.isArray(mesh.material) ? mesh.material : [mesh.material]) {
+      for (const v of Object.values(mat)) {
+        const t = v as THREE.Texture;
+        if (t?.isTexture && t.image && !modelTextures.has(t)) { modelTextures.set(t, t.image as CanvasImageSource & { width: number; height: number }); fitTexture(t, LEVELS[level].texture); }
+      }
+    }
+  });
+}
+function fitTexture(t: THREE.Texture, max: number): void {
+  const full = modelTextures.get(t);
+  if (!full) return;
+  const k = Math.min(1, max / Math.max(full.width, full.height));
+  if (k >= 1) { if (t.image !== full) { t.image = full; t.needsUpdate = true; } return; }
+  const c = document.createElement('canvas');
+  c.width = Math.max(1, Math.round(full.width * k));
+  c.height = Math.max(1, Math.round(full.height * k));
+  c.getContext('2d')!.drawImage(full, 0, 0, c.width, c.height);
+  t.image = c;
+  t.needsUpdate = true;
+}
+/** Puts a quality level into effect: resolution of both renderers, the shadow, model textures. */
+function applyLevel(l: Level): void {
+  level = l;
+  const L = LEVELS[l];
+  renderer.setPixelRatio(Math.min(devicePixelRatio, L.pixelRatio));
+  hudRenderer.setPixelRatio(Math.min(devicePixelRatio, l === 'high' ? 2 : 1));
+  lamp.castShadow = L.shadow > 0;
+  if (L.shadow > 0 && lamp.shadow.mapSize.x !== L.shadow) {
+    lamp.shadow.mapSize.set(L.shadow, L.shadow / 2);
+    lamp.shadow.map?.dispose();
+    lamp.shadow.map = null;
+  }
+  for (const t of modelTextures.keys()) fitTexture(t, L.texture);
+  fit();
+  syncOptions();
+}
+let fpsAcc = 0, fpsFrames = 0, fpsSlow = 0, fpsNow = 0;
+/** Called every frame with its length: keeps the frame rate and, under `auto`, steps the level down. */
+function frameTimes(dt: number): void {
+  fpsAcc += dt;
+  fpsFrames++;
+  if (fpsAcc < FPS_WINDOW) return;
+  fpsNow = fpsFrames / fpsAcc;
+  fpsAcc = 0;
+  fpsFrames = 0;
+  if (document.hidden) return;
+  fpsSlow = fpsNow < FPS_LOW ? fpsSlow + 1 : 0;
+  if (settings.quality === 'auto' && fpsSlow >= 2 && level !== 'low') {
+    fpsSlow = 0;
+    applyLevel(ORDER[ORDER.indexOf(level) + 1]);
+  }
+  if ($('optspop').classList.contains('show')) syncOptions();
+}
+
+// ---------------------------------------------------------------- options and menu popovers
+
+const LEVEL_NAME: Record<Level, string> = { high: 'alta', medium: 'media', low: 'bassa' };
+/** Shows the settings in the Options popover. */
+function syncOptions(): void {
+  const pop = $('optspop');
+  for (const seg of pop.querySelectorAll<HTMLElement>('.seg')) {
+    const key = seg.dataset.set as 'quality' | 'speed';
+    for (const b of seg.querySelectorAll<HTMLButtonElement>('button')) b.classList.toggle('on', b.dataset.v === settings[key]);
+  }
+  for (const box of pop.querySelectorAll<HTMLInputElement>('input[data-set]')) box.checked = !!settings[box.dataset.set as 'grid' | 'actionCam' | 'effects' | 'words'];
+  $('fps').textContent = `${fpsNow ? `${Math.round(fpsNow)} fotogrammi al secondo · ` : ''}qualità in uso: ${LEVEL_NAME[level]}`;
+}
+for (const seg of $('optspop').querySelectorAll<HTMLElement>('.seg')) {
+  seg.addEventListener('click', e => {
+    const b = (e.target as HTMLElement).closest('button');
+    if (!b) return;
+    if (seg.dataset.set === 'quality') {
+      settings.quality = b.dataset.v as Quality;
+      fpsSlow = 0;
+      applyLevel(settings.quality === 'auto' ? 'high' : settings.quality);
+    } else settings.speed = b.dataset.v as Speed;
+    saveSettings();
+    syncOptions();
+  });
+}
+for (const box of $('optspop').querySelectorAll<HTMLInputElement>('input[data-set]')) {
+  box.addEventListener('change', () => { settings[box.dataset.set as 'grid' | 'actionCam' | 'effects' | 'words'] = box.checked; saveSettings(); syncOptions(); });
+}
+function closePops(): void {
+  for (const id of ['optspop', 'menupop']) $(id).classList.remove('show');
+  for (const id of ['opts', 'menu']) $(id).classList.remove('on');
+}
+function togglePop(pop: string, btn: string): void {
+  const open = !$(pop).classList.contains('show');
+  closePops();
+  if (!open) return;
+  $(pop).classList.add('show');
+  $(btn).classList.add('on');
+  if (pop === 'optspop') syncOptions();
+}
+$('opts').addEventListener('click', e => { e.stopPropagation(); togglePop('optspop', 'opts'); });
+$('menu').addEventListener('click', e => { e.stopPropagation(); togglePop('menupop', 'menu'); });
+for (const id of ['optspop', 'menupop']) $(id).addEventListener('pointerdown', e => e.stopPropagation());
+addEventListener('pointerdown', closePops);
+addEventListener('keydown', e => { if (e.key === 'Escape') closePops(); });
 hudRenderer.toneMapping = THREE.NoToneMapping;
 Object.assign(hudRenderer.domElement.style, { position: 'fixed', left: '0', top: '0', pointerEvents: 'none', zIndex: '7' });
 document.body.appendChild(hudRenderer.domElement);
@@ -2253,12 +2469,11 @@ function homeView(): void { focusGoal = null; focusDist = null; fit(); }
 $('home').addEventListener('click', homeView);
 
 /** The lines of the spaces over the terrain, on or off (button and key G). */
-let gridOn = true;
 function toggleGrid(): void {
-  gridOn = !gridOn;
-  $('grid').classList.toggle('offed', !gridOn);
+  settings.grid = !settings.grid;
+  saveSettings();
+  syncOptions();
 }
-$('grid').addEventListener('click', toggleGrid);
 
 /** Car speed on the table (world units per second) and how fast it turns to face its way. */
 const DRIVE = { speed: 7, turnRate: 9, parkTurnRate: 2.5, maxYaw: 0.87 };
@@ -2315,11 +2530,13 @@ const timer = new THREE.Timer();
 timer.connect(document);
 renderer.setAnimationLoop(t => {
   timer.update(t);
-  const dt = Math.min(timer.getDelta(), 0.1) * timeScale;
+  const rawDt = Math.min(timer.getDelta(), 0.1);
+  frameTimes(rawDt);
+  const dt = rawDt * timeScale * (playing ? SPEED_SCALE[settings.speed] : 1);
   const k = 1 - Math.exp(-dt * 10);
   const now = performance.now() / 1000;
   for (const o of carObjs.values()) drive(o, dt, k, now);
-  moveCamera(dt);
+  moveCamera(rawDt);
   for (const o of chopperObjs.values()) {
     const tg = o.userData.target as THREE.Vector3 | undefined;
     if (tg) o.position.lerp(tg, k);
@@ -2343,7 +2560,7 @@ renderer.setAnimationLoop(t => {
     const f = queue.shift();
     if (!f) { finishBeats(); break; }
     applyBeat(f, now);
-    nextBeatAt = Math.max(nextBeatAt, now - 0.5) + beatLength(f) / timeScale;
+    nextBeatAt = Math.max(nextBeatAt, now - 0.5) + beatLength(f) / (timeScale * SPEED_SCALE[settings.speed]);
   }
   for (let i = effects.length - 1; i >= 0; i--) {
     const e = effects[i];
@@ -2354,7 +2571,7 @@ renderer.setAnimationLoop(t => {
   for (const grp of tileSlots) {
     if (!grp) continue;
     if (grp.userData.x !== undefined) grp.position.x += (grp.userData.x - grp.position.x) * k * 0.6;
-    if (grp.userData.info) (grp.userData.info as THREE.Object3D).visible = gridOn;
+    if (grp.userData.info) (grp.userData.info as THREE.Object3D).visible = settings.grid;
   }
   updateWords(dt);
   updateSmoke(dt, now);
@@ -2382,6 +2599,7 @@ renderer.setAnimationLoop(t => {
   hudRenderer.render(hudScene, hudCam);
 });
 
+applyLevel(level);
 const invited = bootOnline();
 try {
   const raw = invited ? null : localStorage.getItem(SAVE_KEY);

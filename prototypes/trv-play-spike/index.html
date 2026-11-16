@@ -8,7 +8,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=League+Gothic&display=swap" rel="stylesheet">
 <style>
-  :root { --top: 152px; --bar: 58px; --bottom: 360px; --stripw: 1000px;
+  :root { --top: 150px; --bar: 60px; --bottom: 360px; --stripw: 1000px;
     --ink: #f3e6d0; --bg: #1a120c; --card: #24180f; --acc: #f6c46a; --hot: #4cff7a; --who: #f6c46a; }
   html, body { margin: 0; height: 100%; background: var(--bg); overflow: hidden; font: 14px/1.3 system-ui, sans-serif; color: var(--ink);
     user-select: none; -webkit-user-select: none; }
@@ -26,27 +26,38 @@
   #roundinfo b { font-size: 34px; font-weight: 400; color: var(--acc); }
   #roundinfo span { display: block; font-size: 11px; opacity: .8; margin-top: 2px; }
   #players { flex: 1; display: flex; gap: 12px; justify-content: center; flex-wrap: nowrap; min-width: 0; }
-  .pl { --c: #888; display: grid; grid-template-columns: auto 1fr; gap: 2px 10px; align-items: center; padding: 8px 14px 8px 10px; min-width: 0;
+  .pl { --c: #888; display: grid; grid-template-columns: auto 1fr; grid-template-rows: auto auto auto; gap: 4px 10px; align-items: center; padding: 8px 12px 8px 8px; min-width: 0;
     transition: box-shadow .3s, transform .3s; }
-  .pl .av { width: 52px; height: 52px; grid-row: 1 / span 2; }
+  .pl .av { width: 56px; height: 56px; grid-row: 1 / span 3; align-self: start; }
   /* A crew leader's portrait takes the place of the player's initial. */
   .pl .av img { width: 100%; height: 100%; border-radius: 50%; object-fit: cover; object-position: 50% 20%; border: 2px solid var(--c); box-sizing: border-box; display: block; }
-  .pl .who { display: flex; align-items: baseline; gap: 8px; white-space: nowrap; }
-  .pl .nm { font-size: 24px; line-height: 1; }
-  .pl .tag { font-size: 10px; letter-spacing: 1.5px; text-transform: uppercase; padding: 2px 6px; border-radius: 8px; background: var(--c); color: #16100b; font-weight: 700; }
-  .pl .tag.quiet { background: #3b2d22; color: var(--ink); font-weight: 500; }
-  .pl .row { display: flex; align-items: center; gap: 8px; white-space: nowrap; }
-  .pl .dice-row { display: flex; gap: 3px; }
+  .pl .nm { font-size: 24px; line-height: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .pl .nm small { margin-left: 8px; font: 500 12px system-ui, sans-serif; opacity: .75; }
+  .pl .dice-row { display: flex; gap: 4px; min-height: 22px; align-items: center; }
   .pl .dice-row svg { width: 22px; height: 22px; }
   .pl .dice-row svg.used { opacity: .22; }
+  .pl .dice-row .none { font-size: 11px; opacity: .5; }
   .pl .cars { display: flex; gap: 4px; }
-  .car { min-width: 24px; height: 20px; padding: 0 5px; border-radius: 6px; background: var(--c); color: #16100b; font-weight: 800; font-size: 11px;
-    display: flex; align-items: center; justify-content: center; gap: 2px; }
+  .car { position: relative; display: flex; flex-direction: column; align-items: center; justify-content: center; min-width: 46px; padding: 2px 5px 3px; border-radius: 7px;
+    background: var(--c); color: #16100b; line-height: 1; cursor: help; pointer-events: auto; }
+  .car b { font-size: 13px; font-weight: 800; }
+  .car small { font-size: 9px; font-weight: 600; white-space: nowrap; }
+  .car em { display: flex; gap: 2px; margin-top: 2px; }
+  .car i { width: 5px; height: 5px; border-radius: 50%; background: #d42f30; box-shadow: 0 0 0 1px #16100b; display: inline-block; }
+  .car u { position: absolute; top: -6px; right: -5px; text-decoration: none; font-size: 11px; color: #ffd23a; text-shadow: 0 0 2px #000, 0 0 2px #000; }
   .car.inop { background: repeating-linear-gradient(45deg, #5a5a5a 0 4px, #3c3c3c 4px 8px); color: #ffd23a; }
-  .car.elim { background: #2a211b; color: #6f6257; text-decoration: line-through; }
-  .car i { width: 5px; height: 5px; border-radius: 50%; background: #d42f30; display: inline-block; }
-  .pl .extra { font-size: 13px; opacity: .85; }
-  .pl .extra b { color: var(--c); font-weight: 700; }
+  .car.elim { background: #2a211b; color: #6f6257; }
+  .car.elim b { text-decoration: line-through; }
+  /* The card shown while the pointer is on a car (on the table or in a bubble). */
+  #cartip { position: fixed; z-index: 9; display: none; width: 260px; padding: 10px 12px; border-radius: 12px; pointer-events: none;
+    background: rgba(24,16,10,.97); border: 2px solid var(--c, var(--acc)); box-shadow: 0 10px 28px rgba(0,0,0,.6); font-size: 13px; line-height: 1.35; }
+  #cartip.show { display: block; }
+  #cartip h4 { margin: 0 0 2px; font: 400 24px/1 'League Gothic', Impact, sans-serif; color: var(--c); }
+  #cartip .state { display: block; opacity: .75; margin-bottom: 6px; }
+  #cartip h5 { margin: 8px 0 3px; font-size: 11px; letter-spacing: 1.5px; text-transform: uppercase; opacity: .7; }
+  #cartip ul { margin: 0; padding-left: 16px; }
+  #cartip li b, #cartip p b { color: var(--acc); }
+  #cartip p { margin: 0; }
   .pl.turn { box-shadow: 0 0 0 2px var(--c), 0 0 26px 6px var(--c); transform: translateY(2px) scale(1.03); animation: glow 1.6s ease-in-out infinite; }
   .pl.decides:not(.turn) { box-shadow: 0 0 0 2px var(--c); }
   .pl.out { opacity: .45; filter: grayscale(.7); }
@@ -69,6 +80,32 @@
   .st.on { background: var(--who); color: #16100b; transform: scale(1.06); z-index: 1; }
   .st.on b { background: rgba(0,0,0,.75); color: var(--who); }
   .st.off span { text-decoration: line-through; opacity: .6; }
+  /* Bar, left to right: round, road die, the turn's steps, the prompt; tools on the right. */
+  #bar #roundinfo { flex: none; text-align: center; line-height: 1; padding: 0 4px; }
+  #bar #roundinfo small { display: block; font-size: 10px; letter-spacing: 2px; opacity: .7; }
+  #bar #roundinfo b { font-size: 30px; font-weight: 400; color: var(--acc); }
+  #bar #roundinfo span { display: block; font-size: 10px; opacity: .8; }
+  #bar .road { flex: none; display: flex; align-items: center; gap: 6px; padding: 3px 8px 3px 4px; border-radius: 10px; }
+  #bar .road svg { width: 40px; height: 40px; }
+  #bar .road span { font-size: 13px; line-height: 1; text-align: left; opacity: .85; }
+  #bar .tool.on { background: var(--acc); color: #16100b; }
+  .pop { position: fixed; top: calc(var(--bar) + 6px); right: 12px; z-index: 7; display: none; min-width: 300px; padding: 12px 16px 14px; border-radius: 14px;
+    background: rgba(26,18,12,.97); border: 1px solid #4a3523; box-shadow: 0 12px 32px rgba(0,0,0,.6); }
+  .pop.show { display: block; }
+  .pop h3 { margin: 10px 0 6px; font: 400 20px 'League Gothic', Impact, sans-serif; letter-spacing: .5px; color: var(--acc); }
+  .pop h3:first-child { margin-top: 0; }
+  .pop .seg { display: flex; gap: 4px; }
+  .pop .seg button { flex: 1; padding: 7px 8px; font: inherit; font-weight: 600; border: 0; border-radius: 8px; background: #3b2d22; color: var(--ink); cursor: pointer; }
+  .pop .seg button.on { background: var(--acc); color: #16100b; }
+  .pop label.check { display: flex; align-items: center; gap: 8px; margin: 4px 0; cursor: pointer; }
+  .pop label.check input { width: 17px; height: 17px; }
+  .pop .fps { margin: 6px 0 0; font-size: 12px; opacity: .7; }
+  #menupop { min-width: 260px; padding: 8px; }
+  #menupop button { display: flex; align-items: center; gap: 10px; width: 100%; padding: 10px 12px; font: inherit; font-size: 15px; text-align: left;
+    border: 0; border-radius: 8px; background: none; color: var(--ink); cursor: pointer; }
+  #menupop button span { width: 20px; text-align: center; font-size: 18px; }
+  #menupop button:hover:not(:disabled) { background: #3b2d22; }
+  #menupop button:disabled { opacity: .35; cursor: default; }
   #prompt { font-size: 20px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; flex: 1; min-width: 0; }
   #prompt b { font-family: 'League Gothic', Impact, sans-serif; font-weight: 400; font-size: 32px; margin-right: 8px; }
   #actions { position: fixed; display: none; gap: 8px; transform: translateX(-50%); z-index: 4; padding: 7px; border-radius: 14px; animation: callout 1.5s ease-in-out infinite;
@@ -253,9 +290,7 @@
 </head>
 <body>
 <div id="top">
-  <div class="bubble" id="roundinfo"></div>
   <div id="players"></div>
-  <div class="bubble road"><span class="gothic">DADO<br>STRADA</span><div id="roaddie"></div></div>
 </div>
 <div id="fx"></div>
 <div id="rolls"></div>
@@ -265,21 +300,42 @@
 <div id="roundbox"></div>
 <div id="drawer"></div>
 <div id="bar">
+  <div id="roundinfo"></div>
+  <div class="road" title="Dado strada"><div id="roaddie"></div><span class="gothic">DADO<br>STRADA</span></div>
   <div id="steps"></div>
   <div id="prompt"></div>
   <button class="tool" id="skip" title="Salta l’animazione (barra spaziatrice)"><span>⏭</span><small>Salta</small></button>
   <button class="tool" id="replay" title="Rivedi al rallentatore l’ultimo danno o l’ultima distruzione (R)" disabled><span>⟲</span><small>Replay</small></button>
-  <button class="tool" id="home" title="Torna alla vista di tutta la mappa (V)"><span>⌂</span><small>Vista</small></button>
-  <button class="tool" id="grid" title="Mostra o nascondi le linee delle caselle (G)"><span>▦</span><small>Griglia</small></button>
-  <button class="tool" id="ticker" title="Cronaca della partita"><span>☰</span><small>Cronaca</small></button>
-  <button class="tool" id="undo" title="Annulla l'ultima scelta"><span>↶</span><small>Annulla</small></button>
-  <button class="tool" id="menu" title="Nuova partita"><span>⟳</span><small>Nuova</small></button>
+  <button class="tool" id="home" title="Reimposta la vista: tutta la mappa (V)"><span>⌂</span><small>Vista</small></button>
+  <button class="tool" id="opts" title="Opzioni di visualizzazione"><span>⚙</span><small>Opzioni</small></button>
+  <button class="tool" id="ticker" title="Cronaca della partita"><span>☰</span><small>Log</small></button>
+  <button class="tool" id="menu" title="Menu"><span>≡</span><small>Menu</small></button>
+</div>
+<div class="pop" id="optspop">
+  <h3>Qualità grafica</h3>
+  <div class="seg" data-set="quality"><button data-v="auto">Automatica</button><button data-v="high">Alta</button><button data-v="medium">Media</button><button data-v="low">Bassa</button></div>
+  <p class="fps" id="fps"></p>
+  <h3>Velocità animazioni</h3>
+  <div class="seg" data-set="speed"><button data-v="full">Complete</button><button data-v="fast">Veloci</button><button data-v="skip">Salta</button></div>
+  <h3>Tavolo</h3>
+  <label class="check"><input type="checkbox" data-set="grid"> Griglia delle caselle (G)</label>
+  <h3>Animazioni avanzate</h3>
+  <label class="check"><input type="checkbox" data-set="actionCam"> Camera d’azione su slam, spari ed esplosioni</label>
+  <label class="check"><input type="checkbox" data-set="effects"> Fumo, scintille ed esplosioni</label>
+  <label class="check"><input type="checkbox" data-set="words"> Scritte a fumetto (SLAM!, BOOM!)</label>
+</div>
+<div class="pop" id="menupop">
+  <button id="undo"><span>↶</span> Annulla l’ultima scelta</button>
+  <button id="newgame"><span>⟳</span> Nuova partita</button>
+  <button id="roomopen"><span>⌁</span> Stanza online</button>
+  <button id="quit"><span>⏏</span> Esci dalla partita (menu principale)</button>
 </div>
 <div id="actions"></div>
 <div id="leaderpick"></div>
 <div id="bottom"><div id="strip"></div></div>
 <div id="hand"></div>
 <div id="ghost"></div>
+<div id="cartip"></div>
 <div id="setup">
   <div class="card">
     <h1>Thunder Road Vendetta</h1>

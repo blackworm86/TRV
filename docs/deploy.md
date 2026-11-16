@@ -34,6 +34,31 @@ dice "non ancora attivo".
 Piano gratuito (Spark): 100 connessioni simultanee, 1 GB di dati. Una stanza pesa
 pochi KB.
 
+## Account admin (ispettore degli asset)
+
+La pagina `prototypes/trv-play-spike/admin.html` mostra tutti gli asset del gioco
+e permette di scaricare un template modificabile per ognuno (SVG; `.glb` per i
+modelli 3D). Si entra con un account Google; gli admin si aggiungono a mano.
+
+1. **Authentication → Metodo di accesso → Aggiungi nuovo provider → Google →
+   Abilita**, scegli l'email di assistenza e **Salva**. (Il dominio
+   `<utente>.github.io` deve essere già tra i domini autorizzati, punto 5 sopra.)
+2. Apri `https://<utente>.github.io/<repo>/prototypes/trv-play-spike/admin.html`
+   → **Accedi con Google**. Un account non admin vede il proprio **UID**:
+   premi **Copia UID**.
+3. **Realtime Database → scheda Dati**: aggiungi alla radice il nodo `admins` e,
+   dentro, la chiave `<UID>` con valore `true` (booleano, non la stringa
+   `"true"`). Risultato: `admins/<UID>: true`.
+4. **Scheda Regole**: incolla di nuovo `database.rules.json` (ora ha la sezione
+   `admins`: ognuno legge solo il proprio nodo, nessuno lo scrive dal browser) e
+   **Pubblica**.
+5. Ricarica `admin.html`: compare l'ispettore. Per toglierne uno, cancella il suo
+   nodo in `admins`.
+
+Nota: tutta la grafica dell'ispettore è già nel codice pubblico del sito; l'accesso
+admin tiene la pagina in ordine, non protegge segreti. Per una prova in locale
+senza accesso: `npm run dev` e `/prototypes/trv-play-spike/admin.html?admin=local`.
+
 ## Come si gioca online
 
 - L'host scrive il nome → **Crea stanza** → mostra QR, link o codice.
