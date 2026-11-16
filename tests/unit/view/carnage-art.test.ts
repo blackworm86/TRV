@@ -18,14 +18,22 @@ function heightAt(m: ReturnType<typeof proceduralTerrain>, fx: number, fy: numbe
 }
 
 describe("Carnage at Devil's Run look", () => {
-  it('draws every expansion terrain code of the data file as flat road ground', () => {
+  it('gives every expansion terrain code of the data file a look of its own', () => {
     expect(Object.keys(carnage.terrain).filter(k => !k.startsWith('_')).sort()).toEqual([...'DFGPS']);
     const m = proceduralTerrain(TILE, { width: WIDTH, seed: 1 });
-    const road = proceduralTerrain({ ...TILE, terrain: ['RRRRRRRR', ...BASE.terrain.slice(1)] }, { width: WIDTH, seed: 1 });
-    for (let c = 0; c < 5; c++) {
+    const colour = (c: number): number[] => {
       const [x, y] = spaceCenterPx(0, c);
-      expect(heightAt(m, x, y)).toBeCloseTo(heightAt(road, x, y), 5);
-    }
+      const i = Math.floor(x / GRID.frameW * m.w), j = Math.floor(y / GRID.frameH * m.h), q = (j * m.w + i) * 4;
+      return [m.albedo[q], m.albedo[q + 1], m.albedo[q + 2]];
+    };
+    const [goo, glass, , fire, salt, road] = [0, 1, 2, 3, 4, 5].map(colour);
+    expect(goo[1]).toBeGreaterThan(goo[0]); // green
+    expect(glass[2]).toBeGreaterThan(glass[0]); // blue
+    expect(salt.every(v => v > 190)).toBe(true); // white crust
+    expect(fire[0]).toBeGreaterThan(fire[2]); // scorched, ember-lit
+    expect(road[0]).toBeLessThan(150); // still asphalt next to them
+    const [gx, gy] = spaceCenterPx(0, 0), [rx, ry] = spaceCenterPx(0, 6);
+    expect(heightAt(m, gx, gy)).toBeLessThan(heightAt(m, rx, ry)); // the goo lies in a pool
   });
   it('has a fire die face for each kind of result in the rulebook', () => {
     expect(carnage.on_fire.face_kinds).toEqual(['+1', '+2', 'out', 'eliminated']);

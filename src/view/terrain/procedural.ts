@@ -10,7 +10,8 @@
 import { GRID, type TileData } from '../tile-grid';
 
 type Rgb = [number, number, number];
-type Kind = 'R' | 'o' | 'M' | 'X';
+/** R road, o off-road, M mud, X impassable; Carnage at Devil's Run: G toxic goo, D desert glass, P ramp, F fire, S salt flats. */
+type Kind = 'R' | 'o' | 'M' | 'X' | 'G' | 'D' | 'P' | 'F' | 'S';
 
 /** Look of the procedural terrain. Heights in height units: -1 is the tile's cardboard top. */
 export interface TerrainStyle {
@@ -21,6 +22,11 @@ export interface TerrainStyle {
   sand: [Rgb, Rgb];
   mud: [Rgb, Rgb]; mudGlint: Rgb;
   rock: [Rgb, Rgb, Rgb];
+  /** Carnage at Devil's Run: toxic goo (two greens and its bubbles), desert glass (two blues, glint), salt crust and its cracks, scorched ground and embers. */
+  goo: [Rgb, Rgb]; gooBubble: Rgb;
+  glass: [Rgb, Rgb]; glassGlint: Rgb;
+  salt: [Rgb, Rgb]; saltCrack: Rgb;
+  scorch: [Rgb, Rgb]; ember: Rgb;
   plant: [Rgb, Rgb];
   line: Rgb; tape: [Rgb, Rgb]; hazard: Rgb;
   rough: Record<Kind, number>;
@@ -30,15 +36,19 @@ export interface TerrainStyle {
 
 /** Default look, sampled from the colours of the printed tiles. */
 export const TERRAIN_STYLE: TerrainStyle = {
-  height: { R: 0, o: 1, M: -0.85, X: 0.45 },
+  height: { R: 0, o: 1, M: -0.85, X: 0.45, G: -0.6, D: 0.15, P: 0.7, F: 0.25, S: 0.2 },
   warp: 22,
   asphalt: [[84, 85, 88], [124, 121, 120]], crack: [44, 43, 45],
   sand: [[251, 198, 138], [228, 166, 106]],
   mud: [[46, 32, 33], [82, 54, 50]], mudGlint: [118, 92, 82],
   rock: [[160, 86, 80], [190, 120, 96], [92, 55, 52]],
+  goo: [[134, 214, 58], [74, 160, 40]], gooBubble: [206, 246, 140],
+  glass: [[176, 222, 232], [118, 182, 206]], glassGlint: [244, 252, 255],
+  salt: [[244, 240, 230], [226, 220, 206]], saltCrack: [176, 164, 146],
+  scorch: [[58, 40, 34], [96, 64, 48]], ember: [255, 128, 32],
   plant: [[112, 138, 118], [62, 84, 70]],
   line: [246, 196, 62], tape: [[246, 196, 62], [28, 24, 22]], hazard: [214, 22, 28],
-  rough: { R: 0.86, o: 0.97, M: 0.3, X: 0.82 },
+  rough: { R: 0.86, o: 0.97, M: 0.3, X: 0.82, G: 0.18, D: 0.08, P: 0.95, F: 0.9, S: 0.93 },
   plants: 0.6,
 };
 
@@ -209,7 +219,7 @@ function seedOf(text: string): number {
 
 // ------------------------------------------------------------------------------- generator
 
-const KINDS: Kind[] = ['R', 'o', 'M', 'X'];
+const KINDS: Kind[] = ['R', 'o', 'M', 'X', 'G', 'D', 'P', 'F', 'S'];
 
 /**
  * Builds the procedural maps of one tile face.
@@ -222,8 +232,7 @@ export function proceduralTerrain(tile: TileData, opt: ProceduralOptions = {}): 
   const h = Math.round(w * GRID.frameH / GRID.frameW);
   const n = w * h;
   const px = GRID.frameW / w; // frame px per map px
-  // The expansion's terrain codes (G D P F S, data/trv/carnage.json) are drawn as road here: flat
-  // ground; board3d.ts lays their colour over it.
+  // An unknown terrain code is drawn as road.
   const kindAt = (r: number, c: number): Kind => { const k = tile.terrain[r]?.[c] ?? 'o'; return (KINDS.includes(k as Kind) ? k : 'R') as Kind; };
 
   // 1. Terrain kind per pixel: the space's kind, with borders between terrains wandering a little
@@ -263,12 +272,14 @@ export function proceduralTerrain(tile: TileData, opt: ProceduralOptions = {}): 
     for (let p = 0; p < n; p++) a[p] = kind[p] === q + 1 ? 1 : 0;
     return a;
   });
-  const wSoft = ind.map((a, q) => blur(a, w, h, q === 3 ? 1 : 2, 2)); // colour blend
-  const wWide = ind.map((a, q) => blur(a, w, h, q === 3 ? 2 : 6, 2)); // relief blend
+  // A terrain the face does not have keeps its all-zero weights (no blur: most faces use few kinds).
+  const present = ind.map(a => a.some(v => v > 0));
+  const wSoft = ind.map((a, q) => (present[q] ? blur(a, w, h, q === 3 ? 1 : 2, 2) : a)); // colour blend
+  const wWide = ind.map((a, q) => (present[q] ? blur(a, w, h, q === 3 ? 2 : 6, 2) : a)); // relief blend
 
   // 3. Height: ground (sand, asphalt, mud) blends softly; rock rises steeply over it.
   const height = new Float32Array(n);
-  const [wR, wO, wM, wX] = wWide;
+  const [wR, wO, wM, wX, wG, wD, wP, wF, wS] = wWide;
   // Rock rises from its edge to a rough top: distance (map px) into the impassable area.
   const isX = new Uint8ClampedArray(n);
   for (let p = 0; p < n; p++) isX[p] = kind[p] === 4 ? 255 : 0;
@@ -280,8 +291,14 @@ export function proceduralTerrain(tile: TileData, opt: ProceduralOptions = {}): 
       const p = j * w + i;
       if (!mask[p]) continue;
       const fx = (i + 0.5) * px;
-      const g = wR[p] + wO[p] + wM[p] || 1;
-      let hg = (wR[p] * st.height.R + wO[p] * st.height.o + wM[p] * st.height.M) / g;
+      const g = wR[p] + wO[p] + wM[p] + wG[p] + wD[p] + wP[p] + wF[p] + wS[p] || 1;
+      let hg = (wR[p] * st.height.R + wO[p] * st.height.o + wM[p] * st.height.M + wG[p] * st.height.G + wD[p] * st.height.D
+        + wP[p] * st.height.P + wF[p] * st.height.F + wS[p] * st.height.S) / g;
+      // Ramp ground: packed sand. Goo: a few bubbles. Salt: the crust's raised polygon rims. Fire: scorched, cracked.
+      hg += wP[p] / g * 0.12 * fbm(fx / 60, fy / 60, seed + 3);
+      if (wG[p] > 0) hg += wG[p] / g * 0.12 * bubble(fx, fy, seed);
+      if (wS[p] > 0) hg += wS[p] / g * 0.05 * saltRim(fx, fy, seed);
+      if (wF[p] > 0) hg += wF[p] / g * (0.1 * fbm(fx / 30, fy / 30, seed + 70) - 0.08 * crack(fx, fy, seed + 71));
       hg += wO[p] / g * (0.38 * fbm(fx / 150, fy / 150, seed + 3) + 0.14 * fbm(fx / 45, fy / 45, seed + 4)
         + 0.025 * Math.sin((fx * 0.35 + fy * 0.94) / 5 + 5 * fbm(fx / 60, fy / 60, seed + 5)));
       hg += wM[p] / g * 0.07 * fbm(fx / 40, fy / 40, seed + 6);
@@ -306,7 +323,7 @@ export function proceduralTerrain(tile: TileData, opt: ProceduralOptions = {}): 
   // 4. Colour and roughness.
   const albedo = new Uint8ClampedArray(n * 4);
   const rough = new Uint8ClampedArray(n);
-  const [sR, sO, sM, sX] = wSoft;
+  const [sR, sO, sM, sX, sG, sD, sP, sF, sS] = wSoft;
   const col: Rgb = [0, 0, 0];
   const add = (c: Rgb, k: number): void => { col[0] += c[0] * k; col[1] += c[1] * k; col[2] += c[2] * k; };
   for (let j = 0; j < h; j++) {
@@ -315,12 +332,17 @@ export function proceduralTerrain(tile: TileData, opt: ProceduralOptions = {}): 
       const p = j * w + i;
       if (!mask[p]) continue;
       const fx = (i + 0.5) * px;
-      const tot = sR[p] + sO[p] + sM[p] + sX[p] || 1;
+      const tot = sR[p] + sO[p] + sM[p] + sX[p] + sG[p] + sD[p] + sP[p] + sF[p] + sS[p] || 1;
       col[0] = col[1] = col[2] = 0;
       if (sR[p] > 0) add(asphaltColor(fx, fy, seed, st), sR[p] / tot);
       if (sO[p] > 0) add(sandColor(fx, fy, i, j, seed, st), sO[p] / tot);
       if (sM[p] > 0) add(mudColor(fx, fy, seed, st), sM[p] / tot);
       if (sX[p] > 0) add(rockColor(fx, fy, height[p], seed, st), sX[p] / tot);
+      if (sG[p] > 0) add(gooColor(fx, fy, seed, st), sG[p] / tot);
+      if (sD[p] > 0) add(glassColor(fx, fy, seed, st), sD[p] / tot);
+      if (sP[p] > 0) add(sandColor(fx, fy, i, j, seed, st).map(v => v * 0.92) as Rgb, sP[p] / tot);
+      if (sF[p] > 0) add(scorchColor(fx, fy, seed, st), sF[p] / tot);
+      if (sS[p] > 0) add(saltColor(fx, fy, seed, st), sS[p] / tot);
       // Sand blown over the edge of the asphalt.
       if (sR[p] > 0.05 && sO[p] > 0.05) {
         const dust = smooth(0.2, 0.7, sO[p] / tot + 0.35 * fbm(fx / 14, fy / 14, seed + 10, 2));
@@ -329,7 +351,8 @@ export function proceduralTerrain(tile: TileData, opt: ProceduralOptions = {}): 
       }
       const q4 = p * 4;
       albedo[q4] = col[0]; albedo[q4 + 1] = col[1]; albedo[q4 + 2] = col[2]; albedo[q4 + 3] = 255;
-      rough[p] = 255 * (sR[p] * st.rough.R + sO[p] * st.rough.o + sM[p] * st.rough.M + sX[p] * st.rough.X) / tot;
+      rough[p] = 255 * (sR[p] * st.rough.R + sO[p] * st.rough.o + sM[p] * st.rough.M + sX[p] * st.rough.X + sG[p] * st.rough.G
+        + sD[p] * st.rough.D + sP[p] * st.rough.P + sF[p] * st.rough.F + sS[p] * st.rough.S) / tot;
     }
   }
 
@@ -365,6 +388,56 @@ function mudColor(fx: number, fy: number, seed: number, st: TerrainStyle): Rgb {
   const t = clamp01(0.5 + 0.6 * fbm(fx / 38, fy / 38, seed + 50, 3));
   const glint = smooth(0.42, 0.62, fbm(fx / 11, fy / 11, seed + 51, 2));
   return [0, 1, 2].map(q => mix(mix(st.mud[0][q], st.mud[1][q], t), st.mudGlint[q], glint * 0.7)) as Rgb;
+}
+
+/** Bubbles on toxic goo: 0..1, round blobs of a few sizes. */
+function bubble(fx: number, fy: number, seed: number): number {
+  const a = smooth(0.62, 0.72, vnoise(fx / 9, fy / 9, seed + 80));
+  const b = smooth(0.7, 0.78, vnoise(fx / 4, fy / 4, seed + 81));
+  return Math.max(a, b * 0.6);
+}
+
+/** Salt crust: 1 on the raised rims between the polygons of the crust (a cellular pattern). */
+function saltRim(fx: number, fy: number, seed: number): number {
+  // Distance to the nearest and second nearest jittered cell centre: the rim is where they tie.
+  const S = 34, cx = Math.floor(fx / S), cy = Math.floor(fy / S);
+  let d1 = 1e9, d2 = 1e9;
+  for (let j = -1; j <= 1; j++) {
+    for (let i = -1; i <= 1; i++) {
+      const px = (cx + i + hash(cx + i, cy + j, seed + 90)) * S, py = (cy + j + hash(cx + i, cy + j, seed + 91)) * S;
+      const d = Math.hypot(fx - px, fy - py);
+      if (d < d1) { d2 = d1; d1 = d; } else if (d < d2) d2 = d;
+    }
+  }
+  return 1 - smooth(0.5, 3.5, d2 - d1);
+}
+
+function gooColor(fx: number, fy: number, seed: number, st: TerrainStyle): Rgb {
+  const t = clamp01(0.5 + 0.7 * fbm(fx / 30, fy / 30, seed + 82, 3));
+  const swirl = smooth(0.3, 0.6, fbm(fx / 16 + 3 * fbm(fx / 50, fy / 50, seed + 83), fy / 16, seed + 84, 2));
+  const b = bubble(fx, fy, seed);
+  return [0, 1, 2].map(q => mix(mix(st.goo[0][q], st.goo[1][q], t * 0.8 + swirl * 0.2), st.gooBubble[q], b * 0.75)) as Rgb;
+}
+
+function glassColor(fx: number, fy: number, seed: number, st: TerrainStyle): Rgb {
+  const t = clamp01(0.5 + 0.6 * fbm(fx / 45, fy / 45, seed + 85, 3));
+  // Long bright streaks, as light on a glazed surface, and a few dark cracks.
+  const streak = smooth(0.55, 0.75, fbm(fx / 140 + fy / 60, fy / 18, seed + 86, 2));
+  const cr = crack(fx, fy, seed + 87) * 0.5;
+  return [0, 1, 2].map(q => mix(mix(mix(st.glass[0][q], st.glass[1][q], t), st.glassGlint[q], streak * 0.65), st.glass[1][q] * 0.7, cr)) as Rgb;
+}
+
+function saltColor(fx: number, fy: number, seed: number, st: TerrainStyle): Rgb {
+  const t = clamp01(0.5 + 0.5 * fbm(fx / 60, fy / 60, seed + 88, 3));
+  const rim = saltRim(fx, fy, seed);
+  return [0, 1, 2].map(q => mix(mix(st.salt[0][q], st.salt[1][q], t), st.saltCrack[q], rim * 0.8)) as Rgb;
+}
+
+function scorchColor(fx: number, fy: number, seed: number, st: TerrainStyle): Rgb {
+  const t = clamp01(0.5 + 0.6 * fbm(fx / 25, fy / 25, seed + 72, 3));
+  // Embers glow in the cracks of the burnt ground.
+  const glow = Math.max(crack(fx, fy, seed + 71), smooth(0.6, 0.8, fbm(fx / 12, fy / 12, seed + 73, 2)) * 0.7);
+  return [0, 1, 2].map(q => mix(mix(st.scorch[0][q], st.scorch[1][q], t), st.ember[q], glow)) as Rgb;
 }
 
 function rockColor(fx: number, fy: number, hgt: number, seed: number, st: TerrainStyle): Rgb {

@@ -8,10 +8,12 @@ import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import RULES from '../../data/trv/game_base.json';
 import CATALOG from '../../data/trv/catalog_base.json';
+import CARNAGE from '../../data/trv/carnage.json';
 import {
   dieSvg, hazardTokenSvg, damageTokenSvg, dashboardSvg, commandBoardSvg, chopperSvg, carSvg, avatarSvg, PALETTE, OFFICIAL_ART,
 } from '../../src/view/vector/art';
 import { buildTile, hazardToken, type TileData } from '../../src/view/board3d';
+import { tickFlames } from '../../src/view/terrain/carnage3d';
 import { makeDie, type DiceFaces } from '../../src/view/dice3d';
 import { Pieces, TextureBank } from '../../src/view/pieces3d';
 import { texturesReady } from '../../src/view/texture';
@@ -119,6 +121,7 @@ function fitViewer(): void {
 }
 addEventListener('resize', fitViewer);
 viewRenderer.setAnimationLoop(() => {
+  tickFlames(performance.now() / 1000, viewCam);
   orbit.update();
   viewRenderer.render(viewScene, viewCam);
 });
@@ -204,6 +207,16 @@ section('tessere', 'Tessere strada', 'Cinque tessere a due facce. Ogni casella �
       build: () => buildTile(t, { width: TILE.size_mm[0] * MM, depth: TILE.size_mm[1] * MM, thickness: TILE.size_mm[2] * MM }),
     });
     return { key, title: `${t.tile}${t.side} · ${t.name}`, meta: `${mm(`road_tile_${t.tile}`)}${t.tile === RULES.start_tile ? ' · tessera di partenza' : ''}`, flat: [] };
+  }));
+// Road tiles of Carnage at Devil's Run (data/trv/carnage.json): the same size as the base ones.
+section('tessere-carnage', 'Tessere strada · Carnage at Devil’s Run', 'Cinque tessere a due facce dell’espansione: melma tossica, vetro del deserto, rampe, fuoco e saline.',
+  (CARNAGE.tiles as unknown as (TileData & { tile: number; side: string })[]).map(t => {
+    const key = `tile-${t.tile}${t.side}`;
+    builders.set(key, {
+      title: `Tessera ${t.tile}${t.side} · ${t.name}`, top: true,
+      build: () => buildTile(t, { width: TILE.size_mm[0] * MM, depth: TILE.size_mm[1] * MM, thickness: TILE.size_mm[2] * MM }),
+    });
+    return { key, title: `${t.tile}${t.side} · ${t.name}`, meta: 'Carnage at Devil’s Run', flat: [] };
   }));
 $('tessere').querySelector('header')!.insertAdjacentHTML('beforeend', `<ul class="legend">${[
   ['Strada', PALETTE.road], ['Fuoristrada', PALETTE.offroad], ['Fango', PALETTE.mud], ['Invalicabile (doppio bordo giallo)', PALETTE.impassable], ['Spazio pericolo', PALETTE.hazardRed],

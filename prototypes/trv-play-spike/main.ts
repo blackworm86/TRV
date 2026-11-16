@@ -14,6 +14,7 @@ import {
 } from '../../src/game/trv/engine';
 import { BASE_CATALOG as CAT, sizeOf, ofKind } from '../../src/game/trv/catalog';
 import { Pieces, TextureBank } from '../../src/view/pieces3d';
+import { tickFlames, flameCluster } from '../../src/view/terrain/carnage3d';
 import { buildTile, hazardToken, spaceCenterPx, spaceGeometry, spaceRimGeometry, GRID, TILE_PITCH_PX } from '../../src/view/board3d';
 import { dieSvg, damageTokenSvg, dashboardSvg, commandBoardSvg, playerStripSvg, STRIP_ASPECT, STRIP_ASPECT_LEADER, STRIP_LEADER_PLATE, avatarSvg, dataUrl } from '../../src/view/vector/art';
 import { newSeed } from '../../src/platform/entropy';
@@ -494,6 +495,11 @@ function drawTable(s: Snapshot): void {
     rec.obj.group.position.y += 0.003;
     rec.obj.group.position.x += GRID.tip / 2 * KX;
     rec.obj.setFaceUp(h.faceUp);
+    // Carnage at Devil's Run: a revealed fire hazard burns on its space.
+    const burning = h.faceUp && h.type === 'fire';
+    const fl = rec.obj.group.userData.flames as THREE.Object3D | undefined;
+    if (burning && !fl) { const f = flameCluster(TILE_W / 8, r * 31 + c * 7); rec.obj.group.add(f); rec.obj.group.userData.flames = f; }
+    if (!burning && fl) { rec.obj.group.remove(fl); delete rec.obj.group.userData.flames; }
   }
   // A hazard discarded after resolving (mine, wreck) stays face up for a moment, then goes.
   for (const [k, rec] of hazardObjs) if (!hz.has(k) && rec.gone === undefined) {
@@ -518,6 +524,14 @@ function drawTable(s: Snapshot): void {
     }
     o.userData.id = v.id;
     o.userData.wreck = v.isWreck;
+    // ON FIRE! (Carnage at Devil's Run): flames ride on the car while it burns.
+    const flames = o.userData.flames as THREE.Object3D | undefined;
+    if (v.onFire && !flames) {
+      const f = flameCluster(TILE_W / 8 * 0.7, v.id.length * 13 + v.id.charCodeAt(1));
+      f.position.y = 0.25;
+      o.add(f);
+      o.userData.flames = f;
+    } else if (!v.onFire && flames) { o.remove(flames); delete o.userData.flames; }
     let target: THREE.Vector3;
     if (v.pos) {
       const k = `${v.pos.r},${v.pos.c}`;
@@ -2932,6 +2946,7 @@ renderer.setAnimationLoop(t => {
     e.step(e.t);
     if (e.t >= 1) effects.splice(i, 1);
   }
+  tickFlames(now, camera);
   for (const grp of tileSlots) {
     if (!grp) continue;
     if (grp.userData.x !== undefined) grp.position.x += (grp.userData.x - grp.position.x) * k * 0.6;

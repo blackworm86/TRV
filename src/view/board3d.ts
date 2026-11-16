@@ -12,6 +12,7 @@ import { svgTexture, trackTexture } from './texture';
 import { GRID, spaceCenterPx, spaceOutlinePx, type TileData } from './tile-grid';
 import { proceduralTerrain, normalMap, H_MIN, H_MAX } from './terrain/procedural';
 import { buildObstacles, type ObstacleKind } from './terrain/obstacles';
+import { buildFireSpaces, buildRamps } from './terrain/carnage3d';
 import LOOK from '../../data/trv/terrain_look.json';
 
 export { GRID, TILE_PITCH_PX, spaceCenterPx, spaceOutlinePx, type TileData } from './tile-grid';
@@ -67,8 +68,7 @@ const TERRAIN_COLOR: Record<string, string> = {
   // Carnage at Devil's Run (CDR p3), codes of data/trv/carnage.json.
   G: PALETTE.toxicGoo, D: PALETTE.desertGlass, P: PALETTE.ramp, F: PALETTE.fire, S: PALETTE.saltFlats,
 };
-/** Terrains of the expansion: the generated relief draws them as road, a coloured layer shows which. */
-export const EXPANSION_TERRAIN = new Set(['G', 'D', 'P', 'F', 'S']);
+
 
 // ------------------------------------------------------------------------------- relief terrain
 
@@ -319,6 +319,13 @@ export function buildTile(tile: TileData, o: TileMeshOptions): THREE.Group {
     obstacles.position.y = o.thickness + amp * 1.2;
     group.add(obstacles);
   }
+  // Carnage at Devil's Run: flames on fire spaces and launch ramps on ramp spaces.
+  if (look !== 'flat') {
+    const fire = buildFireSpaces(tile, { width: o.width, depth: o.depth });
+    if (fire) { fire.position.y = o.thickness + amp * 0.6; group.add(fire); }
+    const ramps = buildRamps(tile, { width: o.width, depth: o.depth });
+    if (ramps) { ramps.position.y = o.thickness + amp * 1.1; group.add(ramps); }
+  }
   if (maps) {
     const relief = officialRelief(maps, o.width, o.depth, o.thickness, amp);
     group.add(relief.mesh);
@@ -332,11 +339,7 @@ export function buildTile(tile: TileData, o: TileMeshOptions): THREE.Group {
     group.add(relief.mesh, relief.info);
     group.userData.heightAt = relief.heightAt;
     group.userData.info = relief.info;
-    // The expansion's terrains: a coloured layer on the space, a hair above the ground there.
-    for (const [t, geos] of tops) {
-      if (!EXPANSION_TERRAIN.has(t)) continue;
-      flat(geos, TERRAIN_COLOR[t], o.thickness + amp * 0.1 + 0.004, t === 'D' ? 0.8 : 0.92);
-    }
+
   } else {
     /** Height of the ground above the tile's cardboard top at a frame pixel (world units). */
     group.userData.heightAt = (): number => 0.002;
