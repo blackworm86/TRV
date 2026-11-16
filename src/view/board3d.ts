@@ -409,20 +409,7 @@ export function tokenGroundTexture(code: string): THREE.CanvasTexture {
   const k = m.w / GRID.frameW;
   const sx = Math.min(...xs) * k, sy = Math.min(...ys) * k, sw = (Math.max(...xs) - Math.min(...xs)) * k, sh = (Math.max(...ys) - Math.min(...ys)) * k;
   x.drawImage(src, sx, sy, sw, sh, 0, 0, W, H);
-  if (code === 'pit') {
-    // The pit: a dark hole with a crumbling rim, broken planks of the cover and spikes at the bottom.
-    const cx = W * 0.5, cy = H * 0.5, rx = W * 0.3, ry = H * 0.33;
-    const g = x.createRadialGradient(cx, cy, 4, cx, cy, rx);
-    g.addColorStop(0, '#050403'); g.addColorStop(0.6, '#140d08'); g.addColorStop(0.85, '#3a2414'); g.addColorStop(1, 'rgba(90,60,30,0)');
-    x.fillStyle = g;
-    x.beginPath(); x.ellipse(cx, cy, rx * 1.15, ry * 1.15, 0, 0, Math.PI * 2); x.fill();
-    x.fillStyle = '#060504';
-    x.beginPath(); x.ellipse(cx, cy, rx * 0.78, ry * 0.78, 0.2, 0, Math.PI * 2); x.fill();
-    x.fillStyle = '#5a4a3c';
-    for (let i = 0; i < 9; i++) { const a = i * 0.7, r = 0.25 + (i % 3) * 0.12; x.beginPath(); x.moveTo(cx + Math.cos(a) * rx * r - 4, cy + Math.sin(a) * ry * r); x.lineTo(cx + Math.cos(a) * rx * r, cy + Math.sin(a) * ry * r - 16); x.lineTo(cx + Math.cos(a) * rx * r + 4, cy + Math.sin(a) * ry * r); x.fill(); }
-    x.strokeStyle = '#8a6a44'; x.lineWidth = 12;
-    for (const [a, l] of [[0.4, 0.5], [2.6, 0.45], [4.3, 0.4]]) { x.beginPath(); x.moveTo(cx + Math.cos(a) * rx * 0.95, cy + Math.sin(a) * ry * 0.95); x.lineTo(cx + Math.cos(a + 0.5) * rx * (0.95 - l), cy + Math.sin(a + 0.5) * ry * (0.95 - l)); x.stroke(); }
-  }
+  // The pit trap's hole is 3D (terrain/pit3d.ts): the token keeps only its dusty ground.
   x.restore();
   const t = new THREE.CanvasTexture(c);
   t.colorSpace = THREE.SRGBColorSpace;

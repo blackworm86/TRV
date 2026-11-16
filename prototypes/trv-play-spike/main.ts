@@ -15,6 +15,7 @@ import {
 import { BASE_CATALOG as CAT, sizeOf, ofKind } from '../../src/game/trv/catalog';
 import { Pieces, TextureBank } from '../../src/view/pieces3d';
 import { tickFlames, flameCluster, useRampModel, rampPiece } from '../../src/view/terrain/carnage3d';
+import { pitPiece } from '../../src/view/terrain/pit3d';
 import { buildTile, hazardToken, spaceCenterPx, spaceGeometry, spaceRimGeometry, GRID, TILE_PITCH_PX } from '../../src/view/board3d';
 import { dieSvg, damageTokenSvg, dashboardSvg, commandBoardSvg, playerStripSvg, STRIP_ASPECT, STRIP_ASPECT_LEADER, STRIP_LEADER_PLATE, avatarSvg, dataUrl } from '../../src/view/vector/art';
 import { newSeed } from '../../src/platform/entropy';
@@ -72,7 +73,8 @@ let level: Level = settings.quality === 'auto' ? 'high' : settings.quality;
 
 // ---------------------------------------------------------------- scene
 
-const renderer = new THREE.WebGLRenderer({ antialias: true });
+// stencil: the revealed pit trap opens a hole through the board (terrain/pit3d.ts).
+const renderer = new THREE.WebGLRenderer({ antialias: true, stencil: true });
 renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
 renderer.shadowMap.enabled = true;
 renderer.shadowMap.type = THREE.PCFShadowMap;
@@ -553,7 +555,7 @@ function drawTable(s: Snapshot): void {
         if (rec.ground !== code) {
           rec.ground = code;
           const space = TILE_W / 8;
-          rec.obj.setGround(code, code === 'F' ? flameCluster(space * 0.9, r * 31 + c * 7) : code === 'P' ? rampPiece(space * 0.9) : undefined);
+          rec.obj.setGround(code, code === 'F' ? flameCluster(space * 0.9, r * 31 + c * 7) : code === 'P' ? rampPiece(space * 0.9) : code === 'pit' ? pitPiece(space, r * 31 + c * 7 + 1) : undefined);
         }
       }
     } else if (rec.ground) { rec.ground = undefined; rec.obj.setGround(null); }
