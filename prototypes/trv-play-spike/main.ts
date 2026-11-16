@@ -867,9 +867,13 @@ function finishBeats(): void {
 const ACTION_BEATS = new Set<Frame['kind']>(['slam', 'shot', 'damage', 'elim']);
 /** How close the action camera comes, as a share of the distance of the whole-map view. */
 const ACTION_DIST = 0.4;
+/** Longest wait, in seconds, of the beats for the camera to reach the action. */
+const ACTION_WAIT = 1.5;
 let actionBack: { target: THREE.Vector3; dist: number } | null = null;
+let actionSince = 0;
 function actionShot(at: THREE.Vector3): void {
   if (!settings.actionCam || replaying || chase || settings.speed === 'skip') return;
+  actionSince = performance.now() / 1000;
   actionBack ??= { target: controls.target.clone(), dist: camera.position.distanceTo(controls.target) };
   focusGoal = at.clone().setY(0);
   focusDist = Math.min(actionBack.dist, fitDist * ACTION_DIST);
@@ -1340,22 +1344,20 @@ function toastLine(f: Frame): void {
   toastTimer = window.setTimeout(() => { el.classList.remove('show'); toastLines.length = 0; }, 3200);
 }
 let lastDecider = -1;
-let handoffTimer = 0;
-const HANDOFF_WHY: Partial<Record<Decision['kind'], string>> = {
-  assign: 'assegna i dadi movimento', command: 'scegli il comando', airstrike: 'attacco dall’elicottero', repair: 'ripara un’auto',
-  step: 'muovi l’auto', roadDie: 'dado strada', slamReroll: 'slam: decidi se ritirare i due dadi', shoot: 'scegli il bersaglio',
-};
-/** Hot seat: whenever a different player must decide (a new turn, or a slam reroll owed to the larger car's owner), say who. */
+/**
+ * Whenever a different player must decide (a new turn, or a slam reroll owed to the larger car's
+ * owner), the prompt in the bar flashes in their colour; in hot seat it also says to pass the
+ * device. No box over the table (asked by the user, 2026-11-16).
+ */
+let passUntil = 0;
 function handoff(d: Decision): void {
   if (!g || d.player === lastDecider) return;
   lastDecider = d.player;
-  const p = g.players[d.player];
-  const el = $('handoff');
-  el.style.setProperty('--who', p.color);
-  el.innerHTML = `<small>${net ? 'È il tuo turno' : 'Passa il dispositivo'}</small><b class="gothic">Tocca a ${net ? 'te' : esc(p.name)}</b><span>${esc(HANDOFF_WHY[d.kind] ?? '')}</span>`;
-  el.classList.add('show');
-  clearTimeout(handoffTimer);
-  handoffTimer = window.setTimeout(() => el.classList.remove('show'), d.kind === 'slamReroll' ? 2600 : 1800);
+  const el = $('prompt');
+  el.classList.remove('pass');
+  void el.offsetWidth; // restart the animation
+  el.classList.add('pass');
+  passUntil = performance.now() + (d.kind === 'slamReroll' ? 2600 : 1800);
 }
 
 function drawHud(): void {
@@ -1399,6 +1401,7 @@ function drawHud(): void {
     peek: 'guarda un pericolo coperto',
   };
   if (d && SHORT[d.kind]) $('prompt').innerHTML = `<b style="color:${g.players[d.player].color}">${esc(name)}</b>${esc(SHORT[d.kind]!)}`;
+  if (d && !net && performance.now() < passUntil) $('prompt').insertAdjacentHTML('afterbegin', '<span class="passing">Passa il dispositivo ·</span>');
   // Online, while somebody else decides: say who the table is waiting for.
   if (net && pending && pending.player !== mySeat()) lastDecider = -1; // my next decision is announced again
   if (net && !d && !playing && pending) {
@@ -2676,6 +2679,8 @@ renderer.setAnimationLoop(t => {
   for (const m of markers) (m.mesh.material as THREE.MeshBasicMaterial).opacity = (m.mesh.userData.hover ? 0.85 : 0.45) + Math.sin(now * 5) * 0.15;
   // Replay of the rules' beats, one at a time.
   // Beats follow the clock, not the frame rate: a slow frame plays every beat that is due.
+  // While the action camera flies to the action, the beats wait for it (at most ACTION_WAIT s).
+  if (playing && actionBack && (focusGoal || focusDist !== null) && now < actionSince + ACTION_WAIT) nextBeatAt = Math.max(nextBeatAt, now);
   while (playing && now >= nextBeatAt) {
     const f = queue.shift();
     if (!f) { finishBeats(); break; }
@@ -2737,6 +2742,7 @@ try {
   get game() { return g; }, get decision() { return decision; }, choose, undo, zoneOption, scene, hazardObjs, camera, controls,
   get queue() { return queue; }, get playing() { return playing; }, skipBeats, playBeats, // playBeats: replays frames (presentation only), for checks
   get rows() { return ROWS; }, get cols() { return COLS; },
+  get cam() { return { chase, action: !!actionBack, focusGoal: focusGoal?.toArray(), focusDist, settings }; },
 };
 
 // Debug handle (prototype only): try the effects from the console without playing, e.g.
