@@ -315,6 +315,8 @@ function fillRamp(slot: THREE.Group): void {
 export function rampPiece(space: number): THREE.Group {
   const slot = new THREE.Group();
   slot.userData.space = space;
+  // Marks the ramp for the cars that drive up it and jump off it (rampSurfaceAt).
+  slot.userData.ramp = true;
   rampSlots.add(slot);
   fillRamp(slot);
   return slot;
@@ -332,4 +334,19 @@ export function buildRamps(tile: TileData, o: CarnagePieceOptions): THREE.Group 
     g.add(ramp);
   }
   return g;
+}
+
+const rampRay = new THREE.Raycaster();
+const rampDown = new THREE.Vector3(0, -1, 0);
+/**
+ * The height of a ramp's driving surface at world (x, z), measured on the ramp model itself (a ray
+ * cast straight down), or null where no ramp is. A car on a ramp rests on this and tilts with it.
+ * @param ramps the ramp pieces in the scene (objects whose userData.ramp is true).
+ * Example: `rampSurfaceAt(ramps, car.position.x, car.position.z) ?? groundY`.
+ */
+export function rampSurfaceAt(ramps: THREE.Object3D[], x: number, z: number): number | null {
+  if (!ramps.length) return null;
+  rampRay.set(new THREE.Vector3(x, 100, z), rampDown);
+  const hit = rampRay.intersectObjects(ramps, true)[0];
+  return hit ? hit.point.y : null;
 }

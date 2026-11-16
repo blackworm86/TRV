@@ -10,11 +10,11 @@ import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import {
   newGame, play, tileDef, ROWS, COLS, TILE_COLS, leaderOf, commandsOf, leaders, commandName, upgrades, type CommandSlot,
-  snapshot, type Game, type Decision, type Pos, type Setup, type TileRef, type LogEntry, type Player, type Frame, type Snapshot, type Vehicle, type Blocked,
+  snapshot, terrainAt, type Game, type Decision, type Pos, type Setup, type TileRef, type LogEntry, type Player, type Frame, type Snapshot, type Vehicle, type Blocked,
 } from '../../src/game/trv/engine';
 import { BASE_CATALOG as CAT, sizeOf, ofKind } from '../../src/game/trv/catalog';
 import { Pieces, TextureBank } from '../../src/view/pieces3d';
-import { tickFlames, flameCluster, useRampModel, rampPiece } from '../../src/view/terrain/carnage3d';
+import { tickFlames, flameCluster, useRampModel, rampPiece, rampSurfaceAt } from '../../src/view/terrain/carnage3d';
 import { pitPiece } from '../../src/view/terrain/pit3d';
 import { buildTile, hazardToken, spaceCenterPx, spaceGeometry, spaceRimGeometry, GRID, TILE_PITCH_PX } from '../../src/view/board3d';
 import { ongoingArt, ONGOING_PANEL_TOP, CARD_RED, upgradeArt } from '../../src/view/cards';
@@ -665,8 +665,108 @@ const BEAT: Partial<Record<Frame['kind'], number>> = {
   move: 0.32, roll: 1.15, slam: 1.0, shot: 1.7, damage: 1.9, elim: 1.5, reveal: 0.8, tile: 1.1, round: 2.6, chopper: 0.8,
   jump: 1.4, fire: 1.0,
 };
-/** A ramp jump (Carnage at Devil's Run): how long the flight takes, and how high it goes in road spaces. */
-const JUMP = { seconds: 1.1, height: 1.6 };
+/**
+ * A ramp jump (Carnage at Devil's Run): the run up the ramp to its lip and the landing roll-out
+ * last `climb` and `land` seconds at normal speed; the flight is a real parabola under `gravity`
+ * (road spaces per second squared), so its length follows from the ramp and the distance. The
+ * take-off angle is the ramp's own slope at the lip, kept between the two limits (radians). The
+ * car touches down `short` spaces before the landing space's centre, but flies at least
+ * `minFlight` spaces; in the air its nose never dips more than `maxDive` radians.
+ */
+const JUMP = { climb: 0.4, land: 0.5, gravity: 4.5, minAngle: 0.25, maxAngle: 0.6, short: 0.35, minFlight: 0.45, maxDive: 0.35 };
+/**
+ * How the car behaves in the air by jump length (the stunt die gives 1 to 4 spaces). `follow`: how
+ * much the nose follows the flight path (0 = it keeps the ramp's tilt and drops tail first, as a car
+ * too slow off a ramp does; 1 = a clean arc, nose down on the way down). `tail`: extra nose-up tilt
+ * reached in the air (radians), so a short jump comes down on its rear wheels.
+ */
+const JUMP_BY_SPACES: Record<number, { follow: number; tail: number }> = {
+  1: { follow: 0, tail: 0.18 },
+  2: { follow: 0.25, tail: 0.08 },
+  3: { follow: 0.85, tail: 0 },
+  4: { follow: 1, tail: 0 },
+};
+/**
+ * The ways a jump can go, with their odds by jump length: `flat` is the plain jump (by far the most
+ * common, with a few degrees of natural wobble), `oneWheel` comes down leaning on one side
+ * (JUMP_LEAN radians) and drops onto the other, `barrel` turns a full roll along the car's length,
+ * `backflip` a full somersault backwards. Short jumps cannot turn over: they lack the time in the air.
+ */
+type JumpStunt = 'flat' | 'oneWheel' | 'barrel' | 'backflip';
+const JUMP_ODDS: Record<number, Partial<Record<JumpStunt, number>>> = {
+  1: { flat: 0.85, oneWheel: 0.15 },
+  2: { flat: 0.80, oneWheel: 0.20 },
+  3: { flat: 0.78, oneWheel: 0.17, barrel: 0.05 },
+  4: { flat: 0.74, oneWheel: 0.16, barrel: 0.06, backflip: 0.04 },
+};
+/** Lean of a one-wheel landing, natural wobble of a plain jump (radians), extra launch angle of a somersault. */
+const JUMP_LEAN = 0.17, JUMP_WOBBLE = 0.05, JUMP_FLIP_LIFT = 0.2;
+/** The stunt for a draw 0..1 among a jump length's odds. */
+function pickStunt(n: number, draw: number): JumpStunt {
+  let acc = 0;
+  for (const [k, w] of Object.entries(JUMP_ODDS[n])) { acc += w ?? 0; if (draw < acc) return k as JumpStunt; }
+  return 'flat';
+}
+/** A number 0..1 from a text (FNV-1a): the same jump always picks the same stunt, in replays too. */
+function hash01(text: string): number {
+  let h = 2166136261;
+  for (let i = 0; i < text.length; i++) h = Math.imul(h ^ text.charCodeAt(i), 16777619);
+  return (h >>> 0) / 4294967296;
+}
+/** A car's box: half length, height, half width (world units); the origin is under its middle. */
+function carBox(o: THREE.Object3D): { half: number; high: number; halfW: number } {
+  const size = o.userData.modelSize as THREE.Vector3 | undefined, space = TILE_W / 8;
+  return { half: (size?.x ?? space * 0.6) / 2, high: size?.y ?? space * 0.25, halfW: (size?.z ?? space * 0.3) / 2 };
+}
+/** From a car's origin (under its middle) to its centre of mass, half its height up, for a tilt. */
+function comOffset(o: THREE.Object3D, pitch: number, roll: number): THREE.Vector3 {
+  return new THREE.Vector3(0, carBox(o).high / 2, 0).applyEuler(new THREE.Euler(roll, 0, pitch, 'YXZ'));
+}
+/** Puts the car so that its centre of mass is at `com`, with the rotation it has now. */
+function placeByCom(o: THREE.Object3D, com: THREE.Vector3): void {
+  o.position.copy(com).sub(new THREE.Vector3(0, carBox(o).high / 2, 0).applyQuaternion(o.quaternion));
+}
+/** World height of the lowest corner of the car's box, as the car stands now. */
+function lowestCorner(o: THREE.Object3D): number {
+  const { half, high, halfW } = carBox(o);
+  let low = Infinity;
+  const c = new THREE.Vector3();
+  for (const x of [-half, half]) for (const y of [0, high]) for (const z of [-halfW, halfW]) {
+    c.set(x, y, z).applyQuaternion(o.quaternion);
+    low = Math.min(low, o.position.y + c.y);
+  }
+  return low;
+}
+/** Length of a jump of `n` spaces when its car is not on the table (an estimate), in seconds at normal speed. */
+function jumpSeconds(n: number): number { return JUMP.climb + 0.5 + 0.1 * n + JUMP.land; }
+/** A ramp jump in progress (drive() plays it): the path's key points and the time spent on it. */
+interface Jump {
+  from: THREE.Vector3; lip: THREE.Vector3; touch: THREE.Vector3; to: THREE.Vector3;
+  angle: number; flight: number; t: number; landed: boolean;
+  /** Its spaces' behaviour (JUMP_BY_SPACES), and the tilt it had when it touched down. */
+  style: { follow: number; tail: number }; touchPitch: number;
+  /** Its stunt, which side it leans or rolls to (+1 / -1), and its roll when it touched down. */
+  stunt: JumpStunt; side: number; touchRoll: number;
+  /** A plain jump's own small wobble (radians of roll and of extra pitch). */
+  wobble: number; nod: number;
+}
+
+/** The ramps in the scene, looked up again at most once a second (the board is rebuilt as tiles change). */
+let rampCache: { at: number; list: THREE.Object3D[]; spots: THREE.Vector3[] } = { at: -1, list: [], spots: [] };
+function ramps(now: number): THREE.Object3D[] {
+  if (now - rampCache.at > 1) {
+    const list: THREE.Object3D[] = [];
+    scene.traverse(o => { if (o.userData.ramp) list.push(o); });
+    rampCache = { at: now, list, spots: list.map(o => o.getWorldPosition(new THREE.Vector3())) };
+  }
+  return rampCache.list;
+}
+/** Whether a ramp stands within about a space of world point `p` (a car needs its surface only there). */
+function nearRamp(p: THREE.Vector3, now: number): boolean {
+  const space = TILE_W / 8;
+  ramps(now);
+  return rampCache.spots.some(r => Math.abs(r.x - p.x) < space * 1.1 && Math.abs(r.z - p.z) < space * 0.7);
+}
 
 /** What each rolled die decides, said in a few words under the big die in the middle of the screen. */
 const ROLL_NAME: Record<string, string> = { slam: 'Dado slam', direction: 'Direzione', shooting: 'Dado sparo', stunt: 'Dado acrobazia', road: 'Dado strada', fire: 'Dado fuoco' };
@@ -981,6 +1081,11 @@ function crash(id: string, into: THREE.Vector3 | null, why: string): void {
 }
 
 function beatLength(f: Frame): number {
+  // A ramp jump lasts as long as its flight: the next beat waits for the landing.
+  if (f.kind === 'jump' && f.from && f.at) {
+    const jp = f.vehicleId ? carObjs.get(f.vehicleId)?.userData.jump as Jump | undefined : undefined;
+    return jp ? JUMP.climb + jp.flight + JUMP.land : jumpSeconds(Math.max(1, f.at.c - f.from.c));
+  }
   if (f.kind !== 'log') return BEAT[f.kind] ?? 0.3;
   if (f.logKind === 'turn') return 0.6;
   return f.logKind === 'dice' || f.logKind === 'bad' || f.logKind === 'good' ? 0.45 : 0.1;
@@ -1209,10 +1314,46 @@ function applyBeat(f: Frame, now: number): void {
       break;
     case 'jump': {
       // Ramp jump: the car takes off from the ramp and lands where the stunt die sent it.
+      // The car runs up to the ramp's lip, flies on the arc the ramp's slope gives it and lands
+      // short of the space, then rolls forward to its centre: never back.
       const o = f.vehicleId ? carObjs.get(f.vehicleId) : undefined;
       if (o && f.from && f.at) {
-        o.userData.jump = { from: world(f.from).setY(o.position.y), to: world(f.at).setY(o.position.y), t0: now };
-        word('SALTO!', world(f.from), '#f2c230', true);
+        const space = TILE_W / 8;
+        const rampAt = world(f.from), to = world(f.at);
+        const list = ramps(now);
+        // The lip: the far end of the ramp's surface along the road, and its slope there.
+        let lip = new THREE.Vector3(rampAt.x + space * 0.3, rampAt.y + space * 0.3, rampAt.z), slope = JUMP.maxAngle;
+        for (let k = 0.5; k >= 0; k -= 0.02) {
+          const y = rampSurfaceAt(list, rampAt.x + k * space, rampAt.z);
+          if (y === null) continue;
+          const back = rampSurfaceAt(list, rampAt.x + (k - 0.12) * space, rampAt.z) ?? y;
+          lip = new THREE.Vector3(rampAt.x + k * space, y, rampAt.z);
+          slope = Math.atan2(y - back, 0.12 * space);
+          break;
+        }
+        // Touch down a little short of the centre and roll on; a short jump lands on the centre.
+        const touchX = Math.max(lip.x + JUMP.minFlight * space, to.x - JUMP.short * space);
+        const touch = touchX >= to.x ? to.clone() : to.clone().setX(touchX);
+        const angle = Math.max(JUMP.minAngle, Math.min(JUMP.maxAngle, slope));
+        // The flight time a body thrown at that angle needs to come down on the touch point.
+        const rise = (touch.x - lip.x) * Math.tan(angle) - (touch.y - lip.y);
+        const flight = Math.sqrt(2 * Math.max(rise, 0.05 * space) / (JUMP.gravity * space));
+        const n = Math.max(1, Math.min(4, f.at.c - f.from.c));
+        const seed = `${f.vehicleId}|${f.from.r},${f.from.c}|${f.at.c}|${g?.round ?? 0}`;
+        const stunt = (o.userData.forceStunt as JumpStunt | undefined) ?? pickStunt(n, hash01(seed));
+        // A somersault needs a steeper launch, so more time in the air.
+        const launch = stunt === 'backflip' ? Math.min(angle + JUMP_FLIP_LIFT, 1.1) : angle;
+        const lift = (touch.x - lip.x) * Math.tan(launch) - (touch.y - lip.y);
+        const air = stunt === 'backflip' ? Math.sqrt(2 * Math.max(lift, 0.05 * space) / (JUMP.gravity * space)) : flight;
+        const jump: Jump = {
+          from: o.position.clone(), lip, touch, to, angle: launch, flight: air, t: 0, landed: false, style: JUMP_BY_SPACES[n], touchPitch: 0,
+          stunt, side: hash01(`${seed}|side`) < 0.5 ? 1 : -1, touchRoll: 0,
+          wobble: (hash01(`${seed}|wobble`) * 2 - 1) * JUMP_WOBBLE, nod: (hash01(`${seed}|nod`) * 2 - 1) * JUMP_WOBBLE,
+        };
+        o.userData.jump = jump;
+        // The table's snapshot still has the car on the ramp: where it is going is the landing space.
+        o.userData.target = to.clone();
+        word('SALTO!', lip, '#f2c230', true);
       }
       break;
     }
@@ -3191,16 +3332,76 @@ const DRIVE = { speed: 7, turnRate: 9, parkTurnRate: 2.5, maxYaw: 0.87 };
  * (backwards when pushed back), turns back along the road once parked; wheels and body follow.
  */
 function drive(o: THREE.Object3D, dt: number, k: number, now: number): void {
-  // A ramp jump: the car flies on an arc from the ramp to where it lands, nose up then down.
-  const jp = o.userData.jump as { from: THREE.Vector3; to: THREE.Vector3; t0: number } | undefined;
+  // A ramp jump (Carnage at Devil's Run), in three phases; the nose always follows the path.
+  const jp = o.userData.jump as Jump | undefined;
   if (jp) {
-    const u = Math.min(1, (now - jp.t0) / (JUMP.seconds / (timeScale * SPEED_SCALE[settings.speed])));
-    o.position.lerpVectors(jp.from, jp.to, u);
-    o.position.y += Math.sin(u * Math.PI) * JUMP.height * TILE_W / 8;
+    const space = TILE_W / 8;
+    const before = o.position.clone();
+    jp.t += dt;
+    let pitch = 0, roll = 0;
+    if (jp.t < JUMP.climb) {
+      // 1. Up the ramp, speeding up, resting on its surface and tilted with it.
+      // (Not from a dead stop: as the nose rises the car's centre would sway back.)
+      const u = jp.t / JUMP.climb;
+      o.position.lerpVectors(jp.from, jp.lip, u * (0.4 + 0.6 * u));
+      const list = ramps(now);
+      const y = rampSurfaceAt(list, o.position.x, o.position.z);
+      o.position.y = Math.max(y ?? jp.from.y, jp.from.y);
+      const back = rampSurfaceAt(list, o.position.x - 0.25 * space, o.position.z) ?? jp.from.y;
+      pitch = Math.max(0, Math.atan2(o.position.y - back, 0.25 * space));
+    } else if (jp.t < JUMP.climb + jp.flight) {
+      // 2. The flight. The car's centre of mass flies a parabola from where it is at the lip to
+      // where it will be on landing; the body turns about it at a steady rate, as a thrown body does.
+      const T = jp.flight, t = jp.t - JUMP.climb, u = t / T;
+      const vx = (jp.touch.x - jp.lip.x) / T, vy = vx * Math.tan(jp.angle);
+      const grav = 2 * (jp.lip.y + vy * T - jp.touch.y) / (T * T);
+      // Plain jumps: between keeping the ramp's tilt (tail first) and following the arc, by length.
+      const path = Math.max(-JUMP.maxDive, Math.atan2(vy - grav * t, vx));
+      const held = jp.angle + jp.style.tail * Math.sin(Math.min(1, u) * Math.PI / 2);
+      pitch = held + (path - held) * jp.style.follow + jp.nod * Math.sin(u * Math.PI);
+      roll = jp.wobble * Math.sin(u * Math.PI);
+      if (jp.stunt === 'oneWheel') roll = jp.side * JUMP_LEAN * u;
+      else if (jp.stunt === 'barrel') roll = jp.side * Math.PI * 2 * u;
+      else if (jp.stunt === 'backflip') pitch = jp.angle + (Math.PI * 2 + 0.12 - jp.angle) * u;
+      jp.touchPitch = pitch;
+      jp.touchRoll = jp.stunt === 'barrel' ? 0 : roll;
+      o.rotation.order = 'YXZ';
+      o.rotation.set(roll, 0, pitch);
+      const c0 = jp.lip.clone().add(comOffset(o, jp.angle, 0)), c1 = jp.touch.clone().add(comOffset(o, 0, 0));
+      const vyc = ((c1.y - c0.y) + grav * T * T / 2) / T;
+      placeByCom(o, new THREE.Vector3(c0.x + (c1.x - c0.x) * u, c0.y + vyc * t - grav * t * t / 2, c0.z + (c1.z - c0.z) * u));
+    } else {
+      // 3. Touch down: what is still tilted falls flat (faster and faster, then a small rebound)
+      // while the car rolls on to the centre of its space.
+      const u = Math.min(1, (jp.t - JUMP.climb - jp.flight) / JUMP.land), e = 1 - (1 - u) * (1 - u);
+      if (!jp.landed) {
+        jp.landed = true;
+        impact(jp.touch, 0xd9b48a, 1.0);
+        shakeUntil = now + 0.25;
+      }
+      const fall = (x: number): number => Math.cos(Math.min(1, x) * Math.PI / 2);
+      const bounce = (x: number): number => (x > 1 ? Math.sin(Math.min(1, (x - 1) / 0.8) * Math.PI) : 0);
+      const tp = Math.atan2(Math.sin(jp.touchPitch), Math.cos(jp.touchPitch)); // a somersault ends where it began
+      pitch = tp * fall(u * 3.2) - Math.sign(tp) * Math.min(Math.abs(tp), 0.4) * 0.12 * bounce(u * 3.2);
+      roll = jp.touchRoll * fall(u * 2.8) - jp.touchRoll * 0.2 * bounce(u * 2.8);
+      o.rotation.order = 'YXZ';
+      o.rotation.set(roll, 0, pitch);
+      placeByCom(o, jp.touch.clone().lerp(jp.to, e).add(comOffset(o, 0, 0)));
+      if (u >= 1) { delete o.userData.jump; o.position.copy(jp.to); pitch = 0; roll = 0; }
+    }
+    // Never into the ground (or the ramp): the lowest corner of the car's box stays on the floor.
+    const under = rampSurfaceAt(ramps(now), o.position.x, o.position.z);
+    const floor = Math.max(jp.to.y, under ?? -Infinity);
     o.rotation.order = 'YXZ';
-    o.rotation.set(0, 0, (0.5 - u) * 0.7);
+    o.rotation.set(roll, 0, pitch);
+    // (On the ramp the car lies along its slope: there it already rests on the surface.)
+    if (jp.t >= JUMP.climb) { const low = lowestCorner(o); if (low < floor) o.position.y += floor - low; }
     o.userData.yaw = 0;
-    if (u >= 1) { delete o.userData.jump; o.rotation.z = 0; }
+    o.userData.pitch = pitch;
+    // Wheels spin with the distance covered.
+    const rig = o.userData.rig as CarRig | undefined;
+    if (rig) rig.update(dt, now, Math.hypot(o.position.x - before.x, o.position.z - before.z), 0, 0, 0, jp.landed || jp.t < JUMP.climb);
+    applyGlow(o, now);
     return;
   }
   const tg = o.userData.target as THREE.Vector3 | undefined;
@@ -3230,12 +3431,28 @@ function drive(o: THREE.Object3D, dt: number, k: number, now: number): void {
   // Tip over the long axis onto one side; while tipping it hops.
   const f = (o.userData.flipNow ?? 0) + (((o.userData.flip ?? 0) - (o.userData.flipNow ?? 0)) * k * 0.7);
   o.userData.flipNow = f;
+  // On a ramp (Carnage at Devil's Run) the car rests on its surface, nose tilted up with it.
+  const list = ramps(now);
+  let rampY: number | null = null, rampPitch = 0;
+  if (list.length && nearRamp(o.position, now)) {
+    const half = ((o.userData.modelSize as THREE.Vector3 | undefined)?.x ?? TILE_W / 8 * 0.6) / 2;
+    const front = rampSurfaceAt(list, o.position.x + half, o.position.z), back = rampSurfaceAt(list, o.position.x - half, o.position.z);
+    const mid = rampSurfaceAt(list, o.position.x, o.position.z);
+    if (front !== null || back !== null || mid !== null) {
+      const base = tg?.y ?? TILE_T;
+      const fy = Math.max(front ?? base, base), by = Math.max(back ?? base, base);
+      rampY = Math.max(mid ?? base, (fy + by) / 2);
+      rampPitch = Math.atan2(fy - by, 2 * half);
+    }
+  }
+  const pitchNow = (o.userData.pitch ?? 0) + (rampPitch - (o.userData.pitch ?? 0)) * Math.min(1, dt * 12);
+  o.userData.pitch = pitchNow;
   o.rotation.order = 'YXZ';
-  o.rotation.set(f * (o.userData.flipSide ?? 1) * Math.PI / 2, newYaw, 0);
+  o.rotation.set(f * (o.userData.flipSide ?? 1) * Math.PI / 2, newYaw, pitchNow);
   const h = o.userData.height ?? 0.5;
   // On its side it rests on half its width; while tipping it hops.
   const halfW = ((o.userData.modelSize as THREE.Vector3 | undefined)?.z ?? h) / 2;
-  o.position.y = (tg?.y ?? TILE_T) + f * halfW + Math.sin(f * Math.PI) * h * 0.8;
+  o.position.y = Math.max(tg?.y ?? TILE_T, rampY ?? -Infinity) + f * halfW + Math.sin(f * Math.PI) * h * 0.8;
   const rig = o.userData.rig as CarRig | undefined;
   if (rig) {
     const fwd = speed * dt * (reverse ? -1 : 1);
@@ -3347,7 +3564,7 @@ try {
 
 // For automated checks.
 (window as unknown as { trv: object }).trv = {
-  get game() { return g; }, get decision() { return decision; }, choose, undo, render, zoneOption, scene, hazardObjs, camera, controls,
+  get game() { return g; }, get decision() { return decision; }, choose, undo, render, snapshot: () => g && snapshot(g), terrain: (p: Pos) => g && terrainAt(g, p), zoneOption, scene, hazardObjs, camera, controls,
   get queue() { return queue; }, get playing() { return playing; }, skipBeats, playBeats, // playBeats: replays frames (presentation only), for checks
   get rows() { return ROWS; }, get cols() { return COLS; },
   get cam() { return { chase, action: !!actionBack, focusGoal: focusGoal?.toArray(), focusDist, settings }; },
