@@ -93,8 +93,9 @@ export function makeFlame(size: number, seed = Math.random()): THREE.Mesh {
   return m;
 }
 
-/** The orange glow a fire casts on the ground, a disc `size` wide. */
-const glowMaterial = (() => {
+/** The orange glow a fire casts on the ground; made on first use (it needs a canvas, so no DOM in tests until then). */
+let glow: THREE.MeshBasicMaterial | null = null;
+const glowMaterial = (): THREE.MeshBasicMaterial => (glow ??= (() => {
   const c = document.createElement('canvas');
   c.width = c.height = 128;
   const x = c.getContext('2d')!;
@@ -102,7 +103,7 @@ const glowMaterial = (() => {
   gr.addColorStop(0, 'rgba(255,170,60,1)'); gr.addColorStop(0.5, 'rgba(255,90,20,.55)'); gr.addColorStop(1, 'rgba(255,60,10,0)');
   x.fillStyle = gr; x.fillRect(0, 0, 128, 128);
   return new THREE.MeshBasicMaterial({ map: new THREE.CanvasTexture(c), transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, toneMapped: false });
-})();
+})());
 
 /** Small seeded generator (mulberry32), 0..1. */
 function rng(seed: number): () => number {
@@ -137,10 +138,10 @@ function cellsOf(tile: TileData, code: string, o: CarnagePieceOptions): { x: num
 export function flameCluster(space: number, seed: number): THREE.Group {
   const r = rng(seed);
   const g = new THREE.Group();
-  const glow = new THREE.Mesh(new THREE.CircleGeometry(space * 0.75, 24), glowMaterial);
-  glow.rotation.x = -Math.PI / 2;
-  glow.position.y = 0.01;
-  g.add(glow);
+  const disc = new THREE.Mesh(new THREE.CircleGeometry(space * 0.75, 24), glowMaterial());
+  disc.rotation.x = -Math.PI / 2;
+  disc.position.y = 0.01;
+  g.add(disc);
   const n = 3 + Math.floor(r() * 3);
   for (let i = 0; i < n; i++) {
     const s = space * (0.45 + r() * 0.35) * (i === 0 ? 1.3 : 1);
