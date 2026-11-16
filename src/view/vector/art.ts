@@ -4,6 +4,7 @@
 // official art, when present locally, takes their place (see "official art" below).
 
 import { makeBoards, STRIP_BOX, STRIP_BOX_TALL, LEAD_PANEL_W, LEAD_NAME_H } from './boards';
+import { ownerDieFaces, OWNER_DIE_ORDER } from './dice';
 
 /** Board-absolute direction names used by the rules (src/game/trv/engine.ts). */
 export type ArtDir = 'F' | 'FL' | 'FR' | 'B' | 'BL' | 'BR';
@@ -69,6 +70,14 @@ function off(): OfficialArt | null {
 const boardsRaw = Object.values(import.meta.glob<string>('/assets/ui/command_dashboard.svg', { eager: true, query: '?raw', import: 'default' }))[0];
 // The owner's drawing of the crew leader command board (Choppe Shoppe), twice as tall.
 const leaderBoardRaw = Object.values(import.meta.glob<string>('/assets/ui/command_dashboard_characters.svg', { eager: true, query: '?raw', import: 'default' }))[0];
+// The owner's drawings of the dice (./dice.ts), one SVG per die. Like the boards, they win over
+// both the open drawings below and the official art.
+const ownerDiceRaw: Record<string, string | undefined> = {
+  direction: Object.values(import.meta.glob<string>('/assets/ui/dice/direction.svg', { eager: true, query: '?raw', import: 'default' }))[0],
+  slam: Object.values(import.meta.glob<string>('/assets/ui/dice/slam.svg', { eager: true, query: '?raw', import: 'default' }))[0],
+};
+const ownerDice = new Map<string, Map<string, string>>();
+for (const [kind, raw] of Object.entries(ownerDiceRaw)) if (raw) ownerDice.set(kind, ownerDieFaces(raw, OWNER_DIE_ORDER[kind]));
 /** True when the boards come from the owner's drawing. */
 export const USER_BOARDS = !!boardsRaw;
 let userBoards: ReturnType<typeof makeBoards> | null | undefined;
@@ -108,6 +117,12 @@ const PIPS: Record<number, [number, number][]> = {
 /** A die face, 100 x 100. */
 export function dieSvg(f: DieFace, extra = ''): string {
   if (f.kind === 'fire') return fireDieSvg(f.value as FireFace, extra); // Carnage at Devil's Run
+  const own = ownerDice.get(f.kind)?.get(String(f.value));
+  if (own) {
+    // The direction drawing has forward up; turn it when forward is to the right.
+    const turn = f.kind === 'direction' && (f.forward ?? 'right') === 'right';
+    return svg(100, 100, turn ? `<g transform="rotate(90 50 50)">${own}</g>` : own, extra);
+  }
   const o = off()?.dieSvg(f, extra);
   if (o) return o;
   const bgOf: Record<string, string> = {
