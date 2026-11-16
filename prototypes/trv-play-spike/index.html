@@ -142,6 +142,23 @@
      take clicks; elsewhere the pointer reaches the table (pan, zoom, dice). */
   #bottom { position: fixed; left: 0; right: 0; bottom: 0; display: flex; justify-content: center; padding: 0 12px 4px; pointer-events: none; z-index: 2; }
   #strip { width: var(--stripw); position: relative; }
+  /* A tab on top of the command board, in the board's colours: the command and token choices,
+     and Undo (Ctrl+Z). Placed by placeDock() in main.ts. */
+  #cmddock { position: fixed; z-index: 4; display: none; flex-direction: column; align-items: stretch; gap: 6px; transform: translate(-50%, -100%);
+    min-width: 230px; max-width: 360px; padding: 8px 10px 9px; box-sizing: border-box; border-radius: 12px 12px 0 0;
+    background: #23262e; border: 2px solid #3a3f4b; border-bottom: 0; box-shadow: 0 -4px 14px rgba(0,0,0,.45); }
+  #cmddock.on { display: flex; }
+  #cmddock .q { text-align: center; font: 400 22px/1.05 'League Gothic', Impact, sans-serif; letter-spacing: .5px; color: var(--ink); }
+  #cmddock .q:empty, #cmddock .row:empty { display: none; }
+  #cmddock .row { display: flex; flex-wrap: wrap; gap: 6px; justify-content: center; }
+  #cmddock .row button { flex: 1 1 auto; min-height: 38px; padding: 6px 12px; font: inherit; font-weight: 700; font-size: 15px; border: 0; border-radius: 8px; cursor: pointer;
+    background: var(--who); color: #16100b; }
+  #cmddock .row button.quiet { background: #efe3cf; color: #1a120c; font-weight: 600; }
+  #cmddock .row button:hover { filter: brightness(1.1); }
+  #cmddock .undo { align-self: center; padding: 4px 10px; font: 600 13px system-ui, sans-serif; border: 1px solid #4a5060; border-radius: 8px; background: #2d313b; color: var(--ink); cursor: pointer; }
+  #cmddock .undo:disabled { opacity: .35; cursor: default; }
+  #cmddock .undo kbd { margin-left: 6px; padding: 0 4px; border-radius: 4px; background: #16181d; font: 11px system-ui, sans-serif; opacity: .8; }
+  #cmddock.ask { box-shadow: 0 -4px 14px rgba(0,0,0,.45), 0 0 0 2px var(--who), 0 0 18px 2px var(--who); }
   /* On each dashboard: the view from behind that car. */
   .chasebtn { position: absolute; transform: translateX(-100%); z-index: 2; pointer-events: auto; cursor: pointer; padding: 4px 9px; white-space: nowrap; border-radius: 8px; border: 0;
     font: 600 12px system-ui, sans-serif; background: rgba(20,14,10,.85); color: var(--ink); box-shadow: 0 2px 6px rgba(0,0,0,.5); }
@@ -240,7 +257,9 @@
   #drawer img { width: 18px; height: 18px; vertical-align: -4px; margin-right: 3px; }
   .dice { color: #9fd3ff; } .bad { color: #ff9b8a; } .good { color: #9be39b; font-weight: 700; } .turn { color: var(--acc); font-weight: 700; }
 
-  #setup { position: fixed; inset: 0; display: grid; place-items: center; background: rgba(10,6,3,.85); z-index: 10; }
+  /* The first screen is a screen of its own: opaque, the game is not drawn behind it (main.ts). */
+  #setup { position: fixed; inset: 0; display: grid; place-items: center; z-index: 10; overflow: auto;
+    background: radial-gradient(ellipse at 50% 30%, #3a2416 0%, #1a110b 55%, #0d0805 100%); }
   #setup .card { background: var(--card); padding: 22px 26px; border-radius: 14px; width: min(520px, 92vw); max-height: 96vh; overflow: auto; box-sizing: border-box; box-shadow: 0 10px 40px #000; }
   #setup h1 { font: 400 44px 'League Gothic', Impact, sans-serif; color: var(--acc); margin: 0 0 8px; }
   #setup label { display: block; margin: 10px 0 4px; font-weight: 600; }
@@ -352,13 +371,13 @@
   <label class="check"><input type="checkbox" data-set="words"> Scritte a fumetto (SLAM!, BOOM!)</label>
 </div>
 <div class="pop" id="menupop">
-  <button id="undo"><span>↶</span> Annulla l’ultima scelta</button>
   <button id="newgame"><span>⟳</span> Nuova partita</button>
   <button id="roomopen"><span>⌁</span> Stanza online</button>
   <button id="adminopen"><span>⚿</span> Pannello admin</button>
   <button id="quit"><span>⏏</span> Esci dalla partita (menu principale)</button>
 </div>
 <div id="actions"></div>
+<div id="cmddock"><div class="q" id="cmdq"></div><div class="row" id="cmdbtns"></div><button class="undo" id="undo2" title="Annulla l’ultima scelta (Ctrl+Z)">↶ Annulla <kbd>Ctrl+Z</kbd></button></div>
 <div id="leaderpick"></div>
 <div id="bottom"><div id="strip"></div></div>
 <div id="hand"></div>

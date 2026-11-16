@@ -33,6 +33,12 @@ const FACES = RULES.dice as unknown as DiceFaces;
 const SAVE_KEY = 'trv-hotseat-v3';
 const $ = (id: string): HTMLElement => document.getElementById(id)!;
 const esc = (s: string): string => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/"/g, '&quot;');
+/**
+ * True while the first screen (or the room's card) covers the game: then the game is not drawn and
+ * takes no keys (Tab, arrows and shortcuts belong to the menu).
+ */
+const menuOpen = (): boolean => getComputedStyle(document.getElementById('setup')!).display !== 'none'
+  || document.getElementById('lobby')?.style.display === 'grid';
 const cssPx = (name: string): number => parseFloat(getComputedStyle(document.documentElement).getPropertyValue(name));
 
 // ---------------------------------------------------------------- settings
@@ -1447,12 +1453,11 @@ function drawHud(): void {
       b.onclick = () => choose(i);
       actions.appendChild(b);
     };
-    if (d.kind === 'command') btn(0, 'Nessun comando', 'quiet');
+    if (d.kind === 'command' || d.kind === 'token') { /* on the command board's tab: see drawDock */ }
     else if (d.kind === 'shoot') btn(0, 'Non sparare', 'quiet'); // the targets are lit on the table
     else if (d.kind === 'roadDie') { btn(1, `+${g.roadDie} movimenti`, 'road'); btn(0, 'Fermati', 'quiet'); }
     else if (d.kind === 'slamReroll') { btn(0, 'Tieni', 'quiet'); btn(1, 'Ritira i dadi'); }
     else if (d.kind === 'shootReroll' || d.kind === 'dirReroll') { btn(0, 'Tieni', 'quiet'); btn(1, 'Ritira il dado'); }
-    else if (d.kind === 'token') { btn(0, 'Nessun segnalino', 'quiet'); d.options.slice(1).forEach((o, i) => btn(i + 1, `★ ${commandName(o.command!)}`)); }
     // Choices on the table with a way out: the spaces are lit, the button says no.
     else if (['plow', 'rollCage', 'dispense', 'radar'].includes(d.kind)) btn(0, d.options[0].label, d.options[0].danger ? 'danger' : 'quiet');
     // Skull Shift Knob: the one step choice that is not a space.
@@ -1492,7 +1497,7 @@ function drawHud(): void {
     peek: 'Third Eye: scegli un pericolo coperto', peekResult: d?.prompt.replace(/^Solo per [^:]+: /, 'Third Eye: ') ?? '', transfer: d?.prompt.replace(/^[^:]+: /, '') ?? '',
   };
   // The upgrades' own questions are asked in full: they name the card.
-  const asked = d ? ASK[d.kind] ?? (['plow', 'rollCage', 'dispense', 'radar', 'swap', 'pickDamage', 'redButton'].includes(d.kind) ? d.prompt.replace(/^[^:]+: /, '') : '') : '';
+  const asked = d && (d.kind === 'command' || d.kind === 'token') ? '' : d ? ASK[d.kind] ?? (['plow', 'rollCage', 'dispense', 'radar', 'swap', 'pickDamage', 'redButton'].includes(d.kind) ? d.prompt.replace(/^[^:]+: /, '') : '') : '';
   if (asked) actions.insertAdjacentHTML('afterbegin', `<span class="q">${esc(asked)}</span>`);
   actions.classList.toggle('only', !actions.querySelector('button'));
   actions.dataset.car = g.activeCar ?? '';
@@ -1514,7 +1519,8 @@ function drawHud(): void {
   const lead = leaderOf(me);
   const cmds = boardCommands(me);
   const cmdArt = {
-    color: me.color, used: me.command, drop: [...hot].filter(z => z.startsWith('cmd:')).map(z => z.slice(4)),
+    color: me.color, used: me.command,
+    drop: d?.kind === 'token' && mine ? d.options.filter(o => o.command).map(o => o.command!) : [...hot].filter(z => z.startsWith('cmd:')).map(z => z.slice(4)),
     tokenOn: Object.entries(me.slots).filter(([, v]) => v === 'token').map(([k]) => k), keepOpen: me.tokens > 0,
     ...(cmds ? { commands: cmds } : {}),
     ...(lead ? { leader: {
@@ -1539,6 +1545,9 @@ function drawHud(): void {
   // Clicks on boards: drop the selected die, or pick a car to repair.
   for (const el of document.querySelectorAll<SVGElement>('#bottom [data-drop]')) {
     if (hot.has(el.dataset.drop!)) el.classList.add('hotzone');
+    // A command token goes on the slot clicked.
+    const tokenAt = d?.kind === 'token' && mine ? d.options.findIndex(o => o.command && `cmd:${o.command}` === el.dataset.drop) : -1;
+    if (tokenAt > 0) { el.classList.add('hotzone'); el.addEventListener('click', () => choose(tokenAt)); continue; }
     el.addEventListener('click', () => {
       // No die selected: use the first free die that fits this slot.
       const pick = selDie ?? me.dice.findIndex((_, i) => !me.used[i] && zoneOption(el.dataset.drop!, i) >= 0);
@@ -1560,7 +1569,8 @@ function drawHud(): void {
       el.addEventListener('click', () => { if (selCard) assignCard(selCard, el.dataset.car!); });
     }
   }
-  ($('undo') as HTMLButtonElement).disabled = !!net || !saved?.choices.length;
+  ($('undo2') as HTMLButtonElement).disabled = !!net || !saved?.choices.length || playing;
+  drawDock(d, !!mine);
   ($('roomopen') as HTMLButtonElement).style.display = net ? '' : 'none';
   $('home').classList.toggle('on', !!chase);
   $('home').querySelector('small')!.textContent = chase ? 'Reimposta' : 'Vista';
@@ -1841,7 +1851,7 @@ addEventListener('pointerup', e => {
   if (i >= 0) choose(i); else { selDie = null; drawHud(); drawMarkers(); }
 });
 
-addEventListener('keydown', e => { if (playing && (e.key === ' ' || e.key === 'Enter')) { e.preventDefault(); skipBeats(); } });
+addEventListener('keydown', e => { if (!menuOpen() && playing && (e.key === ' ' || e.key === 'Enter')) { e.preventDefault(); skipBeats(); } });
 
 // ---------------------------------------------------------------- camera keys
 // WASD (or arrows) slide the view over the table; Tab / Shift+Tab jump between the cars of the
@@ -1872,7 +1882,7 @@ function focusOn(o: THREE.Object3D | undefined, close = false): void {
   if (o) focusGoal = (o.userData.target as THREE.Vector3 | undefined)?.clone().setY(0) ?? o.position.clone().setY(0);
 }
 addEventListener('keydown', e => {
-  if (typing(e) || e.ctrlKey || e.metaKey || e.altKey) return;
+  if (typing(e) || e.ctrlKey || e.metaKey || e.altKey || menuOpen()) return;
   const key = e.key.toLowerCase();
   if (PAN_KEYS[key]) { held.add(key); focusGoal = null; focusDist = null; e.preventDefault(); return; }
   const cars = myCars();
@@ -2080,6 +2090,16 @@ function showPane(id: Pane): void {
   if (id === 'pJoin') (($('jname') as HTMLInputElement).value ? $('ocode') : $('jname')).focus();
 }
 /** Opens the first screen on `pane` (the menu by default). */
+/** While a menu covers the game, the game's controls take no focus or clicks (Tab stays in the menu). */
+function syncInert(): void {
+  const covered = menuOpen();
+  for (const el of document.body.children) {
+    if (el.id === 'setup' || el.id === 'lobby' || el.tagName === 'SCRIPT') continue;
+    (el as HTMLElement).inert = covered;
+  }
+}
+new MutationObserver(syncInert).observe($('setup'), { attributes: true, attributeFilter: ['style'] });
+new MutationObserver(syncInert).observe($('lobby'), { attributes: true, attributeFilter: ['style'] });
 function openSetup(pane: Pane = 'pMain'): void {
   closePops();
   $('setup').style.display = 'grid';
@@ -2088,7 +2108,7 @@ function openSetup(pane: Pane = 'pMain'): void {
 $('mHot').onclick = () => showPane('pHot');
 $('mCreate').onclick = () => showPane('pCreate');
 $('mJoin').onclick = () => showPane('pJoin');
-$('mResume').onclick = () => { $('setup').style.display = 'none'; };
+$('mResume').onclick = () => { $('setup').style.display = 'none'; render(); };
 for (const b of document.querySelectorAll<HTMLElement>('#setup [data-back]')) b.onclick = () => showPane('pMain');
 /** Takes the pieces of the last match off the table, before a new one is set up. */
 function clearTable(): void {
@@ -2100,7 +2120,14 @@ function clearTable(): void {
   winShown = false;
   $('win').style.display = 'none';
 }
-$('undo').onclick = () => { closePops(); undo(); };
+$('undo2').onclick = () => undo();
+// Ctrl+Z (Cmd+Z on a Mac): take the last choice back, in hot seat, outside text fields and menus.
+addEventListener('keydown', e => {
+  if (!(e.ctrlKey || e.metaKey) || e.key.toLowerCase() !== 'z' || e.shiftKey || typing(e) || menuOpen()) return;
+  e.preventDefault();
+  if (playing) skipBeats();
+  undo();
+});
 /** Online, "new game" is the host's call, from the room's card. */
 function newGameScreen(): void { if (net) { net.lobbyOpen = true; drawLobby(); } else openSetup(); }
 $('newgame').onclick = () => { closePops(); newGameScreen(); };
@@ -2136,7 +2163,7 @@ $('start').onclick = () => {
 const NAME_KEY = 'trv-name';
 const CREW_IDS = CAT.crews.map(c => c.id);
 const crewColor = (crew: string): string => CAT.crews.find(c => c.id === crew)?.color ?? '#888';
-const randomBytes = (bytes: Uint8Array): Uint8Array => crypto.getRandomValues(bytes);
+const randomBytes = (bytes: Uint8Array): Uint8Array => { crypto.getRandomValues(bytes as Uint8Array<ArrayBuffer>); return bytes; };
 
 /** Where rooms live: the Firebase project, or (for checks) `?net=local` / `?net=emulator`. Null: online is off. */
 function netMode(): 'firebase' | 'local' | 'emulator' | null {
@@ -2299,7 +2326,7 @@ $('lcopy').onclick = () => {
   void navigator.clipboard?.writeText(link.value).then(() => { $('lcopy').textContent = 'Copiato!'; setTimeout(() => { $('lcopy').textContent = 'Copia il link'; }, 1500); }).catch(() => {});
 };
 $('roombadge').onclick = () => { if (net) { net.lobbyOpen = true; drawLobby(); } };
-$('lresume').onclick = () => { if (net) { net.lobbyOpen = false; drawLobby(); } };
+$('lresume').onclick = () => { if (net) { net.lobbyOpen = false; drawLobby(); render(); } };
 $('lstart').onclick = () => {
   if (!net?.room || !net.host) return;
   const seed = newSeed();
@@ -2693,6 +2720,52 @@ function syncHudDice(now: number): void {
  * about (above it only when there is no room below), on the command board for "no command",
  * otherwise just above the bar. Never under the strip, never off the screen.
  */
+/**
+ * The command board's tab: the command and token choices (asked by the user to sit on the board,
+ * not float over the table) and Undo. Shown in hot seat always (for Undo), online only to ask.
+ */
+function drawDock(d: Decision | null, mine: boolean): void {
+  const dock = $('cmddock'), q = $('cmdq'), row = $('cmdbtns');
+  row.innerHTML = '';
+  q.textContent = '';
+  const asking = !!d && mine && (d.kind === 'command' || d.kind === 'token');
+  if (asking) {
+    const add = (i: number, label: string, cls = ''): void => {
+      const b = document.createElement('button');
+      b.textContent = label;
+      b.title = d!.options[i].label;
+      if (cls) b.className = cls;
+      b.onclick = () => choose(i);
+      row.append(b);
+    };
+    if (d!.kind === 'command') {
+      q.textContent = 'Metti un dado su un comando';
+      add(0, 'Nessun comando', 'quiet');
+    } else {
+      const p = g!.players[d!.player];
+      q.textContent = `Segnalino comando? (${p.tokens} ${p.tokens === 1 ? 'rimasto' : 'rimasti'})`;
+      d!.options.slice(1).forEach((o, i) => add(i + 1, `★ ${commandName(o.command!)}`));
+      add(0, 'Nessun segnalino', 'quiet');
+    }
+  }
+  dock.classList.toggle('ask', asking);
+  ($('undo2') as HTMLElement).style.display = net ? 'none' : '';
+  dock.classList.toggle('on', !!g && !menuOpen() && (asking || !net));
+}
+/** Keeps the tab on top of the command board (its slots mark where the board is). */
+function placeDock(): void {
+  const dock = $('cmddock');
+  if (!dock.classList.contains('on')) return;
+  const slots = [...document.querySelectorAll<SVGElement>('#strip [data-drop^="cmd:"]')].map(el => el.getBoundingClientRect()).filter(r => r.width);
+  const svg = $('strip').querySelector('svg, .loose')?.getBoundingClientRect();
+  if (!slots.length || !svg) return;
+  const left = Math.min(...slots.map(r => r.left)), right = Math.max(...slots.map(r => r.right));
+  dock.style.left = `${Math.max(dock.offsetWidth / 2 + 6, (left + right) / 2)}px`;
+  // With a crew leader the name plate is the top of the board; without, the corner slots stand
+  // out of the board's edge by a little.
+  dock.style.top = `${document.body.classList.contains('tall') ? svg.top + 2 : Math.min(...slots.map(r => r.top)) + 2}px`; // never over the corner slots: dice are dropped there
+}
+
 function placeActions(): void {
   const el = $('actions');
   if (!el.childElementCount) { el.style.display = 'none'; return; }
@@ -2803,6 +2876,8 @@ const timer = new THREE.Timer();
 timer.connect(document);
 renderer.setAnimationLoop(t => {
   timer.update(t);
+  // Behind the first screen nothing is drawn: it is a screen of its own, and the computer rests.
+  if (menuOpen()) { $('cmddock').classList.remove('on'); return; }
   const rawDt = Math.min(timer.getDelta(), 0.1);
   frameTimes(rawDt);
   const dt = rawDt * timeScale * (playing ? SPEED_SCALE[settings.speed] : 1);
@@ -2873,11 +2948,13 @@ renderer.setAnimationLoop(t => {
   if (shake) camera.position.sub(shake);
   syncHudDice(now);
   placeActions();
+  placeDock();
   placeBlockTips();
   hudRenderer.render(hudScene, hudCam);
 });
 
 applyLevel(level);
+syncInert();
 void bootAccount().catch(e => console.error(e));
 const invited = bootOnline();
 try {
