@@ -320,10 +320,12 @@ export const commandName = (c: CommandId): string => COMMAND_NAME[c];
 
 interface TileDef { tile: number; side: string; name: string; terrain: string[]; hazards: unknown[][] }
 const TILES = base.tiles as unknown as TileDef[];
+/** Road tiles of Carnage at Devil's Run (CDR p2 setup step 1: shuffled in with the standard ones). */
+const CARNAGE_TILES = ((carnageData as unknown as { tiles?: TileDef[] }).tiles ?? []);
 
 /** The definition of a tile face. */
 export function tileDef(t: TileRef): TileDef {
-  const d = TILES.find(x => x.tile === t.tile && x.side === t.side);
+  const d = TILES.find(x => x.tile === t.tile && x.side === t.side) ?? CARNAGE_TILES.find(x => x.tile === t.tile && x.side === t.side);
   if (!d) throw new Error(`unknown tile ${t.tile}${t.side}`);
   return d;
 }
@@ -493,7 +495,9 @@ export function newGame(s: Setup): Game {
     }
   });
   // Road tiles: the starting tile, then the others shuffled into a pile.
-  const others = [...new Set(TILES.map(t => t.tile))].filter(t => t !== base.start_tile);
+  // With Carnage at Devil's Run its tiles join the pile (CDR p2, setup step 1); a test's own numbers keep the base tiles.
+  const withCarnage = s.carnage === true;
+  const others = [...new Set([...TILES, ...(withCarnage ? CARNAGE_TILES : [])].map(t => t.tile))].filter(t => t !== base.start_tile);
   const pile = shuffled(g, others, 'road-tiles').map(tile => {
     const [f] = rollDice(g, [{ id: 'tile-side', n: 2 }], 'setup:tile-side');
     return { tile, side: f === 0 ? 'a' : 'b' } as TileRef;

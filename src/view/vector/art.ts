@@ -107,6 +107,7 @@ const PIPS: Record<number, [number, number][]> = {
 
 /** A die face, 100 x 100. */
 export function dieSvg(f: DieFace, extra = ''): string {
+  if (f.kind === 'fire') return fireDieSvg(f.value as FireFace, extra); // Carnage at Devil's Run
   const o = off()?.dieSvg(f, extra);
   if (o) return o;
   const bgOf: Record<string, string> = {

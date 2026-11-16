@@ -32,7 +32,7 @@ export interface RoomStore {
 export interface Seat { name: string; crew: string; joinedAt: number }
 
 /** What the host chooses before the start. */
-export interface RoomOptions { startSide: 'a' | 'b'; leaders: boolean; upgrades: boolean }
+export interface RoomOptions { startSide: 'a' | 'b'; leaders: boolean; upgrades: boolean; carnage?: boolean }
 
 /** A player's request to the host: at log length `n`, option `c` of the pending decision. */
 export interface Intent { n: number; c: number }
@@ -98,7 +98,7 @@ export function readRoom(raw: unknown): Room | null {
     host: r.host,
     createdAt: Number(r.createdAt) || 0,
     status: r.status === 'playing' ? 'playing' : 'lobby',
-    options: { startSide: r.options?.startSide === 'b' ? 'b' : 'a', leaders: !!r.options?.leaders, upgrades: !!r.options?.upgrades },
+    options: { startSide: r.options?.startSide === 'b' ? 'b' : 'a', leaders: !!r.options?.leaders, upgrades: !!r.options?.upgrades, ...(r.options?.carnage ? { carnage: true } : {}) },
     seats: (r.seats ?? {}) as Record<string, Seat>,
     order: list<string>(r.order),
     setup,
@@ -181,6 +181,7 @@ export async function startMatch(store: RoomStore, code: string, room: Room, see
     startSide: room.options.startSide,
     ...(room.options.leaders ? { leaders: true } : {}),
     ...(room.options.upgrades ? { upgrades: true } : {}),
+    ...(room.options.carnage ? { carnage: true } : {}),
   };
   await store.write(roomPath(code, 'log'), null);
   await store.write(roomPath(code, 'intents'), null);
