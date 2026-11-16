@@ -1,8 +1,7 @@
 {
   "_note": "Thunder Road: Vendetta, Part 3: Carnage at Devil's Run. Transcribed from the official rulebook supplied by the user (TRV-CDR_Rulebook.pdf, 4 pages). Values marked null are NOT in the rulebook and must come from the user (component scans or confirmation); the engine refuses to deal what it does not know. Page numbers: p1 cover, p2 parts list and setup, p3 terrain, hazards and ON FIRE!, p4 damage tokens and credits.",
   "_missing": [
-    "tiles: the layout of the 5 new double-sided road tiles (names on p2: Drifts, Salty Dogleg, Zag, Scorcher, Glass Oasis; the other five sides unknown)",
-    "ramp: the direction a ramp space faces on the tiles (ruling: only jumped forward)"
+    "tiles: the layout of the 5 new double-sided road tiles, both sides (names on p2: Drifts, Salty Dogleg, Zag, Scorcher, Glass Oasis); a game with the expansion cannot start without them"
   ],
   "_rulings": {
     "_source": "Rules owner (the user), 2026-11-16, and the official FAQ where noted.",
@@ -161,84 +160,84 @@
     {
       "id": "bald_tires",
       "name": "Bald Tires",
-      "text": "Whenever the direction die moved this damaged car before, move it 1 extra space in the same direction.",
+      "text": "Whenever the direction die moves this car, move it one extra space in the same direction.",
       "count": 2,
-      "source": "summary sheet 'TRV - All official dice, boards, cards & tokens' supplied by the user, 2026-11-16"
+      "source": "scan of the 21 cards supplied by the rules owner, 2026-11-16"
     },
     {
       "id": "bent_frame",
       "name": "Bent Frame",
-      "text": "Your car moves without rolling the slam die if it's slammed by another car.",
+      "text": "If another car slams this car, this car moves (do not roll the slam die).",
       "count": 2,
-      "source": "summary sheet 'TRV - All official dice, boards, cards & tokens' supplied by the user, 2026-11-16"
+      "source": "scan of the 21 cards supplied by the rules owner, 2026-11-16"
     },
     {
       "id": "cracked_flywheel",
       "name": "Cracked Flywheel",
-      "text": "This car must be the first car you move each round if it's operable.",
-      "count": 2,
-      "source": "summary sheet 'TRV - All official dice, boards, cards & tokens' supplied by the user, 2026-11-16"
+      "text": "This car must be the first car you move each round if able.",
+      "count": 1,
+      "source": "scan of the 21 cards supplied by the rules owner, 2026-11-16"
     },
     {
       "id": "dead_alternator",
       "name": "Dead Alternator",
-      "text": "If another car drives off the lead road tile, this damaged car is eliminated.",
+      "text": "When another car drives off the lead road tile, eliminate this car.",
       "count": 2,
-      "source": "summary sheet 'TRV - All official dice, boards, cards & tokens' supplied by the user, 2026-11-16"
+      "source": "scan of the 21 cards supplied by the rules owner, 2026-11-16"
     },
     {
       "id": "exposed_hardware",
       "name": "Exposed Hardware",
-      "text": "When another player shoots this damaged car, they may reroll the shooting die to your damaged car again.",
+      "text": "When another player shoots this car, they may reroll the shooting die.",
       "count": 2,
-      "source": "summary sheet 'TRV - All official dice, boards, cards & tokens' supplied by the user, 2026-11-16"
+      "source": "scan of the 21 cards supplied by the rules owner, 2026-11-16"
     },
     {
       "id": "faulty_airbag",
       "name": "Faulty Airbag",
-      "text": "If this damaged car enters a space with a face-down hazard token, it's eliminated without flipping the hazard token.",
+      "text": "If this car enters a space with a face-down hazard token, eliminate it. Do not flip the hazard token.",
       "count": 2,
-      "source": "summary sheet 'TRV - All official dice, boards, cards & tokens' supplied by the user, 2026-11-16"
+      "source": "scan of the 21 cards supplied by the rules owner, 2026-11-16"
     },
     {
       "id": "loose_wiring",
       "name": "Loose Wiring",
-      "text": "Before this damaged car moves, roll the direction die and move this car 1 space in that direction.",
+      "text": "Before this car moves, roll the direction die and move this car one space in that direction.",
       "count": 2,
-      "source": "summary sheet 'TRV - All official dice, boards, cards & tokens' supplied by the user, 2026-11-16"
+      "source": "scan of the 21 cards supplied by the rules owner, 2026-11-16"
     },
     {
       "id": "lost_tools",
       "name": "Lost Tools",
-      "text": "This damaged car cannot be repaired unless one of your other cars is adjacent.",
+      "text": "This car cannot be repaired unless one of your other cars is adjacent.",
       "count": 2,
-      "source": "summary sheet 'TRV - All official dice, boards, cards & tokens' supplied by the user, 2026-11-16"
+      "source": "scan of the 21 cards supplied by the rules owner, 2026-11-16"
     },
     {
       "id": "nitro_leak",
       "name": "Nitro Leak",
-      "text": "Any assigned die to this damaged car is set to 6, but a slam eliminates it.",
+      "text": "When you assign a die to this car, set it to 6. If this car is involved in a slam, eliminate it.",
       "count": 2,
-      "source": "summary sheet 'TRV - All official dice, boards, cards & tokens' supplied by the user, 2026-11-16"
+      "source": "scan of the 21 cards supplied by the rules owner, 2026-11-16",
+      "die": 6
     },
     {
       "id": "shattered_windshield",
       "name": "Shattered Windshield",
-      "text": "If this car is ever inoperable, it's eliminated.",
+      "text": "If this car is ever inoperable, eliminate it.",
       "count": 2,
-      "source": "summary sheet 'TRV - All official dice, boards, cards & tokens' supplied by the user, 2026-11-16"
+      "source": "scan of the 21 cards supplied by the rules owner, 2026-11-16"
     },
     {
       "id": "transmission_failure",
       "name": "Transmission Failure",
       "text": "Before this car moves, set its movement die to 3. It cannot gain additional moves.",
       "count": 2,
-      "source": "summary sheet; value 3 confirmed by the rules owner 2026-11-16 (the rulebook p4 example shows 1)",
+      "source": "scan of the 21 cards supplied by the rules owner, 2026-11-16",
       "move": 3
     }
   ],
   "_engine": "Implemented in src/game/trv/engine.ts (Setup.carnage; tests in tests/unit/trv/carnage.test.ts with test numbers). Until the _missing values are filled in, a game cannot start with the expansion.",
-  "_conflicts": [
-    "ongoing_effects: the summary sheet lists 11 cards x 2 = 22; the rulebook parts list (p2) says 21 ongoing effect cards. The rules owner will send scans of the 21 cards (2026-11-16)."
-  ]
+  "_conflicts": [],
+  "_ongoing_note": "21 cards (rulebook p2): 2 of each, but Cracked Flywheel (1). Texts from the card scans, which win over the summary sheet."
 }
