@@ -173,20 +173,21 @@
   .hotzone { cursor: pointer; }
 
   /* Rolled dice, big, in the middle of the screen; comic words over the action */
-  #rolls { position: fixed; left: 50%; bottom: calc(var(--bottom) + 40px); transform: translate(-50%, 12px); display: flex; gap: 18px; padding: 12px 20px 10px;
+  /* Rolled dice and damage: a compact card at the left edge, off the road (popups were covering the table). */
+  #rolls { position: fixed; left: 12px; top: calc(var(--top) + 8px); transform: translate(-12px, 0); display: flex; gap: 12px; padding: 8px 12px 8px;
     opacity: 0; pointer-events: none; transition: opacity .25s, transform .25s; z-index: 5; border-radius: 18px;
     background: rgba(20,14,10,.9); border: 2px solid var(--acc); box-shadow: 0 10px 30px rgba(0,0,0,.6); }
-  #rolls.show { opacity: 1; transform: translate(-50%, 0); }
-  #rolls .roll { display: flex; flex-direction: column; align-items: center; gap: 4px; min-width: 96px; }
-  #rolls .roll svg { width: 84px; height: 84px; }
+  #rolls.show { opacity: 1; transform: none; }
+  #rolls .roll { display: flex; flex-direction: column; align-items: center; gap: 3px; min-width: 70px; }
+  #rolls .roll svg { width: 52px; height: 52px; }
   #rolls .roll b { font-family: 'League Gothic', Impact, sans-serif; font-weight: 400; font-size: 22px; color: var(--acc); line-height: 1; }
   #rolls .roll span { font-size: 13px; max-width: 150px; text-align: center; line-height: 1.15; }
   /* A damage token turned over: bigger than a die, in the colour of the car's crew. */
-  #rolls .roll.dmg { min-width: 190px; padding-right: 14px; border-right: 2px solid rgba(255,255,255,.12); }
+  #rolls .roll.dmg { min-width: 150px; padding-right: 14px; border-right: 2px solid rgba(255,255,255,.12); }
   #rolls .roll.dmg:only-child { border-right: 0; padding-right: 0; }
   #rolls .roll.dmg small { font-size: 12px; letter-spacing: 1px; text-transform: uppercase; color: var(--c); font-weight: 700; }
   #rolls .roll.dmg .tok { display: block; animation: tokflip .55s ease-out; filter: drop-shadow(0 6px 10px rgba(0,0,0,.6)); }
-  #rolls .roll.dmg .tok svg { width: 132px; height: 120px; }
+  #rolls .roll.dmg .tok svg { width: 84px; height: 76px; }
   #rolls .roll.dmg b { font-size: 30px; color: #ff6a5a; }
   #rolls .roll.dmg span { font-size: 14px; max-width: 210px; }
   @keyframes tokflip { 0% { transform: rotateY(180deg) scale(.5); opacity: 0; } 55% { transform: rotateY(60deg) scale(1.12); opacity: 1; } 100% { transform: none; } }
@@ -194,28 +195,36 @@
   .word { position: absolute; transform: translate(-50%, -50%); font: 400 54px 'League Gothic', Impact, sans-serif; letter-spacing: 1px; color: #fff;
     -webkit-text-stroke: 2px #16100b; paint-order: stroke fill; text-shadow: 0 4px 0 #16100b, 0 0 24px var(--wc, #ff6a2a); white-space: nowrap; will-change: transform, opacity; }
   .word.big { font-size: 84px; }
+  /* Over a car that cannot be shot: the other car's ability, said plainly. */
+  .blocktip { position: absolute; transform: translate(-50%, -100%); max-width: 240px; padding: 6px 10px; border-radius: 10px; font-size: 13px; font-weight: 600; line-height: 1.25;
+    background: rgba(120,16,12,.95); color: #fff; border: 2px solid #ff3b30; box-shadow: 0 6px 16px rgba(0,0,0,.5); text-align: center; }
+  .blocktip.warn { background: rgba(110,74,8,.95); border-color: #ffb02a; }
+  .blocktip.warn::after { border-top-color: #ffb02a; }
+  .blocktip b { display: block; font: 400 20px/1 'League Gothic', Impact, sans-serif; letter-spacing: .5px; color: #ffd0c8; }
+  .blocktip::after { content: ''; position: absolute; left: 50%; bottom: -8px; transform: translateX(-50%); border: 7px solid transparent; border-top-color: #ff3b30; border-bottom: 0; }
 
   /* Dice are drawn in 3D by an overlay; their SVG stays for layout and clicks. */
   [data-die3d] { opacity: 0; }
   #actions button.shoot { background: #ffd23a; }
-  #roundbox { position: fixed; left: 50%; top: calc(var(--top) + 30px); transform: translate(-50%, -10px) scale(.96); opacity: 0; pointer-events: none;
+  #roundbox { position: fixed; right: 12px; top: calc(var(--top) + 8px); transform: translate(12px, 0) scale(.96); opacity: 0; pointer-events: none;
     background: rgba(20,14,10,.94); border: 2px solid var(--acc); border-radius: 14px; padding: 10px 18px 14px; z-index: 6; transition: opacity .25s, transform .25s; }
-  #roundbox.show { opacity: 1; transform: translate(-50%, 0) scale(1); }
-  #roundbox h2 { margin: 0 0 6px; font-size: 40px; font-weight: 400; color: var(--acc); text-align: center; }
+  #roundbox.show { opacity: 1; transform: none; }
+  #roundbox h2 { margin: 0 0 4px; font-size: 30px; font-weight: 400; color: var(--acc); text-align: center; }
   #roundbox .row { display: flex; align-items: center; gap: 8px; padding: 4px 0; }
   #roundbox .row .av { width: 30px; height: 30px; }
   #roundbox .row span { font-size: 22px; min-width: 90px; }
-  #roundbox .row svg { width: 40px; height: 40px; }
+  #roundbox .row svg { width: 30px; height: 30px; }
   #roundbox .row em { margin-left: 10px; font-size: 12px; color: var(--acc); font-style: normal; }
   .road.glow { box-shadow: 0 0 0 2px #f2c230, 0 0 26px 6px #f2c230; }
   .road.glow span { color: #f2c230; }
   #actions button.road { background: #f2c230; }
-  #handoff { position: fixed; left: 50%; top: 42%; transform: translate(-50%, -50%) scale(.9); opacity: 0; pointer-events: none; z-index: 8;
-    background: rgba(20,14,10,.95); border: 4px solid var(--who, var(--acc)); border-radius: 16px; padding: 14px 34px 16px; text-align: center;
+  /* Whose turn: a banner just under the bar, off the table. */
+  #handoff { position: fixed; left: 50%; top: calc(var(--bar) + 4px); transform: translate(-50%, -8px); opacity: 0; pointer-events: none; z-index: 8;
+    background: rgba(20,14,10,.95); border: 3px solid var(--who, var(--acc)); border-radius: 12px; padding: 6px 22px 8px; text-align: center;
     box-shadow: 0 0 40px var(--who, transparent); transition: opacity .25s, transform .25s; }
-  #handoff.show { opacity: 1; transform: translate(-50%, -50%) scale(1); }
+  #handoff.show { opacity: 1; transform: translate(-50%, 0); }
   #handoff small { display: block; font-size: 14px; letter-spacing: 2px; text-transform: uppercase; opacity: .8; }
-  #handoff b { display: block; font-size: 54px; font-weight: 400; line-height: 1.05; color: var(--who); }
+  #handoff b { display: block; font-size: 34px; font-weight: 400; line-height: 1.05; color: var(--who); }
   #handoff span { display: block; margin-top: 4px; font-size: 16px; font-weight: 600; }
   #toast { position: fixed; left: 50%; top: calc(var(--top) + 12px); transform: translate(-50%, -8px); min-width: 280px; max-width: 70vw;
     background: rgba(20,14,10,.92); border: 2px solid var(--acc); border-radius: 10px; padding: 8px 14px; font-size: 16px; font-weight: 600;

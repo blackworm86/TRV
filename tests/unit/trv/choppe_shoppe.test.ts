@@ -385,6 +385,22 @@ describe('upgrade cards', () => {
     });
     expect(alone).toBeGreaterThan(0);
   });
+  it('Stealth Technology and Smoke Screen: a car kept from being a target is listed as blocked, with its ability', () => {
+    let listed = 0;
+    for (const id of ['stealth_technology', 'smoke_screen']) {
+      each(id, ({ d, g }) => {
+        if (d.kind !== 'shoot' || !d.blocked) return;
+        for (const b of d.blocked) {
+          listed++;
+          const v = g.vehicles.find(x => x.id === b.carId)!;
+          expect(v.upgrade).toBe(b.because);
+          expect(d.options.some(o => o.carId === b.carId)).toBe(false);
+          expect(samePos(v.pos!, b.pos)).toBe(true);
+        }
+      });
+    }
+    expect(listed).toBeGreaterThan(0);
+  }, 30_000);
   it('Sandbags: an opponent is never asked to reroll a slam the car is part of', () => {
     let slams = 0;
     each('sandbags', ({ d, g }) => {

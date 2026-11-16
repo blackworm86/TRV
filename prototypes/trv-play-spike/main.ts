@@ -10,7 +10,7 @@ import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import {
   newGame, play, tileDef, ROWS, COLS, TILE_COLS, leaderOf, commandsOf, leaders, commandName, upgrades, type CommandSlot,
-  snapshot, type Game, type Decision, type Pos, type Setup, type LogEntry, type Player, type Frame, type Snapshot, type Vehicle,
+  snapshot, type Game, type Decision, type Pos, type Setup, type LogEntry, type Player, type Frame, type Snapshot, type Vehicle, type Blocked,
 } from '../../src/game/trv/engine';
 import { BASE_CATALOG as CAT, sizeOf, ofKind } from '../../src/game/trv/catalog';
 import { Pieces, TextureBank } from '../../src/view/pieces3d';
@@ -855,7 +855,70 @@ function skipBeats(): void {
 function finishBeats(): void {
   playing = false;
   if (replaying) endReplay();
+  actionDone();
   render();
+}
+
+// ---------------------------------------------------------------- action camera
+// On a slam, a shot, damage or a car destroyed the view flies to the action and comes close
+// ("action camera", asked by the user); when the beats are over it returns to where it was.
+// Off in the Options menu; not during the instant replay (it frames its own shots) or the chase view.
+
+const ACTION_BEATS = new Set<Frame['kind']>(['slam', 'shot', 'damage', 'elim']);
+/** How close the action camera comes, as a share of the distance of the whole-map view. */
+const ACTION_DIST = 0.4;
+let actionBack: { target: THREE.Vector3; dist: number } | null = null;
+function actionShot(at: THREE.Vector3): void {
+  if (!settings.actionCam || replaying || chase || settings.speed === 'skip') return;
+  actionBack ??= { target: controls.target.clone(), dist: camera.position.distanceTo(controls.target) };
+  focusGoal = at.clone().setY(0);
+  focusDist = Math.min(actionBack.dist, fitDist * ACTION_DIST);
+}
+function actionDone(): void {
+  if (!actionBack) return;
+  focusGoal = actionBack.target;
+  focusDist = actionBack.dist;
+  actionBack = null;
+}
+
+// ---------------------------------------------------------------- chase view
+// The view from behind a car, picked from its dashboard; a second click on the dashboard, the
+// Vista button or V bring the usual view back.
+
+/** Where the chase camera sits, in road spaces: behind the car, above it, and where it looks ahead. */
+const SPACE_W = TILE_W / 8;
+// Low behind the car, looking down the road; the picture is shifted up (`lift`, a share of the
+// window's height) so the car sits in the band left free between the bubbles and the boards.
+const CHASE = { back: 3.2 * SPACE_W, up: 1.5 * SPACE_W, ahead: 1.1 * SPACE_W, follow: 4, lift: 0.24 };
+let chase: string | null = null;
+const chaseLook = new THREE.Vector3();
+/** Turns the chase view on for car `id`, or off when it is already on (or `id` is null). */
+function setChase(id: string | null): void {
+  chase = id && chase !== id ? id : null;
+  controls.enabled = !chase;
+  if (chase) camera.setViewOffset(innerWidth, innerHeight, 0, innerHeight * CHASE.lift, innerWidth, innerHeight);
+  else camera.clearViewOffset();
+  focusGoal = null;
+  focusDist = null;
+  if (chase) { const o = carObjs.get(chase); if (o) chaseLook.copy(o.position); }
+  else fit();
+  drawHud();
+}
+/** One frame of the chase view; false when there is none (or its car is gone). */
+function chaseCamera(dt: number): boolean {
+  if (!chase) return false;
+  const o = carObjs.get(chase);
+  if (!o || !o.visible) { setChase(null); return false; }
+  // Parked in the starting area a car stands sideways: there "behind" means facing down the road.
+  const v = g?.vehicles.find(x => x.id === chase);
+  const yaw = v?.inStart ? 0 : (o.userData.yaw ?? 0) as number, fwd = new THREE.Vector3(Math.cos(yaw), 0, -Math.sin(yaw));
+  const want = o.position.clone().addScaledVector(fwd, -CHASE.back).setY(o.position.y + CHASE.up);
+  const k = 1 - Math.exp(-dt * CHASE.follow);
+  camera.position.lerp(want, k);
+  chaseLook.lerp(o.position.clone().addScaledVector(fwd, CHASE.ahead), k);
+  camera.lookAt(chaseLook);
+  controls.target.copy(chaseLook);
+  return true;
 }
 
 // ---------------------------------------------------------------- instant replay
@@ -912,6 +975,7 @@ function applyBeat(f: Frame, now: number): void {
   if (f.kind === 'log') { toastLine(f); if (f.logKind === 'turn') { trayFresh = true; $('rolls').classList.remove('show'); } return; }
   drawTable(f.snap);
   const at = f.at ? world(f.at) : null;
+  if (at && ACTION_BEATS.has(f.kind)) actionShot(f.from && f.kind === 'shot' ? world(f.from).add(at).multiplyScalar(0.5) : at);
   switch (f.kind) {
     case 'roll': rollOnTable(f); showRoll(f); break;
     case 'slam':
@@ -1126,9 +1190,48 @@ function showRound(f: Frame): void {
   window.setTimeout(() => box.classList.remove('show'), 2500);
 }
 
+/** Why an ability keeps a car from being shot, said over the car during the shoot step. */
+const BLOCK_WHY: Record<string, string> = {
+  stealth_technology: 'non puoi sparare a questa auto finché c’è un altro bersaglio!',
+  smoke_screen: 'non puoi sparare a questa auto dalla casella dietro di lei!',
+};
+/** What a target's card does to a shot at it, recalled while aiming. */
+const TARGET_WARN: Record<string, string> = {
+  armor_plating: 'il risultato “qualsiasi” del dado sparo contro di lei manca.',
+};
+let blockTips: { el: HTMLElement; at: THREE.Vector3 }[] = [];
+/** Keeps the "you cannot shoot" bubbles over their cars as the view moves. */
+function placeBlockTips(): void {
+  for (const t of blockTips) {
+    const p = t.at.clone().setY(TILE_T + 0.6).project(camera);
+    t.el.style.left = `${(p.x + 1) / 2 * innerWidth}px`;
+    t.el.style.top = `${(1 - p.y) / 2 * innerHeight}px`;
+  }
+}
+
+/** Marks a car an ability keeps from being shot: red glow, red rim on its space, a bubble saying why. */
+function markBlocked(b: Blocked): void {
+  const obj = carObjs.get(b.carId);
+  if (obj) obj.userData.glow = { color: '#ff3b30', strength: 0.85 };
+  const slot = Math.floor(b.pos.c / TILE_COLS), rc = b.pos.c - slot * TILE_COLS;
+  const rim = new THREE.Mesh(spaceRimGeometry(b.pos.r, rc, TILE_W, TILE_H, 0.97, 0.8),
+    new THREE.MeshBasicMaterial({ color: 0xff3b30, transparent: true, opacity: 1, depthWrite: false, toneMapped: false }));
+  rim.rotation.x = -Math.PI / 2;
+  rim.position.set(BOARD_X0 + slot * PITCH_W + (GRID.frameW / 2) * KX, TILE_T + HAZ_SIZE.thickness + 0.02, 0);
+  rim.renderOrder = 10;
+  markerGroup.add(rim);
+  const el = document.createElement('div');
+  el.className = 'blocktip';
+  el.innerHTML = `<b>${esc(upgradeName(b.because))}</b>${esc(BLOCK_WHY[b.because] ?? 'non puoi sparare a questa auto')}`;
+  $('fx').append(el);
+  blockTips.push({ el, at: world(b.pos) });
+}
+
 function drawMarkers(): void {
   markerGroup.clear();
   markers = [];
+  for (const t of blockTips) t.el.remove();
+  blockTips = [];
   // (The car that is moving glows anyway: see applyGlow.)
   for (const o of carObjs.values()) o.userData.glow = null;
   if (!g || !decision || playing) return;
@@ -1155,6 +1258,21 @@ function drawMarkers(): void {
       markers.push({ mesh, option: i, at });
     });
     return;
+  }
+  // Shooting: a car an ability keeps from being a target glows red and says why (Stealth
+  // Technology, Smoke Screen), so the player sees the other car's power at work.
+  for (const b of d.blocked ?? []) markBlocked(b);
+  // A target that can be shot but defends itself: a reminder, in amber, of what its card does.
+  if (d.kind === 'shoot') {
+    for (const o of d.options) {
+      const v = o.carId ? g.vehicles.find(x => x.id === o.carId) : undefined;
+      if (!v?.upgrade || v.status !== 'ok' || !TARGET_WARN[v.upgrade] || !v.pos) continue;
+      const el = document.createElement('div');
+      el.className = 'blocktip warn';
+      el.innerHTML = `<b>${esc(upgradeName(v.upgrade))}</b>${esc(TARGET_WARN[v.upgrade])}`;
+      $('fx').append(el);
+      blockTips.push({ el, at: world(v.pos) });
+    }
   }
   if (!['step', 'airstrike', 'shoot', 'peek', 'peekResult', 'plow', 'rollCage', 'dispense', 'radar'].includes(d.kind)) return;
   d.options.forEach((o, i) => {
@@ -1408,7 +1526,7 @@ function drawHud(): void {
     el.addEventListener('click', e => {
       if (d?.kind === 'repair' || d?.kind === 'upgradeAssign') return; // the click picks the car
       if ((e.target as Element).closest('[data-drop].hotzone')) return; // the click places a die
-      focusOn(carObjs.get(el.dataset.car!), true);
+      setChase(el.dataset.car!); // the view from behind this car; a second click brings the map back
     });
   }
   // Upgrade cards: a car takes the selected card (the cards can also be dragged onto it).
@@ -1421,6 +1539,8 @@ function drawHud(): void {
   }
   ($('undo') as HTMLButtonElement).disabled = !!net || !saved?.choices.length;
   ($('roomopen') as HTMLButtonElement).style.display = net ? '' : 'none';
+  $('home').classList.toggle('on', !!chase);
+  $('home').querySelector('small')!.textContent = chase ? 'Reimposta' : 'Vista';
   ($('replay') as HTMLButtonElement).disabled = !replayFrames?.length || playing;
   if (d?.kind === 'assign') drawMarkers();
 
@@ -2465,7 +2585,7 @@ function placeActions(): void {
 }
 $('skip').addEventListener('click', () => skipBeats());
 /** Back to the view of the whole map, as at the start. */
-function homeView(): void { focusGoal = null; focusDist = null; fit(); }
+function homeView(): void { actionBack = null; if (chase) { setChase(null); return; } focusGoal = null; focusDist = null; fit(); }
 $('home').addEventListener('click', homeView);
 
 /** The lines of the spaces over the terrain, on or off (button and key G). */
@@ -2587,8 +2707,10 @@ renderer.setAnimationLoop(t => {
     td.d.mesh.position.y = td.to.y + Math.abs(Math.cos(u * Math.PI * 1.5)) * (1 - u) * 2.2;
     td.d.mesh.quaternion.slerpQuaternions(td.q0, td.q1, e);
   }
-  controls.update();
-  tiltView();
+  if (!chaseCamera(rawDt)) {
+    controls.update();
+    tiltView();
+  }
   animTableDice(now);
   const shake = now < shakeUntil ? new THREE.Vector3((Math.random() - 0.5) * 0.25, (Math.random() - 0.5) * 0.15, (Math.random() - 0.5) * 0.25) : null;
   if (shake) camera.position.add(shake);
@@ -2596,6 +2718,7 @@ renderer.setAnimationLoop(t => {
   if (shake) camera.position.sub(shake);
   syncHudDice(now);
   placeActions();
+  placeBlockTips();
   hudRenderer.render(hudScene, hudCam);
 });
 
@@ -2633,5 +2756,7 @@ Object.assign(window, { __fx: {
     if (a && b) burst(a.position.clone(), b.position.clone(), toId);
   },
   word: (t: string, x: number, z: number) => word(t, new THREE.Vector3(x, TILE_T, z), '#ffb02a'),
+  blocked: (carId: string, because = 'stealth_technology') => { const v = g?.vehicles.find(x => x.id === carId); if (v?.pos) markBlocked({ carId, pos: v.pos, because }); },
+  chase: (carId: string | null) => setChase(carId),
   roll: (die: string, value: number | string) => showRoll({ kind: 'roll', die: { die, value } } as unknown as Frame),
 } });
