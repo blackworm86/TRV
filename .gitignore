@@ -180,6 +180,7 @@ reference/rulebook/
 
 # === Web: Vite, Vitest and Playwright output ===
 dist-single/
+dist-pages/
 .vitest/
 /playwright-report/
 

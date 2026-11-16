@@ -17,6 +17,12 @@ import { Pieces, TextureBank } from '../../src/view/pieces3d';
 import { buildTile, hazardToken, spaceCenterPx, spaceGeometry, GRID, TILE_PITCH_PX } from '../../src/view/board3d';
 import { dieSvg, damageTokenSvg, dashboardSvg, commandBoardSvg, playerStripSvg, STRIP_ASPECT, STRIP_ASPECT_LEADER, STRIP_LEADER_PLATE, avatarSvg, dataUrl } from '../../src/view/vector/art';
 import { newSeed } from '../../src/platform/entropy';
+import {
+  acceptable, backToLobby, cleanCode, closeRoom, createRoom, freeCrew, joinRoom, leaveRoom, readRoom, roomPath, seatOf, startMatch, startProblem,
+  MAX_PLAYERS, NAME_MAX, type Room, type RoomStore,
+} from '../../src/net/room';
+import { FIREBASE_CONFIG } from '../../src/net/firebase-config';
+import qrcode from 'qrcode-generator';
 import { ModelBank, dressed, fitToLength, splitParts, splitWheels, type Tint } from '../../src/view/models3d';
 import { MODEL, SHOW_LENGTH_MM, MODEL_YAW, CHOPPER_PARTS, ROTOR_SPEED, WHEELS, GUNS, type GunSpec, crewTint, WRECK_TINT, wreckModel, phaseOf, hover, CarRig } from './models-config';
 import { makeDie, withOwnMaterials, type Die3D, type DiceFaces } from '../../src/view/dice3d';
@@ -209,8 +215,24 @@ interface Saved { setup: Setup; choices: number[] }
 let saved: Saved | null = null;
 let g: Game | null = null;
 let gen: Generator<Decision, void, number> | null = null;
+/** The decision this device may answer: the pending one in hot seat; online, only when it is this player's. */
 let decision: Decision | null = null;
+/** The decision the rules are waiting on, whoever must take it. */
+let pending: Decision | null = null;
 let selDie: number | null = null;
+
+/** The online room this device is in (null: hot seat). See the "online" section below. */
+interface Net { store: RoomStore; code: string; uid: string; host: boolean; room: Room | null; stop: () => void; lobbyOpen: boolean; qrFor: string }
+let net: Net | null = null;
+
+/** Online: the player number of this device in the running match (-1: hot seat, or a spectator). */
+function mySeat(): number {
+  return net?.room ? seatOf(net.room, net.uid) : -1;
+}
+function setPending(d: Decision | null): void {
+  pending = d;
+  decision = d && (!net || d.player === mySeat()) ? d : null;
+}
 
 function startGame(s: Saved): void {
   replayFrames = null; // a replay belongs to the game it was seen in
@@ -219,7 +241,7 @@ function startGame(s: Saved): void {
   gen = play(g);
   let r = gen.next(0);
   for (const c of s.choices) { if (r.done) break; r = gen.next(c); }
-  decision = r.done ? null : r.value;
+  setPending(r.done ? null : r.value);
   selDie = null;
   lastDecider = -1;
   frameSeen = g.frames.length;
@@ -229,11 +251,27 @@ function startGame(s: Saved): void {
   render();
 }
 
+/** The player at this device picks option `i`. Online, a guest asks the host; the host applies and publishes. */
 function choose(i: number): void {
   if (!gen || !decision || !saved || i < 0) return;
+  if (net && !net.host) {
+    void net.store.write(roomPath(net.code, 'intents', net.uid), { n: saved.choices.length, c: i }).catch(netError);
+    decision = null; // asked: wait for the host's log
+    selDie = null;
+    render();
+    return;
+  }
+  const n = saved.choices.length;
+  applyChoice(i);
+  if (net) void net.store.write(roomPath(net.code, 'log', String(n)), i).catch(netError);
+}
+
+/** Feeds an accepted choice to the rules and plays what it produced. */
+function applyChoice(i: number): void {
+  if (!gen || !pending || !saved) return;
   saved.choices.push(i);
   const r = gen.next(i);
-  decision = r.done ? null : r.value;
+  setPending(r.done ? null : r.value);
   selDie = null;
   persist();
   const fresh = g!.frames.slice(frameSeen);
@@ -243,20 +281,23 @@ function choose(i: number): void {
 }
 
 function undo(): void {
-  if (!saved || !saved.choices.length) return;
+  if (net || !saved || !saved.choices.length) return; // online the log is shared: no taking back
   winShown = false;
   $('win').style.display = 'none';
   startGame({ setup: saved.setup, choices: saved.choices.slice(0, -1) });
 }
 
 function persist(): void {
+  if (net) return; // an online match lives in the room, not in this browser
   try { localStorage.setItem(SAVE_KEY, JSON.stringify(saved)); } catch { /* storage off: no resume */ }
 }
 
 /** The player the interface is showing: whoever must decide now. */
 function viewer(): Player | null {
   if (!g) return null;
-  return g.players[decision ? decision.player : g.winner ?? g.current];
+  const seat = mySeat();
+  if (seat >= 0) return g.players[seat]; // online: always my own boards
+  return g.players[pending ? pending.player : g.winner ?? g.current];
 }
 
 // ---------------------------------------------------------------- dice placement
@@ -1159,7 +1200,7 @@ function handoff(d: Decision): void {
   const p = g.players[d.player];
   const el = $('handoff');
   el.style.setProperty('--who', p.color);
-  el.innerHTML = `<small>Passa il dispositivo</small><b class="gothic">Tocca a ${esc(p.name)}</b><span>${esc(HANDOFF_WHY[d.kind] ?? '')}</span>`;
+  el.innerHTML = `<small>${net ? 'È il tuo turno' : 'Passa il dispositivo'}</small><b class="gothic">Tocca a ${net ? 'te' : esc(p.name)}</b><span>${esc(HANDOFF_WHY[d.kind] ?? '')}</span>`;
   el.classList.add('show');
   clearTimeout(handoffTimer);
   handoffTimer = window.setTimeout(() => el.classList.remove('show'), d.kind === 'slamReroll' ? 2600 : 1800);
@@ -1209,6 +1250,12 @@ function drawHud(): void {
     peek: 'guarda un pericolo coperto',
   };
   if (d && SHORT[d.kind]) $('prompt').innerHTML = `<b style="color:${g.players[d.player].color}">${esc(name)}</b>${esc(SHORT[d.kind]!)}`;
+  // Online, while somebody else decides: say who the table is waiting for.
+  if (net && pending && pending.player !== mySeat()) lastDecider = -1; // my next decision is announced again
+  if (net && !d && !playing && pending) {
+    const w = g.players[pending.player];
+    $('prompt').innerHTML = `<b style="color:${w.color}">${esc(w.name)}</b>${pending.player === mySeat() ? 'invio…' : 'sta decidendo…'}`;
+  }
   ($('skip') as HTMLButtonElement).style.display = playing ? '' : 'none';
   // The choices float by the car they are about (see placeActions), not in the bar.
   const actions = $('actions');
@@ -1341,7 +1388,7 @@ function drawHud(): void {
       el.addEventListener('click', () => { if (selCard) assignCard(selCard, el.dataset.car!); });
     }
   }
-  ($('undo') as HTMLButtonElement).disabled = !saved?.choices.length;
+  ($('undo') as HTMLButtonElement).disabled = !!net || !saved?.choices.length;
   ($('replay') as HTMLButtonElement).disabled = !replayFrames?.length || playing;
   if (d?.kind === 'assign') drawMarkers();
 
@@ -1730,9 +1777,20 @@ function syncNames(): void {
 }
 $('np').onchange = syncNames;
 syncNames();
+/** Takes the pieces of the last match off the table, before a new one is set up. */
+function clearTable(): void {
+  for (const o of carObjs.values()) scene.remove(o);
+  carObjs.clear();
+  for (const id of [...smokes.keys()]) smokeOff(id);
+  for (const o of chopperObjs.values()) scene.remove(o);
+  chopperObjs.clear();
+  winShown = false;
+  $('win').style.display = 'none';
+}
 $('undo').onclick = undo;
-$('menu').onclick = () => { $('setup').style.display = 'grid'; };
-$('again').onclick = () => { $('win').style.display = 'none'; $('setup').style.display = 'grid'; };
+// Online, "new game" is the host's call, from the room's card.
+$('menu').onclick = () => { if (net) { net.lobbyOpen = true; drawLobby(); } else $('setup').style.display = 'grid'; };
+$('again').onclick = () => { $('win').style.display = 'none'; if (net) { net.lobbyOpen = true; drawLobby(); } else $('setup').style.display = 'grid'; };
 $('close').onclick = () => { $('win').style.display = 'none'; };
 $('start').onclick = () => {
   const n = Number(($('np') as HTMLSelectElement).value);
@@ -1744,17 +1802,257 @@ $('start').onclick = () => {
     const c = CAT.crews.find(x => x.id === crew)!;
     return { name: ($(`n${i}`) as HTMLInputElement).value.trim() || c.name, color: c.color, crew };
   });
-  for (const o of carObjs.values()) scene.remove(o);
-  carObjs.clear();
-  for (const id of [...smokes.keys()]) smokeOff(id);
-  for (const o of chopperObjs.values()) scene.remove(o);
-  chopperObjs.clear();
-  winShown = false;
-  $('win').style.display = 'none';
+  clearTable();
   $('setup').style.display = 'none';
   const leaders = ($('leaders') as HTMLInputElement).checked, cards = ($('upgrades') as HTMLInputElement).checked;
   startGame({ setup: { seed: seed.value, players, startSide: ($('side') as HTMLSelectElement).value as 'a' | 'b', ...(leaders ? { leaders } : {}), ...(cards ? { upgrades: cards } : {}) }, choices: [] });
 };
+
+// ---------------------------------------------------------------- online
+// A room on a shared store (src/net/room.ts): the host's browser is the referee. Every device
+// replays the room's log of choices on its own copy of the rules; a guest's click becomes an
+// intent that the host checks and appends. The room stays open until the host closes it.
+
+const NAME_KEY = 'trv-name';
+const CREW_IDS = CAT.crews.map(c => c.id);
+const crewColor = (crew: string): string => CAT.crews.find(c => c.id === crew)?.color ?? '#888';
+const randomBytes = (bytes: Uint8Array): Uint8Array => crypto.getRandomValues(bytes);
+
+/** Where rooms live: the Firebase project, or (for checks) `?net=local` / `?net=emulator`. Null: online is off. */
+function netMode(): 'firebase' | 'local' | 'emulator' | null {
+  const q = new URLSearchParams(location.search).get('net');
+  if (q === 'local' || q === 'emulator') return q;
+  return FIREBASE_CONFIG ? 'firebase' : null;
+}
+let storePromise: Promise<RoomStore> | null = null;
+function openStore(): Promise<RoomStore> {
+  storePromise ??= (async (): Promise<RoomStore> => {
+    const mode = netMode();
+    if (mode === 'local') return (await import('../../src/net/tree-store')).createLocalStore();
+    const { createFirebaseStore } = await import('../../src/net/firebase-store');
+    if (mode === 'emulator') {
+      return createFirebaseStore({ apiKey: 'demo-key', authDomain: 'demo-trv.firebaseapp.com', projectId: 'demo-trv', appId: 'demo-app',
+        databaseURL: 'https://demo-trv-default-rtdb.firebaseio.com' }, { auth: 9099, database: 9000 });
+    }
+    return createFirebaseStore(FIREBASE_CONFIG!);
+  })();
+  return storePromise;
+}
+/** The link that brings a guest straight to the room. */
+function inviteUrl(code: string): string {
+  const u = new URL(location.href);
+  u.search = '';
+  u.hash = '';
+  u.searchParams.set('room', code);
+  const q = new URLSearchParams(location.search).get('net');
+  if (q) u.searchParams.set('net', q);
+  return u.toString();
+}
+function netError(e: unknown): void {
+  console.error(e);
+  const b = $('roombadge');
+  b.textContent = '⚠ Errore di rete: controlla la connessione';
+  b.style.display = 'block';
+  $('oerr').textContent = 'Errore di rete: controlla la connessione e riprova.';
+}
+
+function enterRoom(store: RoomStore, code: string, uid: string): void {
+  net = { store, code, uid, host: false, room: null, stop: () => {}, lobbyOpen: false, qrFor: '' };
+  history.replaceState(null, '', inviteUrl(code));
+  $('setup').style.display = 'none';
+  $('oerr').textContent = '';
+  net.stop = store.watch(roomPath(code), raw => onRoom(readRoom(raw)));
+}
+
+/** Leaves the room on this device only and goes back to the first screen. */
+function exitRoom(why = ''): void {
+  if (!net) return;
+  net.stop();
+  net = null;
+  gen = null;
+  saved = null;
+  setPending(null);
+  const u = new URL(location.href);
+  u.searchParams.delete('room');
+  history.replaceState(null, '', u.toString());
+  drawLobby();
+  $('setup').style.display = 'grid';
+  $('oerr').textContent = why;
+  render();
+}
+
+/** The room changed (or was read for the first time). */
+function onRoom(room: Room | null): void {
+  if (!net) return;
+  if (!room) { exitRoom('La stanza è stata chiusa.'); return; }
+  if (!room.seats[net.uid]) { exitRoom('Non sei più in questa stanza.'); return; }
+  net.room = room;
+  net.host = room.host === net.uid;
+  if (room.status === 'playing' && room.setup) {
+    if (!saved || saved.setup.seed !== room.setup.seed) {
+      // A match starts (or this device comes back to one): replay the whole log, without the show.
+      clearTable();
+      net.lobbyOpen = false;
+      startGame({ setup: room.setup, choices: room.log.slice() });
+    } else {
+      for (let i = saved.choices.length; i < room.log.length; i++) applyChoice(room.log[i]);
+    }
+    if (net.host) referee();
+  }
+  drawLobby();
+}
+
+/** Host: accepts the intents that answer the pending decision, one after the other. */
+function referee(): void {
+  while (net?.room && saved) {
+    const ok = acceptable(net.room, saved.choices.length, pending && { player: pending.player, options: pending.options.length });
+    if (!ok) return;
+    const n = saved.choices.length;
+    applyChoice(ok.choice);
+    void net.store.write(roomPath(net.code, 'log', String(n)), ok.choice).catch(netError);
+  }
+}
+
+function drawLobby(): void {
+  const lobby = $('lobby'), badge = $('roombadge');
+  if (!net?.room) { lobby.style.display = 'none'; badge.style.display = 'none'; return; }
+  const n = net, r = net.room, inGame = r.status === 'playing', open = !inGame || n.lobbyOpen;
+  const ids = inGame ? r.order : Object.keys(r.seats).sort((a, b) => r.seats[a].joinedAt - r.seats[b].joinedAt || (a < b ? -1 : 1));
+  badge.style.display = 'block';
+  badge.textContent = `Stanza ${n.code} · ${ids.length} giocatori${n.host ? ' · sei l’host' : ''}`;
+  lobby.style.display = open ? 'grid' : 'none';
+  if (!open) return;
+  $('lcode').textContent = n.code;
+  if (n.qrFor !== n.code) {
+    n.qrFor = n.code;
+    const link = inviteUrl(n.code);
+    ($('llink') as HTMLInputElement).value = link;
+    const qr = qrcode(0, 'M');
+    qr.addData(link);
+    qr.make();
+    $('lqr').innerHTML = qr.createSvgTag({ cellSize: 4, margin: 0, scalable: true });
+  }
+  // Seats: mine has the crew to pick (before the start); the others are read only.
+  const taken = new Set(ids.filter(id => id !== n.uid).map(id => r.seats[id].crew));
+  $('lseats').innerHTML = ids.map(id => {
+    const s = r.seats[id], mine = id === n.uid;
+    const crew = mine && !inGame
+      ? `<select id="lcrew">${CAT.crews.map(c => `<option value="${c.id}" ${c.id === s.crew ? 'selected' : ''} ${taken.has(c.id) ? 'disabled' : ''}>${esc(c.name)}</option>`).join('')}</select>`
+      : `<small>${esc(CAT.crews.find(c => c.id === s.crew)?.name ?? s.crew)}</small>`;
+    return `<div class="seat" style="--c:${crewColor(s.crew)}"><i></i><b>${esc(s.name)}</b>${id === r.host ? '<small>host</small>' : ''}${mine ? '<small>tu</small>' : ''}${crew}</div>`;
+  }).join('') + (inGame ? '' : '<div class="seat empty"><i></i><b>posto libero</b></div>'.repeat(Math.max(0, MAX_PLAYERS - ids.length)));
+  const crewSel = document.getElementById('lcrew') as HTMLSelectElement | null;
+  if (crewSel) crewSel.onchange = () => { void n.store.write(roomPath(n.code, 'seats', n.uid, 'crew'), crewSel.value).catch(netError); };
+  // Options: the host's to set before the start.
+  const o = r.options;
+  if (n.host && !inGame) {
+    $('lopts').innerHTML = `<label>Tessera di partenza</label>
+      <select id="lside"><option value="a" ${o.startSide === 'a' ? 'selected' : ''}>1a — The Parking Lot</option><option value="b" ${o.startSide === 'b' ? 'selected' : ''}>1b — Runway to Ruin</option></select>
+      <label>Espansioni</label>
+      <label class="check"><input type="checkbox" id="lleaders" ${o.leaders ? 'checked' : ''}> Choppe Shoppe: capisquadra e segnalini comando</label>
+      <label class="check"><input type="checkbox" id="lupgrades" ${o.upgrades ? 'checked' : ''}> Choppe Shoppe: carte potenziamento</label>`;
+    const push = (): void => {
+      void n.store.write(roomPath(n.code, 'options'), { startSide: ($('lside') as HTMLSelectElement).value, leaders: ($('lleaders') as HTMLInputElement).checked,
+        upgrades: ($('lupgrades') as HTMLInputElement).checked }).catch(netError);
+    };
+    for (const id of ['lside', 'lleaders', 'lupgrades']) $(id).onchange = push;
+  } else {
+    const exp = [o.leaders ? 'capisquadra' : '', o.upgrades ? 'carte potenziamento' : ''].filter(Boolean).join(', ');
+    $('lopts').innerHTML = `<p class="hint">Partenza: tessera 1${o.startSide}. Espansioni: ${exp || 'nessuna'}.</p>`;
+  }
+  const problem = startProblem(r);
+  $('lstate').textContent = inGame ? 'Partita in corso.'
+    : !n.host ? 'In attesa che l’host inizi la partita…'
+    : problem === 'few' ? 'Servono almeno due giocatori.' : problem === 'crews' ? 'Due giocatori hanno lo stesso colore.' : problem === 'many' ? 'Troppi giocatori: massimo quattro.' : 'Tutto pronto.';
+  const show = (id: string, on: boolean): void => { $(id).style.display = on ? '' : 'none'; };
+  show('lstart', n.host && !inGame);
+  ($('lstart') as HTMLButtonElement).disabled = !!problem;
+  show('lresume', inGame);
+  show('lrematch', n.host && inGame);
+  show('lleave', !n.host);
+  show('lclose', n.host);
+}
+
+$('lcopy').onclick = () => {
+  const link = $('llink') as HTMLInputElement;
+  link.select();
+  void navigator.clipboard?.writeText(link.value).then(() => { $('lcopy').textContent = 'Copiato!'; setTimeout(() => { $('lcopy').textContent = 'Copia il link'; }, 1500); }).catch(() => {});
+};
+$('roombadge').onclick = () => { if (net) { net.lobbyOpen = true; drawLobby(); } };
+$('lresume').onclick = () => { if (net) { net.lobbyOpen = false; drawLobby(); } };
+$('lstart').onclick = () => {
+  if (!net?.room || !net.host) return;
+  const seed = newSeed();
+  if (!seed.ok) { alert('Il browser non fornisce numeri casuali sicuri: impossibile iniziare.'); return; }
+  void startMatch(net.store, net.code, net.room, seed.value, crewColor).catch(netError);
+};
+$('lrematch').onclick = () => {
+  if (net?.host && confirm('Chiudere questa partita e tornare alla sala d’attesa?')) void backToLobby(net.store, net.code).catch(netError);
+};
+$('lclose').onclick = () => {
+  if (net?.host && confirm('Chiudere la stanza per tutti? La partita in corso va persa.')) void closeRoom(net.store, net.code).catch(netError);
+};
+$('lleave').onclick = () => {
+  if (!net?.room) return;
+  // Before the start the seat is freed; during a match it is kept, so the player can come back.
+  if (net.room.status === 'lobby') void leaveRoom(net.store, net.code).catch(netError);
+  exitRoom();
+};
+
+const onlineName = (): string => {
+  const name = ($('oname') as HTMLInputElement).value.trim().slice(0, NAME_MAX);
+  try { if (name) localStorage.setItem(NAME_KEY, name); } catch { /* storage off */ }
+  return name;
+};
+$('ocreate').onclick = async () => {
+  const name = onlineName();
+  if (!name) { $('oerr').textContent = 'Scrivi il tuo nome.'; return; }
+  $('oerr').textContent = 'Creo la stanza…';
+  try {
+    const store = await openStore();
+    const options = { startSide: ($('side') as HTMLSelectElement).value as 'a' | 'b', leaders: ($('leaders') as HTMLInputElement).checked, upgrades: ($('upgrades') as HTMLInputElement).checked };
+    const code = await createRoom(store, { name, crew: CREW_IDS[0] }, options, randomBytes, Date.now());
+    enterRoom(store, code, await store.uid());
+  } catch (e) { netError(e); }
+};
+$('ojoin').onclick = async () => {
+  const name = onlineName(), code = cleanCode(($('ocode') as HTMLInputElement).value);
+  if (!name) { $('oerr').textContent = 'Scrivi il tuo nome.'; return; }
+  if (!code) { $('oerr').textContent = 'Il codice ha cinque caratteri.'; return; }
+  $('oerr').textContent = 'Entro nella stanza…';
+  try {
+    const store = await openStore();
+    const res = await joinRoom(store, code, { name, crew: freeCrew(null, CREW_IDS) }, CREW_IDS, Date.now());
+    if (!res.ok) {
+      $('oerr').textContent = { 'not-found': 'Stanza non trovata: controlla il codice.', full: 'La stanza è piena (quattro giocatori).', started: 'La partita è già iniziata.' }[res.error];
+      return;
+    }
+    enterRoom(store, code, await store.uid());
+  } catch (e) { netError(e); }
+};
+($('ocode') as HTMLInputElement).addEventListener('keydown', e => { if (e.key === 'Enter') $('ojoin').click(); });
+
+/** First screen: says whether online is available; with an invite link, goes to the room. Returns true when a room is being entered. */
+function bootOnline(): boolean {
+  try { ($('oname') as HTMLInputElement).value = localStorage.getItem(NAME_KEY) ?? ''; } catch { /* storage off */ }
+  if (!netMode()) {
+    $('online').classList.add('off');
+    $('onlinehint').textContent = 'Il gioco online non è ancora attivo su questo sito.';
+    return false;
+  }
+  const code = cleanCode(new URLSearchParams(location.search).get('room') ?? '');
+  if (!code) return false;
+  ($('ocode') as HTMLInputElement).value = code;
+  $('onlinehint').textContent = `Sei stato invitato nella stanza ${code}: scrivi il tuo nome ed entra.`;
+  // A device that already sits in the room (a reload, a return) goes straight back in.
+  void (async () => {
+    const store = await openStore(), uid = await store.uid();
+    const room = readRoom(await store.read(roomPath(code)));
+    if (room?.seats[uid]) enterRoom(store, code, uid);
+    else if (!room) $('oerr').textContent = 'Questa stanza non esiste più.';
+  })().catch(netError);
+  return true;
+}
 
 // ---------------------------------------------------------------- loop
 
@@ -2084,8 +2382,9 @@ renderer.setAnimationLoop(t => {
   hudRenderer.render(hudScene, hudCam);
 });
 
+const invited = bootOnline();
 try {
-  const raw = localStorage.getItem(SAVE_KEY);
+  const raw = invited ? null : localStorage.getItem(SAVE_KEY);
   if (raw) {
     const s = JSON.parse(raw) as Saved;
     if (s?.setup?.seed && Array.isArray(s.choices)) { $('setup').style.display = 'none'; startGame(s); }

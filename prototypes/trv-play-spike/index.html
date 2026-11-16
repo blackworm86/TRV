@@ -194,7 +194,7 @@
   .dice { color: #9fd3ff; } .bad { color: #ff9b8a; } .good { color: #9be39b; font-weight: 700; } .turn { color: var(--acc); font-weight: 700; }
 
   #setup { position: fixed; inset: 0; display: grid; place-items: center; background: rgba(10,6,3,.85); z-index: 10; }
-  #setup .card { background: var(--card); padding: 22px 26px; border-radius: 14px; width: min(520px, 92vw); box-shadow: 0 10px 40px #000; }
+  #setup .card { background: var(--card); padding: 22px 26px; border-radius: 14px; width: min(520px, 92vw); max-height: 96vh; overflow: auto; box-sizing: border-box; box-shadow: 0 10px 40px #000; }
   #setup h1 { font: 400 44px 'League Gothic', Impact, sans-serif; color: var(--acc); margin: 0 0 8px; }
   #setup label { display: block; margin: 10px 0 4px; font-weight: 600; }
   #setup input, #setup select { font: inherit; padding: 8px; border-radius: 6px; border: 1px solid #5a4330; background: #120c07; color: var(--ink); }
@@ -202,6 +202,34 @@
   #setup .go { margin-top: 16px; width: 100%; min-height: 48px; font-size: 18px; background: #e8742a; color: #1a120c; border: 0; border-radius: 10px; font-weight: 700; cursor: pointer; }
   #setup label.check { display: flex; align-items: center; gap: 8px; font-weight: 400; margin: 2px 0; }
   #setup label.check input { width: 18px; height: 18px; padding: 0; }
+  /* Online: create or join a room from the first screen; the lobby is a card of the same family. */
+  #online { margin-top: 18px; padding-top: 12px; border-top: 1px solid #4a3523; }
+  #online h2, #lobby h1 { font: 400 28px 'League Gothic', Impact, sans-serif; color: var(--acc); margin: 0 0 4px; }
+  #lobby h1 { font-size: 44px; } #lcode { letter-spacing: 6px; color: var(--ink); user-select: text; -webkit-user-select: text; }
+  .hint { margin: 4px 0 8px; opacity: .8; } .err { margin: 8px 0 0; color: #ff8a6a; min-height: 1.3em; }
+  .onl { display: grid; grid-template-columns: 1fr auto; gap: 6px; }
+  #ocode { text-transform: uppercase; letter-spacing: 4px; }
+  #online.off .onl { display: none; }
+  #lobby { position: fixed; inset: 0; display: none; place-items: center; background: rgba(10,6,3,.85); z-index: 11; }
+  #lobby .card { background: var(--card); padding: 22px 26px; border-radius: 14px; width: min(620px, 94vw); max-height: 94vh; overflow: auto; box-shadow: 0 10px 40px #000; box-sizing: border-box; }
+  #lobby label { display: block; margin: 12px 0 4px; font-weight: 600; }
+  #lobby input, #lobby select { font: inherit; padding: 8px; border-radius: 6px; border: 1px solid #5a4330; background: #120c07; color: var(--ink); }
+  #lobby label.check { display: flex; align-items: center; gap: 8px; font-weight: 400; margin: 2px 0; }
+  #lobby label.check input { width: 18px; height: 18px; padding: 0; }
+  .invite { display: flex; gap: 16px; align-items: center; }
+  #lqr { flex: none; width: 168px; height: 168px; background: #fff; border-radius: 10px; padding: 8px; box-sizing: border-box; }
+  #lqr svg { width: 100%; height: 100%; }
+  .invite .how { flex: 1; min-width: 0; } .invite p { margin: 0 0 8px; }
+  #llink { width: 100%; box-sizing: border-box; margin-bottom: 6px; font-size: 12px; user-select: text; -webkit-user-select: text; }
+  .seat { display: flex; align-items: center; gap: 10px; padding: 6px 0; font-size: 16px; }
+  .seat i { width: 18px; height: 18px; border-radius: 50%; background: var(--c); flex: none; }
+  .seat b { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .seat small { opacity: .7; } .seat.empty { opacity: .45; }
+  #lobby .btns { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 14px; align-items: center; }
+  #lobby .go { flex: 1 1 100%; min-height: 48px; font-size: 18px; background: #e8742a; color: #1a120c; border: 0; border-radius: 10px; font-weight: 700; cursor: pointer; }
+  #lobby .go:disabled { opacity: .45; cursor: default; }
+  .tool.danger { background: #6b2018; }
+  #roombadge { position: fixed; right: 12px; bottom: 8px; z-index: 5; display: none; padding: 4px 10px; border-radius: 10px; background: rgba(20,14,10,.8); font-size: 12px; cursor: pointer; }
   #leaderpick { position: fixed; inset: 0; display: none; place-content: center; gap: 14px; background: rgba(10,6,3,.82); z-index: 9; padding: 16px; }
   #leaderpick h2 { margin: 0; text-align: center; font-size: 40px; font-weight: 400; }
   #leaderpick .pair { display: grid; grid-template-columns: repeat(2, minmax(0, 360px)); gap: 16px; }
@@ -267,8 +295,42 @@
     <label class="check"><input type="checkbox" id="leaders"> Choppe Shoppe: capisquadra e segnalini comando</label>
     <label class="check"><input type="checkbox" id="upgrades"> Choppe Shoppe: carte potenziamento</label>
     <button class="go" id="start">Si parte!</button>
+    <div id="online">
+      <h2>Oppure online</h2>
+      <p class="hint" id="onlinehint">Ognuno dal suo computer: uno crea la stanza, gli altri entrano con il link, il QR o il codice.</p>
+      <div class="onl">
+        <input id="oname" maxlength="24" placeholder="Il tuo nome">
+        <button class="tool" id="ocreate">Crea stanza</button>
+        <input id="ocode" maxlength="5" placeholder="Codice" autocapitalize="characters" autocomplete="off" spellcheck="false">
+        <button class="tool" id="ojoin">Entra</button>
+      </div>
+      <p class="err" id="oerr"></p>
+    </div>
   </div>
 </div>
+<div id="lobby"><div class="card">
+  <h1>Stanza <span id="lcode"></span></h1>
+  <div class="invite">
+    <div id="lqr"></div>
+    <div class="how">
+      <p>Invita gli altri: fai inquadrare il QR, manda il link oppure detta il codice.</p>
+      <input id="llink" readonly>
+      <button class="tool" id="lcopy">Copia il link</button>
+    </div>
+  </div>
+  <label>Giocatori</label>
+  <div id="lseats"></div>
+  <div id="lopts"></div>
+  <p class="hint" id="lstate"></p>
+  <div class="btns">
+    <button class="go" id="lstart">Inizia la partita</button>
+    <button class="tool" id="lresume">Torna al tavolo</button>
+    <button class="tool" id="lrematch">Nuova partita (stessi giocatori)</button>
+    <button class="tool" id="lleave">Esci dalla stanza</button>
+    <button class="tool danger" id="lclose">Chiudi la stanza</button>
+  </div>
+</div></div>
+<div id="roombadge"></div>
 <div id="win"><div class="card"><div class="big" id="wintext"></div><button class="tool" id="again">Nuova partita</button> <button class="tool" id="close">Guarda il tavolo</button></div></div>
 <script type="module" src="./main.ts"></script>
 </body>
