@@ -15,7 +15,7 @@ import {
 import { BASE_CATALOG as CAT, sizeOf, ofKind } from '../../src/game/trv/catalog';
 import { Pieces, TextureBank } from '../../src/view/pieces3d';
 import { buildTile, hazardToken, spaceCenterPx, spaceGeometry, GRID, TILE_PITCH_PX } from '../../src/view/board3d';
-import { dieSvg, damageTokenSvg, dashboardSvg, commandBoardSvg, playerStripSvg, STRIP_ASPECT, STRIP_DASH_START, leaderHeadSvg, avatarSvg, dataUrl } from '../../src/view/vector/art';
+import { dieSvg, damageTokenSvg, dashboardSvg, commandBoardSvg, playerStripSvg, STRIP_ASPECT, STRIP_ASPECT_LEADER, STRIP_LEADER_PLATE, avatarSvg, dataUrl } from '../../src/view/vector/art';
 import { newSeed } from '../../src/platform/entropy';
 import { ModelBank, dressed, fitToLength, splitParts, splitWheels, type Tint } from '../../src/view/models3d';
 import { MODEL, SHOW_LENGTH_MM, MODEL_YAW, CHOPPER_PARTS, ROTOR_SPEED, WHEELS, GUNS, type GunSpec, crewTint, WRECK_TINT, wreckModel, phaseOf, hover, CarRig } from './models-config';
@@ -43,11 +43,13 @@ scene.background = new THREE.Color(0x1a120c);
 const camera = new THREE.PerspectiveCamera(30, 1, 0.1, 200);
 const controls = new OrbitControls(camera, renderer.domElement);
 controls.enableDamping = true;
-// Left button pans the board, right button orbits, the wheel zooms (asked by the user).
-controls.mouseButtons = { LEFT: THREE.MOUSE.PAN, MIDDLE: THREE.MOUSE.DOLLY, RIGHT: THREE.MOUSE.ROTATE };
-controls.touches = { ONE: THREE.TOUCH.PAN, TWO: THREE.TOUCH.DOLLY_ROTATE };
+// The table only pans and zooms (asked by the user): no orbiting. Closer to the ground the view
+// tilts a little toward the horizon (see tiltView).
+controls.enableRotate = false;
+controls.mouseButtons = { LEFT: THREE.MOUSE.PAN, MIDDLE: THREE.MOUSE.DOLLY, RIGHT: THREE.MOUSE.PAN };
+controls.touches = { ONE: THREE.TOUCH.PAN, TWO: THREE.TOUCH.DOLLY_PAN };
 controls.screenSpacePanning = false; // pan along the table, not the screen
-controls.maxPolarAngle = 1.2;
+controls.maxPolarAngle = Math.PI / 2;
 controls.minDistance = 4;
 controls.maxDistance = 90;
 
@@ -1011,9 +1013,10 @@ function rollOnTable(f: Frame): void {
   // apart (a die may land a little turned); the first free one nearest the car is taken.
   const step = DIE_W * TRAY_SCALE * 1.6;
   const others = trayDice.filter((t, k) => k !== i && t);
-  const free = (x: number, z: number): boolean => others.every(t => Math.abs(t.to.x - x) >= step - 1e-6 || Math.abs(t.to.z - z) >= step - 1e-6);
+  const free = (x: number, z: number): boolean => others.every(t => Math.abs(t.to.x - x) >= step - 1e-6 || Math.abs(t.to.z - z) >= step - 1e-6)
+    && tableDice.every(t => Math.abs(t.base.x - x) >= step - 1e-6 || Math.abs(t.base.z - z) >= step - 1e-6); // the player's own dice lie there too
   let to = old >= 0 ? trayDice[old].to.clone() : null;
-  for (let row = 0; !to && row < 4; row++) {
+  for (let row = 0; !to && row < 3; row++) {
     for (let n = 0; n < 40; n++) {
       const j = n % 2 ? (n + 1) / 2 : -n / 2; // 0, 1, -1, 2, -2…
       const x = cx + j * step, z = TRAY_Z + row * step;
@@ -1022,7 +1025,7 @@ function rollOnTable(f: Frame): void {
       break;
     }
   }
-  to ??= new THREE.Vector3(cx, DIE_W * TRAY_SCALE / 2, TRAY_Z + 4 * step);
+  to ??= new THREE.Vector3(cx, DIE_W * TRAY_SCALE / 2, TRAY_Z + 5 * step);
   // Dropped from above with a little drift, less than the gap between slots: it never crosses a neighbour.
   const from = to.clone().add(new THREE.Vector3((Math.random() - 0.5) * 0.4, 3.2, (Math.random() - 0.5) * 0.3));
   const q1 = d.orientation(f.die.face, f.die.die === 'direction' ? FORWARD : AWAY)
@@ -1186,7 +1189,7 @@ function drawHud(): void {
     const extra = [pl ? `${esc(pl.name)}${p.tokens ? ` ${'★'.repeat(p.tokens)}` : ''}` : '',
       p.command ? `<b>${CMD_NAME[p.command.cmd] ?? commandName(p.command.cmd)}</b> con ${p.command.value}` : '', p.chopper ? 'elicottero in campo' : ''].filter(Boolean).join(' · ');
     return `<div class="bubble pl ${turn ? 'turn' : ''} ${decides ? 'decides' : ''} ${p.out ? 'out' : ''}" style="--c:${p.color}">
-      <div class="av">${avatarSvg(p.color, p.name)}</div>
+      <div class="av">${pl && PORTRAITS[pl.id] ? `<img src="${PORTRAITS[pl.id]}" alt="${esc(pl.name)}">` : avatarSvg(p.color, p.name)}</div>
       <div class="who"><span class="nm gothic">${esc(p.name)}</span>${tag}</div>
       <div class="row"><div class="dice-row">${p.dice.map((n, i) => dieHtml('movement', n, p.color, p.used[i] ? 'used' : '')).join('')}</div>
         <div class="cars">${cars}</div>${extra ? `<span class="extra">${extra}</span>` : ''}</div></div>`;
@@ -1232,17 +1235,16 @@ function drawHud(): void {
     else if (!['assign', 'airstrike', 'repair', 'leader', 'peek', 'draft', 'upgradeAssign'].includes(d.kind)) d.options.forEach((o, i) => btn(i, o.label));
   }
   // Choppe Shoppe setup: the upgrade cards to draft, then one for each car.
-  if (d && (d.kind === 'draft' || d.kind === 'upgradeAssign')) {
+  if (d && d.kind === 'draft') {
     const who = g.players[d.player];
     const el = $('leaderpick');
-    el.innerHTML = `<h2 class="gothic" style="color:${who.color}">${esc(d.prompt)}</h2><div class="pair cards">`
-      + d.options.map((o, i) => `<button class="leader" data-i="${i}" style="--c:${who.color}"><b class="gothic">${esc(upgradeName(o.upgrade!))}</b>`
-        + `<p>${esc(UPGRADE_INFO[o.upgrade!] ?? '')}</p></button>`).join('') + '</div>';
-    el.querySelectorAll<HTMLElement>('.leader').forEach(b => { b.onclick = () => choose(Number(b.dataset.i)); });
+    el.innerHTML = `<h2 class="gothic" style="color:${who.color}">${esc(d.prompt)}</h2><div class="hand">`
+      + d.options.map((o, i) => `<button class="pickcard" data-i="${i}">${cardHtml(o.upgrade!, who.color)}</button>`).join('') + '</div>';
+    el.querySelectorAll<HTMLElement>('.pickcard').forEach(b => { b.onclick = () => choose(Number(b.dataset.i)); });
   }
   // Choppe Shoppe setup: the two crew leaders dealt to the player, as cards to pick from.
   const pick = $('leaderpick');
-  pick.style.display = d && ['leader', 'draft', 'upgradeAssign'].includes(d.kind) ? 'grid' : 'none';
+  pick.style.display = d && ['leader', 'draft'].includes(d.kind) ? 'grid' : 'none';
   if (d?.kind === 'leader') {
     const who = g.players[d.player];
     pick.innerHTML = `<h2 class="gothic" style="color:${who.color}">${esc(who.name)}: scegli il caposquadra</h2><div class="pair">`
@@ -1259,7 +1261,7 @@ function drawHud(): void {
   // The question sits with its answer: over the buttons, or alone by the car or the dice.
   const left = d?.kind === 'step' ? /(\d+) moviment/.exec(d.prompt)?.[1] : undefined;
   const ASK: Partial<Record<Decision['kind'], string>> = {
-    assign: 'Assegna un dado: trascinalo su un’auto', command: 'Un dado su un comando?', roadDie: `Dado strada: +${g.roadDie}?`, slamReroll: 'Slam: ritiri i dadi?', shoot: 'Scegli il bersaglio',
+    command: 'Un dado su un comando?', roadDie: `Dado strada: +${g.roadDie}?`, slamReroll: 'Slam: ritiri i dadi?', shoot: 'Scegli il bersaglio',
     step: left ? `${left} moviment${left === '1' ? 'o' : 'i'}` : 'Muovi', airstrike: 'Scegli una casella vuota', repair: 'Scegli l’auto da riparare',
     token: `Segnalino comando? (${d ? g.players[d.player].tokens : 0})`, shootReroll: 'Mancato: ritiri il dado sparo?', dirReroll: 'Slam: ritiri la direzione?',
     peek: 'Third Eye: scegli un pericolo coperto', peekResult: d?.prompt.replace(/^Solo per [^:]+: /, 'Third Eye: ') ?? '', transfer: d?.prompt.replace(/^[^:]+: /, '') ?? '',
@@ -1283,52 +1285,29 @@ function drawHud(): void {
   // Bottom: my dice, command board, dashboards, chopper.
   const hot = hotZones();
   const mine = d && d.player === me.id;
-  $('mydice').innerHTML = me.dice.map((n, i) => {
-    const cls = me.used[i] ? 'used' : !mine || !dieUsable(i) ? 'idle' : selDie === i ? 'sel' : '';
-    return dieHtml('movement', n, me.color, cls, `data-die="${i}"`);
-  }).join('');
+  syncTableDice(me, !!mine);
   const lead = leaderOf(me);
   const cmds = boardCommands(me);
   const cmdArt = {
     color: me.color, used: me.command, drop: [...hot].filter(z => z.startsWith('cmd:')).map(z => z.slice(4)),
     tokenOn: Object.entries(me.slots).filter(([, v]) => v === 'token').map(([k]) => k), keepOpen: me.tokens > 0,
     ...(cmds ? { commands: cmds } : {}),
-    ...(lead ? { caption: `COMANDI DI ${lead.name.toUpperCase()}` } : {}),
+    ...(lead ? { leader: {
+      name: lead.name, title: lead.title, power: POWER_INFO[lead.power]?.[0] ?? lead.power, powerText: POWER_INFO[lead.power]?.[1] ?? '',
+      tokens: me.tokens, ...(PORTRAITS[lead.id] ? { portrait: PORTRAITS[lead.id] } : {}),
+    } } : {}),
   };
-  // The crew leader, beside the boards: the head of the leader board, and the power in plain text.
-  const leadEl = $('lead');
-  if (lead) {
-    const [pn, pd] = POWER_INFO[lead.power] ?? [lead.power, ''];
-    const portrait = PORTRAITS[lead.id];
-    const head = leaderHeadSvg({ color: me.color, used: null, leader: { name: lead.name, title: lead.title, power: pn, powerText: pd, tokens: me.tokens, ...(portrait ? { portrait } : {}) } });
-    leadEl.innerHTML = (head ? `<div class="lb">${head}</div>` : '')
-      + `<div class="lt${head ? '' : ' nohead'}"><div class="nm"><b class="gothic" style="color:${me.color}">${esc(lead.name)}</b><em title="Segnalini comando rimasti">${me.tokens ? '★'.repeat(me.tokens) : 'nessun segnalino'}</em></div>`
-      + `<p><i>${esc(pn)}</i> ${esc(pd)}</p></div>`;
-  } else leadEl.innerHTML = '';
-  const pickIds = new Set(d?.kind === 'repair' ? d.options.map(o => o.carId) : []);
-  const myCarsNow = g.vehicles.filter(v => v.owner === me.id);
-  const dashArt = myCarsNow.map(v => ({
+  const pickIds = new Set(d?.kind === 'repair' || (d?.kind === 'upgradeAssign' && mine) ? d.options.map(o => o.carId) : []);
+  const dashArt = g.vehicles.filter(v => v.owner === me.id).map(v => ({
     carId: v.id, size: v.size, color: me.color, status: v.status, placed: v.placed, damage: v.damage.length,
     dropMove: hot.has(`move:${v.id}`), dropCoast: hot.has(`coast:${v.id}`), pick: pickIds.has(v.id),
     label: v.status === 'elim' ? '' : v.inStart ? 'IN PARTENZA' : '',
+    ...(v.upgrade && v.status !== 'elim' ? { upgrade: { name: upgradeName(v.upgrade), text: UPGRADE_INFO[v.upgrade] ?? '' } } : {}),
   }));
-  // The upgrade cards, in plain text over the dashboard of the car that carries each.
-  const SIZE_NAME = { S: 'Piccola', M: 'Media', L: 'Grande' };
-  $('cards').innerHTML = (['S', 'M', 'L'] as const).map(sz => {
-    const v = myCarsNow.find(x => x.size === sz);
-    if (!v?.upgrade || v.status === 'elim') return '<div class="up none"></div>';
-    const off = v.status !== 'ok';
-    return `<div class="up${off ? ' off' : ''}" style="--c:${me.color}" title="${esc(`${upgradeName(v.upgrade)}: ${UPGRADE_INFO[v.upgrade] ?? ''}`)}"><div class="h"><small>${SIZE_NAME[sz]}</small><b class="gothic">${esc(upgradeName(v.upgrade))}</b></div>`
-      + `<p>${esc(UPGRADE_INFO[v.upgrade] ?? '')}</p>${off ? '<em>Inattivo: auto fuori uso</em>' : ''}</div>`;
-  }).join('');
-  // The panel keeps one size for the whole game: it depends on the expansions, not on whose turn it is.
-  const key = `${g.players.some(p => leaderOf(p)) ? 'L' : ''}${g.vehicles.some(v => v.upgrade) ? 'U' : ''}`;
-  if (key !== layoutKey) {
-    layoutKey = key;
-    document.body.classList.toggle('haslead', key.includes('L'));
-    document.body.classList.toggle('hascards', key.includes('U'));
-    fit();
-  }
+  // With crew leaders the strip is wider (the leader's panel on its left): it keeps that size all game.
+  const tall = g.players.some(p => leaderOf(p)); // class "tall": the strip has the leader's panel
+  if (tall !== document.body.classList.contains('tall')) { document.body.classList.toggle('tall', tall); fit(); }
+  drawHand(d);
   // One drawing, laid out as in the rulebook; without the owner's drawing, the boards side by side.
   $('strip').innerHTML = playerStripSvg(cmdArt, dashArt) ?? `<div class="loose">${commandBoardSvg(cmdArt)}${dashArt.map(a => dashboardSvg(a)).join('')}</div>`;
 
@@ -1345,6 +1324,21 @@ function drawHud(): void {
     for (const el of document.querySelectorAll<SVGElement>('#strip [data-car]')) {
       const i = d.options.findIndex(o => o.carId === el.dataset.car);
       if (i >= 0) { el.classList.add('hotzone'); el.addEventListener('click', () => choose(i)); }
+    }
+  }
+  for (const el of document.querySelectorAll<SVGElement>('#strip [data-car]')) {
+    el.addEventListener('click', e => {
+      if (d?.kind === 'repair' || d?.kind === 'upgradeAssign') return; // the click picks the car
+      if ((e.target as Element).closest('[data-drop].hotzone')) return; // the click places a die
+      focusOn(carObjs.get(el.dataset.car!), true);
+    });
+  }
+  // Upgrade cards: a car takes the selected card (the cards can also be dragged onto it).
+  if (d?.kind === 'upgradeAssign') {
+    for (const el of document.querySelectorAll<SVGElement>('#strip [data-car]')) {
+      if (!d.options.some(o => o.carId === el.dataset.car)) continue;
+      el.classList.add('hotzone');
+      el.addEventListener('click', () => { if (selCard) assignCard(selCard, el.dataset.car!); });
     }
   }
   ($('undo') as HTMLButtonElement).disabled = !saved?.choices.length;
@@ -1370,31 +1364,218 @@ $('ticker').onclick = () => {
   if (el.style.display === 'block') drawDrawer();
 };
 
+// ---------------------------------------------------------------- the player's dice on the table
+// The dice of the player the interface shows lie on the table, in a row just under the road:
+// they are picked up and dragged onto a board or onto a car.
+
+interface TableMyDie { d: Die3D; base: THREE.Vector3; q: THREE.Quaternion; glow: THREE.Mesh }
+/** A soft round light, drawn under a die that can be played. */
+const glowTex = (() => {
+  const c = document.createElement('canvas');
+  c.width = c.height = 128;
+  const x = c.getContext('2d')!;
+  const gr = x.createRadialGradient(64, 64, 18, 64, 64, 64);
+  gr.addColorStop(0, 'rgba(255,255,255,1)');
+  gr.addColorStop(0.45, 'rgba(255,255,255,.55)');
+  gr.addColorStop(1, 'rgba(255,255,255,0)');
+  x.fillStyle = gr;
+  x.fillRect(0, 0, 128, 128);
+  return new THREE.CanvasTexture(c);
+})();
+const glowGeo = new THREE.PlaneGeometry(1, 1).rotateX(-Math.PI / 2);
+let tableDice: TableMyDie[] = [];
+let tableDiceKey = '';
+let tableDiceState: { used: boolean[]; idle: boolean[] } = { used: [], idle: [] };
+
+/** Where die `i` of `n` rests: centred under the road, one die and a half apart. */
+function tableDieSpot(i: number, n: number): THREE.Vector3 {
+  const step = DIE_W * TRAY_SCALE * 1.55;
+  const cx = BOARD_X0 + PITCH_W + TILE_W / 2 - 1.6;
+  return new THREE.Vector3(cx + (i - (n - 1) / 2) * step, DIE_W * TRAY_SCALE / 2, TRAY_Z);
+}
+
+/** Puts the player's dice on the table (rebuilt when the player or the values change). */
+function syncTableDice(me: Player, mine: boolean): void {
+  const key = me.dice.length ? `${me.id}|${me.color}|${me.dice.join(',')}` : '';
+  if (key !== tableDiceKey) {
+    tableDiceKey = key;
+    for (const t of tableDice) { scene.remove(t.d.mesh, t.glow); (t.glow.material as THREE.Material).dispose(); for (const m of t.d.mesh.material as THREE.Material[]) m.dispose(); }
+    tableDice = me.dice.map((v, i) => {
+      const d = withOwnMaterials(makeDie(FACES, 'movement', DIE_W, me.color));
+      d.mesh.scale.setScalar(TRAY_SCALE);
+      const base = tableDieSpot(i, me.dice.length);
+      // A little turned each, as dice lie when rolled; the same turn every time it is drawn.
+      const q = d.orientation(Math.max(0, d.faceOf(v)), AWAY)
+        .premultiply(new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 1, 0), ((i * 7) % 5 - 2) * 0.09));
+      d.mesh.position.copy(base);
+      d.mesh.quaternion.copy(q);
+      d.mesh.castShadow = true;
+      const glow = new THREE.Mesh(glowGeo, new THREE.MeshBasicMaterial({
+        map: glowTex, color: 0x4cff7a, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending,
+      }));
+      glow.scale.setScalar(DIE_W * TRAY_SCALE * 2.6);
+      glow.position.set(base.x, 0.02, base.z);
+      glow.visible = false;
+      scene.add(d.mesh, glow);
+      return { d, base, q, glow };
+    });
+  }
+  tableDiceState = { used: [...me.used], idle: me.dice.map((_, i) => !mine || !dieUsable(i)) };
+}
+
+/** Each frame: used dice fade, the selected die lifts and sways, the one being dragged dims. */
+function animTableDice(now: number): void {
+  tableDice.forEach((t, i) => {
+    const sel = selDie === i && !tableDiceState.used[i];
+    t.d.mesh.position.copy(t.base);
+    t.d.mesh.quaternion.copy(t.q);
+    if (sel) {
+      t.d.mesh.position.y += DIE_W * TRAY_SCALE * (0.45 + 0.08 * Math.sin(now * 5));
+      t.d.mesh.quaternion.premultiply(new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 1, 0), Math.sin(now * 3) * 0.3));
+    }
+    // The dice still to play glow, pulsing, so the player sees they must be played.
+    const live = !tableDiceState.used[i] && !tableDiceState.idle[i];
+    t.glow.visible = live;
+    if (live) (t.glow.material as THREE.MeshBasicMaterial).opacity = 0.55 + 0.35 * Math.sin(now * 4 + i * 0.6);
+    const fade = tableDiceState.used[i] ? 0.2 : drag?.moved && drag.die === i ? 0.35 : 1;
+    for (const m of t.d.mesh.material as THREE.MeshStandardMaterial[]) { m.transparent = fade < 1; m.opacity = fade; }
+  });
+}
+
+/** The index of the player's die under the pointer, or -1. */
+function tableDieAt(e: PointerEvent): number {
+  if (!tableDice.length) return -1;
+  const rect = renderer.domElement.getBoundingClientRect();
+  pointer.set(((e.clientX - rect.left) / rect.width) * 2 - 1, -((e.clientY - rect.top) / rect.height) * 2 + 1);
+  ray.setFromCamera(pointer, camera);
+  const hit = ray.intersectObjects(tableDice.map(t => t.d.mesh), false)[0];
+  return hit ? tableDice.findIndex(t => t.d.mesh === hit.object) : -1;
+}
+
+/** The dice row on screen (for placing the choices beside it), or null with no dice. */
+function tableDiceRect(): { left: number; right: number; top: number; bottom: number } | null {
+  if (!tableDice.length) return null;
+  const rect = renderer.domElement.getBoundingClientRect();
+  const half = DIE_W * TRAY_SCALE * 0.6;
+  let l = Infinity, r = -Infinity, t = Infinity, b = -Infinity;
+  for (const d of tableDice) for (const dx of [-half, half]) for (const dz of [-half, half]) {
+    const q = d.base.clone().add(new THREE.Vector3(dx, 0, dz)).project(camera);
+    const x = rect.left + (q.x * 0.5 + 0.5) * rect.width, y = rect.top + (-q.y * 0.5 + 0.5) * rect.height;
+    l = Math.min(l, x); r = Math.max(r, x); t = Math.min(t, y); b = Math.max(b, y);
+  }
+  return { left: l, right: r, top: t, bottom: b };
+}
+
+// ---------------------------------------------------------------- upgrade cards in hand
+// Drafted, the cards are shown as cards; to put one on a car, drag it onto the car's dashboard
+// (or onto the car on the table), or click it and then the car.
+
+/** An upgrade card: name, a space for the art (to come), what it does. */
+function cardHtml(id: string, color: string, attrs = ''): string {
+  return `<div class="ucard" style="--c:${color}" ${attrs}><b class="gothic">${esc(upgradeName(id))}</b>`
+    + `<div class="art"></div><p>${esc(UPGRADE_INFO[id] ?? '')}</p></div>`;
+}
+
+let selCard: string | null = null;
+/** The cards still to place, over the table just above the strip. */
+function drawHand(d: Decision | null): void {
+  const el = $('hand');
+  if (!g || !d || d.kind !== 'upgradeAssign') { el.innerHTML = ''; selCard = null; return; }
+  const who = g.players[d.player];
+  const ids = [...new Set(d.options.map(o => o.upgrade!))];
+  if (selCard && !ids.includes(selCard)) selCard = null;
+  el.innerHTML = ids.map(id => cardHtml(id, who.color, `data-up="${id}"${selCard === id ? ' data-sel="1"' : ''}`)).join('');
+}
+
+/** Puts card `id` on car `carId`, when the rules allow it. */
+function assignCard(id: string, carId: string): boolean {
+  if (!decision || decision.kind !== 'upgradeAssign') return false;
+  const i = decision.options.findIndex(o => o.upgrade === id && o.carId === carId);
+  if (i < 0) return false;
+  selCard = null;
+  choose(i);
+  return true;
+}
+
+/** The car under a point of the screen: its dashboard in the strip, or the car on the table. */
+function carUnder(x: number, y: number): string | null {
+  const under = document.elementFromPoint(x, y);
+  const dash = under?.closest<SVGElement>('[data-car]');
+  if (dash) return dash.dataset.car ?? null;
+  if (under !== renderer.domElement) return null;
+  const rect = renderer.domElement.getBoundingClientRect();
+  pointer.set(((x - rect.left) / rect.width) * 2 - 1, -((y - rect.top) / rect.height) * 2 + 1);
+  ray.setFromCamera(pointer, camera);
+  const hit = ray.intersectObject(pickPlane)[0];
+  if (!hit) return null;
+  let best: string | null = null, bd = 0.8;
+  for (const [id, o] of carObjs) {
+    const dd = Math.hypot(o.position.x - hit.point.x, o.position.z - hit.point.z);
+    if (dd < bd) { bd = dd; best = id; }
+  }
+  return best;
+}
+
+let cardDrag: { id: string; x: number; y: number; dx: number; dy: number; moved: boolean; el: HTMLElement | null } | null = null;
+$('hand').addEventListener('pointerdown', e => {
+  const card = (e.target as Element).closest<HTMLElement>('[data-up]');
+  if (!card) return;
+  e.preventDefault();
+  const r = card.getBoundingClientRect();
+  cardDrag = { id: card.dataset.up!, x: e.clientX, y: e.clientY, dx: e.clientX - r.left, dy: e.clientY - r.top, moved: false, el: null };
+});
+addEventListener('pointermove', e => {
+  if (!cardDrag) return;
+  if (!cardDrag.moved && Math.hypot(e.clientX - cardDrag.x, e.clientY - cardDrag.y) < 6) return;
+  if (!cardDrag.moved) {
+    cardDrag.moved = true;
+    const src = document.querySelector<HTMLElement>(`#hand [data-up="${cardDrag.id}"]`);
+    if (src) {
+      cardDrag.el = src.cloneNode(true) as HTMLElement;
+      cardDrag.el.classList.add('flying');
+      document.body.appendChild(cardDrag.el);
+      src.style.visibility = 'hidden';
+    }
+    selCard = cardDrag.id;
+  }
+  if (cardDrag.el) { cardDrag.el.style.left = `${e.clientX - cardDrag.dx}px`; cardDrag.el.style.top = `${e.clientY - cardDrag.dy}px`; }
+});
+addEventListener('pointerup', e => {
+  if (!cardDrag) return;
+  const c = cardDrag;
+  cardDrag = null;
+  c.el?.remove();
+  if (!c.moved) { selCard = selCard === c.id ? null : c.id; drawHud(); return; } // a click: pick the card, then the car
+  const car = carUnder(e.clientX, e.clientY);
+  if (!car || !assignCard(c.id, car)) drawHud(); // not a car that can take it: the card goes back to the hand
+});
+
 // ---------------------------------------------------------------- input: dice drag & drop
 
 const ghost = $('ghost');
 let drag: { die: number; x: number; y: number; moved: boolean } | null = null;
-$('mydice').addEventListener('pointerdown', e => {
-  const el = (e.target as Element).closest<SVGElement>('[data-die]');
-  if (!el) return;
-  const i = Number(el.dataset.die);
-  if (!dieUsable(i)) return;
+// A die on the table is picked up before the camera can take the press for a pan.
+document.addEventListener('pointerdown', e => {
+  if (e.target !== renderer.domElement || e.button !== 0) return;
+  const i = tableDieAt(e);
+  if (i < 0 || !dieUsable(i)) return;
+  e.stopPropagation();
   e.preventDefault();
   drag = { die: i, x: e.clientX, y: e.clientY, moved: false };
   selDie = i;
   drawHud();
-});
+}, true);
 addEventListener('pointermove', e => {
   if (!drag || !g || !decision) return;
   if (!drag.moved && Math.hypot(e.clientX - drag.x, e.clientY - drag.y) < 6) return;
   if (!drag.moved) {
     drag.moved = true;
     const p = g.players[decision.player];
-    ghost.innerHTML = dieSvg({ kind: 'movement', value: p.dice[drag.die], color: p.color });
+    ghost.innerHTML = dieHtml('movement', p.dice[drag.die], p.color);
     ghost.style.display = 'block';
   }
-  ghost.style.left = `${e.clientX - 22}px`;
-  ghost.style.top = `${e.clientY - 22}px`;
+  ghost.style.left = `${e.clientX - 32}px`;
+  ghost.style.top = `${e.clientY - 32}px`;
 });
 addEventListener('pointerup', e => {
   if (!drag) return;
@@ -1420,6 +1601,7 @@ const PAN_KEYS: Record<string, [number, number]> = {
   w: [0, 1], arrowup: [0, 1], s: [0, -1], arrowdown: [0, -1], a: [-1, 0], arrowleft: [-1, 0], d: [1, 0], arrowright: [1, 0],
 };
 let focusGoal: THREE.Vector3 | null = null;
+let focusDist: number | null = null;
 let focusIdx = -1;
 function typing(e: KeyboardEvent): boolean {
   const t = e.target as HTMLElement | null;
@@ -1434,13 +1616,15 @@ function myCars(): THREE.Object3D[] {
     .sort((a, b) => 'SML'.indexOf(a.size) - 'SML'.indexOf(b.size))
     .map(v => carObjs.get(v.id)).filter((o): o is THREE.Group => !!o);
 }
-function focusOn(o: THREE.Object3D | undefined): void {
+/** Slides the view to `o`; with `close`, it also comes nearer, as for a look at that car. */
+function focusOn(o: THREE.Object3D | undefined, close = false): void {
+  if (o && close) focusDist = fitDist * 0.5;
   if (o) focusGoal = (o.userData.target as THREE.Vector3 | undefined)?.clone().setY(0) ?? o.position.clone().setY(0);
 }
 addEventListener('keydown', e => {
   if (typing(e) || e.ctrlKey || e.metaKey || e.altKey) return;
   const key = e.key.toLowerCase();
-  if (PAN_KEYS[key]) { held.add(key); focusGoal = null; e.preventDefault(); return; }
+  if (PAN_KEYS[key]) { held.add(key); focusGoal = null; focusDist = null; e.preventDefault(); return; }
   const cars = myCars();
   if (key === 'tab') {
     e.preventDefault();
@@ -1451,6 +1635,8 @@ addEventListener('keydown', e => {
     const me = viewer();
     const v = g && me ? g.vehicles.find(x => x.owner === g!.players.indexOf(me) && x.size === 'SML'[Number(key) - 1] && x.status !== 'elim') : undefined;
     if (v) focusOn(carObjs.get(v.id));
+  } else if (key === 'v' || key === 'home') {
+    homeView();
   } else if (key === 'g') {
     toggleGrid();
   } else if (key === 'r') {
@@ -1475,6 +1661,13 @@ function moveCamera(dt: number): void {
     if (move.length() < 0.002) focusGoal = null;
   }
   if (move.lengthSq() > 0) { controls.target.add(move); camera.position.add(move); }
+  if (focusDist !== null) {
+    // Zooming toward the car: tiltView then turns the view for the new distance.
+    const off = camera.position.clone().sub(controls.target), d = off.length();
+    const nd = d + (focusDist - d) * Math.min(1, dt * 6);
+    camera.position.copy(controls.target).addScaledVector(off.normalize(), nd);
+    if (Math.abs(nd - focusDist) < 0.05) focusDist = null;
+  }
 }
 
 // ---------------------------------------------------------------- input: map
@@ -1565,46 +1758,35 @@ $('start').onclick = () => {
 
 // ---------------------------------------------------------------- loop
 
-let layoutKey = '';
+/** Distance of the framed view: zooming in from it tilts the view toward the horizon. */
+let fitDist = 40;
 /**
- * Lays out the fixed panel under the table. Nothing in it moves or resizes during a game: the
- * boards strip as large as the window allows, the leader on its left, the upgrade cards over the
- * dashboards, dice and choices on the right. On a narrow window the strip takes the full width and
- * the rest sits in a row above it.
+ * Lays out the screen: the bar and the players at the top, the player's strip at the bottom with
+ * nothing around it (no background), the table framed in the free space between them. The strip is
+ * as large as the window allows and keeps its size for the whole game.
  */
 function fit(): void {
   const W = innerWidth, H = innerHeight;
-  const hasLead = document.body.classList.contains('haslead'), hasCards = document.body.classList.contains('hascards');
-  const wide = W >= 1500;
-  document.body.classList.toggle('wide', wide);
-  const leadW = hasLead ? (wide ? 250 : 270) : 0, ctlW = wide ? 290 : 276;
-  const maxH = H * (wide ? 0.34 : 0.31);
-  let stripW: number, panel: number, row = 0;
-  if (wide) {
-    stripW = Math.min(W - leadW - ctlW - 24 - (hasLead ? 28 : 14), maxH * STRIP_ASPECT);
-    panel = stripW / STRIP_ASPECT + (hasCards ? 132 : 0) + 20;
-  } else {
-    row = hasLead || hasCards ? 118 : 84;
-    stripW = Math.min(W - 24, maxH * STRIP_ASPECT);
-    panel = stripW / STRIP_ASPECT + row + 24;
-  }
+  const tall = document.body.classList.contains('tall');
+  const aspect = tall ? STRIP_ASPECT_LEADER : STRIP_ASPECT;
+  // As wide as the window, as long as it leaves the table more than half of the height.
+  // The leader's name plate stands above the command board only: it does not count against the table.
+  const plate = tall ? STRIP_LEADER_PLATE : 0;
+  const stripW = Math.min(W - 24, H * 0.38 * aspect / (1 - plate));
+  const stripH = stripW / aspect + 8;
   const root = document.documentElement.style;
   root.setProperty('--stripw', `${Math.round(stripW)}px`);
-  root.setProperty('--leadw', `${leadW}px`);
-  root.setProperty('--ctlw', `${ctlW}px`);
-  root.setProperty('--row', `${row}px`);
-  root.setProperty('--dash', `${(STRIP_DASH_START * 100).toFixed(2)}%`);
-  root.setProperty('--bottom', `${Math.round(panel)}px`);
-  const top = cssPx('--top'), bottom = panel + cssPx('--bar');
-  const h = Math.max(200, innerHeight - bottom);
+  root.setProperty('--bottom', `${Math.round(stripH)}px`);
+  const top = cssPx('--top'), h = H;
+  const botLim = -1 + 2 * (stripH * (1 - plate) + 6) / h;
   // The player bubbles float over the top of the map: keep the road below them.
   const topLim = 1 - 2 * top / h;
-  renderer.setSize(innerWidth, h);
-  camera.aspect = innerWidth / h;
+  renderer.setSize(W, h);
+  camera.aspect = W / h;
   camera.updateProjectionMatrix();
   // Frame the whole road (start area included): fit the corners on screen, then centre them.
   const x0 = BOARD_X0 - 3.2, x1 = BOARD_X0 + 2 * PITCH_W + TILE_W; // start area: cars and parked choppers
-  const zTop = -TILE_H / 2, zBot = TRAY_Z + DIE_W * 1.5; // road plus the dice tray
+  const zTop = -TILE_H / 2, zBot = TRAY_Z + DIE_W * TRAY_SCALE * 0.9; // the road and the row of dice under it
   const corners = [[x0, zTop], [x1, zTop], [x0, zBot], [x1, zBot]].map(([x, z]) => new THREE.Vector3(x, 0, z));
   const dir = new THREE.Vector3(0, 1, 0.55).normalize();
   const target = new THREE.Vector3((x0 + x1) / 2, 0, (zTop + zBot) / 2);
@@ -1616,19 +1798,32 @@ function fit(): void {
     for (const c of corners) { const p = c.clone().project(camera); box.expandByPoint(new THREE.Vector2(p.x, p.y)); }
     return box;
   };
-  for (let pass = 0; pass < 2; pass++) {
+  for (let pass = 0; pass < 4; pass++) {
     let lo = 2, hi = 200;
     for (let i = 0; i < 30; i++) {
       const mid = (lo + hi) / 2, b = place(mid);
-      if (b.min.x < -0.97 || b.max.x > 0.97 || b.min.y < -0.95 || b.max.y > topLim) lo = mid; else hi = mid;
+      if (b.min.x < -0.97 || b.max.x > 0.97 || b.max.y - b.min.y > topLim - botLim) lo = mid; else hi = mid; // fits the free band; centred below
     }
     const b = place(hi);
     // Shift the target so the projected board sits in the middle of the free part of the view.
-    const cy = (b.min.y + b.max.y) / 2 - (topLim - 0.95) / 2;
+    const cy = (b.min.y + b.max.y) / 2 - (topLim + botLim) / 2;
     target.z -= cy * (zBot - zTop) * 0.5;
   }
   controls.target.copy(target);
+  fitDist = camera.position.distanceTo(target);
+  controls.maxDistance = fitDist * 1.8;
   controls.update();
+}
+
+/** Far from the table the view looks down as framed; near the ground it tilts toward the horizon. */
+const ELEV_FAR = Math.atan2(1, 0.55), ELEV_NEAR = 0.6;
+function tiltView(): void {
+  if (camBefore) return; // the instant replay frames its own shots
+  const t = controls.target, d = camera.position.distanceTo(t);
+  const k = THREE.MathUtils.clamp((fitDist - d) / Math.max(1, fitDist - controls.minDistance), 0, 1);
+  const e = THREE.MathUtils.lerp(ELEV_FAR, ELEV_NEAR, k * k * (3 - 2 * k));
+  camera.position.set(t.x, t.y + d * Math.sin(e), t.z + d * Math.cos(e));
+  camera.lookAt(t);
 }
 addEventListener('resize', fit);
 fit();
@@ -1716,18 +1911,17 @@ function placeActions(): void {
   if (!el.childElementCount) { el.style.display = 'none'; return; }
   el.style.display = 'flex';
   const rect = renderer.domElement.getBoundingClientRect();
-  const floor = $('bar').getBoundingClientRect().top - 8; // nothing floats lower than this over the table
+  const floor = $('strip').getBoundingClientRect().top - 8; // nothing floats lower than this over the table
   const w = el.offsetWidth, h = el.offsetHeight;
   let x = innerWidth / 2, top = floor - h;
-  // With no car to stand by, the choices have a place of their own: under the dice on a wide
-  // window, over the right end of the bar on a narrow one.
-  const slot = $('actslot').getBoundingClientRect();
-  if (document.body.classList.contains('wide')) { x = slot.left + slot.width / 2; top = slot.top; }
-  else x = innerWidth - w / 2 - 12;
+  const dice = tableDiceRect();
+  if (dice) {
+    // Beside the dice on the table: "no command" and the questions about the dice.
+    x = dice.right + 18 + w / 2;
+    top = Math.min(floor - h, dice.top - 4); // level with the dice, hanging toward the strip rather than over the road
+  }
   const o = el.dataset.anchor === 'car' && el.dataset.car ? carObjs.get(el.dataset.car) : undefined;
-  if (el.dataset.anchor !== 'car') {
-    // placed above
-  } else if (o) {
+  if (o) {
     // Around the car, wherever it hides the least: the spaces that can be picked (targets, moves)
     // and the vehicles must stay in view. Under the car first, then behind it, above, ahead.
     const screen = (p: THREE.Vector3): [number, number] => {
@@ -1756,6 +1950,9 @@ function placeActions(): void {
   el.style.top = `${top}px`;
 }
 $('skip').addEventListener('click', () => skipBeats());
+/** Back to the view of the whole map, as at the start. */
+function homeView(): void { focusGoal = null; focusDist = null; fit(); }
+$('home').addEventListener('click', homeView);
 
 /** The lines of the spaces over the terrain, on or off (button and key G). */
 let gridOn = true;
@@ -1876,6 +2073,8 @@ renderer.setAnimationLoop(t => {
     td.d.mesh.quaternion.slerpQuaternions(td.q0, td.q1, e);
   }
   controls.update();
+  tiltView();
+  animTableDice(now);
   const shake = now < shakeUntil ? new THREE.Vector3((Math.random() - 0.5) * 0.25, (Math.random() - 0.5) * 0.15, (Math.random() - 0.5) * 0.25) : null;
   if (shake) camera.position.add(shake);
   renderer.render(scene, camera);
@@ -1895,7 +2094,7 @@ try {
 
 // For automated checks.
 (window as unknown as { trv: object }).trv = {
-  get game() { return g; }, get decision() { return decision; }, choose, undo, zoneOption, scene, hazardObjs,
+  get game() { return g; }, get decision() { return decision; }, choose, undo, zoneOption, scene, hazardObjs, camera, controls,
   get queue() { return queue; }, get playing() { return playing; }, skipBeats, playBeats, // playBeats: replays frames (presentation only), for checks
   get rows() { return ROWS; }, get cols() { return COLS; },
 };

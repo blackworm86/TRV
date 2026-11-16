@@ -3,7 +3,7 @@
 // as a data URL, onto 3D pieces. These open drawings never copy the licensed artwork; the faithful
 // official art, when present locally, takes their place (see "official art" below).
 
-import { makeBoards, STRIP_BOX, STRIP_BOX_TALL } from './boards';
+import { makeBoards, STRIP_BOX, STRIP_BOX_TALL, LEAD_PANEL_W, LEAD_NAME_H } from './boards';
 
 /** Board-absolute direction names used by the rules (src/game/trv/engine.ts). */
 export type ArtDir = 'F' | 'FL' | 'FR' | 'B' | 'BL' | 'BR';
@@ -263,6 +263,10 @@ const SIZE_LABEL: Record<ArtSize, string> = { S: 'PICCOLA', M: 'MEDIA', L: 'GRAN
  */
 /** Width over height of the player's strip (see playerStripSvg). */
 export const STRIP_ASPECT = STRIP_BOX.w / STRIP_BOX.h;
+/** Width over height of the player's strip with a crew leader (name plate above, room for the power tab on the left). */
+export const STRIP_ASPECT_LEADER = (STRIP_BOX.w + LEAD_PANEL_W) / (STRIP_BOX.h + LEAD_NAME_H);
+/** The share of that strip's height taken by the leader's name plate, above the boards. */
+export const STRIP_LEADER_PLATE = LEAD_NAME_H / (STRIP_BOX.h + LEAD_NAME_H);
 /** How many times taller the strip is with a crew leader board (1 without the leader drawing). */
 export const STRIP_TALL = USER_BOARDS && leaderBoardRaw ? STRIP_BOX_TALL.h / STRIP_BOX.h : 1;
 /**

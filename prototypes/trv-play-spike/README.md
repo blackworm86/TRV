@@ -252,3 +252,67 @@ tasto P).
   i dadi (finestra stretta: sopra l'estremità destra della barra).
 - **Barra** più alta, con fasi, domanda e strumenti più grandi (pulsanti da 46 px).
 - Prove: `production/qa/evidence/trv-play-spike/cruscotto-fisso-*.jpg`.
+
+## Plancia trasparente e dadi sul tavolo (2026-11-16)
+
+Sostituisce il "cruscotto fisso" qui sopra, che non funzionava.
+
+- **Barra in alto**, sopra i giocatori: fasi del turno, domanda, Salta, Replay, Griglia,
+  Cronaca, Annulla, Nuova.
+- **Plancia del giocatore senza sfondo**: si vede solo il disegno (plancia comandi o del
+  caposquadra, cruscotti, carte potenziamento sopra i cruscotti come prima), sopra il tavolo.
+  Dove non c'è plancia il puntatore arriva al tavolo.
+- **Dadi diegetici**: i dadi del giocatore sono dadi 3D appoggiati sul tavolo, in fila sotto la
+  strada; si trascinano sulla plancia o su un'auto, oppure si clicca il dado e poi lo spazio.
+  I dadi usati restano sbiaditi; i dadi tirati (sparo, danni) stanno nella fila sotto.
+- **Camera**: niente rotazione, solo pan (tasto sinistro o destro, un dito) e zoom (rotella,
+  due dita). Avvicinandosi al terreno la vista si inclina verso l'orizzonte (da circa 61° a 34°).
+- **Testi descrittivi** (potere del caposquadra, effetto delle carte) in un carattere normale e
+  più grande; il carattere condensato resta per i titoli.
+- **Carte potenziamento a forma di carta**: nel draft si sceglie cliccando la carta; poi le carte
+  tenute compaiono sopra la plancia e si trascinano su un cruscotto (o su un'auto sul tavolo),
+  in qualsiasi ordine. Lo spazio per l'illustrazione è vuoto, in attesa della grafica.
+- Regole: l'assegnazione ora chiede "quale carta su quale auto" (prima "quale carta all'auto
+  piccola, poi alla media"); l'ultima carta va da sola sull'ultima auto.
+- **Limite noto**: a 1280×800 con capisquadra o potenziamenti la plancia occupa quasi metà
+  altezza, il tavolo resta piccolo e i testi della plancia scendono a 9-11 px.
+- Prove: `production/qa/evidence/trv-play-spike/plancia-trasparente-*.jpg`.
+
+## Ritocchi alla plancia trasparente (2026-11-16, sera)
+
+- **Vista di base più vicina**: inquadra la strada e la fila di dadi sotto di essa, senza la fila
+  in più per i dadi tirati (che ora si posano accanto ai dadi del giocatore). Pulsante **Vista**
+  nella barra (tasto V) per tornarci.
+- **Clic sul cruscotto di un'auto**: la vista va su quell'auto e si avvicina (non quando il clic
+  posa un dado o sceglie l'auto da riparare o da potenziare).
+- **Niente riquadro "Assegna un dado"**: i dadi da giocare hanno un bagliore verde che pulsa.
+- **Carte potenziamento nell'insenatura**: larghe quanto l'insenatura al centro del bordo
+  superiore del cruscotto, infilate dietro di esso; sporge solo il nome. Col puntatore sul
+  cruscotto la carta sale e mostra l'effetto. La plancia è alta solo con il caposquadra.
+- Prove: `vista-base-dadi-luminosi.jpg`, `carta-insenatura-al-passaggio.jpg`,
+  `clic-cruscotto-va-all-auto.jpg` in `production/qa/evidence/trv-play-spike/`.
+
+## Plancia larga e pannello del caposquadra (2026-11-16, notte)
+
+- **Plancia a tutta larghezza**: la striscia del giocatore è larga quanto la finestra (finché
+  lascia al tavolo più di metà altezza); a 1920×1080 i testi dei comandi sono a circa 18 px.
+- **Caposquadra**: il ritratto va nell'avatar del giocatore, in alto (`assets/licensed/leaders/
+  <id>.png`; senza immagine resta l'iniziale del giocatore). Nome, titolo e potere stanno in un
+  pannello a sinistra della plancia comandi, che porta i comandi del capo. Il disegno alto della
+  plancia caposquadra non è più usato in partita.
+- **Carte potenziamento**: tagliate al fondo dell'insenatura, così sotto il cruscotto non spunta
+  più nulla.
+- Prove: `plancia-larga-*.{jpg,png}` in `production/qa/evidence/trv-play-spike/`.
+
+## Nome sopra la plancia, potere su linguetta (2026-11-16, correzione)
+
+Corregge la sezione precedente (il pannello fisso a sinistra era sbagliato).
+
+- **Nome e titolo del caposquadra** su una targa sopra la plancia comandi.
+- **Potere del caposquadra** su una linguetta infilata dietro la plancia comandi, da sinistra: si
+  vede solo la maniglia con il nome del potere; col puntatore sopra esce e mostra l'effetto. È un
+  blocco pieno, quindi chiude anche le tacche del bordo sinistro della plancia. A sinistra della
+  striscia resta lo spazio vuoto in cui la linguetta esce.
+- **Carte potenziamento**: salgono solo col puntatore sulla carta (il nome che sporge), non su
+  tutto il cruscotto.
+- Prove: `linguetta-potere-*.jpg`, `carta-sale-solo-sulla-carta.png`.

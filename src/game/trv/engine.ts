@@ -1300,17 +1300,22 @@ function* draftUpgrades(g: Game): Gen<void> {
     }
     hands.unshift(hands.pop()!);
   }
+  // Each kept card goes on a car, in the order the player likes: every choice is a card and a car
+  // (the interface lets the card be dragged onto the car). The last card goes on the last car.
   for (const p of g.players) {
     const left = [...kept[p.id]];
-    for (const car of g.vehicles.filter(v => v.owner === p.id)) {
-      let i = 0;
-      if (left.length > 1) {
-        i = yield* ask({
-          kind: 'upgradeAssign', player: p.id, prompt: `${p.name}: quale potenziamento all'auto ${SIZE_NAME[car.size]}?`,
-          options: left.map(id => ({ label: upName(id), upgrade: id, carId: car.id })),
+    const cars = g.vehicles.filter(v => v.owner === p.id);
+    while (cars.length && left.length) {
+      let card = 0, car = 0;
+      if (left.length > 1 || cars.length > 1) {
+        const pairs = left.flatMap((id, ci) => cars.map((v, vi) => ({ ci, vi, id, v })));
+        const i = yield* ask({
+          kind: 'upgradeAssign', player: p.id, prompt: `${p.name}: trascina un potenziamento su un'auto.`,
+          options: pairs.map(x => ({ label: `${upName(x.id)} → ${SIZE_NAME[x.v.size]}`, upgrade: x.id, carId: x.v.id })),
         });
+        card = pairs[i].ci; car = pairs[i].vi;
       }
-      car.upgrade = left.splice(i, 1)[0] ?? null;
+      cars.splice(car, 1)[0].upgrade = left.splice(card, 1)[0];
     }
   }
   for (const p of g.players) {

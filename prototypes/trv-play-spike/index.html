@@ -8,7 +8,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=League+Gothic&display=swap" rel="stylesheet">
 <style>
-  :root { --top: 92px; --bar: 58px; --bottom: 360px; --stripw: 1000px; --leadw: 0px; --ctlw: 290px; --row: 0px; --dash: 22.4%;
+  :root { --top: 152px; --bar: 58px; --bottom: 360px; --stripw: 1000px;
     --ink: #f3e6d0; --bg: #1a120c; --card: #24180f; --acc: #f6c46a; --hot: #4cff7a; --who: #f6c46a; }
   html, body { margin: 0; height: 100%; background: var(--bg); overflow: hidden; font: 14px/1.3 system-ui, sans-serif; color: var(--ink);
     user-select: none; -webkit-user-select: none; }
@@ -18,7 +18,7 @@
   svg { display: block; }
 
   /* Top: floating bubbles over the map (round, players in turn order, road die). No strip. */
-  #top { position: fixed; left: 0; right: 0; top: 0; display: flex; align-items: flex-start; gap: 10px; padding: 10px 12px; pointer-events: none; z-index: 2; }
+  #top { position: fixed; left: 0; right: 0; top: var(--bar); display: flex; align-items: flex-start; gap: 10px; padding: 10px 12px; pointer-events: none; z-index: 2; }
   .bubble { pointer-events: auto; background: rgba(30,21,14,.88); border: 1px solid rgba(255,255,255,.09); border-radius: 18px;
     box-shadow: 0 6px 18px rgba(0,0,0,.45); backdrop-filter: blur(6px); }
   #roundinfo { padding: 8px 14px; text-align: center; line-height: 1; }
@@ -28,7 +28,9 @@
   #players { flex: 1; display: flex; gap: 12px; justify-content: center; flex-wrap: nowrap; min-width: 0; }
   .pl { --c: #888; display: grid; grid-template-columns: auto 1fr; gap: 2px 10px; align-items: center; padding: 8px 14px 8px 10px; min-width: 0;
     transition: box-shadow .3s, transform .3s; }
-  .pl .av { width: 44px; height: 44px; grid-row: 1 / span 2; }
+  .pl .av { width: 52px; height: 52px; grid-row: 1 / span 2; }
+  /* A crew leader's portrait takes the place of the player's initial. */
+  .pl .av img { width: 100%; height: 100%; border-radius: 50%; object-fit: cover; object-position: 50% 20%; border: 2px solid var(--c); box-sizing: border-box; display: block; }
   .pl .who { display: flex; align-items: baseline; gap: 8px; white-space: nowrap; }
   .pl .nm { font-size: 24px; line-height: 1; }
   .pl .tag { font-size: 10px; letter-spacing: 1.5px; text-transform: uppercase; padding: 2px 6px; border-radius: 8px; background: var(--c); color: #16100b; font-weight: 700; }
@@ -54,8 +56,8 @@
   .road span { font-size: 15px; line-height: 1; text-align: right; }
 
   /* Bar: the turn's phases, the prompt, actions, tools */
-  #bar { position: fixed; left: 0; right: 0; height: var(--bar); bottom: var(--bottom); display: flex; align-items: center; gap: 12px; padding: 0 12px;
-    background: linear-gradient(rgba(34,24,16,.96), rgba(22,15,10,.98)); border-top: 1px solid #4a3523; box-shadow: 0 -8px 20px rgba(0,0,0,.35); box-sizing: border-box; z-index: 2; }
+  #bar { position: fixed; left: 0; right: 0; height: var(--bar); top: 0; display: flex; align-items: center; gap: 12px; padding: 0 12px;
+    background: linear-gradient(rgba(34,24,16,.96), rgba(22,15,10,.98)); border-bottom: 1px solid #4a3523; box-shadow: 0 8px 20px rgba(0,0,0,.35); box-sizing: border-box; z-index: 3; }
   #steps { display: flex; flex: none; filter: drop-shadow(0 2px 3px rgba(0,0,0,.5)); }
   .st { position: relative; display: flex; align-items: center; gap: 7px; height: 38px; padding: 0 20px 0 26px; margin-left: -12px; background: #33271d; color: #9c8a73;
     clip-path: polygon(0 0, calc(100% - 13px) 0, 100% 50%, calc(100% - 13px) 100%, 0 100%, 13px 50%); transition: background .25s, color .25s, transform .25s; white-space: nowrap; }
@@ -95,65 +97,46 @@
   .tool.offed { opacity: .45; }
   #actions button.danger { background: #8c2a20; color: #fff; }
 
-  /* Bottom: the player's panel, fixed. Wide window: leader | upgrade cards over the strip | dice and
-     choices. Narrow window: the strip across the whole width, the rest in a row above it. */
-  #bottom { position: fixed; left: 0; right: 0; bottom: 0; height: var(--bottom); display: grid; gap: 8px 14px; padding: 10px 12px 8px;
-    justify-content: center; align-content: end; grid-template-columns: var(--leadw) var(--stripw) var(--ctlw); grid-template-rows: auto auto;
-    grid-template-areas: "lead cards ctl" "lead strip ctl";
-    background: radial-gradient(120% 140% at 50% 0%, #2b1d12, #120b06); box-sizing: border-box; z-index: 2; }
-  body:not(.haslead) #bottom { grid-template-columns: var(--stripw) var(--ctlw); grid-template-areas: "cards ctl" "strip ctl"; }
-  body:not(.wide) #bottom { grid-template-columns: var(--leadw) minmax(0, 1fr) var(--ctlw); grid-template-rows: var(--row) auto; justify-content: stretch;
-    grid-template-areas: "lead cards ctl" "strip strip strip"; }
-  body:not(.wide):not(.haslead) #bottom { grid-template-columns: minmax(0, 1fr) var(--ctlw); grid-template-areas: "cards ctl" "strip strip"; }
-  #strip { grid-area: strip; width: var(--stripw); justify-self: center; }
-  #strip > svg { width: 100%; height: auto; display: block; filter: drop-shadow(0 4px 6px rgba(0,0,0,.4)); }
+  /* Bottom: the player's strip alone, no background: the table shows around it. Only the boards
+     take clicks; elsewhere the pointer reaches the table (pan, zoom, dice). */
+  #bottom { position: fixed; left: 0; right: 0; bottom: 0; display: flex; justify-content: center; padding: 0 12px 4px; pointer-events: none; z-index: 2; }
+  #strip { width: var(--stripw); }
+  #strip > svg { width: 100%; height: auto; display: block; pointer-events: none; filter: drop-shadow(0 6px 10px rgba(0,0,0,.55)); }
+  #strip [data-drop], #strip [data-car] { pointer-events: auto; cursor: pointer; }
+  /* An upgrade card sits in its dashboard's recess with only its name showing; with the pointer on
+     the card it rises and shows its effect (the rise, --rise, is set by the drawing). */
+  #strip > svg { overflow: visible; }
+  #strip .upcard { transition: transform .22s ease; }
+  #strip .upcard:hover { transform: translateY(var(--rise)); }
+  #strip .upcard .upbody { opacity: 0; transition: opacity .15s; }
+  #strip .upcard:hover .upbody { opacity: 1; }
+  /* The crew leader's power: a tab behind the command board, pulled out to the left by the pointer. */
+  #strip .leadtab { pointer-events: auto; cursor: help; transition: transform .22s ease; }
+  #strip .leadtab:hover { transform: translateX(var(--pull)); }
   #strip .loose { display: flex; align-items: center; height: calc(var(--stripw) / 4.1); }
   #strip .loose svg { height: 80%; width: auto; }
-  /* The crew leader: the head of the leader board, the power in plain text. */
-  #lead { grid-area: lead; align-self: stretch; display: flex; flex-direction: column; gap: 8px; min-height: 0; overflow: hidden; justify-content: center; }
-  body:not(.haslead) #lead { display: none; }
-  #lead .lb { width: min(100%, 230px); align-self: center; flex: none; }
-  #lead .lb svg { width: 100%; height: auto; }
-  #lead .lt .nm { display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; }
-  #lead .lt .nm b { font-size: 30px; font-weight: 400; line-height: 1; }
-  #lead .lt .nm em { font-style: normal; color: #f6c46a; font-size: 16px; letter-spacing: 2px; }
-  #lead .lt p { margin: 4px 0 0; font-size: 16px; line-height: 1.3; }
-  #lead .lt p i { display: block; font: 400 22px/1.1 'League Gothic', Impact, sans-serif; letter-spacing: .5px; color: var(--acc); }
-  body.wide #lead .lt:not(.nohead) .nm { display: none; } /* the board's head already carries name and tokens */
-  body:not(.wide) #lead .lb { display: none; }
-  body:not(.wide) #lead .lt p { font-size: 15px; line-height: 1.25; }
-  /* The upgrade cards: one over each dashboard on a wide window, three across on a narrow one. */
-  #cards { grid-area: cards; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; padding-left: var(--dash); height: 124px; box-sizing: border-box; }
-  body:not(.hascards) #cards { display: none; }
-  body:not(.wide) #cards { padding-left: 0; height: auto; align-self: stretch; }
-  .up { background: var(--card); border-top: 5px solid var(--c); border-radius: 10px; padding: 6px 12px 8px; overflow: hidden; min-width: 0; }
-  .up.none { visibility: hidden; }
-  .up .h { display: flex; align-items: baseline; gap: 8px; }
-  .up .h small { font-size: 12px; letter-spacing: 1.5px; text-transform: uppercase; color: #16100b; background: var(--c); padding: 1px 6px; border-radius: 6px; font-weight: 700; }
-  .up .h b { font-size: 25px; font-weight: 400; line-height: 1.05; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-  .up p { margin: 4px 0 0; font-size: 16px; line-height: 1.25; }
-  body:not(.wide) .up p { font-size: 14.5px; line-height: 1.2; margin-top: 2px; }
-  body:not(.wide) .up { padding: 4px 10px 6px; }
-  body:not(.wide) .up .h b { font-size: 22px; }
-  .up.off { border-top-color: #6d6b70; }
-  .up.off p, .up.off .h b { opacity: .5; }
-  .up em { display: block; font-style: normal; font-size: 13px; font-weight: 700; color: #ff8a7a; }
-  /* Dice and choices: always here. Drag a die onto a board or onto a car. */
-  #ctl { grid-area: ctl; align-self: stretch; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 14px; min-height: 0; }
-  #ctl h3 { margin: 0; font: 400 20px/1 'League Gothic', Impact, sans-serif; letter-spacing: 1.5px; text-transform: uppercase; opacity: .65; }
-  body:not(.wide) #ctl h3 { display: none; }
-  #mydice { display: flex; gap: 10px; padding: 10px 12px; min-height: 64px; min-width: 64px; }
-  #mydice svg { width: 64px; height: 64px; cursor: grab; border-radius: 12px; transition: transform .12s; touch-action: none; }
-  body:not(.wide) #mydice svg { width: 52px; height: 52px; }
-  #mydice svg.used { opacity: .18; cursor: default; }
-  #mydice svg.sel { transform: translateY(-6px) scale(1.12); box-shadow: 0 0 0 3px var(--hot); }
-  #mydice svg.idle { cursor: default; }
-  #actslot { width: 100%; height: 150px; flex: none; }
-  body:not(.wide) #actslot { display: none; }
+  /* Upgrade cards, shaped as cards: the draft, and the hand to drag onto the cars. */
+  .ucard { --w: 210px; width: var(--w); aspect-ratio: 63 / 88; box-sizing: border-box; display: flex; flex-direction: column; gap: 6px; padding: 8px;
+    background: #f3e6d0; color: #1a120c; border-radius: 12px; border: 3px solid var(--c); box-shadow: 0 8px 20px rgba(0,0,0,.55); text-align: left; }
+  .ucard > b { display: block; background: var(--c); color: #16100b; border-radius: 6px; padding: 5px 8px 3px; font-size: 25px; font-weight: 400; line-height: 1;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .ucard .art { flex: 1; min-height: 40px; border-radius: 6px; background: repeating-linear-gradient(135deg, #e3d4ba 0 10px, #ddccaf 10px 20px); }
+  .ucard p { margin: 0; font-size: 16px; line-height: 1.28; font-weight: 500; }
+  #leaderpick .hand { display: flex; gap: 18px; justify-content: center; flex-wrap: wrap; }
+  #leaderpick .pickcard { padding: 0; border: 0; background: none; cursor: pointer; border-radius: 14px; transition: transform .15s; }
+  #leaderpick .pickcard .ucard { --w: 230px; }
+  #leaderpick .pickcard:hover, #leaderpick .pickcard:focus-visible { transform: translateY(-8px); outline: none; }
+  #hand { position: fixed; left: 50%; bottom: calc(var(--bottom) + 14px); transform: translateX(-50%); display: flex; gap: 16px; z-index: 4; }
+  #hand .ucard { --w: 180px; cursor: grab; touch-action: none; transition: transform .15s; }
+  #hand .ucard p { font-size: 15px; }
+  #hand .ucard:hover { transform: translateY(-6px); }
+  #hand .ucard[data-sel] { transform: translateY(-12px); box-shadow: 0 0 0 4px var(--hot), 0 10px 24px rgba(0,0,0,.6); }
+  .ucard.flying { position: fixed; z-index: 9; pointer-events: none; --w: 180px; transform: rotate(-4deg) scale(1.04); cursor: grabbing; }
+  .ucard.flying p { font-size: 15px; }
   .hotzone { cursor: pointer; }
 
   /* Rolled dice, big, in the middle of the screen; comic words over the action */
-  #rolls { position: fixed; left: 50%; bottom: calc(var(--bottom) + var(--bar) + 40px); transform: translate(-50%, 12px); display: flex; gap: 18px; padding: 12px 20px 10px;
+  #rolls { position: fixed; left: 50%; bottom: calc(var(--bottom) + 40px); transform: translate(-50%, 12px); display: flex; gap: 18px; padding: 12px 20px 10px;
     opacity: 0; pointer-events: none; transition: opacity .25s, transform .25s; z-index: 5; border-radius: 18px;
     background: rgba(20,14,10,.9); border: 2px solid var(--acc); box-shadow: 0 10px 30px rgba(0,0,0,.6); }
   #rolls.show { opacity: 1; transform: translate(-50%, 0); }
@@ -202,9 +185,9 @@
     text-align: center; opacity: 0; pointer-events: none; transition: opacity .25s, transform .25s; z-index: 6; }
   #toast.show { opacity: 1; transform: translate(-50%, 0); }
   #toast div { padding: 2px 0; }
-  #ghost { position: fixed; width: 44px; height: 44px; pointer-events: none; z-index: 9; display: none; filter: drop-shadow(0 6px 8px #000); }
+  #ghost { position: fixed; width: 64px; height: 64px; pointer-events: none; z-index: 9; display: none; filter: drop-shadow(0 6px 8px #000); }
 
-  #drawer { position: fixed; right: 0; top: 0; bottom: calc(var(--bottom) + var(--bar)); width: min(380px, 90vw); background: rgba(24,16,10,.97);
+  #drawer { position: fixed; right: 0; top: var(--top); bottom: var(--bottom); width: min(380px, 90vw); background: rgba(24,16,10,.97);
     border-left: 2px solid #3b2a1c; overflow: auto; padding: 8px 12px; box-sizing: border-box; display: none; z-index: 3; }
   #drawer div { padding: 3px 0; border-bottom: 1px solid #2c1f15; }
   #drawer img { width: 18px; height: 18px; vertical-align: -4px; margin-right: 3px; }
@@ -258,6 +241,7 @@
   <div id="prompt"></div>
   <button class="tool" id="skip" title="Salta l’animazione (barra spaziatrice)"><span>⏭</span><small>Salta</small></button>
   <button class="tool" id="replay" title="Rivedi al rallentatore l’ultimo danno o l’ultima distruzione (R)" disabled><span>⟲</span><small>Replay</small></button>
+  <button class="tool" id="home" title="Torna alla vista di tutta la mappa (V)"><span>⌂</span><small>Vista</small></button>
   <button class="tool" id="grid" title="Mostra o nascondi le linee delle caselle (G)"><span>▦</span><small>Griglia</small></button>
   <button class="tool" id="ticker" title="Cronaca della partita"><span>☰</span><small>Cronaca</small></button>
   <button class="tool" id="undo" title="Annulla l'ultima scelta"><span>↶</span><small>Annulla</small></button>
@@ -265,12 +249,8 @@
 </div>
 <div id="actions"></div>
 <div id="leaderpick"></div>
-<div id="bottom">
-  <div id="lead"></div>
-  <div id="cards"></div>
-  <div id="strip"></div>
-  <div id="ctl"><h3>I tuoi dadi</h3><div class="bubble" id="mydice"></div><div id="actslot"></div></div>
-</div>
+<div id="bottom"><div id="strip"></div></div>
+<div id="hand"></div>
 <div id="ghost"></div>
 <div id="setup">
   <div class="card">

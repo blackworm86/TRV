@@ -28,6 +28,10 @@ const DRAW_W = 1197;
 /** The middle of each dashboard, the two damage slots on its lower edge (left and right of the middle) and that edge's height. */
 const DASH_MID: Record<ArtSize, number> = { S: 422.35, M: 731.94, L: 1041.53 };
 const SLOT_DX = 65.5, SLOT_Y = 205.3;
+/** The recess in the middle of a dashboard's top edge, where an upgrade card is slid in: its width and its floor. */
+const RECESS = { w: 157.46, y: 57.43 };
+/** How much of an upgrade card sticks out of the recess when hidden (its name), and how much stays tucked in when raised. */
+const CARD_PEEK = 30, CARD_TUCK = 12;
 /** A damage token under a dashboard: its width, and how far its top is tucked under the board. */
 const TOKEN_W = 100, TOKEN_TUCK = 9;
 /**
@@ -43,6 +47,11 @@ export const STRIP_BOX = { x: 0, y: 0, w: DRAW_W, h: 292 };
  * so the commands stay where they are and the leader's part rises above the dashboards.
  */
 const LEAD_DY = 252.91, LEAD_W = 292.54, LEAD_H = 512.4;
+/** Room on the left of the strip for the crew leader's power tab, pulled out (see stripSvg). */
+export const LEAD_PANEL_W = 236;
+/** Height of the crew leader's name plate above the command board, and width of the power tab's handle. */
+export const LEAD_NAME_H = 60;
+const LEAD_HANDLE = 40;
 const LEAD_PANEL = [42.56, 295.41, 248.4, 470.67];
 /** Where the leader board is cut to show its upper part alone: just under the title. */
 const LEAD_HEAD_H = 272;
@@ -132,6 +141,9 @@ export function makeBoards(raw: string, base: BoardBase, leaderRaw?: string): {
   const lead = leaderRaw ? parse(leaderRaw) : null;
   const of = (id: BoardId): El[] => all.filter(e => boardOf(e.x) === id);
   const svg = (box: string, body: string, extra: string): string => `<svg xmlns="http://www.w3.org/2000/svg" viewBox="${box}" ${extra}>${body}</svg>`;
+  /** Running text (what a power, a command or a card does): a plain sans-serif reads better than the display font. */
+  const prose = (s: string, x: number, y: number, size: number, fill: string, anchor = 'start'): string =>
+    `<text x="${x}" y="${y}" font-size="${size}" fill="${fill}" text-anchor="${anchor}" font-family="system-ui, 'Segoe UI', Roboto, sans-serif" font-weight="600" pointer-events="none">${esc(s)}</text>`;
   const text = (s: string, x: number, y: number, size: number, fill: string, anchor = 'start', extra = ''): string =>
     `<text x="${x}" y="${y}" font-size="${size}" fill="${fill}" text-anchor="${anchor}" ${base.font} pointer-events="none" ${extra}>${esc(s)}</text>`;
   const die = (x: number, y: number, s: number, value: number, color: string): string =>
@@ -161,7 +173,7 @@ export function makeBoards(raw: string, base: BoardBase, leaderRaw?: string): {
     const tx = num(target.attrs, 'cx'), ty = num(target.attrs, 'cy');
     const bg = els.find(e => e.layer === 'background')!;
 
-    let b = '';
+    let b = upgradeCard(d);
     // Damage tokens first, so the board covers their top edge: one in each of the two slots under
     // the board (more than two overlap, shifted). An empty slot shows a faint outline.
     const token = base.damageTokenSvg(null, false);
@@ -262,8 +274,10 @@ export function makeBoards(raw: string, base: BoardBase, leaderRaw?: string): {
       b += text('SEGNALINI', 34, 44, 15, METAL, 'start', 'letter-spacing="1"') + text('COMANDO', 34, 60, 15, METAL, 'start', 'letter-spacing="1"');
       b += L.tokens ? text('★'.repeat(L.tokens), 34, 96, 30, '#f6c46a') : text('—', 34, 96, 30, METAL);
     } else {
-      b += text(L.power.toUpperCase(), 34, 44, 18, '#f6c46a');
-      wrap(L.powerText, 22).forEach((l, i) => { b += text(l, 34, 62 + i * 14.5, 13, CREAM); });
+      // In the dark space left of the portrait (x 30-126): the name of the power, then what it does.
+      const title = wrap(L.power.toUpperCase(), 12);
+      title.forEach((l, i) => { b += text(l, 30, 40 + i * 17, 18, '#f6c46a'); });
+      wrap(L.powerText, 16).forEach((l, i) => { b += prose(l, 30, 46 + title.length * 17 + i * 15, 13, CREAM); });
     }
     // Name and title, across the board.
     const name = L.name.toUpperCase();
@@ -317,23 +331,73 @@ export function makeBoards(raw: string, base: BoardBase, leaderRaw?: string): {
   function stripSvg(c: CommandBoardArt, dashes: DashboardArt[], extra = ''): string {
     // The medium dashboard's side points lie over its neighbours, as in the drawing's layer order.
     const order = [...dashes].sort((a, b) => 'SLM'.indexOf(a.size) - 'SLM'.indexOf(b.size));
-    const leader = !!c.leader && !!lead;
-    const tall = leader || (!!lead && dashes.some(d => d.upgrade));
-    const { x, y, w, h } = tall ? STRIP_BOX_TALL : STRIP_BOX;
-    const board = leader ? `<g transform="translate(0 ${-LEAD_DY})">${leaderBody(c)}</g>` : cmdBody(c);
-    return svg(`${x} ${y} ${w} ${h}`, board + (tall ? order.map(upgradeCard).join('') : '') + order.map(dashBody).join(''), `style="aspect-ratio:${w}/${h}" ${extra}`);
+    // With a crew leader the strip has the leader's name above the command board and, on its left,
+    // room for the tab with the leader's power to be pulled out; boards and dashboards as always.
+    const x = c.leader ? -LEAD_PANEL_W : 0, y = c.leader ? -LEAD_NAME_H : 0, w = DRAW_W - x, h = STRIP_BOX.h - y;
+    const board = c.leader
+      ? leaderTab(c) + leaderName(c) + cmdBody({ ...c, caption: c.caption ?? (c.leader.tokens ? '★'.repeat(c.leader.tokens) : 'NESSUN SEGNALINO') })
+      : cmdBody(c);
+    return svg(`${x} ${y} ${w} ${h}`, board + order.map(dashBody).join(''), `style="aspect-ratio:${w}/${h}" ${extra}`);
   }
 
-  /** A car's upgrade card (Choppe Shoppe), standing above its dashboard with its foot tucked behind it. */
+  /** The crew leader's name and title on a plate above the command board, its foot behind the board. */
+  function leaderName(c: CommandBoardArt): string {
+    const L = c.leader!, x0 = 26, x1 = SPAN.cmd[1] - 26, y0 = -LEAD_NAME_H + 4, y1 = 24, k = 14, mid = SPAN.cmd[1] / 2;
+    const name = L.name.toUpperCase();
+    return `<path d="M${x0 + k} ${y0} H${x1 - k} L${x1} ${y0 + k} V${y1} H${x0} V${y0 + k}Z" fill="${DARK}" stroke="${LINE}" stroke-width="2" stroke-linejoin="round"/>`
+      + text(name, mid, y0 + 33, Math.min(34, 400 / name.length), CREAM, 'middle')
+      + text(L.title.toUpperCase(), mid, y0 + 49, 13, METAL, 'middle', 'letter-spacing="1"');
+  }
+
+  /**
+   * The crew leader's power on a pull-out tab: one solid block slid behind the command board from
+   * the left, only its handle showing (the power's name, written upward). With the pointer on it
+   * the tab comes out (CSS: `.leadtab` and `--pull`) and shows what the power does. Being behind
+   * the board, it also closes the notches of the board's left edge.
+   */
+  function leaderTab(c: CommandBoardArt): string {
+    const L = c.leader!;
+    const pull = LEAD_PANEL_W - LEAD_HANDLE - 6; // how far it comes out
+    const x0 = -LEAD_HANDLE, x1 = pull + 70, y0 = 40, y1 = 220, k = 14; // pulled out, 70 units stay behind the board
+    let b = `<path d="M${x0 + k} ${y0} H${x1} V${y1} H${x0 + k} L${x0} ${y1 - k} V${y0 + k}Z" fill="${DARK}" stroke="${LINE}" stroke-width="2" stroke-linejoin="round"/>`;
+    b += `<rect x="${x0 + 7}" y="${y0 + 16}" width="5" height="${y1 - y0 - 32}" rx="2.5" fill="${c.color}"/>`;
+    const hx = x0 + 27, hy = (y0 + y1) / 2, power = L.power.toUpperCase();
+    b += `<g transform="rotate(-90 ${hx} ${hy})">${text(power, hx, hy + 6, Math.min(19, 250 / power.length), '#f6c46a', 'middle')}</g>`;
+    b += `<line x1="${x0 + LEAD_HANDLE - 2}" y1="${y0 + 12}" x2="${x0 + LEAD_HANDLE - 2}" y2="${y1 - 12}" stroke="${LINE}" stroke-opacity=".35"/>`;
+    // What the power does: on the part that the board hides until the tab is out.
+    const tx = 14;
+    b += text(power, tx, y0 + 36, Math.min(26, 330 / power.length), '#f6c46a');
+    wrap(L.powerText, 23).forEach((l, i) => { b += prose(l, tx, y0 + 60 + i * 18, 14.5, CREAM); });
+    return `<g class="leadtab" style="--pull:${-pull}px"><title>${esc(`${L.power}: ${L.powerText}`)}</title>${b}</g>`;
+  }
+
+  /**
+   * A car's upgrade card (Choppe Shoppe), slid into the recess in the middle of the dashboard's top
+   * edge (RECESS wide, as the owner drew it), behind the board. Only its name shows above the recess;
+   * with the pointer on the dashboard the card rises (CSS: `.upcard` and `--rise`) and shows its effect.
+   */
   function upgradeCard(d: DashboardArt): string {
     if (!d.upgrade) return '';
-    const cx = DASH_MID[d.size], cw = 236, top = -172, off = d.status !== 'ok';
-    let b = `<rect x="${cx - cw / 2}" y="${top}" width="${cw}" height="${DASH_Y[0] + 30 - top}" rx="10" fill="${DARK}" stroke="${off ? LINE : d.color}" stroke-width="3"/>`;
-    b += `<rect x="${cx - cw / 2 + 6}" y="${top + 6}" width="${cw - 12}" height="38" rx="6" fill="${off ? '#6d6b70' : d.color}"/>`;
-    b += text(d.upgrade.name.toUpperCase(), cx, top + 34, Math.min(27, 360 / d.upgrade.name.length), base.inkOn(off ? '#6d6b70' : d.color), 'middle');
-    wrap(d.upgrade.text, 34).forEach((l, i) => { b += text(l, cx, top + 68 + i * 19, 16.5, CREAM, 'middle'); });
-    if (off) b += text('INATTIVO: AUTO FUORI USO', cx, DASH_Y[0] - 6, 14, '#ff8a7a', 'middle');
-    return `<g opacity="${off ? 0.6 : 1}"><title>${esc(`${d.upgrade.name}: ${d.upgrade.text}`)}</title>${b}</g>`;
+    const cw = RECESS.w - 3, ch = Math.round(cw * 88 / 63), x = DASH_MID[d.size] - cw / 2;
+    const off = d.status !== 'ok', head = off ? '#6d6b70' : d.color;
+    const top = RECESS.y - CARD_PEEK; // hidden: only the name band sticks out of the recess
+    const rise = ch - CARD_PEEK - CARD_TUCK; // raised: the whole card above the recess, its foot still tucked in
+    const name = d.upgrade.name.toUpperCase();
+    let b = `<rect x="${x}" y="${top}" width="${cw}" height="${ch}" rx="7" fill="${DARK}" stroke="${head}" stroke-width="2.5"/>`;
+    b += `<rect x="${x + 4}" y="${top + 4}" width="${cw - 8}" height="${CARD_PEEK - 6}" rx="4" fill="${head}"/>`;
+    b += text(name, x + cw / 2, top + CARD_PEEK - 7.5, Math.min(19, 250 / name.length), base.inkOn(head), 'middle');
+    const lines = wrap(d.upgrade.text, 21);
+    const textTop = top + ch - CARD_TUCK - 8 - lines.length * 14;
+    // The space for the card's art, to come: between the name and the effect. Art and effect show only
+    // when the card is raised (class upbody), so nothing of them peeks out under the board.
+    b += `<g class="upbody"><rect x="${x + 6}" y="${top + CARD_PEEK + 4}" width="${cw - 12}" height="${Math.max(10, textTop - top - CARD_PEEK - 18)}" rx="4" fill="#3a3540"/>`;
+    lines.forEach((l, i) => { b += prose(l, x + 8, textTop + i * 14, 11.5, CREAM); });
+    if (off) b += text('INATTIVO: AUTO FUORI USO', x + cw / 2, textTop - 8, 11, '#ff8a7a', 'middle');
+    b += '</g>';
+    // Cut at the recess floor: whatever of the card is behind the board never shows through its lower notches.
+    const clip = `upclip-${d.carId}`;
+    return `<clipPath id="${clip}"><rect x="${x - 4}" y="${RECESS.y - 2 * ch}" width="${cw + 8}" height="${2 * ch + 3}"/></clipPath>`
+      + `<g clip-path="url(#${clip})"><g class="upcard" style="--rise:${-rise}px" opacity="${off ? 0.7 : 1}"><title>${esc(`${d.upgrade.name}: ${d.upgrade.text}`)}</title>${b}</g></g>`;
   }
 
   return { dashboardSvg, commandBoardSvg, stripSvg, leaderHeadSvg, hasLeaderBoard: !!lead };

@@ -400,3 +400,27 @@ describe('upgrade cards', () => {
     expect(run(5, { upgrades: true }).log).toEqual(run(5, { upgrades: true }).log);
   });
 });
+
+describe('upgrade assignment', () => {
+  it('offers every kept card on every car still free, and ends with one different card on each car', () => {
+    for (let s = 1; s <= 20; s++) {
+      // Arrange: record the card-and-car choices of each player.
+      const asked: { player: number; cards: number; cars: number }[] = [];
+      // Act
+      const g = run(s, { upgrades: true, players: 2 + (s % 3) }, ({ d }) => {
+        if (d.kind !== 'upgradeAssign') return;
+        const cards = new Set(d.options.map(o => o.upgrade)).size, cars = new Set(d.options.map(o => o.carId)).size;
+        asked.push({ player: d.player, cards, cars });
+        expect(d.options.length).toBe(cards * cars);
+      });
+      // Assert: three cars, two questions each (the last card goes on the last car by itself).
+      for (const p of g.players) {
+        const mine = asked.filter(a => a.player === p.id);
+        expect(mine.map(a => [a.cards, a.cars])).toEqual([[3, 3], [2, 2]]);
+        const ups = g.vehicles.filter(v => v.owner === p.id).map(v => v.upgrade);
+        expect(ups.every(Boolean)).toBe(true);
+        expect(new Set(ups).size).toBe(3);
+      }
+    }
+  });
+});
