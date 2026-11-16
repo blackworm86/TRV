@@ -98,3 +98,17 @@ describe('airstrike', () => {
     expect(spaces).not.toContain(key(d));
   });
 });
+
+describe('damage pile', () => {
+  it('holds six Skid tokens, one per direction (ruling base-01)', () => {
+    const g = newGame({ seed: SEED(1), players: PLAYERS.slice(0, 2), startSide: 'a' });
+    const skids = g.damagePile.filter(t => t.type === 'skid').map(t => t.dir).sort();
+    expect(skids).toEqual(['B', 'BL', 'BR', 'F', 'FL', 'FR']);
+  });
+  it('holds the 20 base damage tokens of the summary sheet (rulebook p3)', () => {
+    const g = newGame({ seed: SEED(1), players: PLAYERS.slice(0, 2), startSide: 'a' });
+    const count = (type: string): number => g.damagePile.filter(t => t.type === type).length;
+    expect(g.damagePile).toHaveLength(20);
+    expect([count('blastoff'), count('dazed'), count('dent'), count('shrapnel'), count('skid')]).toEqual([5, 3, 3, 3, 6]);
+  });
+});
