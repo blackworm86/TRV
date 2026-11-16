@@ -1,0 +1,7 @@
+{
+  "_note": "Which cut card (tools/art/extract_cards.py, pages 31 and 34 of trv_v2) is which Carnage at Devil's Run ongoing effect; ':180' when the cut came out upside down (the red panel belongs at the bottom).",
+  "_size": [440, 680],
+  "0031-1": "shattered_windshield", "0031-10": "lost_tools", "0031-11": "transmission_failure:180", "0031-12": "bald_tires:180",
+  "0031-15": "loose_wiring", "0031-16": "exposed_hardware", "0031-4": "faulty_airbag", "0031-5": "cracked_flywheel",
+  "0031-6": "bent_frame", "0031-7": "nitro_leak", "0031-9": "dead_alternator:180"
+}

@@ -195,7 +195,9 @@ $RECYCLE.BIN/
 !/assets/licensed/cards/
 /assets/licensed/cards/*
 !/assets/licensed/cards/upgrades/
+!/assets/licensed/cards/ongoing/
 !/assets/licensed/leaders/
+!/assets/licensed/tokens/
 reference/rulebook/
 /rulebook/
 

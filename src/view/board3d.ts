@@ -1,9 +1,9 @@
 // The road as vector geometry: every space of a tile is a chevron polygon built from the
 // terrain grid in data/trv/game_base.json, coloured by its effect (rulebook p. 7). Spaces of
 // neighbouring rows are offset, so each tile's front and rear edges zig-zag and the next tile
-// slots into it like a toy brick. Each face is drawn in relief: from the official art when its terrain
-// maps are present locally (licensed, not in git), otherwise from terrain generated from the grid
-// (src/view/terrain/procedural.ts); `terrain: 'flat'` keeps the plain coloured chevrons.
+// slots into it like a toy brick. Each face is drawn in relief from terrain generated from the grid
+// (src/view/terrain/procedural.ts), never from the official tile art; `terrain: 'flat'` keeps the
+// plain coloured chevrons.
 
 import * as THREE from 'three';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
@@ -30,16 +30,16 @@ export interface TileMeshOptions {
    */
   relief?: number;
   /**
-   * Look of the face: 'official' = the official art in relief when its maps are present locally,
-   * else procedural; 'procedural' = terrain generated from the grid; 'flat' = coloured chevrons.
+   * Look of the face: 'procedural' = terrain generated from the grid (the only terrain the game
+   * shows: the official tile art is never used as a texture); 'flat' = coloured chevrons.
    * Default: `?terrain=` in the page address, else 'procedural'.
    */
   terrain?: TerrainLook;
 }
 
-export type TerrainLook = 'official' | 'procedural' | 'flat';
+export type TerrainLook = 'procedural' | 'flat';
 const URL_LOOK = typeof location !== 'undefined' ? new URLSearchParams(location.search).get('terrain') : null;
-const DEFAULT_LOOK: TerrainLook = URL_LOOK === 'official' || URL_LOOK === 'flat' ? URL_LOOK : 'procedural';
+const DEFAULT_LOOK: TerrainLook = URL_LOOK === 'flat' ? URL_LOOK : 'procedural';
 
 /**
  * Flat outline of one space in a tile's own frame (centred, world units, lying in x / -z once
@@ -73,23 +73,6 @@ const TERRAIN_COLOR: Record<string, string> = {
 
 // ------------------------------------------------------------------------------- relief terrain
 
-/**
- * Terrain maps made from the official tile art by tools/asset-pipeline/terrain.py, one folder per
- * face (assets/licensed/terrain/1a/...). Licensed and not in git: without them a tile is drawn as
- * coloured chevrons.
- */
-const TERRAIN_FILES = import.meta.glob<string>('/assets/licensed/terrain/*/*.png', { eager: true, query: '?url', import: 'default' });
-
-/** The maps of one face (albedo, height, normal, rough, mask), or null. */
-function terrainMaps(id: string): Record<string, string> | null {
-  const pre = `/assets/licensed/terrain/${id}/`;
-  const out: Record<string, string> = {};
-  for (const [k, url] of Object.entries(TERRAIN_FILES)) if (k.startsWith(pre)) out[k.slice(pre.length, -4)] = url;
-  return out.albedo && out.height && out.mask ? out : null;
-}
-
-/** Official height maps: grey = 128 + 40 h (tools/asset-pipeline/terrain.py). */
-const H_ZERO = 128, H_UNIT = 40;
 /** Relief segments of the terrain mesh along the road and across it. */
 const RELIEF_SEG: [number, number] = [500, 380];
 
@@ -123,48 +106,6 @@ function sampleGrid(v: ArrayLike<number>, w: number, h: number, stride: number, 
   const i = Math.floor(gx), j = Math.floor(gy), fx = gx - i, fy = gy - j;
   const at = (x: number, y: number): number => v[(y * w + x) * stride];
   return (at(i, j) * (1 - fx) + at(i + 1, j) * fx) * (1 - fy) + (at(i, j + 1) * (1 - fx) + at(i + 1, j + 1) * fx) * fy;
-}
-
-/**
- * The official art in relief (maps from tools/asset-pipeline/terrain.py). `amp` is the world height
- * of one height unit; h = -1 sits on `top`. The height lookup (frame pixels -> world height above
- * `top`) is exact once the height map has loaded (asphalt level before).
- */
-function officialRelief(maps: Record<string, string>, width: number, depth: number, top: number, amp: number): {
-  mesh: THREE.Mesh; heightAt: (px: number, py: number) => number;
-} {
-  const loader = new THREE.TextureLoader();
-  const tex = (url: string | undefined, srgb = false): THREE.Texture | null => {
-    if (!url) return null;
-    let t!: THREE.Texture;
-    trackTexture(new Promise((ok, fail) => { t = loader.load(url, ok, undefined, fail); }));
-    if (srgb) t.colorSpace = THREE.SRGBColorSpace;
-    t.anisotropy = 8;
-    return t;
-  };
-  // grey g (0..1) -> world: amp * (255 g - H_ZERO) / H_UNIT + amp (so h = -1 sits on `top`).
-  const mesh = reliefMesh({
-    albedo: tex(maps.albedo, true), normal: tex(maps.normal), rough: tex(maps.rough), mask: tex(maps.mask),
-    height: tex(maps.height), scale: amp * 255 / H_UNIT, bias: amp * (1 - H_ZERO / H_UNIT),
-  }, width, depth, top);
-
-  // CPU copy of the height map, for placing pieces on the ground.
-  let grid: { w: number; h: number; v: Uint8ClampedArray } | null = null;
-  const img = new Image();
-  img.onload = () => {
-    const c = document.createElement('canvas');
-    c.width = img.width; c.height = img.height;
-    const x2 = c.getContext('2d', { willReadFrequently: true })!;
-    x2.drawImage(img, 0, 0);
-    grid = { w: c.width, h: c.height, v: x2.getImageData(0, 0, c.width, c.height).data };
-  };
-  img.src = maps.height;
-  const heightAt = (px: number, py: number): number => {
-    if (!grid) return amp + 0.001;
-    const g = sampleGrid(grid.v, grid.w, grid.h, 4, px, py);
-    return amp * ((g - H_ZERO) / H_UNIT + 1) + 0.001;
-  };
-  return { mesh, heightAt };
 }
 
 /** RGBA texture of `w` x `h` pixels (1 or 4 bytes each, row 0 = frame top), mipmapped. */
@@ -313,22 +254,13 @@ export function buildTile(tile: TileData, o: TileMeshOptions): THREE.Group {
   base.receiveShadow = true;
   group.add(base);
 
-  // The official art in relief, when this face has terrain maps: it carries the terrain colours,
-  // the hazard marks and the name banner itself.
   const look = o.terrain ?? DEFAULT_LOOK;
   const amp = o.relief ?? o.thickness * 0.5;
-  const maps = look === 'official' && tile.tile !== undefined ? terrainMaps(`${tile.tile}${tile.side ?? ''}`) : null;
   // Impassable spaces carry a 3D obstacle (rocks, mesas, ruins, bunkers), whatever the terrain's look.
   const obstacles = look === 'flat' ? null : buildObstacles(tile, obstacleKind(tile), { width: o.width, depth: o.depth });
   if (obstacles) {
     obstacles.position.y = o.thickness + amp * 1.2;
     group.add(obstacles);
-  }
-  if (maps) {
-    const relief = officialRelief(maps, o.width, o.depth, o.thickness, amp);
-    group.add(relief.mesh);
-    group.userData.heightAt = relief.heightAt;
-    return group;
   }
   if (look !== 'flat') {
     // Terrain generated from the grid, and over it, apart, the information layer (grid lines, tape

@@ -120,6 +120,10 @@
     background: #e8742a; color: #1a120c; cursor: pointer; white-space: nowrap; }
   #actions button { display: inline-flex; align-items: center; gap: 6px; min-height: 32px; padding: 4px 14px; font-size: 14.5px; border-radius: 999px; transition: filter .12s, transform .12s; }
   #actions button:hover { filter: brightness(1.12); transform: translateY(-1px); }
+  /* No player colour on the choices (user, 2026-11-16): the main one is cream, the quiet one an outline. */
+  #actions button, #actions button.road, #actions button.shoot { background: #f3e6d0; color: #17120e; font-weight: 700; }
+  #actions button.quiet { background: transparent; color: #f3e6d0; font-weight: 600; box-shadow: inset 0 0 0 1.5px rgba(243,230,208,.55); }
+  #actions button.danger { background: #5a1712; color: #fff; box-shadow: inset 0 0 0 1.5px #c9473c; }
   #actions button kbd { padding: 0 4px; border-radius: 4px; background: rgba(0,0,0,.18); font: 600 10.5px system-ui, sans-serif; opacity: .75; }
   .tool { background: #3b2d22; color: var(--ink); font-weight: 500; }
   /* Bar tools say what they do: a sign and a word. */
@@ -140,11 +144,8 @@
   @keyframes blink { to { visibility: hidden; } }
   #actions.only { pointer-events: none; padding: 6px 14px; }
   #actions.only .q { padding: 0; }
-  /* The quieter choice is still a choice: light enough to be seen at once. */
-  #actions button.quiet { background: #efe3cf; color: #1a120c; font-weight: 600; }
   @keyframes callout { 0%, 100% { box-shadow: 0 6px 18px rgba(0,0,0,.5), 0 0 0 2px var(--who); } 50% { box-shadow: 0 6px 18px rgba(0,0,0,.5), 0 0 0 5px var(--who), 0 0 22px 4px var(--who); } }
   .tool.offed { opacity: .45; }
-  #actions button.danger { background: #8c2a20; color: #fff; }
 
   /* Bottom: the player's strip alone, no background: the table shows around it. Only the boards
      take clicks; elsewhere the pointer reaches the table (pan, zoom, dice). */
@@ -164,6 +165,7 @@
   #cmddock.ask { transform: translateY(0); }
   #cmddock .stripe { position: absolute; left: 16px; right: 16px; top: 6px; height: 4px; border-radius: 2px; background: var(--who); }
   #cmddock .q { text-align: center; font: 400 21px/1.05 'League Gothic', Impact, sans-serif; letter-spacing: .5px; color: #f6c46a; }
+  #cmddock .q .tip { display: block; font: 600 13px/1.25 system-ui, sans-serif; letter-spacing: 0; color: #f3e6d0; }
   #cmddock .q:empty, #cmddock .row:empty { display: none; }
   #cmddock .row { display: flex; flex-wrap: wrap; gap: 6px; justify-content: center; }
   #cmddock .row button { flex: 1 1 40%; min-width: 0; min-height: 32px; padding: 4px 6px; font: inherit; font-weight: 700; font-size: 13px; line-height: 1.1; border: 0; border-radius: 8px; cursor: pointer;
@@ -238,6 +240,15 @@
   #rolls .roll.dmg .tok svg { width: 84px; height: 76px; }
   #rolls .roll.dmg b { font-size: 30px; color: #ff6a5a; }
   #rolls .roll.dmg span { font-size: 14px; max-width: 210px; }
+  /* Ongoing effect card (Carnage): official art, Italian name and text over the red panel. */
+  #rolls .roll.dmg.withcard { grid-template-columns: auto; }
+  .ocard { --w: 190px; width: var(--w); aspect-ratio: 440 / 680; box-sizing: border-box; display: flex; flex-direction: column; gap: 4px;
+    padding: 10px; border-radius: 9px; background: #e01a30; color: #fff; text-align: left; margin-top: 8px;
+    box-shadow: 0 10px 22px rgba(0,0,0,.55); animation: tokflip .55s ease-out; }
+  .ocard.official { padding: calc(var(--w) * 680 / 440 * var(--panel-k, .57) + 4px) 11px 9px;
+    background: linear-gradient(var(--red) 0 0) bottom / 100% calc(100% - var(--panel)) no-repeat, var(--art) center / cover; }
+  #rolls .ocard b { font-size: 15px; color: #fff; font-style: italic; text-transform: uppercase; letter-spacing: .3px; line-height: 1.05; }
+  #rolls .ocard span { font-size: 11.5px; line-height: 1.25; max-width: none; color: #fff; font-weight: 500; }
   @keyframes tokflip { 0% { transform: rotateY(180deg) scale(.5); opacity: 0; } 55% { transform: rotateY(60deg) scale(1.12); opacity: 1; } 100% { transform: none; } }
   #fx { position: fixed; inset: 0; pointer-events: none; z-index: 5; overflow: hidden; }
   .word { position: absolute; transform: translate(-50%, -50%); font: 400 54px 'League Gothic', Impact, sans-serif; letter-spacing: 1px; color: #fff;
@@ -253,7 +264,6 @@
 
   /* Dice are drawn in 3D by an overlay; their SVG stays for layout and clicks. */
   [data-die3d] { opacity: 0; }
-  #actions button.shoot { background: #ffd23a; }
   #roundbox { position: fixed; right: 12px; bottom: calc(var(--bottom) + 6px); transform: translate(12px, 0) scale(.96); opacity: 0; pointer-events: none;
     background: rgba(20,14,10,.94); border: 2px solid var(--acc); border-radius: 14px; padding: 10px 18px 14px; z-index: 6; transition: opacity .25s, transform .25s; }
   #roundbox.show { opacity: 1; transform: none; }
@@ -265,7 +275,6 @@
   #roundbox .row em { margin-left: 10px; font-size: 12px; color: var(--acc); font-style: normal; }
   .road.glow { box-shadow: 0 0 0 2px #f2c230, 0 0 26px 6px #f2c230; }
   .road.glow span { color: #f2c230; }
-  #actions button.road { background: #f2c230; }
   #toast { position: fixed; left: 50%; top: calc(var(--top) + 12px); transform: translate(-50%, -8px); min-width: 280px; max-width: 70vw;
     background: rgba(20,14,10,.92); border: 2px solid var(--acc); border-radius: 10px; padding: 8px 14px; font-size: 16px; font-weight: 600;
     text-align: center; opacity: 0; pointer-events: none; transition: opacity .25s, transform .25s; z-index: 6; }

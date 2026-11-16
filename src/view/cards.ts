@@ -20,3 +20,23 @@ export const CARD_BLACK = '#141313';
 export function upgradeArt(id: string): string | undefined {
   return UPGRADE_ART[id];
 }
+
+// The ongoing effect cards (Carnage at Devil's Run), cut the same way (tools/art/ongoing_cards.json):
+// one 440 x 680 JPEG per card in assets/licensed/cards/ongoing/<id>.jpg, with a red text panel.
+const ONGOING_ART: Record<string, string> = Object.fromEntries(Object.entries(
+  import.meta.glob<string>('/assets/licensed/cards/ongoing/*.jpg', { eager: true, query: '?url', import: 'default' }),
+).map(([path, url]) => [path.replace(/^.*\/|\.\w+$/g, ''), url]));
+
+/** Where the ongoing effect card's red panel begins (below the torn edge), as a share of its height. */
+export const ONGOING_PANEL_TOP = 0.57;
+/** The ongoing effect card's red, sampled from the scans. */
+export const CARD_RED = '#e01a30';
+
+/**
+ * The URL of an ongoing effect card's official art, or undefined when the file is not there.
+ * @param id the card's data id (data/trv/carnage.json, ongoing_effects).
+ * Example: `ongoingArt('nitro_leak')` → `/assets/licensed/cards/ongoing/nitro_leak.jpg`.
+ */
+export function ongoingArt(id: string): string | undefined {
+  return ONGOING_ART[id];
+}

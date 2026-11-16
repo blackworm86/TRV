@@ -54,7 +54,10 @@ describe("Carnage at Devil's Run look", () => {
     // Each kind of result has a face of its own (official traced faces or the open drawing).
     expect(new Set((carnage.on_fire.face_kinds as FireFace[]).map(f => fireDieSvg(f))).size).toBe(4);
   });
-  it('draws the ON FIRE token with its name', () => {
-    expect(onFireTokenSvg()).toContain('ON FIRE!');
+  it('draws the ON FIRE token as the official flame ring, or a drawn ring without it', () => {
+    // Arrange / Act
+    const token = onFireTokenSvg();
+    // Assert: the official ring (an image) when the cut-out is present, else the drawing with its name.
+    expect(token.includes('on_fire.png') || token.includes('ON FIRE!')).toBe(true);
   });
 });

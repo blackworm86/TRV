@@ -893,6 +893,8 @@ function* damage(g: Game, v: Vehicle): Gen<void> {
     g.damagePile.push(pair[1 - i]);
     say(g, `Crumple Zones: scelto ${DAMAGE_NAME[token.type]}.`, 'info');
   }
+  // The ongoing effect card is drawn with its token, so the damage beat shows it.
+  if (token && !hidden && token.type === 'ongoing_effect') drawOngoing(g, token);
   beat(g, 'damage', { vehicleId: v.id, token: token && !hidden ? { ...token } : null, ...(hidden ? { faceDown: true } : {}), ...(v.pos ? { at: { ...v.pos } } : {}) });
   if (hidden) say(g, `${capital(carName(g, v))} subisce danno: il segnalino resta coperto e senza effetto.`, 'bad');
   else say(g, `${capital(carName(g, v))} subisce danno: ${token ? DAMAGE_NAME[token.type] : 'nessun segnalino rimasto'}.`, 'bad');
@@ -929,6 +931,18 @@ function* breakDown(g: Game, v: Vehicle): Gen<void> {
     }
   }
   checkPlayers(g);
+}
+
+/**
+ * CDR p4: an ongoing effect token takes the top card of the ongoing effect deck (reshuffled from the
+ * discards when empty); the card stays under the token, in effect until the damage is repaired.
+ */
+function drawOngoing(g: Game, t: DamageToken): void {
+  const c = g.carnage;
+  if (!c || t.card) return;
+  if (!c.deck.length && c.discard.length) { c.deck = shuffled(g, c.discard, 'ongoing-effects'); c.discard = []; }
+  const card = c.deck.shift();
+  if (card) { t.card = card; say(g, `Effetto continuo: ${ongoingName(card)}.`, 'bad'); }
 }
 
 function* damageEffect(g: Game, v: Vehicle, t: DamageToken): Gen<void> {
@@ -971,15 +985,11 @@ function* damageEffect(g: Game, v: Vehicle, t: DamageToken): Gen<void> {
       // CDR p4: an ON FIRE! token from the supply; the damage token stays, face down.
       catchFire(g, v);
       return;
-    case 'ongoing_effect': {
-      // CDR p4: a card from the ongoing effect deck under the token, in effect until it is repaired.
-      const c = g.carnage;
-      if (!c) return;
-      if (!c.deck.length && c.discard.length) { c.deck = shuffled(g, c.discard, 'ongoing-effects'); c.discard = []; }
-      const card = c.deck.shift();
-      if (card) { t.card = card; say(g, `Effetto continuo: ${ongoingName(card)}.`, 'bad'); }
+    case 'ongoing_effect':
+      // CDR p4: the card was drawn with the token (drawOngoing, before the damage beat); a token
+      // that reaches here without one (none was left) draws now.
+      if (!t.card) drawOngoing(g, t);
       return;
-    }
     case 'blastoff': {
       const d = rollFx(g, 'direction', 'blastoff', v.pos);
       const n = rollFx(g, 'stunt', 'blastoff', v.pos);

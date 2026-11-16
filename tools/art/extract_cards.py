@@ -31,7 +31,7 @@ def cards_on(page: Path) -> list[np.ndarray]:
             continue
         if w > h:  # portrait cards: make the long side the height
             w, h, ang = h, w, ang - 90
-        if not 1.3 < h / w < 1.5:  # a card is 63 x 88 mm; anything else is two cards stuck together or the page edge
+        if not 1.3 < h / w < 1.62:  # 63 x 88 mm cards (1.40) and mini euro cards, 44 x 68 mm (1.55); anything else is two cards stuck together or the page edge
             continue
         found.append(((cx, cy), (w, h), ang))
     # Reading order: rows first (by centre height, in bands of a third of a card), then left to right.

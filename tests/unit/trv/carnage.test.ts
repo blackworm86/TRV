@@ -310,6 +310,16 @@ describe('new damage tokens', () => {
     expect(v.damage).toHaveLength(0);
     expect(g.carnage!.discard).toEqual([card]);
   });
+  it('shows the drawn ongoing effect card in the damage frame', () => {
+    // Arrange
+    const g = game();
+    const v = place(g, 'p0M', AT);
+    // Act
+    run(__test.damageWith(g, v, { type: 'ongoing_effect' }));
+    // Assert: the frame the player sees already carries the card under the token.
+    const f = g.frames.find(x => x.kind === 'damage');
+    expect((f?.token as { card?: string } | null | undefined)?.card).toBe(v.damage[0].card);
+  });
   it('sets the move to 3 with Transmission Failure, and no fire bonus', () => {
     const g = game(Array(6).fill('+2'));
     const v = place(g, 'p0M', AT);

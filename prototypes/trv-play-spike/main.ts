@@ -17,7 +17,7 @@ import { Pieces, TextureBank } from '../../src/view/pieces3d';
 import { tickFlames, flameCluster, useRampModel, rampPiece } from '../../src/view/terrain/carnage3d';
 import { pitPiece } from '../../src/view/terrain/pit3d';
 import { buildTile, hazardToken, spaceCenterPx, spaceGeometry, spaceRimGeometry, GRID, TILE_PITCH_PX } from '../../src/view/board3d';
-import { upgradeArt } from '../../src/view/cards';
+import { ongoingArt, ONGOING_PANEL_TOP, CARD_RED, upgradeArt } from '../../src/view/cards';
 import { dieSvg, damageTokenSvg, dashboardSvg, commandBoardSvg, playerStripSvg, STRIP_ASPECT, STRIP_ASPECT_LEADER, STRIP_LEADER_PLATE, avatarSvg, dataUrl } from '../../src/view/vector/art';
 import { newSeed } from '../../src/platform/entropy';
 import {
@@ -514,7 +514,8 @@ function useModel(o: THREE.Group, url: string, lengthMm: number, tint: Tint, id:
     const size = fitToLength(d, lengthMm * MM, MODEL_YAW);
     if (WHEELS[url]) o.userData.rig = new CarRig(d, d.scale.x, size.y, phaseOf(id));
     o.userData.mats = collectMaterials(d);
-    for (const c of o.children) c.visible = false;
+    // Hides the placeholder only: the flames of a burning car (added before the model arrived) stay.
+    for (const c of o.children) if (c !== o.userData.flames) c.visible = false;
     o.add(d);
     if (GUNS[url]) mountGun(o, d, GUNS[url]);
     o.userData.modelHeight = size.y;
@@ -785,6 +786,28 @@ function boardCommands(p: Player): { cmd: string; name: string; slot: string; li
   return commandsOf(p).map(s => ({ cmd: s.id, name: commandName(s.id).toUpperCase(), slot: slotText(s), lines: CMD_LINES[s.id] ?? [] }));
 }
 
+/** The ongoing effect cards (Carnage at Devil's Run) in Italian: name and text (data/trv/carnage.json in English). */
+const ONGOING_INFO: Record<string, [string, string]> = {
+  bald_tires: ['Gomme lisce', 'Ogni volta che il dado direzione sposta questa auto, spostala di una casella in più nella stessa direzione.'],
+  bent_frame: ['Telaio piegato', 'Se un’altra auto sperona questa auto, questa auto si sposta (non tirare il dado slam).'],
+  cracked_flywheel: ['Volano incrinato', 'Se possibile, questa deve essere la prima auto che muovi in ogni round.'],
+  dead_alternator: ['Alternatore morto', 'Quando un’altra auto esce dalla tessera strada in testa, elimina questa auto.'],
+  exposed_hardware: ['Meccanica scoperta', 'Quando un altro giocatore spara a questa auto, può ritirare il dado sparo.'],
+  faulty_airbag: ['Airbag difettoso', 'Se questa auto entra in una casella con un pericolo coperto, eliminala. Non girare il segnalino pericolo.'],
+  loose_wiring: ['Cavi allentati', 'Prima che questa auto si muova, tira il dado direzione e spostala di una casella in quella direzione.'],
+  lost_tools: ['Attrezzi persi', 'Questa auto non può essere riparata se nessuna delle tue altre auto le è adiacente.'],
+  nitro_leak: ['Perdita di nitro', 'Quando assegni un dado a questa auto, mettilo su 6. Se questa auto è coinvolta in uno speronamento, eliminala.'],
+  shattered_windshield: ['Parabrezza in frantumi', 'Se questa auto diventa fuori uso, eliminala.'],
+  transmission_failure: ['Cambio rotto', 'Prima che questa auto si muova, metti il suo dado movimento su 3. Non può ottenere movimenti extra.'],
+};
+/** An ongoing effect card as HTML: the official art with the Italian name and text over its red panel. */
+function ongoingCardHtml(id: string): string {
+  const [name, text] = ONGOING_INFO[id] ?? [id, ''];
+  const art = ongoingArt(id);
+  return `<div class="ocard${art ? ' official' : ''}"${art ? ` style="--art:url(${art});--panel:${ONGOING_PANEL_TOP * 100}%;--red:${CARD_RED}"` : ''}>`
+    + `<b>${esc(name)}</b><span>${esc(text)}</span></div>`;
+}
+
 function showDamage(f: Frame): void {
   if (!g || f.token === undefined) return;
   if (f.faceDown) {
@@ -803,12 +826,14 @@ function showDamage(f: Frame): void {
   const who = v ? `Auto ${{ S: 'piccola', M: 'media', L: 'grande' }[v.size]}${owner ? ` di ${owner.name}` : ''}` : '';
   const [name, does] = f.token ? DAMAGE_INFO[f.token.type] ?? [f.token.type, ''] : ['Danno', 'Nessun segnalino rimasto nella pila.'];
   const el = $('rolls');
-  el.innerHTML = `<div class="roll dmg" style="--c:${owner?.color ?? '#d42f30'}"><small>${esc(who)} · danno</small>`
+  // CDR p4: an ongoing effect token comes with its card; the card is what the player must read.
+  const card = f.token?.card as string | undefined;
+  el.innerHTML = `<div class="roll dmg${card ? ' withcard' : ''}" style="--c:${owner?.color ?? '#d42f30'}"><small>${esc(who)} · danno</small>`
     + `<i class="tok">${f.token ? damageTokenSvg(f.token.type, true, f.token.dir as never) : damageTokenSvg(null, false)}</i>`
-    + `<b>${esc(name)}</b><span>${esc(does)}</span></div>`;
+    + `<b>${esc(name)}</b><span>${esc(does)}</span>${card ? ongoingCardHtml(card) : ''}</div>`;
   el.classList.add('show');
   clearTimeout(rollsTimer);
-  rollsTimer = window.setTimeout(() => el.classList.remove('show'), 4500);
+  rollsTimer = window.setTimeout(() => el.classList.remove('show'), card ? 8000 : 4500);
 }
 
 /** A comic word over a point of the table ("SLAM!", "BOOM!"): it pops, rises and fades. */
@@ -2217,8 +2242,8 @@ function carTipHtml(v: Vehicle): string {
     ? `<ul>${v.damage.map(t => {
       if (hidden) return '<li>Segnalino coperto</li>';
       // An ongoing effect card (Carnage at Devil's Run) under the token: its name and text.
-      const card = t.card ? (CARNAGE.ongoing_effects as { id: string; name: string; text: string }[]).find(c => c.id === t.card) : undefined;
-      if (card) return `<li><b>${esc(card.name)}</b> — ${esc(card.text)}</li>`;
+      const card = t.card ? ONGOING_INFO[t.card] : undefined;
+      if (card) return `<li><b>${esc(card[0])}</b> — ${esc(card[1])}</li>`;
       const [n, does] = DAMAGE_INFO[t.type] ?? [t.type, ''];
       return `<li><b>${esc(n)}</b>${does ? ` — ${esc(does)}` : ''}</li>`;
     }).join('')}</ul>`
@@ -2982,6 +3007,20 @@ function syncHudDice(now: number): void {
  * The command board's tab: the command and token choices (asked by the user to sit on the board,
  * not float over the table) and Undo. Shown in hot seat always (for Undo), online only to ask.
  */
+/**
+ * A reminder while a player assigns a die (rulebook p8 and p11): three turns per round, one car each,
+ * so with every car operable the extra die only serves a command, once per round; coasting comes
+ * only once every operable car has moved. Empty when there is nothing to remind.
+ */
+function assignTip(d: Decision): string {
+  const p = g!.players[d.player];
+  const free = p.used.filter(u => !u).length;
+  const fresh = g!.vehicles.filter(v => v.owner === p.id && v.status === 'ok' && !v.moved).length;
+  if (d.options.some(o => o.coast)) return 'Inerzia: le tue auto hanno già mosso, questa avanza di 1 casella';
+  if (!p.commandUsed && free > fresh) return 'Il dado in più va su un comando (una volta per round), altrimenti va perso';
+  return '';
+}
+
 function drawDock(d: Decision | null, mine: boolean): void {
   const dock = $('cmddock'), q = $('cmdq'), row = $('cmdbtns');
   row.innerHTML = '';
@@ -3006,9 +3045,11 @@ function drawDock(d: Decision | null, mine: boolean): void {
       add(0, 'Nessun segnalino', 'quiet');
     }
   }
-  dock.classList.toggle('ask', asking);
+  const tip = d && mine && d.kind === 'assign' ? assignTip(d) : '';
+  if (tip) q.innerHTML = `<small class="tip">${esc(tip)}</small>`;
+  dock.classList.toggle('ask', asking || !!tip);
   ($('undo2') as HTMLElement).style.display = net ? 'none' : '';
-  $('cmdwrap').classList.toggle('on', !!g && !menuOpen() && (asking || !net));
+  $('cmdwrap').classList.toggle('on', !!g && !menuOpen() && (asking || !!tip || !net));
 }
 /** How far the drawer reaches behind the command board's top edge (hidden by the board), in px. */
 const DOCK_TUCK = 22;
@@ -3261,7 +3302,7 @@ try {
 
 // For automated checks.
 (window as unknown as { trv: object }).trv = {
-  get game() { return g; }, get decision() { return decision; }, choose, undo, zoneOption, scene, hazardObjs, camera, controls,
+  get game() { return g; }, get decision() { return decision; }, choose, undo, render, zoneOption, scene, hazardObjs, camera, controls,
   get queue() { return queue; }, get playing() { return playing; }, skipBeats, playBeats, // playBeats: replays frames (presentation only), for checks
   get rows() { return ROWS; }, get cols() { return COLS; },
   get cam() { return { chase, action: !!actionBack, focusGoal: focusGoal?.toArray(), focusDist, settings }; },
@@ -3273,7 +3314,7 @@ Object.assign(window, { __fx: {
   cars: () => [...carObjs.keys()],
   decision: () => decision && { kind: decision.kind, player: decision.player, prompt: decision.prompt, options: decision.options.map(o => o.label) },
   choose: (i: number) => choose(i),
-  damage: (id: string, type: string) => showDamage({ kind: 'damage', vehicleId: id, token: { type } } as unknown as Frame),
+  damage: (id: string, type: string, card?: string) => showDamage({ kind: 'damage', vehicleId: id, token: { type, ...(card ? { card } : {}) } } as unknown as Frame),
   replay: (n = 14) => { if (!g) return 0; replayFrames = g.frames.slice(-n).filter(f => f.kind !== 'log' && f.kind !== 'round' && f.kind !== 'tile'); const f = replayFrames.find(x => x.at); replayAt = f?.at ? world(f.at) : null; startReplay(); return replayFrames.length; },
   aim: (id: string, yaw: number | null) => { const o = carObjs.get(id); if (o) o.userData.aim = yaw; },
   zoom: (id: string, d = 3) => { const o = carObjs.get(id); if (o) { controls.target.copy(o.position); camera.position.copy(o.position).add(new THREE.Vector3(-d * 0.3, d * 0.6, d)); } },

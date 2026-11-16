@@ -494,8 +494,26 @@ export function fireDieSvg(face: FireFace, extra = ''): string {
   return svg(100, 100, b, extra);
 }
 
-/** The ON FIRE! token that sits on a burning car's dashboard (CDR p3), 120 x 120. */
+/**
+ * The official ON FIRE! token (a flame ring, cut from the scanned components by
+ * tools/art/save_fire_ring.py): the image, its size and its hole in image pixels.
+ */
+const FIRE_RING_URL = Object.values(import.meta.glob<string>('/assets/licensed/tokens/on_fire.png', { eager: true, query: '?url', import: 'default' }))[0];
+const FIRE_RING = Object.values(import.meta.glob<{ w: number; h: number; cx: number; cy: number; r: number }>('/assets/licensed/tokens/on_fire.json', { eager: true, import: 'default' }))[0];
+/** Radius of the ring's hole in the token's 120 x 120 box: a die filling the box's middle sits inside it. */
+const FIRE_RING_HOLE = 50;
+
+/**
+ * The ON FIRE! token that sits on a burning car's dashboard (CDR p3), 120 x 120: the official flame
+ * ring when present, its hole centred on the box (the die shows through it) and its tail leaning
+ * up and right as in the rulebook; else a drawn ring. The tail reaches outside the box.
+ */
 export function onFireTokenSvg(extra = ''): string {
+  if (FIRE_RING_URL && FIRE_RING && !openOnly) {
+    const k = FIRE_RING_HOLE / FIRE_RING.r;
+    const img = `<image href="${FIRE_RING_URL}" x="${60 - FIRE_RING.cx * k}" y="${60 - FIRE_RING.cy * k}" width="${FIRE_RING.w * k}" height="${FIRE_RING.h * k}" transform="rotate(28 60 60)"/>`;
+    return svg(120, 120, img, `overflow="visible" ${extra}`);
+  }
   let b = `<circle cx="60" cy="68" r="34" fill="none" stroke="${PALETTE.fireOrange}" stroke-width="14"/>`;
   b += `<circle cx="60" cy="68" r="34" fill="none" stroke="${PALETTE.dieFire}" stroke-width="5"/>`;
   b += flame(60, 44, 0.85, PALETTE.fireRed, PALETTE.fireOrange);
