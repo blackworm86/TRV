@@ -678,6 +678,8 @@ const ROLL_MEANS: Record<string, Record<string, string>> = {
 };
 let rollsTimer = 0;
 /** Shows a rolled die big in the middle of the screen, with what it means; the dice of one event stay together. */
+/** Until when (performance.now()) a damage token is on show: a new turn does not clear it. */
+let damageUntil = 0;
 function showRoll(f: Frame): void {
   if (!f.die) return;
   const el = $('rolls');
@@ -688,7 +690,7 @@ function showRoll(f: Frame): void {
     + `<b>${ROLL_NAME[f.die.die] ?? f.die.die}</b><span>${esc(means)}</span></div>`);
   el.classList.add('show');
   clearTimeout(rollsTimer);
-  rollsTimer = window.setTimeout(() => el.classList.remove('show'), 3200);
+  rollsTimer = window.setTimeout(() => el.classList.remove('show'), Math.max(3200, damageUntil - performance.now()));
 }
 
 /** The damage tokens: name and what each does, in a few words (rulebook, back cover). */
@@ -819,6 +821,7 @@ function showDamage(f: Frame): void {
     el.classList.add('show');
     clearTimeout(rollsTimer);
     rollsTimer = window.setTimeout(() => el.classList.remove('show'), 4500);
+    damageUntil = performance.now() + 4500;
     return;
   }
   const v = g.vehicles.find(x => x.id === f.vehicleId);
@@ -834,6 +837,7 @@ function showDamage(f: Frame): void {
   el.classList.add('show');
   clearTimeout(rollsTimer);
   rollsTimer = window.setTimeout(() => el.classList.remove('show'), card ? 8000 : 4500);
+  damageUntil = performance.now() + (card ? 8000 : 4500);
 }
 
 /** A comic word over a point of the table ("SLAM!", "BOOM!"): it pops, rises and fades. */
@@ -983,6 +987,9 @@ function skipBeats(): void {
     // The dice rolled in the skipped beats still lie by the action, at rest: a question may be about them.
     if (f.kind === 'roll' && !replaying) rollOnTable(f);
   }
+  // A damage token drawn in the skipped beats is still shown: the player must see what the car took.
+  const dmg = [...queue].reverse().find(f => f.kind === 'damage');
+  if (dmg && !replaying) showDamage(dmg);
   for (const td of fxSupply.values()) { td.t = 1; td.d.mesh.position.copy(td.to); td.d.mesh.quaternion.copy(td.q1); }
   queue.length = 0;
   $('roundbox').classList.remove('show');
@@ -1151,7 +1158,12 @@ function endReplay(): void {
 $('replay').addEventListener('click', startReplay);
 
 function applyBeat(f: Frame, now: number): void {
-  if (f.kind === 'log') { toastLine(f); if (f.logKind === 'turn') { trayFresh = true; $('rolls').classList.remove('show'); } return; }
+  if (f.kind === 'log') {
+    toastLine(f);
+    // A new turn clears the dice shown, but never a damage token still being read.
+    if (f.logKind === 'turn') { trayFresh = true; if (performance.now() > damageUntil) $('rolls').classList.remove('show'); }
+    return;
+  }
   drawTable(f.snap);
   const at = f.at ? world(f.at) : null;
   if (at && ACTION_BEATS.has(f.kind)) actionShot(f.from && f.kind === 'shot' ? world(f.from).add(at).multiplyScalar(0.5) : at);
@@ -3008,18 +3020,17 @@ function syncHudDice(now: number): void {
  * not float over the table) and Undo. Shown in hot seat always (for Undo), online only to ask.
  */
 /**
- * A reminder while a player assigns a die (rulebook p8 and p11): three turns per round, one car each,
- * so with every car operable the extra die only serves a command, once per round; coasting comes
- * only once every operable car has moved. Empty when there is nothing to remind.
+ * Whether skipping the command now loses a die for good (rulebook p8, p11): the command is once per
+ * round and never on a coasting turn, so once every operable car has its move die, a die still unused
+ * can no longer go anywhere. Example: three operable cars, the third die placed, one die left.
  */
-function assignTip(d: Decision): string {
+function commandLastChance(d: Decision): boolean {
   const p = g!.players[d.player];
-  const free = p.used.filter(u => !u).length;
-  const fresh = g!.vehicles.filter(v => v.owner === p.id && v.status === 'ok' && !v.moved).length;
-  if (d.options.some(o => o.coast)) return 'Inerzia: le tue auto hanno già mosso, questa avanza di 1 casella';
-  if (!p.commandUsed && free > fresh) return 'Il dado in più va su un comando (una volta per round), altrimenti va perso';
-  return '';
+  const fresh = g!.vehicles.filter(v => v.owner === p.id && v.status === 'ok' && !v.placed.some(x => !x.coast)).length;
+  return !p.commandUsed && fresh === 0 && p.used.some(u => !u);
 }
+/** The command drawer is asking "are you sure?" before skipping the command. */
+let skipConfirm = false;
 
 function drawDock(d: Decision | null, mine: boolean): void {
   const dock = $('cmddock'), q = $('cmdq'), row = $('cmdbtns');
@@ -3035,9 +3046,23 @@ function drawDock(d: Decision | null, mine: boolean): void {
       b.onclick = () => choose(i);
       row.append(b);
     };
-    if (d!.kind === 'command') {
+    if (d!.kind === 'command' && skipConfirm) {
+      q.textContent = 'Sei sicuro? Perderai il dado inutilizzato';
+      add(0, 'Sì, nessun comando', 'danger');
+      const back = document.createElement('button');
+      back.textContent = 'Annulla';
+      back.className = 'quiet';
+      back.onclick = () => { skipConfirm = false; drawDock(d, mine); };
+      row.append(back);
+    } else if (d!.kind === 'command') {
       q.textContent = 'Metti un dado su un comando';
-      add(0, 'Nessun comando', 'quiet');
+      if (commandLastChance(d!)) {
+        const b = document.createElement('button');
+        b.textContent = 'Nessun comando';
+        b.className = 'quiet';
+        b.onclick = () => { skipConfirm = true; drawDock(d, mine); };
+        row.append(b);
+      } else add(0, 'Nessun comando', 'quiet');
     } else {
       const p = g!.players[d!.player];
       q.textContent = `Segnalino comando? (${p.tokens} ${p.tokens === 1 ? 'rimasto' : 'rimasti'})`;
@@ -3045,11 +3070,10 @@ function drawDock(d: Decision | null, mine: boolean): void {
       add(0, 'Nessun segnalino', 'quiet');
     }
   }
-  const tip = d && mine && d.kind === 'assign' ? assignTip(d) : '';
-  if (tip) q.innerHTML = `<small class="tip">${esc(tip)}</small>`;
-  dock.classList.toggle('ask', asking || !!tip);
+  if (!asking) skipConfirm = false;
+  dock.classList.toggle('ask', asking);
   ($('undo2') as HTMLElement).style.display = net ? 'none' : '';
-  $('cmdwrap').classList.toggle('on', !!g && !menuOpen() && (asking || !!tip || !net));
+  $('cmdwrap').classList.toggle('on', !!g && !menuOpen() && (asking || !net));
 }
 /** How far the drawer reaches behind the command board's top edge (hidden by the board), in px. */
 const DOCK_TUCK = 22;
