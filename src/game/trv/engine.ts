@@ -232,8 +232,8 @@ export interface Game {
   dealUpgrades: boolean;
   /** Effects that last for the current turn. */
   fx: { bump: boolean; calledShot: boolean; slams: number };
-  /** Carnage at Devil's Run, when in play: its numbers, the ON FIRE! supply, the ongoing effect deck. */
-  carnage: { n: CarnageNumbers; fireTokens: number; deck: string[]; discard: string[] } | null;
+  /** Carnage at Devil's Run, when in play: its numbers and the ongoing effect deck (ON FIRE! tokens are unlimited). */
+  carnage: { n: CarnageNumbers; deck: string[]; discard: string[] } | null;
 }
 
 export interface Setup {
@@ -459,7 +459,7 @@ export function newGame(s: Setup): Game {
   };
   if (s.carnage) {
     const n = s.carnage === true ? carnageNumbers() : s.carnage;
-    g.carnage = { n, fireTokens: carnageData.components.on_fire_tokens, deck: shuffled(g, n.ongoing, 'ongoing-effects'), discard: [] };
+    g.carnage = { n, deck: shuffled(g, n.ongoing, 'ongoing-effects'), discard: [] };
   }
   s.players.forEach((p, i) => {
     g.players.push({ id: i, name: p.name, color: p.color, dice: [], used: [], commandUsed: false, command: null, out: false, chopper: null,
@@ -686,7 +686,10 @@ function* enter(g: Game, v: Vehicle, to: Pos, ctx: MoveCtx | null, dir?: Dir): G
   // Carnage at Devil's Run terrain (CDR p3), as the space is now (a revealed hazard may have changed it).
   const ground = terrainAt(g, to);
   if (ground === 'G') {
+    // First the car stops, then any slam (ruling of the rules owner, 2026-11-16): the moves are
+    // lost even if the slam pushes it off the goo.
     say(g, `${capital(carName(g, v))} finisce nella melma tossica: si ferma.`, 'info');
+    if (ctx) ctx.left = 0;
     if (vehiclesAt(g, to).length > 1) yield* slam(g, to);
     return true;
   }
@@ -995,24 +998,21 @@ function rollFire(g: Game): FireFace {
 }
 
 /**
- * A vehicle catches fire (CDR p3): an ON FIRE! token from the supply. A car already on fire, an
- * inoperable one (it would lose the token at once) or a wreck takes none; nor any when the supply is empty.
+ * A vehicle catches fire (CDR p3): it takes an ON FIRE! token. The tokens are unlimited (ruling of
+ * the rules owner, 2026-11-16). A car already on fire, an inoperable one (it would lose the token at
+ * once) or a wreck takes none.
  */
 function catchFire(g: Game, v: Vehicle): void {
-  const c = g.carnage;
-  if (!c || v.onFire || v.status !== 'ok' || v.isWreck) return;
-  if (c.fireTokens <= 0) { say(g, 'Nessun segnalino ON FIRE! rimasto.', 'info'); return; }
-  c.fireTokens--;
+  if (!g.carnage || v.onFire || v.status !== 'ok' || v.isWreck) return;
   v.onFire = true;
   beat(g, 'fire', { vehicleId: v.id, why: 'on', ...(v.pos ? { at: { ...v.pos } } : {}) });
   say(g, `${capital(carName(g, v))} prende fuoco!`, 'bad');
 }
 
-/** The fire goes out: the ON FIRE! token back to the supply. */
+/** The fire goes out: the vehicle's ON FIRE! token is removed. */
 function putOut(g: Game, v: Vehicle): void {
   if (!v.onFire) return;
   v.onFire = false;
-  if (g.carnage) g.carnage.fireTokens++;
   beat(g, 'fire', { vehicleId: v.id, why: 'out', ...(v.pos ? { at: { ...v.pos } } : {}) });
 }
 
@@ -1041,25 +1041,30 @@ const onRoad = (g: Game): Vehicle[] => g.vehicles.filter(v => v.status !== 'elim
 
 /**
  * Quake (CDR p3): the direction die, then every road vehicle one space that way, at the same time.
- * Provisional, to confirm with the rules owner: a vehicle pushed off the sides or the back, or onto
- * an impassable space, is eliminated as in a move; one pushed past the front edge stays put; the
- * spaces they land on do not reveal hazards or apply terrain; vehicles that end on the same space slam.
+ * Rulings of the rules owner (2026-11-16) and the official FAQ: a vehicle pushed off the sides or
+ * the back, or onto an impassable space, is eliminated; one pushed past the front edge reveals the
+ * new tile (as when driving off it); the landing spaces reveal their hazards and apply their terrain,
+ * resolved "as simultaneously as possible, failing that randomly": all vehicles move first, then
+ * each landing is resolved in an order rolled at random; vehicles ending on one space slam.
  */
 function* quake(g: Game): Gen<void> {
   const d = rollFx(g, 'direction', 'quake');
   say(g, `Terremoto! Tutti i veicoli si spostano di una casella ${DIR_NAME[d]}.`, 'dice');
-  const moves = onRoad(g).map(v => ({ v, to: neighbor(v.pos!, d) }));
-  for (const { v, to } of moves) {
-    if (to.c >= COLS && to.r >= 0 && to.r < ROWS) continue;
+  const landed: Vehicle[] = [], ahead: Vehicle[] = [];
+  for (const v of onRoad(g)) {
+    const to = neighbor(v.pos!, d);
+    if (to.c >= COLS && to.r >= 0 && to.r < ROWS) { ahead.push(v); continue; }
     if (!onBoard(to)) { eliminate(g, v, 'è uscita dalla strada nel terremoto', to); continue; }
     if (terrainAt(g, to) === 'X') { eliminate(g, v, 'è finita su una casella invalicabile nel terremoto', to); continue; }
     v.pos = { ...to };
     beat(g, 'move', { vehicleId: v.id, at: { ...to } });
+    landed.push(v);
   }
-  const crowded = new Set(onRoad(g).filter(v => vehiclesAt(g, v.pos!).length > 1).map(v => key(v.pos!)));
-  for (const k of crowded) {
-    const [r, c] = k.split(',').map(Number);
-    yield* slam(g, { r, c });
+  // Past the front edge: the new tile comes in (positions shift with it, so each is recomputed).
+  for (const v of ahead) if (v.status !== 'elim' && v.pos && g.winner === null) yield* enter(g, v, neighbor(v.pos, d), null, d);
+  for (const v of shuffled(g, landed, 'quake-order')) {
+    if (v.status === 'elim' || !v.pos || g.winner !== null) continue;
+    yield* enter(g, v, v.pos, null, d);
   }
 }
 

@@ -73,7 +73,6 @@ describe('Carnage at Devil’s Run setup', () => {
     expect(all).toHaveLength(baseCount + 6);
     for (const t of ['quake', 'sand_worm', 'desert_glass', 'ramp', 'fire', 'pit_trap']) expect(all).toContain(t);
     expect(g.damagePile.filter(t => t.type === 'on_fire' || t.type === 'ongoing_effect')).toHaveLength(2);
-    expect(g.carnage!.fireTokens).toBe(12);
   });
   it('leaves a game without the expansion as it was', () => {
     const g = newGame({ seed: SEED, players: PLAYERS, startSide: 'a' });
@@ -89,6 +88,19 @@ describe('new terrain', () => {
     const v = place(g, 'p0M', BEHIND);
     expect(run(__test.enter(g, v, AT, { left: 3 }, 'F'))).toBe(true);
     expect(v.pos).toEqual(AT);
+  });
+  it('stops a car on toxic goo first, then slams it with the car already there', () => {
+    const g = game();
+    printTerrain(g, AT, 'G');
+    place(g, 'p1M', AT);
+    const v = place(g, 'p0M', BEHIND);
+    const ctx = { left: 3 };
+    expect(run(__test.enter(g, v, AT, ctx, 'F'))).toBe(true);
+    expect(ctx.left).toBe(0);
+    const stop = g.log.findIndex(l => l.text.includes('melma tossica'));
+    const slam = g.log.findIndex(l => l.text.startsWith('SLAM'));
+    expect(stop).toBeGreaterThanOrEqual(0);
+    expect(slam).toBeGreaterThan(stop);
   });
   it('slides a car one more space the way it was going on desert glass, without spending a move', () => {
     const g = game();
@@ -124,9 +136,18 @@ describe('new terrain', () => {
     const v = place(g, 'p0M', BEHIND);
     run(__test.enter(g, v, AT, { left: 1 }, 'F'));
     expect(v.onFire).toBe(true);
-    expect(g.carnage!.fireTokens).toBe(11);
     run(__test.enter(g, v, AT, { left: 1 }, 'F'));
-    expect(g.carnage!.fireTokens).toBe(11);
+    expect(g.frames.filter(f => f.kind === 'fire' && f.why === 'on')).toHaveLength(1);
+  });
+  it('sets any number of cars on fire: the ON FIRE! tokens are unlimited', () => {
+    const g = game();
+    hazard(g, AT, 'fire');
+    for (const id of ['p0S', 'p0M', 'p0L', 'p1S', 'p1M', 'p1L']) {
+      const v = place(g, id, BEHIND);
+      run(__test.enter(g, v, AT, { left: 1 }, 'F'));
+      expect(v.onFire).toBe(true);
+      v.pos = null; v.inStart = true; // off the space again, for the next car
+    }
   });
   it('allows the road die after a car crosses salt flats', () => {
     const g = game();
@@ -163,6 +184,40 @@ describe('new hazards', () => {
     expect([a.status, b.status, c.status, v.status]).toEqual(['elim', 'elim', 'ok', 'ok']);
     expect(g.hazards.has(key(AT))).toBe(false);
   });
+  it('makes the landing spaces of a quake reveal their hazards, in some order', () => {
+    // Each landing space in every direction holds a face-down mine: whatever the die, a car lands on one.
+    for (let s = 0; s < 6; s++) {
+      const g = newGame({ seed: SEED.slice(0, 62) + s.toString(16).padStart(2, '0'), players: PLAYERS, startSide: 'a', carnage: fixture() });
+      g.hazards.clear();
+      const far: Pos = { r: 2, c: 12 };
+      place(g, 'p1M', far);
+      for (const d of ['F', 'FL', 'FR', 'B', 'BL', 'BR'] as const) hazard(g, neighbor(far, d), 'mine', false);
+      hazard(g, AT, 'quake', false);
+      const v = place(g, 'p0M', BEHIND);
+      run(__test.enter(g, v, AT, { left: 2 }, 'F'));
+      // The quake, then the mine where the car lands; unless that space is printed impassable on this
+      // seed's tile, and then the car is eliminated there.
+      const other = g.vehicles.find(x => x.id === 'p1M')!;
+      const blocked = g.log.some(l => l.text.includes('Blu') && l.text.includes('invalicabile nel terremoto'));
+      expect(blocked ? other.status === 'elim' : g.frames.filter(f => f.kind === 'reveal').length >= 2).toBe(true);
+    }
+  });
+  it('brings in the new tile when a quake pushes a vehicle past the front edge', () => {
+    for (let s = 0; s < 40; s++) {
+      const g = newGame({ seed: SEED.slice(0, 62) + s.toString(16).padStart(2, '0'), players: PLAYERS, startSide: 'a', carnage: fixture() });
+      g.hazards.clear();
+      const front = place(g, 'p1M', { r: 2, c: 23 });
+      hazard(g, AT, 'quake', false);
+      const v = place(g, 'p0M', BEHIND);
+      const tiles = g.tilesPlaced;
+      run(__test.enter(g, v, AT, { left: 2 }, 'F'));
+      if (g.lastRoll.find(x => x.die === 'direction')?.value !== 'F') continue; // only this seed's roll decides
+      expect(g.tilesPlaced).toBe(tiles + 1);
+      expect(front.pos).toEqual({ r: 2, c: 24 - 8 });
+      return;
+    }
+    throw new Error('no seed rolled F for the quake');
+  });
   it('moves every road vehicle one space the rolled way when a quake is revealed', () => {
     const g = game();
     const other = place(g, 'p1M', { r: 2, c: 10 });
@@ -189,8 +244,9 @@ describe('ON FIRE!', () => {
     const v = place(g, 'p0M', AT);
     hazard(g, neighbor(AT, 'F'), 'fire');
     run(__test.enter(g, v, neighbor(AT, 'F'), { left: 1 }, 'F'));
+    expect(v.onFire).toBe(true);
     __test.beforeMove(g, v, { moves: 2 });
-    expect([v.onFire, g.carnage!.fireTokens]).toEqual([false, 12]);
+    expect(v.onFire).toBe(false);
   });
   it('eliminates the car on the skull', () => {
     const g = game(Array(6).fill('eliminated'));
@@ -203,10 +259,9 @@ describe('ON FIRE!', () => {
     const g = game();
     const v = place(g, 'p0M', AT);
     v.onFire = true;
-    g.carnage!.fireTokens = 11;
     run(__test.damageWith(g, v, { type: 'dent' }));
     run(__test.damageWith(g, v, { type: 'dent' }));
-    expect([v.status, v.onFire, g.carnage!.fireTokens]).toEqual(['inop', false, 12]);
+    expect([v.status, v.onFire]).toEqual(['inop', false]);
   });
 });
 

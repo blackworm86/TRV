@@ -8,15 +8,17 @@
     "tiles: the layout of the 5 new double-sided road tiles (names on p2: Drifts, Salty Dogleg, Zag, Scorcher, Glass Oasis; the other five sides unknown)",
     "ramp: the direction a ramp space faces on the tiles (p3: entered only from the space directly behind it, then jumps directly forward)"
   ],
-  "_interpretations": [
-    "Ramp: entered 'from the space directly behind' = moving forward (F) onto it, jump forward; to confirm once the tiles show which way ramps face.",
-    "Quake: vehicles pushed off the sides/back or onto impassable spaces are eliminated, those pushed past the front edge stay put; the landing spaces reveal no hazard and apply no terrain; vehicles sharing a space then slam. To confirm.",
-    "Desert glass, ramp, fire revealed as hazards: the revealing vehicle feels the new terrain at once (it has just entered that space). To confirm.",
-    "Pit trap missed: the vehicle stays on the space, now impassable, and goes on with its moves. To confirm.",
-    "Sand worm: 'farthest back' counts odd rows half a space forward, as the board is drawn (game_base.json). To confirm.",
-    "Toxic goo with another vehicle on the space: the slam happens, then the car stops.",
-    "No ON FIRE! token left in the supply: the vehicle does not catch fire. To confirm."
-  ],
+  "_rulings": {
+    "_source": "Rules owner (the user), 2026-11-16, and the official FAQ where noted.",
+    "ramp": "A ramp can only be jumped forward: entered from the space directly behind it (moving forward). A car entering a ramp from its sides is destroyed.",
+    "quake": "Vehicles pushed off the sides or the back, or onto an impassable space, are eliminated. A vehicle pushed past the front edge reveals the new road tile. The landing spaces reveal their hazards and apply their terrain. Vehicles ending on the same space slam. Official FAQ: resolve the landings as simultaneously as possible, failing that in a random order (here: all move together, then each landing in a random order).",
+    "revealed_terrain_hazards": "A desert glass, ramp or fire hazard affects at once the vehicle that revealed it (it has just entered the new terrain).",
+    "pit_trap_missed": "The vehicle stays on the space (now impassable) and goes on with its remaining moves.",
+    "sand_worm": "Farthest back: odd rows count half a space forward.",
+    "toxic_goo_and_slam": "The car stops first (its moves are lost), then the slam happens.",
+    "on_fire_tokens": "ON FIRE! tokens are unlimited.",
+    "faq_big_rig_quake": "Official FAQ, for the Big Rig expansion: Sturdy prevents the Quake from moving the Big Rig; it takes a minor damage on a command of its owner's choice instead; as the Quake is discarded after resolving, no off-road token is placed."
+  },
   "components": {
     "road_tiles": {
       "count": 5,
@@ -29,7 +31,11 @@
         "Glass Oasis"
       ]
     },
-    "on_fire_tokens": 12,
+    "on_fire_tokens": {
+      "count_in_box": 12,
+      "unlimited": true,
+      "_note": "12 in the box (plus extras, p2); unlimited in play (ruling 2026-11-16)."
+    },
     "fire_die": 1,
     "hazard_tokens": 22,
     "damage_tokens": 10,
