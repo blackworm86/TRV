@@ -67,6 +67,7 @@ const TERRAIN_COLOR: Record<string, string> = {
   R: PALETTE.road, o: PALETTE.offroad, M: PALETTE.mud, X: PALETTE.impassable,
   // Carnage at Devil's Run (CDR p3), codes of data/trv/carnage.json.
   G: PALETTE.toxicGoo, D: PALETTE.desertGlass, P: PALETTE.ramp, F: PALETTE.fire, S: PALETTE.saltFlats,
+  O: '#1a1820', // a revealed oil slick on asphalt
 };
 
 

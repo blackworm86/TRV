@@ -35,6 +35,19 @@ describe("Carnage at Devil's Run look", () => {
     const [gx, gy] = spaceCenterPx(0, 0), [rx, ry] = spaceCenterPx(0, 6);
     expect(heightAt(m, gx, gy)).toBeLessThan(heightAt(m, rx, ry)); // the goo lies in a pool
   });
+  it('draws a revealed oil slick as a dark, glossy blot on the asphalt', () => {
+    const tile: TileData = { ...BASE, name: 'Olio', terrain: ['OOOORRRR', ...BASE.terrain.slice(1)] };
+    const m = proceduralTerrain(tile, { width: WIDTH, seed: 1 });
+    const at = (c: number): number => {
+      const [x, y] = spaceCenterPx(0, c);
+      return Math.floor(y / GRID.frameH * m.h) * m.w + Math.floor(x / GRID.frameW * m.w);
+    };
+    const oil = at(1), road = at(5);
+    const lum = (p: number): number => m.albedo[p * 4] + m.albedo[p * 4 + 1] + m.albedo[p * 4 + 2];
+    expect(lum(oil)).toBeLessThan(lum(road) * 0.7);
+    expect(m.rough[oil]).toBeLessThan(m.rough[road] * 0.5);
+    expect(heightAt(m, ...spaceCenterPx(0, 1))).toBeCloseTo(heightAt(m, ...spaceCenterPx(0, 5)), 0); // flat like the road
+  });
   it('has a fire die face for each kind of result in the rulebook', () => {
     expect(carnage.on_fire.face_kinds).toEqual(['+1', '+2', 'out', 'eliminated']);
     for (const f of carnage.on_fire.face_kinds as FireFace[]) expect(fireDieSvg(f)).toMatch(/^<svg [^>]*viewBox="0 0 100 100"/);
