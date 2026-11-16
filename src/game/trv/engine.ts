@@ -478,6 +478,7 @@ export function newGame(s: Setup): Game {
     carnage: null,
   };
   if (s.carnage) {
+    if (s.carnage === true && !carnageTilesReady()) throw new Error("Carnage at Devil's Run: missing data in carnage.json: tiles");
     const n = s.carnage === true ? carnageNumbers() : s.carnage;
     g.carnage = { n, deck: shuffled(g, n.ongoing, 'ongoing-effects'), discard: [] };
   }
@@ -993,6 +994,12 @@ export function carnageNumbers(): CarnageNumbers {
 
 /** Transmission Failure: the value the movement die is set to (carnage.json, confirmed 3 by the rules owner). */
 const TRANSMISSION_FAILURE_MOVE = (carnageData.ongoing_effects as { id: string; move?: number }[]).find(c => c.id === 'transmission_failure')?.move ?? 3;
+
+/** Whether the expansion's 5 double-sided road tiles are in carnage.json (setup step 1, CDR p2). */
+export function carnageTilesReady(): boolean {
+  const t = (carnageData as unknown as { tiles?: unknown[] }).tiles;
+  return Array.isArray(t) && t.length === carnageData.components.road_tiles.count * 2;
+}
 
 /** The name of an ongoing effect card (its id when the data does not name it). */
 export function ongoingName(id: string): string {

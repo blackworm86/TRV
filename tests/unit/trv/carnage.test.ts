@@ -1,6 +1,6 @@
 import { describe, it, expect, afterEach } from 'vitest';
 import {
-  newGame, play, key, neighbor, terrainAt, tileDef, vehiclesAt, __test,
+  newGame, play, key, neighbor, terrainAt, tileDef, vehiclesAt, carnageNumbers, __test,
   type CarnageNumbers, type FireFace, type Game, type Vehicle, type Pos, type Decision,
 } from '../../../src/game/trv/engine';
 import base from '../../../data/trv/game_base.json';
@@ -63,8 +63,16 @@ const AT: Pos = { r: 2, c: 4 };
 const BEHIND: Pos = neighbor(AT, 'B');
 
 describe('Carnage at Devil’s Run setup', () => {
-  it('refuses to start the expansion while its numbers are missing from the data file', () => {
-    expect(() => newGame({ seed: SEED, players: PLAYERS, startSide: 'a', carnage: true })).toThrow(/missing data in carnage\.json: ongoing_effects$/);
+  it('refuses to start the expansion while its road tiles are missing from the data file', () => {
+    expect(() => newGame({ seed: SEED, players: PLAYERS, startSide: 'a', carnage: true })).toThrow(/missing data in carnage\.json: tiles$/);
+  });
+  it('reads the components from the data file: fire die, 22 hazards, 10 damage tokens, 21 cards', () => {
+    const n = carnageNumbers();
+    expect([...n.fireDie].sort()).toEqual(['+1', '+2', '+2', 'eliminated', 'out', 'out']);
+    expect(Object.values(n.hazards).reduce((a, b) => a + b, 0)).toBe(22);
+    expect(n.damage.on_fire + n.damage.ongoing_effect).toBe(10);
+    expect(n.ongoing).toHaveLength(21);
+    expect(n.ongoing.filter(c => c === 'cracked_flywheel')).toHaveLength(1);
   });
   it('mixes the new hazard and damage tokens into the piles', () => {
     const g = newGame({ seed: SEED, players: PLAYERS, startSide: 'a', carnage: fixture() });
