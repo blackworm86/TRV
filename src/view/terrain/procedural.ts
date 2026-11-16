@@ -222,7 +222,9 @@ export function proceduralTerrain(tile: TileData, opt: ProceduralOptions = {}): 
   const h = Math.round(w * GRID.frameH / GRID.frameW);
   const n = w * h;
   const px = GRID.frameW / w; // frame px per map px
-  const kindAt = (r: number, c: number): Kind => (tile.terrain[r]?.[c] ?? 'o') as Kind;
+  // The expansion's terrain codes (G D P F S, data/trv/carnage.json) are drawn as road here: flat
+  // ground; board3d.ts lays their colour over it.
+  const kindAt = (r: number, c: number): Kind => { const k = tile.terrain[r]?.[c] ?? 'o'; return (KINDS.includes(k as Kind) ? k : 'R') as Kind; };
 
   // 1. Terrain kind per pixel: the space's kind, with borders between terrains wandering a little
   //    (warped lookup). Impassable spaces keep their exact outline; outside their tape frame the

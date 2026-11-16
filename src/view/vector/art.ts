@@ -14,6 +14,9 @@ export const PALETTE = {
   road: '#7b7d80', offroad: '#f6c58a', mud: '#3d2a22', impassable: '#6b5236', impassableBorder: '#e9b83a',
   hazardRed: '#d42a2f', navy: '#1d2436', ink: '#141414', cream: '#f4ead8',
   dieRoad: '#55585b', dieStunt: '#b4d236', dieShooting: '#1f2a44', dieSlam: '#d8352b', dieDirection: '#6c4a9c',
+  // Carnage at Devil's Run (CDR p2-3): the new terrains, the fire die and the ON FIRE! token.
+  toxicGoo: '#7fd63a', desertGlass: '#a6dfe6', ramp: '#e8b46a', fire: '#ff6a1a', saltFlats: '#f3efe4',
+  dieFire: '#f7c21b', fireRed: '#e8341c', fireOrange: '#ff8a1e',
 } as const;
 
 const FONT = `font-family="'League Gothic', Impact, 'Arial Narrow', sans-serif"`;
@@ -408,4 +411,44 @@ export function avatarSvg(color: string, name: string, extra = ''): string {
   const initial = esc((name.trim()[0] ?? '?').toUpperCase());
   return svg(100, 100, `<circle cx="50" cy="50" r="46" fill="${color}" stroke="#111" stroke-width="4"/>`
     + `<text x="50" y="66" text-anchor="middle" font-size="50" fill="${inkOn(color)}" ${FONT}>${initial}</text>`, extra);
+}
+
+// ------------------------------------------------------------------------------- Carnage at Devil's Run
+
+/** The faces of the fire die (CDR p3): +1 or +2 moves, the fire goes out, the vehicle is eliminated. */
+export type FireFace = '+1' | '+2' | 'out' | 'eliminated';
+
+/** A flame, 100 units tall, its base centred on (cx, cy + 50) and scaled by `s`. */
+function flame(cx: number, cy: number, s: number, outer: string, innerFill: string): string {
+  const t = (x: number, y: number): string => `${(cx + x * s).toFixed(1)} ${(cy + y * s).toFixed(1)}`;
+  return `<path d="M${t(0, 50)} C${t(-34, 50)} ${t(-40, 14)} ${t(-18, -8)} C${t(-16, 8)} ${t(-6, 10)} ${t(-4, 2)} C${t(-12, -20)} ${t(2, -40)} ${t(10, -50)} `
+    + `C${t(8, -26)} ${t(30, -18)} ${t(32, 4)} C${t(36, 30)} ${t(24, 50)} ${t(0, 50)}Z" fill="${outer}"/>`
+    + `<path d="M${t(0, 48)} C${t(-18, 48)} ${t(-20, 26)} ${t(-8, 12)} C${t(-6, 22)} ${t(2, 22)} ${t(2, 14)} C${t(0, 2)} ${t(10, -6)} ${t(14, -12)} `
+    + `C${t(14, 4)} ${t(22, 14)} ${t(20, 28)} C${t(18, 42)} ${t(10, 48)} ${t(0, 48)}Z" fill="${innerFill}"/>`;
+}
+
+/** One face of the fire die, 100 x 100 (open drawing: yellow die, red flame and the face's sign). */
+export function fireDieSvg(face: FireFace, extra = ''): string {
+  let b = `<rect x="3" y="3" width="94" height="94" rx="16" fill="${PALETTE.dieFire}" stroke="#8a6a00" stroke-width="3"/>`;
+  b += flame(50, 46, 0.78, PALETTE.fireRed, PALETTE.fireOrange);
+  if (face === '+1' || face === '+2') {
+    b += `<text x="50" y="66" text-anchor="middle" ${FONT} font-size="40" fill="#fff" stroke="${PALETTE.ink}" stroke-width="2.5" paint-order="stroke">${face}</text>`;
+  } else if (face === 'out') {
+    // The fire blown out: wind lines across the flame.
+    for (const [y, w] of [[34, 56], [48, 66], [62, 50]] as const) b += `<path d="M${50 - w / 2} ${y} Q50 ${y - 8} ${50 + w / 2} ${y}" fill="none" stroke="#fff" stroke-width="5" stroke-linecap="round"/>`;
+  } else {
+    // Eliminated: a skull over the flame.
+    b += `<circle cx="50" cy="50" r="17" fill="#fff" stroke="${PALETTE.ink}" stroke-width="2"/><rect x="41" y="60" width="18" height="10" rx="3" fill="#fff" stroke="${PALETTE.ink}" stroke-width="2"/>`;
+    b += `<circle cx="43.5" cy="49" r="4.5" fill="${PALETTE.ink}"/><circle cx="56.5" cy="49" r="4.5" fill="${PALETTE.ink}"/>`;
+  }
+  return svg(100, 100, b, extra);
+}
+
+/** The ON FIRE! token that sits on a burning car's dashboard (CDR p3), 120 x 120. */
+export function onFireTokenSvg(extra = ''): string {
+  let b = `<circle cx="60" cy="68" r="34" fill="none" stroke="${PALETTE.fireOrange}" stroke-width="14"/>`;
+  b += `<circle cx="60" cy="68" r="34" fill="none" stroke="${PALETTE.dieFire}" stroke-width="5"/>`;
+  b += flame(60, 44, 0.85, PALETTE.fireRed, PALETTE.fireOrange);
+  b += `<text x="60" y="114" text-anchor="middle" ${FONT} font-size="20" fill="#fff" stroke="${PALETTE.ink}" stroke-width="3" paint-order="stroke">ON FIRE!</text>`;
+  return svg(120, 120, b, extra);
 }
