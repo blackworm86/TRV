@@ -239,5 +239,268 @@
   ],
   "_engine": "Implemented in src/game/trv/engine.ts (Setup.carnage; tests in tests/unit/trv/carnage.test.ts with test numbers). Until the _missing values are filled in, a game cannot start with the expansion.",
   "_conflicts": [],
-  "_ongoing_note": "21 cards (rulebook p2): 2 of each, but Cracked Flywheel (1). Texts from the card scans, which win over the summary sheet."
+  "_ongoing_note": "21 cards (rulebook p2): 2 of each, but Cracked Flywheel (1). Texts from the card scans, which win over the summary sheet.",
+  "tiles": [
+    {
+      "tile": 6,
+      "side": "a",
+      "name": "The Drifts",
+      "terrain": [
+        "oPoPMMoo",
+        "ooooPooo",
+        "RRRoRoRR",
+        "RoRMRoRo",
+        "oooPoMoG",
+        "oMPoGMPo"
+      ],
+      "hazards": [
+        [
+          0,
+          2
+        ],
+        [
+          0,
+          6
+        ],
+        [
+          0,
+          7
+        ],
+        [
+          1,
+          2
+        ],
+        [
+          1,
+          6
+        ],
+        [
+          1,
+          7
+        ],
+        [
+          4,
+          2
+        ],
+        [
+          4,
+          4
+        ],
+        [
+          4,
+          6
+        ],
+        [
+          5,
+          3
+        ]
+      ],
+      "source": "photo of the tile supplied by the rules owner, 2026-11-16"
+    },
+    {
+      "tile": 6,
+      "side": "b",
+      "name": "The Rumble Strip",
+      "terrain": [
+        "ooooMMoo",
+        "oRRRRRRo",
+        "RRoPMMXR",
+        "RMMoPMXR",
+        "oRRRRRRR",
+        "oooMMooo"
+      ],
+      "hazards": [
+        [
+          0,
+          6
+        ],
+        [
+          1,
+          3
+        ],
+        [
+          1,
+          4
+        ],
+        [
+          4,
+          3
+        ],
+        [
+          4,
+          4
+        ],
+        [
+          5,
+          5
+        ]
+      ],
+      "source": "photo of the tile supplied by the rules owner, 2026-11-16"
+    },
+    {
+      "tile": 7,
+      "side": "a",
+      "name": "The Salty Dogleg",
+      "terrain": [
+        "oooRRRXM",
+        "oRRRRRoM",
+        "RRRoMoRR",
+        "RoMMoMRR",
+        "oSSSSSoS",
+        "oMSSoSMS"
+      ],
+      "hazards": [
+        [
+          0,
+          5
+        ],
+        [
+          1,
+          3
+        ],
+        [
+          1,
+          6
+        ],
+        [
+          2,
+          3
+        ],
+        [
+          4,
+          2
+        ],
+        [
+          4,
+          4
+        ],
+        [
+          4,
+          5
+        ],
+        [
+          5,
+          2
+        ],
+        [
+          5,
+          5
+        ]
+      ],
+      "source": "photo of the tile supplied by the rules owner, 2026-11-16"
+    },
+    {
+      "tile": 7,
+      "side": "b",
+      "name": "The Warzone",
+      "terrain": [
+        "oXSSSoXo",
+        "oDXXMooo",
+        "RRRRDooR",
+        "RRRRRRRR",
+        "ooSXDMoo",
+        "oooSoXoX"
+      ],
+      "hazards": [
+        [
+          0,
+          3
+        ],
+        [
+          1,
+          5
+        ],
+        [
+          1,
+          6
+        ],
+        [
+          2,
+          3
+        ],
+        [
+          2,
+          5
+        ],
+        [
+          2,
+          7
+        ],
+        [
+          3,
+          1
+        ],
+        [
+          3,
+          3
+        ],
+        [
+          3,
+          5
+        ],
+        [
+          4,
+          2
+        ]
+      ],
+      "source": "photo of the tile supplied by the rules owner, 2026-11-16"
+    },
+    {
+      "tile": 8,
+      "side": "a",
+      "name": "The Zag",
+      "terrain": [
+        "MXooDMMM",
+        "oDMDMoXo",
+        "oDoXDMoo",
+        "DooMDooo",
+        "ooMDXDMX",
+        "MoMDoooM"
+      ],
+      "hazards": [
+        [
+          0,
+          2
+        ],
+        [
+          0,
+          3
+        ],
+        [
+          0,
+          5
+        ],
+        [
+          1,
+          2
+        ],
+        [
+          1,
+          5
+        ],
+        [
+          2,
+          7
+        ],
+        [
+          3,
+          2
+        ],
+        [
+          3,
+          6
+        ],
+        [
+          4,
+          6
+        ],
+        [
+          5,
+          5
+        ]
+      ],
+      "source": "photo of the tile supplied by the rules owner, 2026-11-16"
+    }
+  ],
+  "_tiles_note": "Road tiles of the expansion, transcribed from photos (rows 0-5 from the left edge, columns 0-7 from the rear; odd rows half a space forward, as game_base.json). Ramps (P) are all printed facing forward. Received so far: 6a, 6b, 7a, 7b, 8a."
 }

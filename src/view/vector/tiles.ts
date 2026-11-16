@@ -12,6 +12,12 @@ export const TERRAIN_STYLE: Record<string, { fill: string; name: string }> = {
   o: { fill: PALETTE.offroad, name: 'Fuoristrada' },
   M: { fill: PALETTE.mud, name: 'Fango' },
   X: { fill: PALETTE.impassable, name: 'Invalicabile' },
+  // Carnage at Devil's Run (data/trv/carnage.json).
+  G: { fill: PALETTE.toxicGoo, name: 'Melma tossica' },
+  D: { fill: PALETTE.desertGlass, name: 'Vetro del deserto' },
+  P: { fill: PALETTE.ramp, name: 'Rampa' },
+  F: { fill: PALETTE.fire, name: 'Fuoco' },
+  S: { fill: PALETTE.saltFlats, name: 'Saline' },
 };
 
 /** Options of {@link tileSvg} and {@link mapSvg}. */
@@ -39,8 +45,10 @@ function tileLayers(tile: TileData, dx: number, o: TileSvgOptions, prefix: strin
       }
       const [cx, cy] = spaceCenterPx(r, c);
       if (hazardAt.has(`${r},${c}`)) hazards += hazardSymbol(cx + dx - 6, cy, 46, PALETTE.hazardRed);
+      // A ramp: an arrow toward the lead tile, the way it is jumped (CDR p3).
+      if (t === 'P') hazards += `<path d="M${cx + dx - 40} ${cy - 12} h44 v-16 l30 28 l-30 28 v-16 h-44z" fill="#f6c46a" stroke="${PALETTE.ink}" stroke-width="4"/>`;
       if (o.labels ?? true) {
-        const ink = t === 'o' ? PALETTE.ink : PALETTE.cream;
+        const ink = 'oGDPS'.includes(t) ? PALETTE.ink : PALETTE.cream; // dark text on the light grounds
         labels += `<text x="${cx + dx}" y="${cy + GRID.rowPitch * 0.36}" text-anchor="middle" font-size="30" fill="${ink}" opacity=".75" ${FONT}>${r},${c}</text>`;
       }
     }
