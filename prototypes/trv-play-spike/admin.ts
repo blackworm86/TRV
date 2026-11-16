@@ -14,7 +14,7 @@ import CATALOG from '../../data/trv/catalog_base.json';
 import SHOPPE from '../../data/trv/choppe_shoppe.json';
 import {
   dieSvg, hazardTokenSvg, damageTokenSvg, dashboardSvg, commandBoardSvg, playerStripSvg, chopperSvg, carSvg, avatarSvg,
-  OFFICIAL_ART, type ArtDir, type ArtSize, type CommandBoardArt,
+  OFFICIAL_ART, PALETTE, type ArtDir, type ArtSize, type CommandBoardArt,
   fireDieSvg, onFireTokenSvg, type FireFace,
 } from '../../src/view/vector/art';
 import { tileSvg, mapSvg, tileTitle } from '../../src/view/vector/tiles';
@@ -100,6 +100,8 @@ const POWER_INFO: Record<string, [string, string]> = {
   objection: ['Objection!', 'Quando spari e manchi puoi ritirare il dado sparo.'],
   third_eye: ['Third Eye', 'A inizio round guardi un pericolo coperto.'],
   long_arm_of_the_law: ['Long Arm of the Law', 'Puoi sparare a un bersaglio a due caselle.'],
+  bring_the_bling: ['Bring the Bling', 'Nel draft tieni una carta potenziamento in più: la tua auto grande ne monta due.'],
+  smokin: ['Smokin’', 'Il teschio del dado fuoco non ha effetto sulle tue auto.'],
 };
 const CMD_LINES: Record<string, string[]> = {
   airstrike: ['Piazza l’elicottero', 'su una casella vuota.', 'Dal 2° round spara.'],
@@ -110,6 +112,9 @@ const CMD_LINES: Record<string, string[]> = {
   pain_transfer: ['Sposta un danno', 'da una tua auto', 'a un’altra.'],
   need_for_speed: ['I dadi non assegnati', 'prendono il valore', 'di questo dado.'],
   called_shot: ['In questo turno', 'colpisci', 'automaticamente.'],
+  tinker: ['Scarta un potenziamento', 'di una tua auto', 'e pescane un altro.'],
+  show_time: ['Una tua auto', 'operativa', 'prende fuoco.'],
+  flamethrower: ['In questo turno', 'chi colpisci', 'prende fuoco.'],
 };
 const slotText = (s: CommandSlot): string => {
   if (s.token || !s.values.length) return '★';
@@ -120,6 +125,12 @@ const slotText = (s: CommandSlot): string => {
 const DIE_NAMES: Record<string, string> = { movement: 'Movimento', road: 'Strada', stunt: 'Acrobazia', slam: 'Slam', shooting: 'Sparo', direction: 'Direzione' };
 const HAZ_NAMES: Record<string, string> = { mud: 'Fango', road: 'Strada', oil: 'Olio', mine: 'Mina', wreck: 'Relitto' };
 const DMG_NAMES: Record<string, string> = { shrapnel: 'Schegge', dazed: 'Stordito', dent: 'Ammaccatura', skid: 'Sbandata', blastoff: 'Decollo' };
+const CDR = CARNAGE_DATA as unknown as {
+  hazard_tokens: Record<string, number | string>; damage_tokens: Record<string, unknown>;
+  ongoing_effects: { id: string; name: string; text: string; count: number }[];
+};
+const CDR_HAZ: Record<string, string> = { desert_glass: 'Vetro del deserto', ramp: 'Rampa', fire: 'Fuoco', pit_trap: 'Trappola', quake: 'Terremoto', sand_worm: 'Verme delle sabbie' };
+const DAMAGE_IT: Record<string, string> = { on_fire: 'In fiamme', ongoing_effect: 'Effetto continuo' };
 const SIZE_NAMES: Record<ArtSize, string> = { S: 'Piccola', M: 'Media', L: 'Grande' };
 const SIZES: ArtSize[] = ['S', 'M', 'L'];
 const FACES = RULES.dice as unknown as Record<string, (number | string)[]>;
@@ -133,6 +144,9 @@ const MODELS = import.meta.glob<string>('/assets/models/*.glb', { eager: true, q
 const MODEL_INFO: Record<string, { name: string; comp: string }> = {
   Car_Small: { name: 'Auto piccola', comp: 'car_S' }, Car_Medium: { name: 'Auto media', comp: 'car_M' },
   Car_Large: { name: 'Auto grande', comp: 'car_L' }, Chopper: { name: 'Elicottero', comp: 'chopper' }, wreck_1: { name: 'Relitto 1', comp: 'wreck' },
+  wreck_2: { name: 'Relitto 2 (carro armato)', comp: 'wreck' }, wreck_3: { name: 'Relitto 3 (muscle car)', comp: 'wreck' },
+  wreck_4: { name: 'Relitto 4 (scuolabus)', comp: 'wreck' }, wreck_5: { name: 'Relitto 5 (pick-up)', comp: 'wreck' },
+  Ramp: { name: 'Rampa (Carnage)', comp: '' },
 };
 
 const leaderArt = (i: number, l: ReturnType<typeof leaders>[number]): CommandBoardArt => ({
@@ -249,12 +263,24 @@ const CATEGORIES: Category[] = [
   },
   {
     id: 'carnage', group: 'Espansioni', name: 'Carnage at Devil’s Run',
-    note: 'Grafica provvisoria (disegni aperti, non l’arte ufficiale) per l’espansione in preparazione: dado fuoco e segnalino ON FIRE!. Le facce del dado sono i quattro tipi del regolamento (p. 3); quante per tipo non è ancora noto.',
+    note: 'Grafica provvisoria (disegni aperti, non l’arte ufficiale) dei pezzi di Carnage at Devil’s Run: dado fuoco, segnalino ON FIRE!, i sei pericoli e i due danni nuovi, con le quantità della scatola.',
     items: [
       svgItem('carnage', 'fire_die', 'Dado fuoco',
-        () => sheetSvg((['+1', '+2', 'out', 'eliminated'] as FireFace[]).map(f => ({ svg: fireDieSvg(f), caption: { '+1': '+1', '+2': '+2', out: 'si spegne', eliminated: 'eliminata' }[f] })), { cols: 4, cell: 100, gap: 16 })),
-      svgItem('carnage', 'on_fire_token', 'Segnalino ON FIRE!', () => onFireTokenSvg(), { note: 'Quantità: 12 (CDR p. 2)' }),
+        () => sheetSvg(((CARNAGE_DATA as unknown as { dice: { fire: FireFace[] } }).dice.fire).map(f => ({ svg: fireDieSvg(f), caption: { '+1': '+1', '+2': '+2', out: 'si spegne', eliminated: 'eliminata' }[f] })), { cols: 6, cell: 100, gap: 16 })),
+      svgItem('carnage', 'on_fire_token', 'Segnalino ON FIRE!', () => onFireTokenSvg(), { note: 'Quantità: illimitata (regola confermata)' }),
+      ...Object.entries(CDR.hazard_tokens).filter(([k]) => !k.startsWith('_')).map(([type, n]) => svgItem('carnage', `pericolo_${type}`, `Pericolo ${CDR_HAZ[type] ?? type}`,
+        () => sheetSvg([{ svg: hazardTokenSvg(type, true), caption: 'Fronte' }, { svg: hazardTokenSvg(null, false), caption: 'Retro' }], { cell: 240 }),
+        { note: `Quantità: ${n}` })),
+      ...Object.entries(CDR.damage_tokens).filter(([k]) => !k.startsWith('_')).map(([type, d]) => svgItem('carnage', `danno_${type}`, `Danno ${DAMAGE_IT[type] ?? type}`,
+        () => sheetSvg([{ svg: damageTokenSvg(type, true), caption: 'Fronte' }, { svg: damageTokenSvg(null, false), caption: 'Retro' }], { cell: 240 }),
+        { note: `Quantità: ${(d as { count: number }).count}` })),
     ],
+  },
+  {
+    id: 'continui', group: 'Espansioni', name: 'Carte effetto continuo',
+    note: `Le carte effetto continuo di Carnage at Devil’s Run: ${CDR.ongoing_effects.length} tipi, testo dallo scan (in inglese, come sulla carta).`,
+    items: CDR.ongoing_effects.map(c => svgItem('continui', c.id, c.name, () => cardSvg({ id: c.id, name: c.name, text: c.text, kicker: 'Effetto continuo', color: PALETTE.fireRed }),
+      { size: '63 × 88 mm (formato carta standard, stima)', note: `Copie: ${c.count}` })),
   },
   {
     id: 'icone', group: 'Icone', name: 'Elicottero e auto',

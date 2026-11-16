@@ -193,6 +193,13 @@ export function hazardTokenSvg(type: string | null, faceUp: boolean, extra = '')
       case 'oil': fill = PALETTE.road; art = `<defs><linearGradient id="oil" x1="0" x2="1"><stop offset="0" stop-color="#3cc"/><stop offset=".5" stop-color="#c3c"/><stop offset="1" stop-color="#cc3"/></linearGradient></defs>`
         + `<path d="M36 28 C56 18 90 30 84 50 C94 70 64 84 50 72 C30 80 26 60 38 50 C26 42 28 32 36 28Z" fill="#181818"/><path d="M44 40 C58 32 76 40 72 52 C76 64 58 70 50 62 C40 64 40 52 46 48Z" fill="url(#oil)" opacity=".85"/>`; break;
       case 'mine': fill = PALETTE.navy; art = `<path d="M30 62 L40 36 L48 52 L58 26 L64 50 L80 34 L76 62Z" fill="none" stroke="${PALETTE.hazardRed}" stroke-width="4" stroke-linejoin="round"/><path d="M28 66 H86" stroke="${PALETTE.hazardRed}" stroke-width="5"/>`; label = 'MINA'; break;
+      // Carnage at Devil's Run (CDR p3): provisional drawings, not the official art.
+      case 'desert_glass': fill = PALETTE.desertGlass; art = `<g fill="#e9fbff" stroke="#3a8a96" stroke-width="2"><path d="M34 60 L44 30 L52 58Z"/><path d="M52 64 L64 24 L74 62Z"/><path d="M72 62 L84 38 L90 64Z"/></g>`; break;
+      case 'ramp': fill = PALETTE.road; art = `<path d="M30 64 L86 64 L86 40Z" fill="${PALETTE.ramp}" stroke="#3b2a12" stroke-width="3"/><path d="M42 58 H66 M58 50 L68 58 L58 66" stroke="#f7c21b" stroke-width="5" fill="none"/>`; break;
+      case 'fire': fill = '#2a1a12'; art = `<path d="M60 22 C74 40 86 50 78 66 C74 76 46 78 42 66 C36 52 50 46 52 34 C58 44 62 40 60 22Z" fill="${PALETTE.fireOrange}"/><path d="M60 46 C68 56 70 64 64 70 C58 74 50 70 52 62 C54 56 58 54 60 46Z" fill="#ffd34a"/>`; break;
+      case 'pit_trap': fill = PALETTE.offroad; art = `<ellipse cx="60" cy="52" rx="28" ry="18" fill="#1a120c"/><g stroke="#8a6a44" stroke-width="3"><path d="M40 46 L46 56 M56 40 L58 54 M70 42 L66 56 M80 48 L74 58"/></g>`; break;
+      case 'quake': fill = PALETTE.navy; art = `<path d="M30 40 L46 52 L40 60 L58 66 L56 52 L72 58 L68 44 L88 50" fill="none" stroke="${PALETTE.hazardRed}" stroke-width="4" stroke-linejoin="round"/>`; label = 'TERREMOTO'; break;
+      case 'sand_worm': fill = PALETTE.navy; art = `<path d="M30 66 C38 40 52 40 56 56 C60 70 74 70 78 50 C80 40 88 36 92 40" fill="none" stroke="${PALETTE.hazardRed}" stroke-width="7" stroke-linecap="round"/><circle cx="90" cy="38" r="5" fill="${PALETTE.hazardRed}"/>`; label = 'VERME'; break;
       case 'wreck': fill = PALETTE.navy; art = `<g fill="none" stroke="${PALETTE.hazardRed}" stroke-width="4" stroke-linejoin="round"><path d="M28 60 L36 44 H64 L72 34 H84 L88 46 V60 Z"/><circle cx="40" cy="62" r="7"/><circle cx="76" cy="62" r="7"/><path d="M50 44 L54 52 L48 56"/></g>`; label = 'RELITTO'; break;
     }
   }
@@ -201,7 +208,7 @@ export function hazardTokenSvg(type: string | null, faceUp: boolean, extra = '')
     + `<path d="${CHEVRON}" fill="none" stroke="rgba(0,0,0,.55)" stroke-width="3"/>`, extra);
 }
 
-const DAMAGE_TITLE: Record<string, string> = { shrapnel: 'SCHEGGE', dazed: 'STORDITO', dent: 'AMMACCATURA', skid: 'SBANDATA', blastoff: 'DECOLLO' };
+const DAMAGE_TITLE: Record<string, string> = { shrapnel: 'SCHEGGE', dazed: 'STORDITO', dent: 'AMMACCATURA', skid: 'SBANDATA', blastoff: 'DECOLLO', on_fire: 'IN FIAMME', ongoing_effect: 'EFFETTO' };
 
 /** Damage token, 110 x 100, torn bottom edge. faceUp=false draws the back (brake warning). */
 export function damageTokenSvg(type: string | null, faceUp: boolean, dir?: ArtDir, extra = ''): string {
@@ -221,6 +228,8 @@ export function damageTokenSvg(type: string | null, faceUp: boolean, dir?: ArtDi
       + `<g transform="translate(66 44) scale(.26)">${inner(damageTokenSvg(null, false))}</g>`; break;
     case 'dazed': icon = mini('stunt', 18, 4) + `<text x="56" y="66" text-anchor="middle" font-size="18" fill="${PALETTE.cream}" ${FONT}>×</text>` + mini('direction', 66, 'F'); break;
     case 'blastoff': icon = mini('direction', 18, 'F') + `<text x="56" y="66" text-anchor="middle" font-size="18" fill="${PALETTE.cream}" ${FONT}>+</text>` + mini('stunt', 66, 4); break;
+    case 'on_fire': icon = `<path d="M55 42 C66 54 72 62 66 76 C62 86 46 86 42 76 C38 66 48 60 50 50 C54 58 56 54 55 42Z" fill="${PALETTE.fireOrange}"/>`; break;
+    case 'ongoing_effect': icon = `<rect x="38" y="42" width="26" height="36" rx="3" fill="${PALETTE.cream}" transform="rotate(-10 51 60)"/><rect x="48" y="44" width="26" height="36" rx="3" fill="${PALETTE.cream}" stroke="#15171c" stroke-width="2"/><path d="M53 54 H69 M53 61 H69 M53 68 H64" stroke="#15171c" stroke-width="2.5"/>`; break;
     case 'skid': {
       // Board directions with forward to the right: F east, FL north-east, FR south-east, ...
       const ang: Record<string, number> = { F: 0, FR: 60, BR: 120, B: 180, BL: 240, FL: 300 };

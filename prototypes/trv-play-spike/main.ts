@@ -14,7 +14,7 @@ import {
 } from '../../src/game/trv/engine';
 import { BASE_CATALOG as CAT, sizeOf, ofKind } from '../../src/game/trv/catalog';
 import { Pieces, TextureBank } from '../../src/view/pieces3d';
-import { tickFlames, flameCluster, useRampModel } from '../../src/view/terrain/carnage3d';
+import { tickFlames, flameCluster, useRampModel, rampPiece } from '../../src/view/terrain/carnage3d';
 import { buildTile, hazardToken, spaceCenterPx, spaceGeometry, spaceRimGeometry, GRID, TILE_PITCH_PX } from '../../src/view/board3d';
 import { dieSvg, damageTokenSvg, dashboardSvg, commandBoardSvg, playerStripSvg, STRIP_ASPECT, STRIP_ASPECT_LEADER, STRIP_LEADER_PLATE, avatarSvg, dataUrl } from '../../src/view/vector/art';
 import { newSeed } from '../../src/platform/entropy';
@@ -135,7 +135,7 @@ const tileSlots: (THREE.Group | null)[] = [null, null, null];
  * on asphalt (look only: for the rules oil is road, src/game/trv/engine.ts).
  */
 const HAZARD_GROUND: Partial<Record<string, string>> = {
-  road: 'R', mud: 'M', oil: 'O', desert_glass: 'D', ramp: 'P', fire: 'F', pit_trap: 'X',
+  road: 'R', mud: 'M', oil: 'O', desert_glass: 'D', ramp: 'P', fire: 'F', pit_trap: 'pit',
 };
 /** Seconds a revealed terrain hazard's token stays face up before the ground takes its place. */
 const HAZARD_TO_GROUND_S = 1.2;
@@ -153,26 +153,6 @@ function groundTick(now: number): void {
   for (const [k, since] of groundSince) {
     if (now - since >= HAZARD_TO_GROUND_S && !grounded.has(k)) { drawTable(lastSnap); return; }
   }
-}
-
-/** A tile face with the revealed terrain hazards of board slot `slot` drawn into its terrain. */
-function tileWithGround(t: TileRef, slot: number, s: Snapshot): { def: ReturnType<typeof tileDef>; tag: string } {
-  const def = tileDef(t);
-  const rows = def.terrain.map(r => [...r]);
-  const marks: string[] = [];
-  const now = performance.now() / 1000;
-  for (const [k, h] of s.hazards) {
-    const code = HAZARD_GROUND[h.type];
-    const [r, c] = k.split(',').map(Number);
-    if (!code || !h.faceUp || Math.floor(c / TILE_COLS) !== slot) continue;
-    const since = groundSince.get(k);
-    if (since === undefined) { groundSince.set(k, now); continue; }
-    if (now - since < HAZARD_TO_GROUND_S) continue;
-    rows[r][c % TILE_COLS] = code;
-    marks.push(`${r}${c % TILE_COLS}${code}`);
-    grounded.add(k);
-  }
-  return marks.length ? { def: { ...def, terrain: rows.map(r => r.join('')) }, tag: `|${marks.sort().join(',')}` } : { def, tag: '' };
 }
 
 function showTiles(s: Snapshot): void {
@@ -197,17 +177,13 @@ function showTiles(s: Snapshot): void {
   for (const k of [...groundSince.keys()]) if (!s.hazards.some(([hk]) => hk === k)) { groundSince.delete(k); grounded.delete(k); }
   s.board.forEach((t, i) => {
     const startFace = t.tile === 1 && g!.tilesPlaced === 3;
-    const { def, tag } = tileWithGround(t, i, s);
-    const key = `${t.tile}${t.side}${startFace ? g!.players.length : ''}${tag}`;
+    const def = tileDef(t);
+    const key = `${t.tile}${t.side}${startFace ? g!.players.length : ''}`;
     let grp = tileCache.get(key);
     if (!grp) {
       grp = buildTile(def, { width: TILE_W, depth: TILE_H, thickness: TILE_T, ...(startFace ? { players: g!.players.length } : {}) });
       tileCache.set(key, grp);
-      // The same face drawn before (without this ground) keeps its place on the table: no slide-in.
-      const old = tileSlots[i];
-      if (old && old.userData.face === `${t.tile}${t.side}`) { grp.position.copy(old.position); grp.userData.x = old.userData.x; }
     }
-    grp.userData.face = `${t.tile}${t.side}`;
     const x = BOARD_X0 + i * PITCH_W + (GRID.frameW / 2) * KX;
     if (tileSlots[i] !== grp) {
       const fresh = !tileSlots.includes(grp);
@@ -242,7 +218,7 @@ scene.add(finish);
 
 const carObjs = new Map<string, THREE.Group>();
 const chopperObjs = new Map<number, THREE.Group>();
-const hazardObjs = new Map<string, { type: string; obj: ReturnType<typeof hazardToken>; gone?: number }>();
+const hazardObjs = new Map<string, { type: string; obj: ReturnType<typeof hazardToken>; gone?: number; ground?: string }>();
 const HAZ = sizeOf(CAT, 'hazard_token');
 // A hazard token has the shape and size of a road space (asked by the user), so it covers it.
 const HAZ_FILL = 0.96;
@@ -566,9 +542,21 @@ function drawTable(s: Snapshot): void {
     rec.obj.group.position.y += 0.003;
     rec.obj.group.position.x += GRID.tip / 2 * KX;
     rec.obj.setFaceUp(h.faceUp);
-    // A revealed terrain hazard: once the tile draws it as ground (showTiles), the token goes.
-    const since = groundSince.get(k);
-    rec.obj.group.visible = !(HAZARD_GROUND[h.type] && h.faceUp && since !== undefined && performance.now() / 1000 - since >= HAZARD_TO_GROUND_S);
+    // A revealed terrain hazard: after its moment face up, the token (kept as the base) shows the
+    // ground it stands for in 3D, with its piece on top: flames, the ramp (asked by the user, 2026-11-16).
+    const code = HAZARD_GROUND[h.type];
+    if (code && h.faceUp) {
+      const now = performance.now() / 1000;
+      if (!groundSince.has(k)) groundSince.set(k, now);
+      if (now - groundSince.get(k)! >= HAZARD_TO_GROUND_S) {
+        grounded.add(k);
+        if (rec.ground !== code) {
+          rec.ground = code;
+          const space = TILE_W / 8;
+          rec.obj.setGround(code, code === 'F' ? flameCluster(space * 0.9, r * 31 + c * 7) : code === 'P' ? rampPiece(space * 0.9) : undefined);
+        }
+      }
+    } else if (rec.ground) { rec.ground = undefined; rec.obj.setGround(null); }
   }
   // A hazard discarded after resolving (mine, wreck) stays face up for a moment, then goes.
   for (const [k, rec] of hazardObjs) if (!hz.has(k) && rec.gone === undefined) {
@@ -658,7 +646,10 @@ let trayFresh = true;
 
 const BEAT: Partial<Record<Frame['kind'], number>> = {
   move: 0.32, roll: 1.15, slam: 1.0, shot: 1.7, damage: 1.9, elim: 1.5, reveal: 0.8, tile: 1.1, round: 2.6, chopper: 0.8,
+  jump: 1.4, fire: 1.0,
 };
+/** A ramp jump (Carnage at Devil's Run): how long the flight takes, and how high it goes in road spaces. */
+const JUMP = { seconds: 1.1, height: 1.6 };
 
 /** What each rolled die decides, said in a few words under the big die in the middle of the screen. */
 const ROLL_NAME: Record<string, string> = { slam: 'Dado slam', direction: 'Direzione', shooting: 'Dado sparo', stunt: 'Dado acrobazia', road: 'Dado strada', fire: 'Dado fuoco' };
@@ -749,6 +740,8 @@ const POWER_INFO: Record<string, [string, string]> = {
   objection: ['Objection!', 'Quando spari e manchi puoi ritirare il dado sparo.'],
   third_eye: ['Third Eye', 'A inizio round guardi un pericolo coperto.'],
   long_arm_of_the_law: ['Long Arm of the Law', 'Puoi sparare a un bersaglio a due caselle.'],
+  bring_the_bling: ['Bring the Bling', 'Nel draft tieni una carta potenziamento in più: la tua auto grande ne monta due.'],
+  smokin: ['Smokin’', 'Il teschio del dado fuoco non ha effetto sulle tue auto.'],
 };
 /** What each command does, in three short lines for the command board. */
 const CMD_LINES: Record<string, string[]> = {
@@ -760,6 +753,9 @@ const CMD_LINES: Record<string, string[]> = {
   pain_transfer: ['Sposta un danno', 'da una tua auto', 'a un’altra.'],
   need_for_speed: ['I dadi non assegnati', 'prendono il valore', 'di questo dado.'],
   called_shot: ['In questo turno', 'colpisci', 'automaticamente.'],
+  tinker: ['Scarta un potenziamento', 'di una tua auto', 'e pescane un altro.'],
+  show_time: ['Una tua auto', 'operativa', 'prende fuoco.'],
+  flamethrower: ['In questo turno', 'chi colpisci', 'prende fuoco.'],
 };
 /** The text of a command's die space: "1-3", "6", or a star for a command token only. */
 function slotText(s: CommandSlot): string {
@@ -959,7 +955,7 @@ function finishBeats(): void {
 // ("action camera", asked by the user); when the beats are over it returns to where it was.
 // Off in the Options menu; not during the instant replay (it frames its own shots) or the chase view.
 
-const ACTION_BEATS = new Set<Frame['kind']>(['slam', 'shot', 'damage', 'elim']);
+const ACTION_BEATS = new Set<Frame['kind']>(['slam', 'shot', 'damage', 'elim', 'jump', 'fire']);
 /** How close the action camera comes, as a share of the distance of the whole-map view. */
 const ACTION_DIST = 0.4;
 /** Longest wait, in seconds, of the beats for the camera to reach the action. */
@@ -1122,6 +1118,23 @@ function applyBeat(f: Frame, now: number): void {
     case 'reveal':
       if (at) impact(at, 0xffffff, 0.9);
       break;
+    case 'jump': {
+      // Ramp jump: the car takes off from the ramp and lands where the stunt die sent it.
+      const o = f.vehicleId ? carObjs.get(f.vehicleId) : undefined;
+      if (o && f.from && f.at) {
+        o.userData.jump = { from: world(f.from).setY(o.position.y), to: world(f.at).setY(o.position.y), t0: now };
+        word('SALTO!', world(f.from), '#f2c230', true);
+      }
+      break;
+    }
+    case 'fire': {
+      // A car catches fire (a burst of flame and a word) or its fire goes out (a puff of smoke).
+      const o = f.vehicleId ? carObjs.get(f.vehicleId) : undefined;
+      if (!o) break;
+      if (f.why === 'on') { explode(o.position.clone(), 0.5, now); word('IN FIAMME!', o.position.clone(), '#ff6a1a'); }
+      else { smokeOn(`out-${f.vehicleId}`, o, now + 1.5, false); word('SPENTO', o.position.clone(), '#bfc6cc'); }
+      break;
+    }
     case 'chopper':
       if (at) impact(at, 0x9fd3ff, 1.2);
       break;
@@ -2940,6 +2953,18 @@ const DRIVE = { speed: 7, turnRate: 9, parkTurnRate: 2.5, maxYaw: 0.87 };
  * (backwards when pushed back), turns back along the road once parked; wheels and body follow.
  */
 function drive(o: THREE.Object3D, dt: number, k: number, now: number): void {
+  // A ramp jump: the car flies on an arc from the ramp to where it lands, nose up then down.
+  const jp = o.userData.jump as { from: THREE.Vector3; to: THREE.Vector3; t0: number } | undefined;
+  if (jp) {
+    const u = Math.min(1, (now - jp.t0) / (JUMP.seconds / (timeScale * SPEED_SCALE[settings.speed])));
+    o.position.lerpVectors(jp.from, jp.to, u);
+    o.position.y += Math.sin(u * Math.PI) * JUMP.height * TILE_W / 8;
+    o.rotation.order = 'YXZ';
+    o.rotation.set(0, 0, (0.5 - u) * 0.7);
+    o.userData.yaw = 0;
+    if (u >= 1) { delete o.userData.jump; o.rotation.z = 0; }
+    return;
+  }
   const tg = o.userData.target as THREE.Vector3 | undefined;
   const before = o.position.clone();
   if (tg) {
