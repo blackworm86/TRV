@@ -8,6 +8,7 @@
 import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+import CARNAGE_DATA from '../../data/trv/carnage.json';
 import RULES from '../../data/trv/game_base.json';
 import CATALOG from '../../data/trv/catalog_base.json';
 import SHOPPE from '../../data/trv/choppe_shoppe.json';
@@ -123,6 +124,7 @@ const SIZE_NAMES: Record<ArtSize, string> = { S: 'Piccola', M: 'Media', L: 'Gran
 const SIZES: ArtSize[] = ['S', 'M', 'L'];
 const FACES = RULES.dice as unknown as Record<string, (number | string)[]>;
 const TILES = RULES.tiles as unknown as (TileData & { tile: number; side: string })[];
+const CARNAGE_TILES = (CARNAGE_DATA as unknown as { tiles: (TileData & { tile: number; side: string })[] }).tiles;
 
 // Command board SVG sources, in the repository (the owner's drawings): downloaded as they are.
 const UI_RAW = import.meta.glob<string>('/assets/ui/*.svg', { eager: true, query: '?raw', import: 'default' });
@@ -174,12 +176,21 @@ const CATEGORIES: Category[] = [
     })),
   },
   {
+    id: 'tessere_carnage', group: 'Tessere e mappe', name: 'Tessere Carnage',
+    note: 'Le dieci facce delle tessere di Carnage at Devil’s Run, con melma tossica (verde), vetro del deserto (azzurro), rampe (freccia), fuoco (arancio) e saline (bianco).',
+    items: CARNAGE_TILES.map(t => svgItem('tessere_carnage', `${t.tile}${t.side}`, tileTitle(t), () => tileSvg(t), { note: 'Carnage at Devil’s Run' })),
+  },
+  {
     id: 'mappe', group: 'Tessere e mappe', name: 'Mappe',
     note: 'Tessere incastrate in fila come sul tavolo (la tessera più indietro a sinistra), per comporre una strada.',
     items: [
       ...(['a', 'b'] as const).map(side => {
         const row = TILES.filter(t => t.side === side).sort((x, y) => x.tile - y.tile);
         return svgItem('mappe', `tutte_${side}`, `Tutte le facce ${side.toUpperCase()}`, () => mapSvg(row), { note: row.map(t => `${t.tile}${t.side}`).join(' → ') });
+      }),
+      ...(['a', 'b'] as const).map(side => {
+        const row = CARNAGE_TILES.filter(t => t.side === side).sort((x, y) => x.tile - y.tile);
+        return svgItem('mappe', `carnage_${side}`, `Carnage: facce ${side.toUpperCase()}`, () => mapSvg(row), { note: row.map(t => `${t.tile}${t.side}`).join(' → ') });
       }),
       (() => {
         const start = TILES.find(t => t.tile === RULES.start_tile && t.side === 'a')!;

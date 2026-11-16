@@ -1,5 +1,5 @@
 // 3D pieces of Carnage at Devil's Run on the road tiles, from the grid alone (no licensed art):
-// animated cartoon flames on fire spaces (and anywhere else something burns: a revealed fire hazard,
+// realistic animated fire (flames, embers, smoke, flickering glow) on fire spaces (and anywhere else something burns: a revealed fire hazard,
 // a car ON FIRE!), and a placeholder launch ramp on ramp spaces until its model exists
 // (assets/models/Ramp.glb, made from the prompts in design/art/carnage-ramp-prompts.md).
 //
@@ -8,70 +8,147 @@
 import * as THREE from 'three';
 import { GRID, spaceCenterPx, type TileData } from '../tile-grid';
 
-/** Look of the flames: colour bands as in the tile art (yellow core, orange body, red rim), speed. */
-export const FLAME_LOOK = {
-  core: new THREE.Color('#fff2a0'), body: new THREE.Color('#ff9a1e'), rim: new THREE.Color('#e3341a'),
-  /** Rising speed of the flame's noise, per second. */
-  speed: 1.6,
-  /** Flame height over its width. */
-  aspect: 1.6,
-};
+/** Look of the fire: rising speed of the flames, flame height over width, embers and smoke per fire. */
+export const FIRE_LOOK = { speed: 1.25, aspect: 1.7, embers: 14, smoke: 6 };
 
+const NOISE_GLSL = /* glsl */ `
+  float h21(vec2 p) { return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }
+  float vn(vec2 p) {
+    vec2 i = floor(p), f = fract(p);
+    f = f * f * (3.0 - 2.0 * f);
+    return mix(mix(h21(i), h21(i + vec2(1, 0)), f.x), mix(h21(i + vec2(0, 1)), h21(i + vec2(1, 1)), f.x), f.y);
+  }
+  float fbm(vec2 p) {
+    float v = 0.0, a = 0.5;
+    for (int i = 0; i < 5; i++) { v += a * vn(p); p = p * 2.03 + vec2(1.7, 9.2); a *= 0.5; }
+    return v;
+  }`;
+
+/** Realistic flames: turbulent noise rising through a tapering body, coloured by heat, added to the light. */
 const flameMaterial = new THREE.ShaderMaterial({
-  uniforms: {
-    uTime: { value: 0 },
-    uCore: { value: FLAME_LOOK.core }, uBody: { value: FLAME_LOOK.body }, uRim: { value: FLAME_LOOK.rim },
-  },
+  uniforms: { uTime: { value: 0 } },
   vertexShader: /* glsl */ `
     attribute float aSeed;
     varying vec2 vUv;
     varying float vSeed;
-    void main() {
-      vUv = uv;
-      vSeed = aSeed;
-      gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
-    }`,
+    void main() { vUv = uv; vSeed = aSeed; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }`,
   fragmentShader: /* glsl */ `
     uniform float uTime;
-    uniform vec3 uCore, uBody, uRim;
     varying vec2 vUv;
     varying float vSeed;
-    float h(vec2 p) { return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }
-    float n(vec2 p) {
-      vec2 i = floor(p), f = fract(p);
-      f = f * f * (3.0 - 2.0 * f);
-      return mix(mix(h(i), h(i + vec2(1, 0)), f.x), mix(h(i + vec2(0, 1)), h(i + vec2(1, 1)), f.x), f.y);
-    }
+    ${NOISE_GLSL}
     void main() {
-      float t = uTime * ${FLAME_LOOK.speed.toFixed(2)} + vSeed * 7.0;
+      float t = uTime * ${FIRE_LOOK.speed.toFixed(2)} + vSeed * 17.0;
       vec2 uv = vUv;
-      // The flame sways and licks upward: noise rising through it bends and tears its outline.
-      float sway = (n(vec2(uv.y * 3.0 - t, vSeed)) - 0.5) * 0.35 * uv.y;
-      float x = (uv.x - 0.5 - sway) * 2.0;
-      float width = (1.0 - uv.y) * (0.75 + 0.25 * sin(uv.y * 3.14));
-      float shape = width - abs(x);
-      float lick = n(vec2(uv.x * 4.0, uv.y * 3.0 - t * 1.4)) * 0.55 + n(vec2(uv.x * 9.0, uv.y * 7.0 - t * 2.2)) * 0.25;
-      float v = shape + 0.35 - lick * (0.25 + uv.y);
-      if (v < 0.12) discard;
-      // Flat cartoon bands, no gradient: as printed.
-      vec3 c = v > 0.62 ? uCore : v > 0.34 ? uBody : uRim;
-      gl_FragColor = vec4(c, 1.0);
+      // Domain-warped noise scrolling upward: the tongues of a real fire.
+      vec2 q = vec2(uv.x * 2.2 + vSeed * 3.0, uv.y * 1.6 - t);
+      float warp = fbm(q * 1.3 + vec2(0.0, t * 0.35));
+      float n = fbm(q * 2.1 + warp * 1.6);
+      float x = (uv.x - 0.5) * 2.0;
+      float taper = mix(0.95, 0.12, pow(uv.y, 0.8));
+      float body = 1.0 - smoothstep(taper * 0.45, taper, abs(x) + (n - 0.5) * 0.7 * (0.3 + uv.y));
+      float heat = body * (1.15 - uv.y * 1.05) + (n - 0.45) * 0.9 * body;
+      heat *= smoothstep(0.0, 0.08, uv.y); // soft at the base
+      heat = clamp(heat * 1.5, 0.0, 1.0);
+      vec3 col = mix(vec3(0.35, 0.03, 0.0), vec3(1.0, 0.28, 0.02), smoothstep(0.08, 0.42, heat));
+      col = mix(col, vec3(1.0, 0.68, 0.18), smoothstep(0.42, 0.72, heat));
+      col = mix(col, vec3(1.0, 0.96, 0.82), smoothstep(0.78, 1.0, heat));
+      float a = smoothstep(0.04, 0.3, heat);
+      gl_FragColor = vec4(col * a * 1.25, a);
     }`,
+  transparent: true,
+  depthWrite: false,
+  blending: THREE.AdditiveBlending,
   side: THREE.DoubleSide,
-  transparent: false,
+  toneMapped: false,
+});
+
+/** Embers: sparks rising from the fire, swaying, cooling from yellow to red, fading. */
+const emberMaterial = new THREE.ShaderMaterial({
+  uniforms: { uTime: { value: 0 }, uScale: { value: 300 } },
+  vertexShader: /* glsl */ `
+    uniform float uTime, uScale;
+    attribute vec4 aEmber; // x, z start; phase; speed
+    varying float vLife;
+    void main() {
+      float life = fract(uTime * aEmber.w * 0.35 + aEmber.z);
+      vLife = life;
+      vec3 p = position;
+      p.x = aEmber.x + sin(life * 9.0 + aEmber.z * 20.0) * 0.06 * life;
+      p.z = aEmber.y + cos(life * 7.0 + aEmber.z * 13.0) * 0.06 * life;
+      p.y = life * 1.0;
+      vec4 mv = modelViewMatrix * vec4(p * vec3(1.0, position.y, 1.0), 1.0);
+      gl_Position = projectionMatrix * mv;
+      gl_PointSize = uScale * 0.07 * (1.0 - life * 0.6) / -mv.z; // about 0.07 world units across
+    }`,
+  fragmentShader: /* glsl */ `
+    varying float vLife;
+    void main() {
+      float d = length(gl_PointCoord - 0.5);
+      if (d > 0.5) discard;
+      vec3 c = mix(vec3(1.0, 0.85, 0.35), vec3(1.0, 0.25, 0.05), vLife);
+      float a = (1.0 - smoothstep(0.1, 0.5, d)) * (1.0 - vLife);
+      gl_FragColor = vec4(c * a, a);
+    }`,
+  transparent: true,
+  depthWrite: false,
+  blending: THREE.AdditiveBlending,
+  toneMapped: false,
+});
+
+/** Smoke: soft dark puffs rising above the flames, growing and thinning. */
+const smokeMaterial = new THREE.ShaderMaterial({
+  uniforms: { uTime: { value: 0 }, uScale: { value: 300 } },
+  vertexShader: /* glsl */ `
+    uniform float uTime, uScale;
+    attribute vec4 aPuff; // x, z start; phase; speed
+    varying float vLife;
+    varying float vSeed;
+    void main() {
+      float life = fract(uTime * aPuff.w * 0.12 + aPuff.z);
+      vLife = life;
+      vSeed = aPuff.z;
+      vec3 p = vec3(aPuff.x + life * 0.25 * sin(aPuff.z * 30.0), (0.45 + life * 0.9) * position.y, aPuff.y + life * 0.15);
+      vec4 mv = modelViewMatrix * vec4(p, 1.0);
+      gl_Position = projectionMatrix * mv;
+      gl_PointSize = uScale * (0.35 + life * 0.8) / -mv.z; // a puff grows from 0.35 to 1.15 world units
+    }`,
+  fragmentShader: /* glsl */ `
+    varying float vLife;
+    varying float vSeed;
+    ${NOISE_GLSL}
+    void main() {
+      vec2 c = gl_PointCoord - 0.5;
+      float d = length(c) + (vn(gl_PointCoord * 5.0 + vSeed * 40.0) - 0.5) * 0.18;
+      if (d > 0.5) discard;
+      float a = (1.0 - smoothstep(0.15, 0.5, d)) * smoothstep(0.0, 0.15, vLife) * (1.0 - vLife) * 0.45;
+      gl_FragColor = vec4(vec3(0.09, 0.08, 0.08), a);
+    }`,
+  transparent: true,
+  depthWrite: false,
   toneMapped: false,
 });
 
 /** Every flame made, so each frame can turn them toward the camera. */
 const flames = new Set<THREE.Mesh>();
 const qParent = new THREE.Quaternion();
+let glowFlicker = 1;
 
 /**
- * Animates every flame and turns each one to face `camera` (a flat flame seen edge-on from above
- * would vanish). Call once per frame with the time in seconds.
+ * Animates the fire (flames, embers, smoke, the flickering glow) and turns each flame to face
+ * `camera`. Call once per frame with the time in seconds and the drawing buffer's height in pixels.
  */
-export function tickFlames(seconds: number, camera?: THREE.Camera): void {
+export function tickFlames(seconds: number, camera?: THREE.Camera, viewHeight = innerHeight): void {
   flameMaterial.uniforms.uTime.value = seconds;
+  emberMaterial.uniforms.uTime.value = seconds;
+  smokeMaterial.uniforms.uTime.value = seconds;
+  // Point sizes are in pixels: world size times this, over the distance.
+  const fov = (camera as THREE.PerspectiveCamera | undefined)?.fov ?? 30;
+  const scale = viewHeight / (2 * Math.tan(THREE.MathUtils.degToRad(fov) / 2));
+  emberMaterial.uniforms.uScale.value = scale;
+  smokeMaterial.uniforms.uScale.value = scale;
+  glowFlicker = 0.75 + 0.15 * Math.sin(seconds * 13) + 0.1 * Math.sin(seconds * 23.7);
+  if (glow) glow.opacity = glowFlicker;
   if (!camera) return;
   for (const f of flames) {
     if (!f.parent) { flames.delete(f); continue; }
@@ -82,28 +159,45 @@ export function tickFlames(seconds: number, camera?: THREE.Camera): void {
 
 /**
  * One flame `size` world units wide, its base on the origin, facing the camera once tickFlames
- * runs. `seed` gives each flame its own flicker.
+ * runs. `seed` gives each flame its own turbulence.
  */
 export function makeFlame(size: number, seed = Math.random()): THREE.Mesh {
-  const g = new THREE.PlaneGeometry(size, size * FLAME_LOOK.aspect).translate(0, size * FLAME_LOOK.aspect / 2, 0);
+  const g = new THREE.PlaneGeometry(size, size * FIRE_LOOK.aspect).translate(0, size * FIRE_LOOK.aspect / 2 - size * 0.08, 0);
   g.setAttribute('aSeed', new THREE.Float32BufferAttribute(new Array(g.getAttribute('position').count).fill(seed), 1));
   const m = new THREE.Mesh(g, flameMaterial);
-  m.renderOrder = 5;
+  m.renderOrder = 6;
   flames.add(m);
   return m;
 }
 
-/** The orange glow a fire casts on the ground; made on first use (it needs a canvas, so no DOM in tests until then). */
+/** The glow a fire casts on the ground: an orange disc that flickers; made on first use (it needs a canvas). */
 let glow: THREE.MeshBasicMaterial | null = null;
 const glowMaterial = (): THREE.MeshBasicMaterial => (glow ??= (() => {
   const c = document.createElement('canvas');
   c.width = c.height = 128;
   const x = c.getContext('2d')!;
   const gr = x.createRadialGradient(64, 64, 4, 64, 64, 64);
-  gr.addColorStop(0, 'rgba(255,170,60,1)'); gr.addColorStop(0.5, 'rgba(255,90,20,.55)'); gr.addColorStop(1, 'rgba(255,60,10,0)');
+  gr.addColorStop(0, 'rgba(255,150,50,1)'); gr.addColorStop(0.45, 'rgba(255,80,15,.5)'); gr.addColorStop(1, 'rgba(255,50,10,0)');
   x.fillStyle = gr; x.fillRect(0, 0, 128, 128);
   return new THREE.MeshBasicMaterial({ map: new THREE.CanvasTexture(c), transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, toneMapped: false });
 })());
+
+/** Points rising from a disc `radius` wide, `height` high: embers or smoke (one attribute of start x, z, phase, speed). */
+function risers(n: number, radius: number, height: number, attr: string, material: THREE.ShaderMaterial, r: () => number): THREE.Points {
+  const g = new THREE.BufferGeometry();
+  const pos = new Float32Array(n * 3), data = new Float32Array(n * 4);
+  for (let i = 0; i < n; i++) {
+    const a = r() * Math.PI * 2, d = Math.sqrt(r()) * radius;
+    pos[i * 3 + 1] = height; // the shaders scale the rise by position.y
+    data.set([Math.cos(a) * d, Math.sin(a) * d, r(), 0.6 + r() * 0.8], i * 4);
+  }
+  g.setAttribute('position', new THREE.BufferAttribute(pos, 3));
+  g.setAttribute(attr, new THREE.BufferAttribute(data, 4));
+  g.boundingSphere = new THREE.Sphere(new THREE.Vector3(0, height, 0), radius + height * 2);
+  const p = new THREE.Points(g, material);
+  p.renderOrder = attr === 'aPuff' ? 7 : 8;
+  return p;
+}
 
 /** Small seeded generator (mulberry32), 0..1. */
 function rng(seed: number): () => number {
@@ -138,17 +232,20 @@ function cellsOf(tile: TileData, code: string, o: CarnagePieceOptions): { x: num
 export function flameCluster(space: number, seed: number): THREE.Group {
   const r = rng(seed);
   const g = new THREE.Group();
-  const disc = new THREE.Mesh(new THREE.CircleGeometry(space * 0.75, 24), glowMaterial());
+  const disc = new THREE.Mesh(new THREE.CircleGeometry(space * 0.8, 24), glowMaterial());
   disc.rotation.x = -Math.PI / 2;
   disc.position.y = 0.01;
   g.add(disc);
-  const n = 3 + Math.floor(r() * 3);
+  // Several overlapping flames give the fire depth; the middle one the tallest.
+  const n = 4 + Math.floor(r() * 3);
   for (let i = 0; i < n; i++) {
-    const s = space * (0.45 + r() * 0.35) * (i === 0 ? 1.3 : 1);
+    const s = space * (0.42 + r() * 0.3) * (i === 0 ? 1.4 : 1);
     const f = makeFlame(s, r());
-    f.position.set((r() - 0.5) * space * 0.45, 0, (r() - 0.5) * space * 0.35);
+    f.position.set((r() - 0.5) * space * 0.5, 0, (r() - 0.5) * space * 0.4);
     g.add(f);
   }
+  g.add(risers(FIRE_LOOK.embers, space * 0.3, space * 1.6, 'aEmber', emberMaterial, r));
+  g.add(risers(FIRE_LOOK.smoke, space * 0.25, space * 1.2, 'aPuff', smokeMaterial, r));
   return g;
 }
 
@@ -208,6 +305,76 @@ export function makeRamp(space: number): THREE.Group {
   return g;
 }
 
+// ---------------------------------------------------------------- the ramp model
+
+/**
+ * The ramp model (assets/models/Ramp.glb, made with Meshy from design/art/carnage-ramp-prompts.md).
+ * Meshy turned both views of the concept into objects, so the file holds two ramps side by side:
+ * the one at x < 0 (deck with the big yellow arrow, sandbags) is kept. It rises toward -z; it is
+ * turned to rise toward +x, the lead tile.
+ */
+const RAMP_MODEL = { keepBelowX: 0, yaw: -Math.PI / 2, length: 0.86 };
+let rampModel: THREE.Object3D | null = null;
+/** Every ramp on the table, so the model replaces the placeholder in all of them once loaded. */
+const rampSlots = new Set<THREE.Group>();
+
+/** The kept ramp of the model file, centred, rising toward +x, 1 unit long, its base on y = 0. */
+function cutRamp(scene: THREE.Object3D): THREE.Object3D | null {
+  let mesh: THREE.Mesh | null = null;
+  scene.traverse(o => { if (!mesh && (o as THREE.Mesh).isMesh) mesh = o as THREE.Mesh; });
+  if (!mesh) return null;
+  const m = mesh as THREE.Mesh;
+  const src = m.geometry.index ? m.geometry : m.geometry.toNonIndexed();
+  const pos = src.getAttribute('position'), idx = src.index;
+  const keep: number[] = [];
+  const tri = (k: number): number => (idx ? idx.getX(k) : k);
+  for (let t = 0; t < (idx ? idx.count : pos.count); t += 3) {
+    const cx = (pos.getX(tri(t)) + pos.getX(tri(t + 1)) + pos.getX(tri(t + 2))) / 3;
+    if (cx < RAMP_MODEL.keepBelowX) keep.push(tri(t), tri(t + 1), tri(t + 2));
+  }
+  const g = src.clone();
+  g.setIndex(keep);
+  const out = new THREE.Mesh(g, m.material);
+  out.rotation.y = RAMP_MODEL.yaw;
+  const holder = new THREE.Group();
+  holder.add(out);
+  const box = new THREE.Box3().setFromObject(holder);
+  const k = 1 / Math.max(1e-6, box.max.x - box.min.x);
+  holder.scale.setScalar(k);
+  box.setFromObject(holder);
+  holder.position.set(-(box.min.x + box.max.x) / 2, -box.min.y, -(box.min.z + box.max.z) / 2);
+  const wrap = new THREE.Group();
+  wrap.add(holder);
+  wrap.traverse(o => { if ((o as THREE.Mesh).isMesh) { o.castShadow = true; o.receiveShadow = true; } });
+  return wrap;
+}
+
+/** Loads the ramp model once; every ramp on the table (and later ones) then shows it instead of the placeholder. */
+export async function useRampModel(url: string, load: (url: string) => Promise<THREE.Object3D | null>): Promise<void> {
+  const scene = await load(url);
+  rampModel = scene ? cutRamp(scene) : null;
+  if (rampModel) for (const slot of rampSlots) fillRamp(slot);
+}
+
+function fillRamp(slot: THREE.Group): void {
+  const space = slot.userData.space as number;
+  slot.clear();
+  if (rampModel) {
+    const m = rampModel.clone(true);
+    m.scale.setScalar(space * RAMP_MODEL.length);
+    slot.add(m);
+  } else slot.add(makeRamp(space));
+}
+
+/** A ramp `space` world units long, rising toward +x: the model when loaded, else the placeholder. */
+export function rampPiece(space: number): THREE.Group {
+  const slot = new THREE.Group();
+  slot.userData.space = space;
+  rampSlots.add(slot);
+  fillRamp(slot);
+  return slot;
+}
+
 /** The ramps standing on a face's ramp spaces, or null when it has none. */
 export function buildRamps(tile: TileData, o: CarnagePieceOptions): THREE.Group | null {
   const cells = cellsOf(tile, 'P', o);
@@ -215,7 +382,7 @@ export function buildRamps(tile: TileData, o: CarnagePieceOptions): THREE.Group 
   const space = GRID.pitch * o.width / GRID.frameW;
   const g = new THREE.Group();
   for (const c of cells) {
-    const ramp = makeRamp(space);
+    const ramp = rampPiece(space);
     ramp.position.set(c.x, 0, c.z);
     g.add(ramp);
   }

@@ -96,6 +96,8 @@ const RELIEF_SEG: [number, number] = [500, 380];
 interface ReliefTextures {
   albedo: THREE.Texture | null; normal: THREE.Texture | null; rough: THREE.Texture | null;
   mask: THREE.Texture | null; height: THREE.Texture | null; scale: number; bias: number;
+  /** Embers that give off light (Carnage at Devil's Run burnt ground), when the face has fire. */
+  glow?: THREE.Texture | null;
 }
 
 /** A face in relief: a plane displaced by the height map, cut to the tile by the outline map. */
@@ -104,6 +106,7 @@ function reliefMesh(t: ReliefTextures, width: number, depth: number, top: number
     map: t.albedo, normalMap: t.normal, roughnessMap: t.rough, alphaMap: t.mask,
     displacementMap: t.height, displacementScale: t.scale, displacementBias: t.bias,
     alphaTest: 0.5, roughness: 1, metalness: 0,
+    ...(t.glow ? { emissiveMap: t.glow, emissive: new THREE.Color('#ff5a12'), emissiveIntensity: 1.6 } : {}),
   });
   const mesh = new THREE.Mesh(new THREE.PlaneGeometry(width, depth, ...RELIEF_SEG), mat);
   mesh.rotation.x = -Math.PI / 2;
@@ -218,6 +221,7 @@ function proceduralRelief(tile: TileData, players: number | undefined, width: nu
         rough: dataTexture(m.rough, m.w, m.h, 1), mask: dataTexture(m.mask, m.w, m.h, 1), height: dataTexture(hb, m.w, m.h, 1),
         // grey g (0..1) -> h = H_MIN + range g -> world amp (h + 1) above `top`
         scale: amp * range, bias: amp * (H_MIN + 1),
+        ...(m.glow ? { glow: dataTexture(m.glow, m.w, m.h, 1) } : {}),
       },
       info: dataTexture(m.info.data, m.info.w, m.info.h, 4, true),
       height: m.height, w: m.w, h: m.h,

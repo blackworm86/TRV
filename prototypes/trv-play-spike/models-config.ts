@@ -14,6 +14,8 @@ export const MODEL = {
   chopper: file('Chopper.glb'),
   /** Wreck variants; each wreck on the table takes one, by its id. Add files here as they come. */
   wrecks: [file('wreck_1.glb')],
+  /** Carnage at Devil's Run: the launch ramp (Meshy, from design/art/carnage-ramp-prompts.md). */
+  ramp: file('Ramp.glb'),
 };
 
 /**
