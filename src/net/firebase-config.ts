@@ -15,4 +15,10 @@ export interface FirebaseConfig {
   appId: string;
 }
 
-export const FIREBASE_CONFIG: FirebaseConfig | null = null;
+export const FIREBASE_CONFIG: FirebaseConfig | null = {
+  apiKey: 'AIzaSyBheLMA9Os-Mlw_A3HWSDsaSmzpAOkSt7w',
+  authDomain: 'trv-online.firebaseapp.com',
+  databaseURL: 'https://trv-online-default-rtdb.europe-west1.firebasedatabase.app',
+  projectId: 'trv-online',
+  appId: '1:298796497560:web:a7a607af17b20cc0482eed',
+};
