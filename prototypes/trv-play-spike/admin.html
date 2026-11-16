@@ -43,6 +43,7 @@
   /* Inspector. */
   #app { height: 100%; display: grid; grid-template-rows: auto 1fr; }
   #app > header { display: flex; align-items: center; gap: 16px; padding: 10px 20px; border-bottom: 1px solid var(--line); background: var(--surface); }
+  a.btn.back { text-decoration: none; display: inline-flex; align-items: center; }
   #app > header h1 { font-size: 30px; color: var(--accent); }
   #app > header .who { margin-left: auto; color: var(--muted); font-size: 13px; }
   .layout { display: grid; grid-template-columns: 230px 1fr; min-height: 0; }
@@ -95,6 +96,7 @@
     <h1>Area admin</h1>
     <p>Ispettore degli asset di Thunder Road Vendetta: anteprime di tutti i pezzi e template modificabili da scaricare. Riservato agli amministratori.</p>
     <button class="btn" id="google">Accedi con Google</button>
+    <a class="btn ghost back" href="./">← Torna al gioco</a>
     <p class="err" id="login-err"></p>
   </div>
 </section>
@@ -112,7 +114,7 @@
       <li>Controlla che le regole pubblicate contengano la sezione <code>admins</code> di <code>database.rules.json</code>.</li>
       <li>Torna qui e ricarica la pagina.</li>
     </ol>
-    <p><button class="btn ghost" id="denied-out">Esci</button> <button class="btn" id="denied-retry">Ricarica</button></p>
+    <p><a class="btn ghost back" href="./">← Torna al gioco</a> <button class="btn ghost" id="denied-out">Esci</button> <button class="btn" id="denied-retry">Ricarica</button></p>
   </div>
 </section>
 
@@ -125,6 +127,7 @@
 
 <div id="app" hidden>
   <header>
+    <a class="btn ghost back" href="./" title="Torna al menu principale del gioco">← Torna al gioco</a>
     <h1>Ispettore asset</h1>
     <span id="art-note" style="color:var(--muted);font-size:13px"></span>
     <span class="who" id="who"></span>
