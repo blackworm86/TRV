@@ -61,9 +61,10 @@ qui ci sono lo stato attuale, le decisioni prese a voce e cosa resta da fare.
 - **Trappola**: l'utente vuole una buca 3D vera nella mappa, con rocce, cavalletti, coni e
   spazzatura, come in `pit3d.ts`. La prima versione dipinta è stata bocciata ("orrenda", lontana
   dall'artwork).
-- **Asset**: la grafica provvisoria va bene online. Gli asset licenziati vanno in
-  `assets/licensed/` e il regolamento in `reference/rulebook/`. Né gli uni né l'altro vanno mai su
-  git.
+- **Asset**: la grafica provvisoria va bene online. Gli asset licenziati stanno in
+  `assets/licensed/` e, con il permesso di Restoration Games, possono andare su git e sul sito
+  (decisione dell'utente, 2026-11-16; vedi `CLAUDE.md`). Il regolamento resta in
+  `reference/rulebook/`, fuori da git.
 - **Regole**: decide il regolamento, e le risposte dell'utente sono in `_rulings` nei file dati.
   Le domande ancora aperte sono nell'artefatto "Regole da decidere"
   (https://claude.ai/artifact/LaSFcU1W9DhTsJe5tBfDc9, collezione `items`). Quando l'utente dice di

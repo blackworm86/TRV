@@ -15,9 +15,11 @@ Lingua di lavoro con l'utente: **italiano**.
 - **Fonte delle regole**: il regolamento ufficiale fornito dall'utente
   (`reference/rulebook/`) è l'unica autorità. Non inventare né "ricordare"
   regole: se manca un dettaglio, chiedi.
-- **Asset**: grafica ufficiale fornita dall'utente. È materiale protetto da
-  copyright: sta in `assets/licensed/` (escluso da git) e non va mai in un
-  repository pubblico. Il codice è open source, gli asset no.
+- **Asset**: grafica ufficiale fornita dall'utente, in `assets/licensed/`. L'utente
+  sviluppa la versione digitale insieme a Restoration Games e ha il loro permesso
+  di pubblicarla: gli asset possono andare nel repository e sul sito (decisione
+  dell'utente, 2026-11-16). Il regolamento in `reference/rulebook/` resta fuori
+  da git.
 - **Modalità di gioco**: hot seat in locale (stesso dispositivo) **e** online
   remoto su internet, con server autorevole.
 - **Pull request**: dopo ogni push sul branch di lavoro, apri sempre (o aggiorna)

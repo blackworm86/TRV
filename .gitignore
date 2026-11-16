@@ -174,9 +174,25 @@ $RECYCLE.BIN/
 /reports/
 /test-results/
 
-# === Thunder Road Vendetta: asset ufficiali protetti (mai nel repo) ===
-assets/licensed/
+# === Thunder Road Vendetta: asset ufficiali ===
+# Con il permesso di Restoration Games (CLAUDE.md, 2026-11-16) vanno nel repository solo i
+# file che il gioco usa davvero; il pacchetto completo (4,5 GB, file oltre i 100 MB) resta fuori.
+/assets/licensed/*
+!/assets/licensed/vector/
+/assets/licensed/vector/*
+!/assets/licensed/vector/official.ts
+!/assets/licensed/vector/traced/
+/assets/licensed/vector/traced/*
+!/assets/licensed/vector/traced/dice.json
+!/assets/licensed/vector/traced/hazards.json
+!/assets/licensed/vector/traced/damage.json
+!/assets/licensed/vector/traced/boards.json
+!/assets/licensed/vector/fonts/
+/assets/licensed/vector/fonts/*
+!/assets/licensed/vector/fonts/CompactaBT-BoldItalic.json
+!/assets/licensed/vector/fonts/TradeGothicNextLTPro-Cn.json
 reference/rulebook/
+/rulebook/
 
 # === Web: Vite, Vitest and Playwright output ===
 dist-single/
