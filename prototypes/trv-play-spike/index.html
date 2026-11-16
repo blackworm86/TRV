@@ -112,26 +112,34 @@
   #prompt .passing { font-size: 13px; letter-spacing: 1.5px; text-transform: uppercase; opacity: .85; margin-right: 8px; }
   #prompt { font-size: 20px; padding: 0 8px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; flex: 1; min-width: 0; }
   #prompt b { font-family: 'League Gothic', Impact, sans-serif; font-weight: 400; font-size: 32px; margin-right: 8px; }
-  #actions { position: fixed; display: none; gap: 8px; transform: translateX(-50%); z-index: 4; padding: 7px; border-radius: 14px; animation: callout 1.5s ease-in-out infinite;
-    background: rgba(20,14,10,.85); box-shadow: 0 6px 18px rgba(0,0,0,.5); }
+  /* The choices: a slim pill by the action (user, 2026-11-16): question on the left, small buttons on the right. */
+  #actions { position: fixed; display: none; align-items: center; gap: 6px; transform: translateX(-50%); z-index: 4; padding: 5px 5px 5px 14px; border-radius: 999px;
+    background: rgba(18,14,11,.8); -webkit-backdrop-filter: blur(8px); backdrop-filter: blur(8px); border: 1px solid rgba(255,255,255,.07);
+    box-shadow: 0 0 0 1.5px var(--who), 0 8px 22px rgba(0,0,0,.45); }
   #actions button, .tool { min-height: 32px; padding: 4px 12px; font: inherit; font-weight: 600; border: 0; border-radius: 9px;
     background: #e8742a; color: #1a120c; cursor: pointer; white-space: nowrap; }
-  #actions button { min-height: 46px; padding: 8px 18px; font-size: 17px; }
+  #actions button { display: inline-flex; align-items: center; gap: 6px; min-height: 32px; padding: 4px 14px; font-size: 14.5px; border-radius: 999px; transition: filter .12s, transform .12s; }
+  #actions button:hover { filter: brightness(1.12); transform: translateY(-1px); }
+  #actions button kbd { padding: 0 4px; border-radius: 4px; background: rgba(0,0,0,.18); font: 600 10.5px system-ui, sans-serif; opacity: .75; }
   .tool { background: #3b2d22; color: var(--ink); font-weight: 500; }
   /* Bar tools say what they do: a sign and a word. */
   #bar .tool { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 1px; min-width: 64px; min-height: 46px; padding: 3px 10px; font-size: 19px; line-height: 1; }
   #bar .tool small { font-size: 12.5px; letter-spacing: .3px; opacity: .85; }
   #bar .tool:disabled { opacity: .35; cursor: default; }
   /* The question over the choices (or alone, where the player must act on the table). */
-  #actions { flex-wrap: wrap; justify-content: center; width: max-content; max-width: 280px; }
-  #actions .q { flex-basis: 100%; text-align: center; font: 400 24px/1.05 'League Gothic', Impact, sans-serif; letter-spacing: .5px; color: var(--ink); padding: 2px 8px; }
+  #actions { flex-wrap: nowrap; justify-content: center; width: max-content; max-width: min(560px, 92vw); }
+  #actions .q { font: 400 20px/1 'League Gothic', Impact, sans-serif; letter-spacing: .5px; color: var(--ink); padding: 0 6px 0 0; white-space: nowrap; }
+  /* Many choices: they wrap under the question. */
+  #actions.many { flex-wrap: wrap; border-radius: 16px; padding: 7px; }
+  #actions.many .q { flex-basis: 100%; text-align: center; padding: 2px 6px; }
   #replay.fresh { background: #d42f30; color: #fff; animation: callout 1.2s ease-in-out infinite; }
   #replaybadge { position: fixed; left: 50%; top: calc(var(--top) + 8px); transform: translateX(-50%); display: none; align-items: center; gap: 9px; z-index: 6; padding: 6px 16px;
     font: 400 26px/1 'League Gothic', Impact, sans-serif; letter-spacing: 2px; color: #fff; background: rgba(20,14,10,.9); border: 2px solid #d42f30; border-radius: 10px; }
   #replaybadge.show { display: flex; }
   #replaybadge i { width: 12px; height: 12px; border-radius: 50%; background: #ff3b30; animation: blink 1s steps(2, start) infinite; }
   @keyframes blink { to { visibility: hidden; } }
-  #actions.only { pointer-events: none; animation: none; padding: 5px 8px; box-shadow: 0 0 0 2px var(--who), 0 6px 18px rgba(0,0,0,.5); }
+  #actions.only { pointer-events: none; padding: 6px 14px; }
+  #actions.only .q { padding: 0; }
   /* The quieter choice is still a choice: light enough to be seen at once. */
   #actions button.quiet { background: #efe3cf; color: #1a120c; font-weight: 600; }
   @keyframes callout { 0%, 100% { box-shadow: 0 6px 18px rgba(0,0,0,.5), 0 0 0 2px var(--who); } 50% { box-shadow: 0 6px 18px rgba(0,0,0,.5), 0 0 0 5px var(--who), 0 0 22px 4px var(--who); } }

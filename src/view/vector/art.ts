@@ -5,6 +5,7 @@
 
 import { makeBoards, STRIP_BOX, STRIP_BOX_TALL, LEAD_PANEL_W, LEAD_NAME_H } from './boards';
 import { ownerDieFaces, OWNER_DIE_ORDER } from './dice';
+import { ownerDamage as cutOwnerDamage, FRONT_FIELD } from './damage';
 
 /** Board-absolute direction names used by the rules (src/game/trv/engine.ts). */
 export type ArtDir = 'F' | 'FL' | 'FR' | 'B' | 'BL' | 'BR';
@@ -78,6 +79,9 @@ const ownerDiceRaw: Record<string, string | undefined> = {
 };
 const ownerDice = new Map<string, Map<string, string>>();
 for (const [kind, raw] of Object.entries(ownerDiceRaw)) if (raw) ownerDice.set(kind, ownerDieFaces(raw, OWNER_DIE_ORDER[kind]));
+// The owner's drawing of the damage token outline, front and back (./damage.ts): it wins too.
+const damageRaw = Object.values(import.meta.glob<string>('/assets/ui/damage/template.svg', { eager: true, query: '?raw', import: 'default' }))[0];
+const ownerDamage = damageRaw ? cutOwnerDamage(damageRaw) : null;
 /** True when the boards come from the owner's drawing. */
 export const USER_BOARDS = !!boardsRaw;
 let userBoards: ReturnType<typeof makeBoards> | null | undefined;
@@ -227,10 +231,14 @@ const DAMAGE_TITLE: Record<string, string> = { shrapnel: 'SCHEGGE', dazed: 'STOR
 
 /** Damage token, 110 x 100, torn bottom edge. faceUp=false draws the back (brake warning). */
 export function damageTokenSvg(type: string | null, faceUp: boolean, dir?: ArtDir, extra = ''): string {
-  const o = off()?.damageTokenSvg(type, faceUp, dir, extra);
-  if (o) return o;
+  const own = ownerDamage;
+  if (!own) {
+    const o = off()?.damageTokenSvg(type, faceUp, dir, extra);
+    if (o) return o;
+  }
   const outline = 'M6 6 H104 V84 L92 76 L80 92 L66 80 L52 94 L38 80 L24 92 L14 80 L6 86 Z';
   if (!faceUp || !type) {
+    if (own) return svg(110, 100, own.back, extra);
     return svg(110, 100, `<path d="${outline}" fill="#15171c" stroke="#000" stroke-width="2"/>`
       + `<g fill="none" stroke="${PALETTE.hazardRed}" stroke-width="5"><circle cx="55" cy="44" r="18"/><path d="M30 26 A30 30 0 0 0 30 62 M80 26 A30 30 0 0 1 80 62"/></g>`
       + `<path d="M55 33 V47" stroke="${PALETTE.hazardRed}" stroke-width="6"/><circle cx="55" cy="54" r="3.5" fill="${PALETTE.hazardRed}"/>`, extra);
@@ -245,12 +253,19 @@ export function damageTokenSvg(type: string | null, faceUp: boolean, dir?: ArtDi
     case 'blastoff': icon = mini('direction', 18, 'F') + `<text x="56" y="66" text-anchor="middle" font-size="18" fill="${PALETTE.cream}" ${FONT}>+</text>` + mini('stunt', 66, 4); break;
     case 'on_fire': icon = `<path d="M55 42 C66 54 72 62 66 76 C62 86 46 86 42 76 C38 66 48 60 50 50 C54 58 56 54 55 42Z" fill="${PALETTE.fireOrange}"/>`; break;
     case 'ongoing_effect': icon = `<rect x="38" y="42" width="26" height="36" rx="3" fill="${PALETTE.cream}" transform="rotate(-10 51 60)"/><rect x="48" y="44" width="26" height="36" rx="3" fill="${PALETTE.cream}" stroke="#15171c" stroke-width="2"/><path d="M53 54 H69 M53 61 H69 M53 68 H64" stroke="#15171c" stroke-width="2.5"/>`; break;
+    case 'dent': icon = `<path d="M55 41 L59 52 L71 47 L64 58 L76 63 L63 66 L67 79 L56 71 L46 80 L47 67 L34 64 L45 58 L38 47 L50 52Z" fill="none" stroke="${PALETTE.cream}" stroke-width="3" stroke-linejoin="round"/>`; break;
     case 'skid': {
       // Board directions with forward to the right: F east, FL north-east, FR south-east, ...
       const ang: Record<string, number> = { F: 0, FR: 60, BR: 120, B: 180, BL: 240, FL: 300 };
       icon = `<g transform="translate(55 60) rotate(${ang[dir ?? 'F'] ?? 0})"><path d="M-22 -9 H-4 L4 0 L-4 9 H-22 L-14 0Z" fill="none" stroke="${PALETTE.cream}" stroke-width="3"/><path d="M0 -9 H18 L26 0 L18 9 H0 L8 0Z" fill="${PALETTE.cream}"/></g>`;
       break;
     }
+  }
+  const title = `<text x="55" y="31" text-anchor="middle" font-size="20" fill="${PALETTE.cream}" ${FONT}>${DAMAGE_TITLE[type] ?? esc(type)}</text>`;
+  if (own) {
+    // The title band is joined to the top of the owner's red frame.
+    const f = FRONT_FIELD;
+    return svg(110, 100, own.front + `<rect x="${f.x}" y="${f.y - 0.5}" width="${f.right - f.x}" height="${36 - f.y + 0.5}" fill="${PALETTE.hazardRed}"/>` + title + icon, extra);
   }
   return svg(110, 100, `<path d="${outline}" fill="#15171c" stroke="${PALETTE.hazardRed}" stroke-width="6"/>`
     + `<rect x="10" y="12" width="90" height="24" fill="${PALETTE.hazardRed}" opacity=".9"/>`

@@ -2,6 +2,7 @@ import { readFileSync } from 'node:fs';
 import { describe, it, expect } from 'vitest';
 import rules from '../../../data/trv/game_base.json';
 import { ownerDieFaces, OWNER_DIE_ORDER } from '../../../src/view/vector/dice';
+import { ownerDamage } from '../../../src/view/vector/damage';
 import { dieSvg, hazardTokenSvg, damageTokenSvg, dashboardSvg, commandBoardSvg } from '../../../src/view/vector/art';
 
 describe('vector art', () => {
@@ -41,5 +42,23 @@ describe('vector art', () => {
     expect(dieSvg({ kind: 'direction', value: 'FL' })).toContain('rotate(90 50 50)');
     expect(dieSvg({ kind: 'slam', value: 'top' })).toContain('#dc2f37');
     expect(dieSvg({ kind: 'slam', value: 'top' })).not.toBe(dieSvg({ kind: 'slam', value: 'bottom' }));
+  });
+  it('cuts front and back out of the owner’s damage token template', () => {
+    const own = ownerDamage(readFileSync('assets/ui/damage/template.svg', 'utf8'));
+    expect(own).not.toBeNull();
+    for (const side of [own!.front, own!.back]) {
+      expect(side).not.toContain('class=');
+      expect(side).toContain('#15171c');
+    }
+    expect(own!.front).toContain('#d42a2f'); // the red frame
+    expect(own!.back).toContain('stroke="#d42a2f"'); // the warning sign
+  });
+  it('draws every damage token on the owner’s outline, with its title', () => {
+    for (const type of ['shrapnel', 'dazed', 'dent', 'skid', 'blastoff', 'on_fire', 'ongoing_effect']) {
+      const s = damageTokenSvg(type, true, 'FL');
+      expect(s).toContain('translate(-33.09 -44)');
+      expect(s).toMatch(/<text[^>]*>[A-Z ]+<\/text>/);
+    }
+    expect(damageTokenSvg(null, false)).toContain('translate(-293.09 -44)');
   });
 });

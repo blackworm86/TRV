@@ -231,6 +231,8 @@ scene.add(markerGroup);
 const DIE_W = sizeOf(CAT, 'die')[0] * MM;
 // Rolled dice are shown at twice their size, so their faces read from the camera.
 const TRAY_SCALE = 2;
+/** FX dice land among the cars: a little smaller than the player's own, so they hide less of the road. */
+const FX_SCALE = 1.6;
 const TRAY_Z = TILE_H / 2 + 0.9;
 interface TableDie { kind: string; d: Die3D; from: THREE.Vector3; to: THREE.Vector3; q0: THREE.Quaternion; q1: THREE.Quaternion; t: number }
 let trayDice: TableDie[] = [];
@@ -939,16 +941,29 @@ function playBeats(frames: Frame[]): void {
 /** Jumps to the end of the replay. */
 function skipBeats(): void {
   if (!playing) return;
-  for (const f of queue) if (f.kind === 'log') toastLine(f);
+  for (const f of queue) {
+    if (f.kind === 'log') { toastLine(f); if (f.logKind === 'turn') trayFresh = true; }
+    // The dice rolled in the skipped beats still lie by the action, at rest: a question may be about them.
+    if (f.kind === 'roll' && !replaying) rollOnTable(f);
+  }
+  for (const td of trayDice) { td.t = 1; td.d.mesh.position.copy(td.to); td.d.mesh.quaternion.copy(td.q1); }
   queue.length = 0;
   $('roundbox').classList.remove('show');
   finishBeats();
 }
 
+/** Questions about the FX dice just rolled: asked beside them, with the view close on them. */
+const FX_ASK = new Set<string>(['slamReroll', 'shootReroll', 'dirReroll']);
+
 function finishBeats(): void {
   playing = false;
   if (replaying) endReplay();
-  actionDone();
+  // A question about the dice just rolled keeps the action camera close on them (it comes there
+  // when the beats were skipped); any other moment brings the view back.
+  if (decision && FX_ASK.has(decision.kind) && trayDice.length) {
+    const c = trayDice.reduce((a, t) => a.add(t.to), new THREE.Vector3()).multiplyScalar(1 / trayDice.length);
+    actionShot(c);
+  } else actionDone();
   render();
 }
 
@@ -1274,7 +1289,11 @@ function flash(id: string): void {
   } });
 }
 
-/** A rolled FX die tumbles onto the table just below the road, near the car that rolled it. */
+/**
+ * A rolled FX die tumbles onto the road right beside the car that rolled it, where the action is
+ * (asked by the user, 2026-11-16: the dice must stay in view), on a free spot: off the cars,
+ * the spaces that can be picked and the other dice, inside the road.
+ */
 function rollOnTable(f: Frame): void {
   if (!f.die) return;
   if (trayFresh) { for (const t of trayDice) scene.remove(t.d.mesh); trayDice = []; trayFresh = false; }
@@ -1283,26 +1302,13 @@ function rollOnTable(f: Frame): void {
   if (old >= 0) scene.remove(trayDice[old].d.mesh); // its materials are shared by every die: keep them
   const i = old >= 0 ? old : trayDice.length;
   const car = f.snap.vehicles.find(v => v.id === f.snap.activeCar);
-  const cx = THREE.MathUtils.clamp(car?.pos ? world(car.pos).x : BOARD_X0 + 2, BOARD_X0 + 1, BOARD_X0 + 2 * PITCH_W + TILE_W - 8);
   const d = makeDie(FACES, f.die.die, DIE_W);
-  d.mesh.scale.setScalar(TRAY_SCALE);
-  // Dice are solid: each one lands on a spot of its own. Slots are a die's diagonal plus a gap
-  // apart (a die may land a little turned); the first free one nearest the car is taken.
-  const step = DIE_W * TRAY_SCALE * 1.6;
-  const others = trayDice.filter((t, k) => k !== i && t);
-  const free = (x: number, z: number): boolean => others.every(t => Math.abs(t.to.x - x) >= step - 1e-6 || Math.abs(t.to.z - z) >= step - 1e-6)
-    && tableDice.every(t => Math.abs(t.base.x - x) >= step - 1e-6 || Math.abs(t.base.z - z) >= step - 1e-6); // the player's own dice lie there too
+  d.mesh.scale.setScalar(FX_SCALE);
+  const half = DIE_W * FX_SCALE / 2;
   let to = old >= 0 ? trayDice[old].to.clone() : null;
-  for (let row = 0; !to && row < 3; row++) {
-    for (let n = 0; n < 40; n++) {
-      const j = n % 2 ? (n + 1) / 2 : -n / 2; // 0, 1, -1, 2, -2…
-      const x = cx + j * step, z = TRAY_Z + row * step;
-      if (x < BOARD_X0 + 0.5 || !free(x, z)) continue;
-      to = new THREE.Vector3(x, DIE_W * TRAY_SCALE / 2, z);
-      break;
-    }
-  }
-  to ??= new THREE.Vector3(cx, DIE_W * TRAY_SCALE / 2, TRAY_Z + 5 * step);
+  if (!to && car?.pos) to = fxSpot(world(car.pos), trayDice.filter((t, k) => k !== i && t).map(t => t.to), f.snap);
+  to ??= new THREE.Vector3(BOARD_X0 + 2 + i * DIE_W * FX_SCALE * 1.6, DIE_W * TRAY_SCALE / 2, TRAY_Z);
+  to.y = Math.max(to.y, half);
   // Dropped from above with a little drift, less than the gap between slots: it never crosses a neighbour.
   const from = to.clone().add(new THREE.Vector3((Math.random() - 0.5) * 0.4, 3.2, (Math.random() - 0.5) * 0.3));
   const q1 = d.orientation(f.die.face, f.die.die === 'direction' ? FORWARD : AWAY)
@@ -1312,6 +1318,35 @@ function rollOnTable(f: Frame): void {
   d.mesh.quaternion.copy(q0);
   scene.add(d.mesh);
   trayDice[i] = { kind: f.die.die, d, from, to, q0, q1, t: 0 };
+}
+
+/**
+ * Where an FX die lands near the car at `c`: the free spot nearest the car, on the camera's side
+ * first. Spots are tried on two rings around the car; a spot is free when it is on the road and
+ * clear of every vehicle, every space that can be picked and the dice already there.
+ */
+function fxSpot(c: THREE.Vector3, dice: THREE.Vector3[], snap: Frame['snap']): THREE.Vector3 | null {
+  const space = GRID.pitch * KX; // one road space, in world units
+  const gap = DIE_W * FX_SCALE * 1.5;
+  const cars = snap.vehicles.filter(v => v.pos && v.status !== 'elim').map(v => world(v.pos!));
+  const roadZ = TILE_H / 2 - DIE_W * FX_SCALE;
+  let best: THREE.Vector3 | null = null, bestScore = Infinity;
+  for (const r of [0.95, 1.25, 1.5, 1.8, 2.1]) {
+    for (let a = 0; a < 24; a++) {
+      const ang = (a / 24) * Math.PI * 2;
+      const p = new THREE.Vector3(c.x + Math.cos(ang) * r * space, c.y + DIE_W * FX_SCALE / 2, c.z + Math.sin(ang) * r * space);
+      if (Math.abs(p.z) > roadZ || p.x < BOARD_X0 + 0.5) continue;
+      if (cars.some(v => Math.hypot(v.x - p.x, v.z - p.z) < space * 0.75)) continue;
+      if (markers.some(m => Math.hypot(m.at.x - p.x, m.at.z - p.z) < space * 0.6)) continue;
+      if (dice.some(q => Math.hypot(q.x - p.x, q.z - p.z) < gap)) continue;
+      // Nearer is better; toward the camera (down the screen) a little better, so the car stays readable;
+      // the dice of one event keep together, so next to a die already there is best of all.
+      const near = dice.length ? Math.min(...dice.map(q => Math.hypot(q.x - p.x, q.z - p.z))) / space : 0;
+      const score = r * 10 - Math.sin(ang) * 2 + near * 25;
+      if (score < bestScore) { bestScore = score; best = p; }
+    }
+  }
+  return best;
 }
 
 /** Start of a round: every crew rolls its movement dice, the first player rolls the road die. */
@@ -1604,8 +1639,16 @@ function drawHud(): void {
   const asked = d && (d.kind === 'command' || d.kind === 'token') ? '' : d ? ASK[d.kind] ?? (['plow', 'rollCage', 'dispense', 'radar', 'swap', 'pickDamage', 'redButton'].includes(d.kind) ? d.prompt.replace(/^[^:]+: /, '') : '') : '';
   if (asked) actions.insertAdjacentHTML('afterbegin', `<span class="q">${esc(asked)}</span>`);
   actions.classList.toggle('only', !actions.querySelector('button'));
+  actions.classList.toggle('many', actions.querySelectorAll('button').length > 3);
+  // Keys: Enter for the main choice, Esc for the quiet one (no, keep, stop), shown on the buttons.
+  const btns = [...actions.querySelectorAll<HTMLButtonElement>('button')];
+  const main = btns.find(b => !b.classList.contains('quiet')), quiet = btns.find(b => b.classList.contains('quiet'));
+  if (main && btns.length <= 3) { main.dataset.key = 'Enter'; main.insertAdjacentHTML('beforeend', '<kbd>↵</kbd>'); }
+  if (quiet && btns.length <= 3) { quiet.dataset.key = 'Escape'; quiet.insertAdjacentHTML('beforeend', '<kbd>Esc</kbd>'); }
   actions.dataset.car = g.activeCar ?? '';
-  actions.dataset.anchor = d?.kind === 'command' || d?.kind === 'token' ? 'dice' : g.activeCar ? 'car' : 'bar';
+  // A question about dice just rolled sits beside those dice; the others by the car, or the bar.
+  const aboutFx = !!d && FX_ASK.has(d.kind) && trayDice.length > 0;
+  actions.dataset.anchor = d?.kind === 'command' || d?.kind === 'token' ? 'dice' : aboutFx ? 'fx' : g.activeCar ? 'car' : 'bar';
   if ($('drawer').style.display === 'block') drawDrawer();
 
   // The four steps of a turn (rulebook p. 8), the current one lit.
@@ -1821,6 +1864,20 @@ function tableDieAt(e: PointerEvent): number {
 }
 
 /** The dice row on screen (for placing the choices beside it), or null with no dice. */
+/** Where the FX dice just rolled are on screen (their landing spots), or null when there are none. */
+function fxDiceRect(): { left: number; right: number; top: number; bottom: number } | null {
+  if (!trayDice.length) return null;
+  const rect = renderer.domElement.getBoundingClientRect();
+  const half = DIE_W * FX_SCALE * 0.6;
+  let l = Infinity, r = -Infinity, t = Infinity, b = -Infinity;
+  for (const d of trayDice) for (const dx of [-half, half]) for (const dz of [-half, half]) for (const dy of [-half, half]) {
+    const q = d.to.clone().add(new THREE.Vector3(dx, dy, dz)).project(camera);
+    const x = rect.left + (q.x * 0.5 + 0.5) * rect.width, y = rect.top + (-q.y * 0.5 + 0.5) * rect.height;
+    l = Math.min(l, x); r = Math.max(r, x); t = Math.min(t, y); b = Math.max(b, y);
+  }
+  return { left: l, right: r, top: t, bottom: b };
+}
+
 function tableDiceRect(): { left: number; right: number; top: number; bottom: number } | null {
   if (!tableDice.length) return null;
   const rect = renderer.domElement.getBoundingClientRect();
@@ -1960,6 +2017,12 @@ addEventListener('pointerup', e => {
 });
 
 addEventListener('keydown', e => { if (!menuOpen() && playing && (e.key === ' ' || e.key === 'Enter')) { e.preventDefault(); skipBeats(); } });
+// The floating choices answer to Enter and Esc (marked on their buttons), once the animations are over.
+addEventListener('keydown', e => {
+  if (playing || menuOpen() || typing(e) || e.ctrlKey || e.metaKey || e.altKey) return;
+  const b = $('actions').querySelector<HTMLButtonElement>(`button[data-key="${e.key}"]`);
+  if (b && $('actions').style.display !== 'none') { e.preventDefault(); b.click(); }
+});
 
 // ---------------------------------------------------------------- camera keys
 // WASD (or arrows) slide the view over the table; Tab / Shift+Tab jump between the cars of the
@@ -2907,24 +2970,35 @@ function placeActions(): void {
     x = dice.right + 18 + w / 2;
     top = Math.min(floor - h, dice.top - 4); // level with the dice, hanging toward the strip rather than over the road
   }
+  const fx = el.dataset.anchor === 'fx' ? fxDiceRect() : null;
   const o = el.dataset.anchor === 'car' && el.dataset.car ? carObjs.get(el.dataset.car) : undefined;
-  if (o) {
-    // Around the car, wherever it hides the least: the spaces that can be picked (targets, moves)
-    // and the vehicles must stay in view. Under the car first, then behind it, above, ahead.
+  const anchor = fx ? trayDice[0].to : o?.position;
+  if (anchor) {
+    // Wherever it hides the least: the spaces that can be picked (targets, moves), the vehicles
+    // and the dice just rolled must stay in view. Beside the dice (asked by the user, 2026-11-16),
+    // else around the car: under it first, then behind it, above, ahead.
     const screen = (p: THREE.Vector3): [number, number] => {
       const q = p.clone().project(camera);
       return [rect.left + (q.x * 0.5 + 0.5) * rect.width, rect.top + (-q.y * 0.5 + 0.5) * rect.height];
     };
-    const [gx, gy] = screen(o.position);
-    const space = Math.abs(screen(o.position.clone().add(new THREE.Vector3(1, 0, 0)))[0] - gx); // a world unit, in pixels
+    const [gx, gy] = screen(anchor);
+    const space = Math.abs(screen(anchor.clone().add(new THREE.Vector3(1, 0, 0)))[0] - gx); // a world unit, in pixels
     const keep: [number, number, number, number][] = []; // left, top, right, bottom of what must stay visible
     for (const m of markers) { const [mx, my] = screen(m.at); keep.push([mx - space * 0.75, my - space * 0.5, mx + space * 0.75, my + space * 0.5]); }
     for (const c of carObjs.values()) { const [cx, cy] = screen(c.position); keep.push([cx - space * 0.6, cy - space * 0.55, cx + space * 0.6, cy + space * 0.3]); }
-    const gap = space * 0.75 + 10;
-    const spots: [number, number][] = [
-      [gx, gy + space * 0.35 + 8], [gx - w / 2 - gap, gy - h / 2], [gx, gy - space * 0.7 - h - 8], [gx + w / 2 + gap, gy - h / 2],
-      [gx - w / 2 - gap, gy + space * 0.5], [gx - w / 2 - gap, gy - space * 0.6 - h], [gx, gy + space * 1.1], [gx, gy - space * 1.5 - h],
-    ];
+    let spots: [number, number][];
+    if (fx) {
+      keep.push([fx.left - 6, fx.top - 6, fx.right + 6, fx.bottom + 6]);
+      const cx = (fx.left + fx.right) / 2, cy = (fx.top + fx.bottom) / 2, rx = fx.right + 14 + w / 2, lx = fx.left - 14 - w / 2;
+      spots = [[rx, cy - h / 2], [lx, cy - h / 2], [cx, fx.bottom + 12], [cx, fx.top - 12 - h],
+        [rx, fx.bottom + 6], [lx, fx.bottom + 6], [rx, fx.top - 6 - h], [lx, fx.top - 6 - h]];
+    } else {
+      const gap = space * 0.75 + 10;
+      spots = [
+        [gx, gy + space * 0.35 + 8], [gx - w / 2 - gap, gy - h / 2], [gx, gy - space * 0.7 - h - 8], [gx + w / 2 + gap, gy - h / 2],
+        [gx - w / 2 - gap, gy + space * 0.5], [gx - w / 2 - gap, gy - space * 0.6 - h], [gx, gy + space * 1.1], [gx, gy - space * 1.5 - h],
+      ];
+    }
     let best = Infinity;
     for (const [sx, sy] of spots) {
       const cx = Math.max(w / 2 + 8, Math.min(innerWidth - w / 2 - 8, sx)), ty = Math.max(cssPx('--top'), Math.min(floor - h, sy));
