@@ -42,13 +42,18 @@
     "direction": ["F", "FL", "FR", "B", "BL", "BR"]
   },
   "hazard_tokens": { "mud": 6, "road": 6, "oil": 6, "mine": 4, "wreck": 4 },
-  "_damage_tokens_note": "4 of each kind, as on the components. The summary sheet TRV - All official dice, boards, cards and tokens lists other counts (Blast off 5, Dazed 3, Dent 3, Shrapnel 3, Skid 6): those include tokens added by expansions; the base game stays as it is (rules owner, 2026-11-16).",
+  "_damage_tokens_note": "20 tokens (rulebook p3). Counts from the summary sheet TRV - All official dice, boards, cards and tokens: Blast off 5, Dazed 3, Dent 3, Shrapnel 3, Skid 6, one Skid per direction (rules owner, 2026-11-16, artifact \"Regole da decidere\" base-01).",
   "damage_tokens": [
-    { "type": "shrapnel", "count": 4 },
-    { "type": "dazed", "count": 4 },
-    { "type": "dent", "count": 4 },
-    { "type": "skid", "dir": "F", "count": 4 },
-    { "type": "blastoff", "count": 4 }
+    { "type": "shrapnel", "count": 3 },
+    { "type": "dazed", "count": 3 },
+    { "type": "dent", "count": 3 },
+    { "type": "skid", "dir": "F", "count": 1 },
+    { "type": "skid", "dir": "FL", "count": 1 },
+    { "type": "skid", "dir": "FR", "count": 1 },
+    { "type": "skid", "dir": "B", "count": 1 },
+    { "type": "skid", "dir": "BL", "count": 1 },
+    { "type": "skid", "dir": "BR", "count": 1 },
+    { "type": "blastoff", "count": 5 }
   ],
   "commands": {
     "airstrike": [1, 2, 3, 4, 5, 6],

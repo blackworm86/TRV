@@ -150,9 +150,12 @@ export function checkAgainstRules(c: Catalog): string[] {
     const comp = ofKind(c, 'hazard_token').find(x => x.rule === type);
     if (!comp || comp.count !== n) out.push(`hazard ${type}: catalog ${comp?.count ?? 0}, rules ${n}`);
   }
-  for (const d of rules.damage_tokens as { type: string; count: number }[]) {
-    const comp = ofKind(c, 'damage_token').find(x => x.rule === d.type);
-    if (!comp || comp.count !== d.count) out.push(`damage ${d.type}: catalog ${comp?.count ?? 0}, rules ${d.count}`);
+  // A type can have several entries (Skid: one per direction), so compare per-type totals.
+  const damageTotals = new Map<string, number>();
+  for (const d of rules.damage_tokens as { type: string; count: number }[]) damageTotals.set(d.type, (damageTotals.get(d.type) ?? 0) + d.count);
+  for (const [type, n] of damageTotals) {
+    const comp = ofKind(c, 'damage_token').find(x => x.rule === type);
+    if (!comp || comp.count !== n) out.push(`damage ${type}: catalog ${comp?.count ?? 0}, rules ${n}`);
   }
   for (const t of rules.tiles as { tile: number; side: string }[]) {
     const comp = ofKind(c, 'road_tile').find(x => x.tile === t.tile);
