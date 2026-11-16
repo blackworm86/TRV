@@ -323,13 +323,6 @@ export function buildTile(tile: TileData, o: TileMeshOptions): THREE.Group {
     obstacles.position.y = o.thickness + amp * 1.2;
     group.add(obstacles);
   }
-  // Carnage at Devil's Run: flames on fire spaces and launch ramps on ramp spaces.
-  if (look !== 'flat') {
-    const fire = buildFireSpaces(tile, { width: o.width, depth: o.depth });
-    if (fire) { fire.position.y = o.thickness + amp * 0.6; group.add(fire); }
-    const ramps = buildRamps(tile, { width: o.width, depth: o.depth });
-    if (ramps) { ramps.position.y = o.thickness + amp * 1.1; group.add(ramps); }
-  }
   if (maps) {
     const relief = officialRelief(maps, o.width, o.depth, o.thickness, amp);
     group.add(relief.mesh);
@@ -343,6 +336,12 @@ export function buildTile(tile: TileData, o: TileMeshOptions): THREE.Group {
     group.add(relief.mesh, relief.info);
     group.userData.heightAt = relief.heightAt;
     group.userData.info = relief.info;
+    // Carnage at Devil's Run: fire on fire spaces and launch ramps on ramp spaces, standing on the ground there.
+    const ground = (px: number, py: number): number => o.thickness + relief.heightAt(px, py);
+    const fire = buildFireSpaces(tile, { width: o.width, depth: o.depth, ground });
+    if (fire) group.add(fire);
+    const ramps = buildRamps(tile, { width: o.width, depth: o.depth, ground });
+    if (ramps) group.add(ramps);
 
   } else {
     /** Height of the ground above the tile's cardboard top at a frame pixel (world units). */
