@@ -1,6 +1,6 @@
 import { describe, it, expect, afterEach } from 'vitest';
 import {
-  newGame, play, key, neighbor, terrainAt, tileDef, vehiclesAt, carnageNumbers, __test,
+  newGame, play, key, neighbor, terrainAt, tileDef, vehiclesAt, carnageNumbers, samePos, __test,
   type CarnageNumbers, type FireFace, type Game, type Vehicle, type Pos, type Decision,
 } from '../../../src/game/trv/engine';
 import base from '../../../data/trv/game_base.json';
@@ -349,5 +349,108 @@ describe('whole games with Carnage at Devil’s Run', () => {
     }
     expect(fires).toBeGreaterThan(0);
     expect(cards).toBeGreaterThan(0);
+  }, 60_000);
+});
+
+describe('ongoing effect cards', () => {
+  /** A car with ongoing effect card `card` under a damage token. */
+  const withCard = (g: Game, id: string, at: Pos, card: string): Vehicle => {
+    const v = place(g, id, at);
+    v.damage.push({ type: 'ongoing_effect', card });
+    return v;
+  };
+  it('Dead Alternator: when another car drives off the lead tile, the damaged car is eliminated', () => {
+    const g = game();
+    const v = withCard(g, 'p0M', { r: 2, c: 12 }, 'dead_alternator');
+    const runner = place(g, 'p1M', { r: 2, c: 23 });
+    run(__test.enter(g, runner, { r: 2, c: 24 }, { left: 1 }, 'F'));
+    expect(v.status).toBe('elim');
+    expect(runner.status).toBe('ok');
+  });
+  it('Shattered Windshield: the car is eliminated when it becomes inoperable', () => {
+    const g = game();
+    const v = withCard(g, 'p0M', AT, 'shattered_windshield');
+    run(__test.damageWith(g, v, { type: 'dent' }));
+    expect(v.status).toBe('elim');
+  });
+  it('Faulty Airbag: onto a face-down hazard the car is eliminated and the token stays face down', () => {
+    const g = game();
+    hazard(g, AT, 'mine', false);
+    const v = withCard(g, 'p0M', BEHIND, 'faulty_airbag');
+    run(__test.enter(g, v, AT, { left: 2 }, 'F'));
+    expect(v.status).toBe('elim');
+    expect(g.hazards.get(key(AT))!.faceUp).toBe(false);
+  });
+  it('Lost Tools: the car can be repaired only next to another of the player\'s cars', () => {
+    const g = game();
+    const v = withCard(g, 'p0M', AT, 'lost_tools');
+    run(__test.repair(g, g.players[0]));
+    expect(v.damage).toHaveLength(1);
+    place(g, 'p0S', neighbor(AT, 'F'));
+    run(__test.repair(g, g.players[0]));
+    expect(v.damage).toHaveLength(0);
+  });
+  it('Nitro Leak: a car involved in a slam is eliminated', () => {
+    const g = game();
+    const v = withCard(g, 'p0M', AT, 'nitro_leak');
+    const o = place(g, 'p1M', AT);
+    o.z = 9;
+    run(__test.slam(g, AT));
+    expect(v.status).toBe('elim');
+    expect(o.status).toBe('ok');
+  });
+  it('Bent Frame: the slammed car moves, without the slam die', () => {
+    for (let s = 0; s < 6; s++) {
+      const g = newGame({ seed: SEED.slice(0, 62) + s.toString(16).padStart(2, '0'), players: PLAYERS, startSide: 'a', carnage: fixture() });
+      g.hazards.clear();
+      const bottom = withCard(g, 'p0M', AT, 'bent_frame');
+      bottom.z = 1;
+      const top = place(g, 'p1M', AT);
+      top.z = 2;
+      run(__test.slam(g, AT));
+      expect(g.lastRoll.some(d => d.die === 'slam')).toBe(false);
+      expect(samePos(top.pos, AT)).toBe(true);
+    }
+  });
+  it('Bald Tires: a car moved by the direction die goes one space more', () => {
+    for (let s = 0; s < 6; s++) {
+      const g = newGame({ seed: SEED.slice(0, 62) + s.toString(16).padStart(2, '0'), players: PLAYERS, startSide: 'a', carnage: fixture() });
+      g.hazards.clear();
+      const far: Pos = { r: 2, c: 12 };
+      hazard(g, far, 'oil');
+      const v = withCard(g, 'p0M', neighbor(far, 'B'), 'bald_tires');
+      run(__test.enter(g, v, far, { left: 1 }, 'F'));
+      const d = g.lastRoll.filter(x => x.die === 'direction').pop()!.value as Parameters<typeof neighbor>[1];
+      if (v.status === 'elim') continue;
+      expect(v.pos).toEqual(neighbor(neighbor(far, d), d));
+    }
+  });
+  it('Loose Wiring, Cracked Flywheel, Nitro Leak and Exposed Hardware all happen in play', () => {
+    const said = new Set<string>();
+    for (let s = 1; s <= 40 && said.size < 3; s++) {
+      const g = newGame({ seed: s.toString(16).padStart(8, '0').padEnd(64, 'f'), players: PLAYERS, startSide: 'a',
+        carnage: { ...fixture(), damage: { on_fire: 0, ongoing_effect: 20 }, ongoing: ['loose_wiring', 'nitro_leak', 'cracked_flywheel', 'exposed_hardware'] } });
+      const it = play(g);
+      let r = it.next(0);
+      let x = s * 7919;
+      for (let k = 0; !r.done && k < 20000; k++) {
+        const d = r.value;
+        // Cracked Flywheel: at the start of a round with every car unmoved, only that car takes the die.
+        if (d.kind === 'assign') {
+          const fly = g.vehicles.find(v => v.owner === d.player && v.status === 'ok' && v.damage.some(t => t.card === 'cracked_flywheel'));
+          const mine = g.vehicles.filter(v => v.owner === d.player && v.status === 'ok');
+          if (fly && mine.every(v => !v.moved)) { expect(d.options.every(o => o.carId === fly.id)).toBe(true); said.add('flywheel'); }
+        }
+        x = (x * 1103515245 + 12345) & 0x7fffffff;
+        const safe = d.options.map((o, i) => ({ o, i })).filter(e => !e.o.danger);
+        const pool = safe.length ? safe : d.options.map((o, i) => ({ o, i }));
+        r = it.next(pool[x % pool.length].i);
+      }
+      for (const l of g.log) {
+        if (l.text.startsWith('Loose Wiring')) said.add('wiring');
+        if (l.text.startsWith('Nitro Leak')) said.add('leak');
+      }
+    }
+    expect([...said].sort()).toEqual(['flywheel', 'leak', 'wiring']);
   }, 60_000);
 });

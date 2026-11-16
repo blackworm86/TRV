@@ -735,5 +735,14 @@
       "source": "photo of the tile supplied by the rules owner, 2026-11-16"
     }
   ],
-  "_tiles_note": "Road tiles of the expansion, transcribed from photos (rows 0-5 from the left edge, columns 0-7 from the rear; odd rows half a space forward, as game_base.json). Ramps (P) are all printed facing forward. All 10 faces: 6a-10b (6a/6b..10a/10b are the two sides of one tile)."
+  "_tiles_note": "Road tiles of the expansion, transcribed from photos (rows 0-5 from the left edge, columns 0-7 from the rear; odd rows half a space forward, as game_base.json). Ramps (P) are all printed facing forward. All 10 faces: 6a-10b (6a/6b..10a/10b are the two sides of one tile).",
+  "_ongoing_interpretations": [
+    "Bald Tires: 'the direction die moves this car' = a slam, an oil slick, Dazed (each step), Blast Off, a Quake and Loose Wiring; one extra space after each.",
+    "Cracked Flywheel: while none of the player's cars has moved this round, the first die must go to that car.",
+    "Nitro Leak: the movement die assigned to the car counts 6 (a coast die keeps its single move); a slam the car is part of eliminates it before the slam is resolved.",
+    "Bent Frame: when another car slams this one (it is the car below), the slam die is not rolled and this car moves; a reroll keeps that.",
+    "Dead Alternator: also when the car driving off is the winner crossing the finish line.",
+    "Lost Tools: 'adjacent' = in one of the six spaces around the car.",
+    "To confirm with the rules owner where a case comes up in play."
+  ]
 }
