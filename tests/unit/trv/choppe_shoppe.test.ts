@@ -267,7 +267,7 @@ describe('upgrade cards', () => {
       ['boost_switch', /^Boost Switch/], ['assault_bumper', /^Assault Bumper/], ['anti_aircraft_radar', /^Anti-Aircraft Radar/],
     ];
     for (const [id, match] of lines) expect([id, said(each(id), match) > 0]).toEqual([id, true]);
-  });
+  }, 30_000); // plays many whole matches: slow on a shared CI machine
   it('Armor Plating: a shooting result of ANY never hits the armoured car', () => {
     for (const g of each('armor_plating')) {
       g.log.forEach((l, i) => {

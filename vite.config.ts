@@ -1,6 +1,9 @@
 // npm run build        -> dist/: the folder build, for shipping (itch.io, a website)
 // npm run build:single -> dist-single/index.html: one file with everything
 //                         inlined, which every check opens from disk
+// npm run build:pages  -> dist-pages/: the site published on GitHub Pages. For now it is the
+//                         playable prototype (prototypes/trv-play-spike/) and its gallery;
+//                         tools/pages/index.html at the top sends visitors to it.
 // Vitest reads the test block; Playwright has its own config.
 import { defineConfig } from 'vitest/config';
 import { viteSingleFile } from 'vite-plugin-singlefile';
@@ -17,8 +20,9 @@ export default defineConfig(({ mode }) => ({
   // are not scanned for packages.
   optimizeDeps: { entries: ['index.html'] },
   build: {
-    outDir: mode === 'single' ? 'dist-single' : 'dist',
+    outDir: mode === 'single' ? 'dist-single' : mode === 'pages' ? 'dist-pages' : 'dist',
     emptyOutDir: true,
+    ...(mode === 'pages' ? { rolldownOptions: { input: ['prototypes/trv-play-spike/index.html', 'prototypes/trv-play-spike/gallery.html'] } } : {}),
   },
   test: {
     include: ['tests/unit/**/*.test.ts'],

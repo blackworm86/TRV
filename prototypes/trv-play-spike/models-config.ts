@@ -6,12 +6,14 @@
 import * as THREE from 'three';
 import type { SpinPart, Tint, WheelSpec } from '../../src/view/models3d';
 
-const DIR = '/assets/models/';
+// Imported through the bundler, so a build (GitHub Pages) ships the files and gets their real address.
+const FILES = import.meta.glob<string>('/assets/models/*.glb', { eager: true, query: '?url', import: 'default' });
+const file = (name: string): string => FILES[`/assets/models/${name}`];
 export const MODEL = {
-  car: { S: `${DIR}Car_Small.glb`, M: `${DIR}Car_Medium.glb`, L: `${DIR}Car_Large.glb` },
-  chopper: `${DIR}Chopper.glb`,
+  car: { S: file('Car_Small.glb'), M: file('Car_Medium.glb'), L: file('Car_Large.glb') },
+  chopper: file('Chopper.glb'),
   /** Wreck variants; each wreck on the table takes one, by its id. Add files here as they come. */
-  wrecks: [`${DIR}wreck_1.glb`],
+  wrecks: [file('wreck_1.glb')],
 };
 
 /**

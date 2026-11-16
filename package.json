@@ -10,12 +10,15 @@
     "dev": "vite",
     "build": "tsc --noEmit && vite build",
     "build:single": "tsc --noEmit && vite build --mode single",
+    "build:pages": "tsc --noEmit && vite build --mode pages && node tools/pages/finish.mjs",
     "test": "npm run test:unit && npm run test:e2e",
     "test:unit": "vitest run",
     "test:e2e": "npm run build:single && playwright test",
     "smoke": "npm run build:single && playwright test --grep @boot"
   },
   "dependencies": {
+    "firebase": "13.2.0",
+    "qrcode-generator": "2.0.4",
     "three": "0.186.1"
   },
   "devDependencies": {
