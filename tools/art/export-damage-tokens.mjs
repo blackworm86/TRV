@@ -13,7 +13,7 @@ const server = await createServer({ server: { middlewareMode: true }, appType: '
 try {
   const art = await server.ssrLoadModule('/src/view/vector/art.ts');
   const dmg = await server.ssrLoadModule('/src/view/vector/damage.ts');
-  const template = readFileSync('assets/ui/damage/template.svg', 'utf8');
+  const template = readFileSync('assets/base/segnalini/danno/template.svg', 'utf8');
   const own = dmg.ownerDamage(template);
   if (!own) throw new Error('template: front or back not found');
   // From art.ts's 110 x 100 box back to the template's coordinates (inverse of damage.ts's placement).

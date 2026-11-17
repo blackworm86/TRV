@@ -335,7 +335,7 @@ decidere prima del codice di gioco:
 - **R3 (bloccante MVP)**: scorrimento delle tessere a metà mossa ed eliminazioni, con
   test scritti prima del codice sui casi limite.
 - **R4 (bloccante leggero)**: pipeline asset con manifest, caricamento a runtime (mai
-  import statici da `assets/licensed/`), set di grafica segnaposto open per CI e test.
+  import statici da `assets/estratti/`), set di grafica segnaposto open per CI e test.
 - **R5**: modelli 3D di auto e dadi assenti; dadi procedurali e segnalini estrusi nell'MVP.
 - **R6**: prestazioni e leggibilità three.js su tablet; da verificare presto su un tablet reale.
 - **R7**: server Node + TypeScript fattibile; redazione dell'informazione nascosta,

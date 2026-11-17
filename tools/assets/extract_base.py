@@ -1,7 +1,7 @@
 """Extracts the base-game component images from the licensed source files.
 
-Reads  assets/licensed/TRV 01 Base Game/  (the user's licensed files, never in git)
-Writes assets/licensed/_derived/base/      (also never in git)
+Reads  assets/sorgenti/TRV 01 Base Game/  (the user's licensed files, never in git)
+Writes assets/estratti/base/      (also never in git)
 
 The file names written here are the ones data/trv/catalog_base.json refers to, so anyone who
 owns the licensed files can rebuild the same assets with:
@@ -21,8 +21,8 @@ import fitz  # PyMuPDF
 from PIL import Image, ImageDraw
 
 ROOT = Path(__file__).resolve().parents[2]
-SRC = ROOT / "assets" / "licensed" / "TRV 01 Base Game"
-OUT = ROOT / "assets" / "licensed" / "_derived" / "base"
+SRC = ROOT / "assets" / "sorgenti" / "TRV 01 Base Game"
+OUT = ROOT / "assets" / "estratti" / "base"
 
 # Road tiles: PDF page i holds this face (tile number + side).
 ROAD_FACES = ["1a", "1b", "2a", "2b", "3a", "3b", "4a", "4b", "5a", "5b"]

@@ -1,6 +1,6 @@
 # Relitti: prompt per altri modelli 3D (varietà sul tavolo)
 
-Oggi il gioco ha un solo modello di relitto (`assets/models/wreck_1.glb`). Ogni relitto sul tavolo
+Oggi il gioco ha un solo modello di relitto (`assets/base/modelli/wreck_1.glb`). Ogni relitto sul tavolo
 ne sceglie uno in base al suo id (`MODEL.wrecks` in `src/view/models-config.ts`):
 basta aggiungere i file e il gioco li alterna.
 
@@ -13,7 +13,7 @@ basta aggiungere i file e il gioco li alterna.
 - Niente colori delle crew (grigio, verde, arancio, azzurro): il relitto non è di nessuno.
 - Meshy: **Image to 3D** dal concept, Triangle, circa **5.000 triangoli**, texture **1024**,
   oggetto unico, base piatta a terra, muso verso un lato dichiarato (mi dici quale).
-- Formato **GLB**, un oggetto per file: `wreck_2.glb`, `wreck_3.glb`, … in `assets/models/`.
+- Formato **GLB**, un oggetto per file: `wreck_2.glb`, `wreck_3.glb`, … in `assets/base/modelli/`.
 
 ## 1. Carro armato sventrato
 

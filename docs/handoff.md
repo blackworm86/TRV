@@ -33,9 +33,11 @@ qui ci sono lo stato attuale, le decisioni prese a voce e cosa resta da fare.
 | Terreno procedurale, ostacoli | `src/view/terrain/procedural.ts`, `obstacles.ts` |
 | Fuoco a particelle, rampa | `src/view/terrain/carnage3d.ts` |
 | Buca della trappola | `src/view/terrain/pit3d.ts` |
-| Modelli GLB e loro configurazione | `assets/models/`, `src/view/models-config.ts` |
+| Modelli GLB e loro configurazione | `assets/base/modelli/`, `src/view/models-config.ts` |
 | Rete e Firebase | `src/net/` (`room.ts`, `firebase-store.ts`, `admin-auth.ts`), `database.rules.json` |
-| Pannello admin | `src/admin/admin.ts`, `admin.html` |
+| Pannello admin (asset per gioco e tipo, stato, 3D, confronto, commenti) | `src/admin/admin.ts`, `catalog.ts`, `solids.ts`, `admin.html`; stato degli asset in `data/trv/assets_catalog.json` |
+| Commenti sugli asset | `src/net/asset-comments.ts` (Firebase `assetComments/`, regole in `database.rules.json`) |
+| Asset: dove sono e in che stato | `assets/` (per gioco e tipo), `design/art/asset-status.md` |
 | Prompt per generare modelli (Gemini, Meshy) | `design/art/carnage-ramp-prompts.md`, `design/art/wreck-prompts.md` |
 | Screenshot di verifica | `production/qa/evidence/` |
 
@@ -62,7 +64,7 @@ qui ci sono lo stato attuale, le decisioni prese a voce e cosa resta da fare.
   spazzatura, come in `pit3d.ts`. La prima versione dipinta è stata bocciata ("orrenda", lontana
   dall'artwork).
 - **Asset**: la grafica provvisoria va bene online. Gli asset licenziati stanno in
-  `assets/licensed/` e, con il permesso di Restoration Games, possono andare su git e sul sito
+  `assets/estratti/` e, con il permesso di Restoration Games, possono andare su git e sul sito
   (decisione dell'utente, 2026-11-16; vedi `CLAUDE.md`). Il regolamento resta in
   `reference/rulebook/`, fuori da git.
 - **Regole**: decide il regolamento, e le risposte dell'utente sono in `_rulings` nei file dati.

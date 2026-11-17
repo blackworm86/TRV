@@ -87,6 +87,48 @@
   #detail .actions { display: flex; flex-wrap: wrap; gap: 8px; padding: 0 16px 18px; }
   .close { background: none; border: 1px solid var(--line); color: var(--ink); border-radius: 8px; width: 34px; height: 34px; font-size: 18px; line-height: 1; }
   .close:hover { border-color: var(--accent); }
+  /* Detail: one scrolling column (tabs, preview, facts, downloads, comments). */
+  #detail .scroll { flex: 1; min-height: 0; overflow-y: auto; display: flex; flex-direction: column; }
+  #detail .scroll .big { flex: none; height: 46vh; min-height: 280px; }
+  .tabs { display: flex; gap: 6px; padding: 12px 16px 0; }
+  .tabs button { background: none; border: 1px solid var(--line); color: var(--ink); border-radius: 8px; padding: 6px 12px; }
+  .tabs button.on { background: var(--accent); color: var(--bg); border-color: var(--accent); }
+  #detail .big img { max-width: 100%; max-height: 100%; object-fit: contain; display: block; }
+  #detail .big.source { place-items: stretch; }
+  .pair { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; width: 100%; height: 100%; min-height: 0; }
+  .pair figure { margin: 0; display: flex; flex-direction: column; gap: 6px; min-height: 0; }
+  .pair figcaption { color: var(--muted); font-size: 12px; }
+  .pair figure > svg, .pair figure > img { flex: 1; min-height: 0; width: 100%; object-fit: contain; }
+  .pair .scans { flex: 1; min-height: 0; display: grid; grid-template-columns: repeat(auto-fit, minmax(80px, 1fr)); gap: 6px; align-content: start; overflow: auto; }
+  .pair .scans img { width: 100%; height: auto; max-height: 100%; object-fit: contain; background: #fff1; border-radius: 4px; }
+  .comments { padding: 0 16px 24px; border-top: 1px solid var(--line); margin-top: 4px; }
+  .comments h3 { font-size: 24px; margin-top: 12px; }
+  .comments .where { color: var(--muted); font-size: 12px; margin: 2px 0 8px; }
+  .comments .list { list-style: none; padding: 0; margin: 0 0 10px; display: grid; gap: 8px; }
+  .comments .list li { background: var(--surface2); border-radius: 8px; padding: 8px 10px; white-space: pre-wrap; }
+  .comments .list li.wait { background: none; padding: 0; color: var(--muted); }
+  .comments .meta { color: var(--muted); font-size: 12px; margin-bottom: 2px; }
+  .comments form { display: grid; gap: 8px; }
+  .comments textarea { width: 100%; resize: vertical; background: var(--bg); color: var(--ink); border: 1px solid var(--line); border-radius: 8px; padding: 8px 10px; font: inherit; }
+  .comments textarea:focus { outline: none; border-color: var(--accent); }
+  .comments form .btn { justify-self: start; }
+  /* Status badges, filters and the summary. */
+  .st { display: inline-block; align-self: flex-start; font-size: 11px; font-weight: 600; letter-spacing: .3px; text-transform: uppercase; border-radius: 999px; padding: 2px 8px; border: 1px solid; }
+  .st-estratto { color: #8fe0a0; border-color: #8fe0a066; background: #8fe0a014; }
+  .st-ricalcato { color: #8cc7ff; border-color: #8cc7ff66; background: #8cc7ff14; }
+  .st-dati { color: #f6c46a; border-color: #f6c46a66; background: #f6c46a14; }
+  .st-bozza { color: #ff9a85; border-color: #ff9a8566; background: #ff9a8514; }
+  .cat-head .game { color: var(--muted); font-size: 15px; }
+  .chips { display: flex; flex-wrap: wrap; gap: 6px; margin: 0 0 16px; }
+  .chip { background: none; border: 1px solid var(--line); color: var(--ink); border-radius: 999px; padding: 4px 12px; }
+  .chip span { color: var(--muted); margin-left: 4px; }
+  .chip.on { background: var(--accent); color: var(--bg); border-color: var(--accent); }
+  .chip.on span { color: var(--bg); }
+  table.sum { border-collapse: collapse; margin: 6px 0 18px; }
+  table.sum th, table.sum td { padding: 8px 14px; border-bottom: 1px solid var(--line); text-align: center; font-variant-numeric: tabular-nums; }
+  table.sum tbody th { text-align: left; font-family: var(--body); font-weight: 600; letter-spacing: 0; }
+  h3.sub { font-size: 26px; margin: 18px 0 6px; }
+  ul.legend { margin: 0; padding-left: 18px; display: grid; gap: 6px; max-width: 90ch; }
   #toast { position: fixed; left: 50%; bottom: 20px; transform: translateX(-50%); background: var(--accent); color: var(--bg); padding: 8px 16px; border-radius: 8px; font-weight: 600; z-index: 20; }
 </style>
 </head>
@@ -141,9 +183,13 @@
 
 <aside id="detail" hidden>
   <div class="bar"><h2 id="d-title"></h2><button class="close" id="d-close" aria-label="Chiudi">×</button></div>
-  <div class="big" id="d-big"></div>
-  <dl id="d-info"></dl>
-  <div class="actions" id="d-actions"></div>
+  <div class="scroll">
+    <div class="tabs" id="d-tabs"></div>
+    <div class="big" id="d-big"></div>
+    <dl id="d-info"></dl>
+    <div class="actions" id="d-actions"></div>
+    <section class="comments" id="d-comments"></section>
+  </div>
 </aside>
 <div id="toast" hidden></div>
 <script type="module" src="./src/admin/admin.ts"></script>

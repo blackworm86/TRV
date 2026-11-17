@@ -6,7 +6,7 @@ Glyphs are keyed by character for the ASCII range (CFF standard strings 1-95); o
 keyed by their glyph name. Only the glyphs the PDF uses are in a subset font.
 
 Usage: python -I tools/asset-pipeline/pdf_fonts.py <file.pdf> <out_dir>
-The fonts are licensed material: write them under assets/licensed/ (not in git).
+The fonts are licensed material: write them under assets/estratti/ (not in git).
 """
 import json
 import re

@@ -60,7 +60,7 @@ e dal producer (PR-SCOPE, vedi sotto); le correzioni sono già applicate.
   arco frontale, bordi sinistro/destro/posteriore/anteriore, allineamento del dado
   direzione ai chevron.
 - **#5 Asset Manifest & Pipeline** — manifest degli asset indicizzato per id di contenuto,
-  caricamento a runtime (mai import statici da `assets/licensed/`), set segnaposto aperto,
+  caricamento a runtime (mai import statici da `assets/estratti/`), set segnaposto aperto,
   importazione dell'arte licenziata dal proprietario (R1, opzione A+C del technical-director).
 - **#9 Vehicles, Crews & Status** — l'astrazione "veicolo stradale" (auto per taglia e
   wreck, trattati come auto piccole inoperabili) distinta dall'elicottero; bande, cruscotti,

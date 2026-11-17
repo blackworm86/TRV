@@ -6,8 +6,9 @@ import * as THREE from 'three';
 import type { SpinPart, Tint, WheelSpec } from './models3d';
 
 // Imported through the bundler, so a build (GitHub Pages) ships the files and gets their real address.
-const FILES = import.meta.glob<string>('/assets/models/*.glb', { eager: true, query: '?url', import: 'default' });
-const file = (name: string): string => FILES[`/assets/models/${name}`];
+// Each game keeps its own models (assets/<game>/modelli/), found here by file name.
+const FILES = import.meta.glob<string>('/assets/*/modelli/*.glb', { eager: true, query: '?url', import: 'default' });
+const file = (name: string): string => Object.entries(FILES).find(([p]) => p.endsWith(`/${name}`))?.[1] ?? '';
 export const MODEL = {
   car: { S: file('Car_Small.glb'), M: file('Car_Medium.glb'), L: file('Car_Large.glb') },
   chopper: file('Chopper.glb'),

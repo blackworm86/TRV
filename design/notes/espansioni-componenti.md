@@ -1,7 +1,7 @@
 # Espansioni: manifesto dei componenti
 
-Inventario di ciò che c'è in `assets/licensed/TRV 02 All Expansions/` (cartella locale, fuori da
-git), letto il 2026-11-16 dalle immagini estratte in `assets/licensed/_derived/expansions/`.
+Inventario di ciò che c'è in `assets/sorgenti/TRV 02 All Expansions/` (cartella locale, fuori da
+git), letto il 2026-11-16 dalle immagini estratte in `assets/estratti/expansions/`.
 Per ogni componente: da quale file viene, quanti pezzi si vedono, e cosa fa, **riassunto in parole
 nostre**. Il testo ufficiale resta sulle carte e nei regolamenti (`reference/rulebook/`), che sono
 l'unica autorità: questo documento serve a progettare i dati, non a sostituirli.
@@ -19,7 +19,7 @@ Compagno di [espansioni-regole.md](espansioni-regole.md), che riassume i tre reg
 
 ## File sorgente
 
-| File | Contenuto | Estratto in `_derived/expansions/` |
+| File | Contenuto | Estratto in `assets/estratti/expansions/` |
 |---|---|---|
 | `TRV v2.pdf` | 16 fogli con i fronti di tutte le carte | `trv_v2/` |
 | `Character Boards.docx` | plance dei capisquadra (Choppe Shoppe) | `character_boards/` |
@@ -28,7 +28,7 @@ Compagno di [espansioni-regole.md](espansioni-regole.md), che riassume i tre reg
 | `Danger Tiles.pdf` | segnalini pericolo delle espansioni, fronte e retro | `danger_tiles/` |
 | `Custom Tiles.pdf` | segnalini danno nuovi | `custom_tiles/` |
 | `Fire Tile.pdf` | segnalini "in fiamme" | `fire_tile/` |
-| `Road Tiles v2.pdf` | tessere strada 6a–10b | `../road_v2/` (10 facce) |
+| `Road Tiles v2.pdf` | tessere strada 6a–10b | `road_v2/` (10 facce) |
 | `Mini Euro 93.pdf`, `Standard Backs 93.pdf` | dorsi delle carte, due formati | non estratti |
 
 ## Parte 2 — Big Rig and the Final Five

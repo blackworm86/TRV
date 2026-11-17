@@ -16,7 +16,7 @@ rock can be: rock colours away from impassable (X) spaces are reddish mud, and d
 them are rock in shadow. Half-size images with a soft mask: transparent = outside.
 
 Usage: python -I tools/asset-pipeline/terrain.py <road_tiles.pdf> <image object number> <out_dir> <face, e.g. 2a>
-The artwork is licensed: write under assets/licensed/ (not in git).
+The artwork is licensed: write under assets/estratti/ (not in git).
 """
 import json
 import math

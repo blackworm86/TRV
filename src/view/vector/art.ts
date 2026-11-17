@@ -43,7 +43,7 @@ export function dataUrl(svgText: string): string {
 
 /**
  * The faithful vector art of the official components, when its licensed files are present
- * (assets/licensed/vector/official.ts: derived from the publisher's artwork, never in git). Each
+ * (assets/base/vettoriale/official.ts: derived from the publisher's artwork, never in git). Each
  * drawing below asks it first and falls back to its own open drawing, so the code runs without it.
  */
 interface OfficialArt {
@@ -54,7 +54,7 @@ interface OfficialArt {
   commandBoardSvg(c: CommandBoardArt, extra?: string): string | null;
 }
 type OfficialModule = { makeOfficial(base: { dieSvg(f: DieFace, extra?: string): string }): OfficialArt };
-const officialModule = Object.values(import.meta.glob<OfficialModule>('/assets/licensed/vector/official.ts', { eager: true }))[0];
+const officialModule = Object.values(import.meta.glob<OfficialModule>('/assets/base/vettoriale/official.ts', { eager: true }))[0];
 // `?art=open` in the page address shows the open drawings even when the official art is there.
 const openOnly = typeof location !== 'undefined' && new URLSearchParams(location.search).get('art') === 'open';
 /** True when the faithful official art is in use (licensed files present, not `?art=open`). */
@@ -68,19 +68,19 @@ function off(): OfficialArt | null {
 
 // The project owner's own drawing of the command board and dashboards (one SVG, outlines only).
 // When it is there, the boards are drawn from it (./boards.ts), also with `?art=open`: it is open material, in the repository.
-const boardsRaw = Object.values(import.meta.glob<string>('/assets/ui/command_dashboard.svg', { eager: true, query: '?raw', import: 'default' }))[0];
+const boardsRaw = Object.values(import.meta.glob<string>('/assets/base/plance/command_dashboard.svg', { eager: true, query: '?raw', import: 'default' }))[0];
 // The owner's drawing of the crew leader command board (Choppe Shoppe), twice as tall.
-const leaderBoardRaw = Object.values(import.meta.glob<string>('/assets/ui/command_dashboard_characters.svg', { eager: true, query: '?raw', import: 'default' }))[0];
+const leaderBoardRaw = Object.values(import.meta.glob<string>('/assets/choppe_shoppe/plance/command_dashboard_characters.svg', { eager: true, query: '?raw', import: 'default' }))[0];
 // The owner's drawings of the dice (./dice.ts), one SVG per die. Like the boards, they win over
 // both the open drawings below and the official art.
 const ownerDiceRaw: Record<string, string | undefined> = {
-  direction: Object.values(import.meta.glob<string>('/assets/ui/dice/direction.svg', { eager: true, query: '?raw', import: 'default' }))[0],
-  slam: Object.values(import.meta.glob<string>('/assets/ui/dice/slam.svg', { eager: true, query: '?raw', import: 'default' }))[0],
+  direction: Object.values(import.meta.glob<string>('/assets/base/dadi/direction.svg', { eager: true, query: '?raw', import: 'default' }))[0],
+  slam: Object.values(import.meta.glob<string>('/assets/base/dadi/slam.svg', { eager: true, query: '?raw', import: 'default' }))[0],
 };
 const ownerDice = new Map<string, Map<string, string>>();
 for (const [kind, raw] of Object.entries(ownerDiceRaw)) if (raw) ownerDice.set(kind, ownerDieFaces(raw, OWNER_DIE_ORDER[kind]));
 // The owner's drawing of the damage token outline, front and back (./damage.ts): it wins too.
-const damageRaw = Object.values(import.meta.glob<string>('/assets/ui/damage/template.svg', { eager: true, query: '?raw', import: 'default' }))[0];
+const damageRaw = Object.values(import.meta.glob<string>('/assets/base/segnalini/danno/template.svg', { eager: true, query: '?raw', import: 'default' }))[0];
 const ownerDamage = damageRaw ? cutOwnerDamage(damageRaw) : null;
 /** True when the boards come from the owner's drawing. */
 export const USER_BOARDS = !!boardsRaw;
@@ -321,7 +321,7 @@ export const STRIP_LEADER_PLATE = LEAD_NAME_H / (STRIP_BOX.h + LEAD_NAME_H);
 export const STRIP_TALL = USER_BOARDS && leaderBoardRaw ? STRIP_BOX_TALL.h / STRIP_BOX.h : 1;
 /**
  * The player's whole strip in one drawing: command board, the three dashboards against it as in
- * the rulebook, damage tokens under them. Null without the owner's drawing (assets/ui).
+ * the rulebook, damage tokens under them. Null without the owner's drawing (assets/base/plance).
  * Example: `el.innerHTML = playerStripSvg(cmd, dashes) ?? ''`.
  */
 export function playerStripSvg(c: CommandBoardArt, dashes: DashboardArt[], extra = ''): string | null {
@@ -477,7 +477,7 @@ function flame(cx: number, cy: number, s: number, outer: string, innerFill: stri
 /** One face of the fire die, 100 x 100 (open drawing: yellow die, red flame and the face's sign). */
 // The official fire die faces, traced from the scan (tools/art/trace_fire_die.py): licensed, used when present.
 type TracedFireDie = { bg: string; ink: string; faces: Record<string, string> };
-const tracedFire = Object.values(import.meta.glob<TracedFireDie>('/assets/licensed/vector/traced/fire_die.json', { eager: true, import: 'default' }))[0];
+const tracedFire = Object.values(import.meta.glob<TracedFireDie>('/assets/carnage/vettoriale/fire_die.json', { eager: true, import: 'default' }))[0];
 
 export function fireDieSvg(face: FireFace, extra = ''): string {
   if (tracedFire?.faces[face] && !openOnly) {
@@ -503,8 +503,8 @@ export function fireDieSvg(face: FireFace, extra = ''): string {
  * The official ON FIRE! token (a flame ring, cut from the scanned components by
  * tools/art/save_fire_ring.py): the image, its size and its hole in image pixels.
  */
-const FIRE_RING_URL = Object.values(import.meta.glob<string>('/assets/licensed/tokens/on_fire.png', { eager: true, query: '?url', import: 'default' }))[0];
-const FIRE_RING = Object.values(import.meta.glob<{ w: number; h: number; cx: number; cy: number; r: number }>('/assets/licensed/tokens/on_fire.json', { eager: true, import: 'default' }))[0];
+const FIRE_RING_URL = Object.values(import.meta.glob<string>('/assets/carnage/segnalini/on_fire.png', { eager: true, query: '?url', import: 'default' }))[0];
+const FIRE_RING = Object.values(import.meta.glob<{ w: number; h: number; cx: number; cy: number; r: number }>('/assets/carnage/segnalini/on_fire.json', { eager: true, import: 'default' }))[0];
 /** Radius of the ring's hole in the token's 120 x 120 box: a die filling the box's middle sits inside it. */
 const FIRE_RING_HOLE = 50;
 

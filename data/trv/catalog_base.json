@@ -3,7 +3,7 @@
   "schema": 1,
   "module": "base",
   "name": "Gioco base",
-  "image_root": "assets/licensed/_derived/base",
+  "image_root": "assets/estratti/base",
   "crews": [
     { "id": "grey", "name": "Grigio", "color": "#c9c8c2" },
     { "id": "green", "name": "Verde", "color": "#5b7a52" },

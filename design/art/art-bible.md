@@ -921,7 +921,7 @@ retro e il registro resta la fonte consultabile.
 ### 8.1 Vista artistica
 
 **Formati**
-- **Master**: PNG senza perdita in `assets/licensed/` (fuori da git, mai in un repository
+- **Master**: PNG senza perdita in `assets/estratti/` (fuori da git, mai in un repository
   pubblico).
 - **Runtime**: formati decodificati dal browser: PNG (pezzi con trasparenza), JPEG o WebP
   per facce opache. *[giudizio: decodifica del browser, non API three.js]*
@@ -973,7 +973,7 @@ dentro i segmenti, coerente con i nomi file del progetto.
   dall'arte ufficiale, 4.7): *test*: affiancato alla scansione, il rifacimento è lo stesso
   pezzo, solo più nitido.
 - I rifacimenti derivano dall'arte ufficiale: **restano materiale licenziato**, stanno in
-  `assets/licensed/` e non entrano mai nel repository pubblico (diversamente dal set
+  `assets/estratti/` e non entrano mai nel repository pubblico (diversamente dal set
   segnaposto di 1.5, che è nostro e aperto).
 
 ### 8.2 Vista tecnica
@@ -1009,7 +1009,7 @@ Input: `project.yaml` (engine Web, three.js 0.186.1) e `.claude/docs/technical-p
 - **Risoluzione di rendering**: `devicePixelRatio` limitato a circa 2; rendering solo
   quando qualcosa cambia (scena per lo più ferma).
 - **Caricamento**: l'arte licenziata si carica **a runtime tramite manifest**, mai con
-  import statici da `assets/licensed/` (finirebbe nel bundle). Da formalizzare nell'ADR sul
+  import statici da `assets/estratti/` (finirebbe nel bundle). Da formalizzare nell'ADR sul
   caricamento degli asset.
 
 ### 8.3 Conflitti e decisioni
@@ -1049,7 +1049,7 @@ Vendetta**. Quindi:
 ### 9.2 Riferimento #0 — L'arte ufficiale di Thunder Road: Vendetta (autorità)
 
 - **Fonte**: tessere strada, segnalini pericolo e danno, cruscotti, plancia comandi, banner
-  "Chapter", icone stampate, colori delle bande (`assets/licensed/`, `reference/rulebook/`).
+  "Chapter", icone stampate, colori delle bande (`assets/estratti/`, `reference/rulebook/`).
 - **Decide senza appello**: palette (4.1, campionata qui, 4.7); forme (3.1, 3.8); registro
   tipografico display (7.1); stile delle icone (7.1); il mondo (6.1).
 - **Uso**: si **monta**, non si interpreta (1.3). Unica rielaborazione: il rifacimento

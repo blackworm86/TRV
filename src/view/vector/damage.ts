@@ -1,4 +1,4 @@
-// The damage token outline drawn by the project owner (assets/ui/damage/template.svg).
+// The damage token outline drawn by the project owner (assets/base/segnalini/danno/template.svg).
 // The drawing holds the empty front (dark field in a red frame with the torn edge) on the left and
 // the back (the red warning sign, mirrored edge) on the right, with grey captions under them.
 // This module cuts the two sides out and moves them into the 110 x 100 box of art.ts's tokens,

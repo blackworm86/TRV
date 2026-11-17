@@ -1,5 +1,5 @@
 {
-  "_note": "Thunder Road: Vendetta, base game. Terrain: R road, o off-road, M mud, X impassable. Rows 0-5 from the left edge, columns 0-7 from the rear edge. Odd rows sit half a space forward. Source: reference/rulebook and the licensed component scans (assets/licensed).",
+  "_note": "Thunder Road: Vendetta, base game. Terrain: R road, o off-road, M mud, X impassable. Rows 0-5 from the left edge, columns 0-7 from the rear edge. Odd rows sit half a space forward. Source: reference/rulebook and the licensed component scans (assets/sorgenti).",
   "start_tile": 1,
   "tiles": [
     { "tile": 1, "side": "a", "name": "The Parking Lot",

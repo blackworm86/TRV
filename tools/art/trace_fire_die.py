@@ -1,20 +1,23 @@
 """Traces the official fire die faces (Carnage at Devil's Run) into vector paths for the game.
 
-Source: assets/licensed/_derived/components/image21.png, the die's six faces as printed (orange
+Source: word/media/image21.png inside assets/sorgenti/TRV 01 Base Game/Player Boards and Dice
+Base.docx, the die's six faces as printed (orange
 symbols on yellow), two rows of three: +2, smoke, +2 / +1, smoke, skull. Each symbol is traced
 (outlines and holes, even-odd fill), centred in a 100 x 100 face and written to
-assets/licensed/vector/traced/fire_die.json, which art.ts's fireDieSvg draws.
+assets/carnage/vettoriale/fire_die.json, which art.ts's fireDieSvg draws.
 
 Usage: python tools/art/trace_fire_die.py
 """
 import json
+import zipfile
 from pathlib import Path
 
 import cv2
 import numpy as np
 
-SRC = Path('assets/licensed/_derived/components/image21.png')
-OUT = Path('assets/licensed/vector/traced/fire_die.json')
+SRC = Path('assets/sorgenti/TRV 01 Base Game/Player Boards and Dice Base.docx')
+SRC_MEMBER = 'word/media/image21.png'
+OUT = Path('assets/carnage/vettoriale/fire_die.json')
 #: The faces on the sheet, left to right and top to bottom, as the data names them (data/trv/carnage.json).
 CELLS = [['+2', 'out', '+2b'], ['+1', 'outb', 'eliminated']]
 #: The symbol fills this share of the face.
@@ -34,7 +37,8 @@ def path_of(mask: np.ndarray, x0: int, y0: int, k: float, ox: float, oy: float) 
 
 
 def main() -> None:
-    img = cv2.imread(str(SRC))
+    with zipfile.ZipFile(SRC) as z:
+        img = cv2.imdecode(np.frombuffer(z.read(SRC_MEMBER), np.uint8), cv2.IMREAD_COLOR)
     h, w = img.shape[:2]
     hsv = cv2.cvtColor(img, cv2.COLOR_BGR2HSV)
     ink = cv2.inRange(hsv, (0, 120, 120), (18, 255, 255))  # the orange, not the yellow

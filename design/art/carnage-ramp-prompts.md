@@ -2,7 +2,7 @@
 
 Il gioco oggi disegna una rampa provvisoria generata dal codice (`src/view/terrain/carnage3d.ts`,
 `makeRamp`). Questo documento serve a sostituirla con un modello vero, fatto come le auto e
-l'elicottero: concept con Gemini, modello con Meshy, file `.glb` in `assets/models/Ramp.glb`.
+l'elicottero: concept con Gemini, modello con Meshy, file `.glb` in `assets/carnage/modelli/Ramp.glb`.
 
 ## Cosa deve essere
 
@@ -60,5 +60,5 @@ low end touching the ground.
 - Formato **GLB**, un solo oggetto. La scala non conta, la sistemo io.
 - Orientamento: non importa, basta che mi dici da che parte sale. Le auto, per esempio, arrivano con il
   muso verso −X e il codice le gira.
-- Mandamelo e lo metto in `assets/models/Ramp.glb`. Il gioco lo userà al posto della rampa provvisoria,
+- Mandamelo e lo metto in `assets/carnage/modelli/Ramp.glb`. Il gioco lo userà al posto della rampa provvisoria,
   ridimensionato a una casella e con la salita verso la tessera successiva.

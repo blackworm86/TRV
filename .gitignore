@@ -176,28 +176,23 @@ $RECYCLE.BIN/
 
 # === Thunder Road Vendetta: asset ufficiali ===
 # Con il permesso di Restoration Games (CLAUDE.md, 2026-11-16) vanno nel repository solo i
-# file che il gioco usa davvero; il pacchetto completo (4,5 GB, file oltre i 100 MB) resta fuori.
-/assets/licensed/*
-!/assets/licensed/vector/
-/assets/licensed/vector/*
-!/assets/licensed/vector/official.ts
-!/assets/licensed/vector/traced/
-/assets/licensed/vector/traced/*
-!/assets/licensed/vector/traced/dice.json
-!/assets/licensed/vector/traced/hazards.json
-!/assets/licensed/vector/traced/damage.json
-!/assets/licensed/vector/traced/boards.json
-!/assets/licensed/vector/traced/fire_die.json
-!/assets/licensed/vector/fonts/
-/assets/licensed/vector/fonts/*
-!/assets/licensed/vector/fonts/CompactaBT-BoldItalic.json
-!/assets/licensed/vector/fonts/TradeGothicNextLTPro-Cn.json
-!/assets/licensed/cards/
-/assets/licensed/cards/*
-!/assets/licensed/cards/upgrades/
-!/assets/licensed/cards/ongoing/
-!/assets/licensed/leaders/
-!/assets/licensed/tokens/
+# file che il gioco usa davvero. Restano fuori i file originali (assets/sorgenti, 4,5 GB, file oltre i
+# 100 MB), ciò che se ne estrae (assets/estratti, regolamento compreso) e l'archivio dei tentativi.
+/assets/sorgenti/
+/assets/estratti/
+/assets/_archivio/
+/assets/base/vettoriale/*
+!/assets/base/vettoriale/official.ts
+!/assets/base/vettoriale/traced/
+/assets/base/vettoriale/traced/*
+!/assets/base/vettoriale/traced/dice.json
+!/assets/base/vettoriale/traced/hazards.json
+!/assets/base/vettoriale/traced/damage.json
+!/assets/base/vettoriale/traced/boards.json
+!/assets/base/vettoriale/fonts/
+/assets/base/vettoriale/fonts/*
+!/assets/base/vettoriale/fonts/CompactaBT-BoldItalic.json
+!/assets/base/vettoriale/fonts/TradeGothicNextLTPro-Cn.json
 reference/rulebook/
 /rulebook/
 

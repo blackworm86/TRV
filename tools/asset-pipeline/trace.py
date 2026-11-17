@@ -11,7 +11,7 @@ Usage:
       [--svg preview.svg]
 The first palette entry is the background and is not traced. Output JSON:
   {"viewBox": [w, h], "layers": [{"name", "color", "d"}]}, in units where the crop is `--width` wide.
-The images are licensed material: keep inputs and outputs under assets/licensed/ (not in git).
+The images are licensed material: keep inputs and outputs under assets/estratti/ (not in git).
 """
 import argparse
 import json

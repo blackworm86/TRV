@@ -5,7 +5,7 @@ and CMYK images are written as PNG (CMYK converted to RGB), with their soft mask
 present. Images smaller than --min pixels on a side are skipped (rules, dots, textures).
 
 Usage: python -I tools/asset-pipeline/pdf_images.py <file.pdf> <out_dir> [--min 64]
-The images are licensed material: write them under assets/licensed/ (not in git).
+The images are licensed material: write them under assets/estratti/ (not in git).
 """
 import re
 import struct

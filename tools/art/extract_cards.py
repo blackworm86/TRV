@@ -1,4 +1,4 @@
-"""Cuts the cards out of the scanned print-and-play pages (assets/licensed/_derived/expansions/trv_v2).
+"""Cuts the cards out of the scanned print-and-play pages (assets/estratti/expansions/trv_v2).
 
 Each page holds up to nine cards, a little rotated by the scanner. The script finds every card
 (a dark rounded rectangle on the white page), straightens it and saves it whole, in reading order,
@@ -12,7 +12,7 @@ from pathlib import Path
 import cv2
 import numpy as np
 
-PAGES = Path('assets/licensed/_derived/expansions/trv_v2')
+PAGES = Path('assets/estratti/expansions/trv_v2')
 SCALE = 4  # detection runs on a page this many times smaller
 
 

@@ -10,37 +10,37 @@
 #   date: 2026-01-31
 #   ships: true               # false for a file only the build uses
 #   placeholder: true         # until it is replaced, with _ph before the extension; leave the line out otherwise
-- path: assets/models/Car_Small.glb
+- path: assets/base/modelli/Car_Small.glb
   origin: ai
   tool: "Meshy, da concept generati con Gemini (Nano Banana)"
   source: {vendor: "il proprietario del progetto", product: "modello generato da lui"}
   date: 2026-11-15
   ships: true
-- path: assets/models/Car_Medium.glb
+- path: assets/base/modelli/Car_Medium.glb
   origin: ai
   tool: "Meshy, da concept generati con Gemini (Nano Banana)"
   source: {vendor: "il proprietario del progetto", product: "modello generato da lui"}
   date: 2026-11-15
   ships: true
-- path: assets/models/Car_Large.glb
+- path: assets/base/modelli/Car_Large.glb
   origin: ai
   tool: "Meshy, da concept generati con Gemini (Nano Banana)"
   source: {vendor: "il proprietario del progetto", product: "modello generato da lui"}
   date: 2026-11-15
   ships: true
-- path: assets/models/Chopper.glb
+- path: assets/base/modelli/Chopper.glb
   origin: ai
   tool: "Meshy, da concept generati con Gemini (Nano Banana)"
   source: {vendor: "il proprietario del progetto", product: "modello generato da lui"}
   date: 2026-11-15
   ships: true
-- path: assets/models/wreck_1.glb
+- path: assets/base/modelli/wreck_1.glb
   origin: ai
   tool: "Meshy, da concept generati con Gemini (Nano Banana)"
   source: {vendor: "il proprietario del progetto", product: "modello generato da lui"}
   date: 2026-11-15
   ships: true
-- path: assets/ui/command_dashboard.svg
+- path: assets/base/plance/command_dashboard.svg
   origin: you
   tool: "Adobe Illustrator: ridisegno vettoriale di command board e dashboard, solo ingombri e linee"
   source: {vendor: "il proprietario del progetto", product: "disegno fatto da lui"}

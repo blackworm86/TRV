@@ -88,7 +88,7 @@ export function showTiles(s: Snapshot): void {
 }
 
 
-// Generated models (assets/models, made by the project owner): one per piece type, tinted with the crew colour.
+// Generated models (assets/base/modelli, made by the project owner): one per piece type, tinted with the crew colour.
 export const models = new ModelBank();
 void useRampModel(MODEL.ramp, u => models.load(u)); // the ramps on the tiles take the model once it has loaded
 export function collectMaterials(root: THREE.Object3D): THREE.MeshStandardMaterial[] {

@@ -49,11 +49,11 @@ export const DAMAGE_INFO: Record<string, [string, string]> = {
  * car it is and what the token does. The dice it calls for appear beside it as they are rolled.
  */
 /**
- * Crew leader portraits, by leader id: licensed art, so local only (assets/licensed/leaders/<id>.png,
+ * Crew leader portraits, by leader id: licensed art, so local only (assets/choppe_shoppe/capisquadra/<id>.png,
  * .jpg or .webp). A leader without a file shows the crew colour and an initial.
  */
 export const PORTRAITS: Record<string, string> = Object.fromEntries(Object.entries(
-  import.meta.glob<string>('/assets/licensed/leaders/*.{png,jpg,jpeg,webp}', { eager: true, query: '?url', import: 'default' }),
+  import.meta.glob<string>('/assets/choppe_shoppe/capisquadra/*.{png,jpg,jpeg,webp}', { eager: true, query: '?url', import: 'default' }),
 ).map(([path, url]) => [path.replace(/^.*\/|\.\w+$/g, '').toLowerCase(), url]));
 
 /** Choppe Shoppe: what each upgrade card does, in the interface's words. */

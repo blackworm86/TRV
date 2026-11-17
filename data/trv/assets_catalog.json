@@ -1,0 +1,110 @@
+{
+  "_note": "Stato di ogni asset del gioco, letto dal pannello admin (src/admin/admin.ts); design/art/asset-status.md ne è la fotografia commentata. Una voce per categoria del pannello (chiave = id della categoria); 'items' corregge le voci che fanno eccezione, per id. game: chiave di 'games'. status: chiave di 'statuses'. source: da dove viene, in parole. official: il file ufficiale nel repository, con {id} al posto dell'id della voce (scaricabile come asset). 'missing' elenca i componenti delle espansioni che il gioco non ha ancora.",
+  "schema": 1,
+  "games": {
+    "base": "Gioco base",
+    "choppe_shoppe": "Choppe Shoppe",
+    "carnage": "Carnage at Devil's Run",
+    "big_rig": "Big Rig and the Final Five",
+    "extra_ammo": "Extra Ammo"
+  },
+  "types": {
+    "modelli": "Modelli 3D",
+    "tessere": "Tessere e mappe",
+    "carte": "Carte",
+    "plance": "Plance",
+    "dadi": "Dadi",
+    "segnalini": "Segnalini",
+    "icone": "Icone"
+  },
+  "statuses": {
+    "estratto": { "name": "Ufficiale estratto", "text": "Immagine ufficiale ritagliata dai file originali." },
+    "ricalcato": { "name": "Ufficiale ricalcato", "text": "Vettoriale ricalcato dai file originali: forme e colori della grafica ufficiale." },
+    "dati": { "name": "Disegnato dai dati", "text": "Disegnato dal codice a partire dalle regole: giusto nei contenuti, ma non è la grafica ufficiale." },
+    "bozza": { "name": "Bozza", "text": "Provvisorio, da sostituire o da confermare: modelli generati, disegni aperti." }
+  },
+  "categories": {
+    "capisquadra": {
+      "game": "choppe_shoppe", "type": "plance", "status": "ricalcato",
+      "source": "Ritratto: Character Boards.docx (tools/art/save_leader_portraits.py). Plancia: disegno del proprietario (assets/choppe_shoppe/plance) con i testi dalle regole.",
+      "official": "assets/choppe_shoppe/capisquadra/{id}.jpg"
+    },
+    "potenziamenti": {
+      "game": "choppe_shoppe", "type": "carte", "status": "estratto",
+      "source": "TRV v2.pdf, fogli delle carte (tools/art/extract_cards.py, tools/art/save_upgrade_cards.py).",
+      "official": "assets/choppe_shoppe/carte/potenziamenti/{id}.jpg"
+    },
+    "modelli": {
+      "game": "base", "type": "modelli", "status": "bozza",
+      "source": "Generati dal proprietario con Meshy da concept fatti con Gemini: le miniature ufficiali non hanno una scansione.",
+      "items": {
+        "Ramp": { "game": "carnage", "source": "Generata con Meshy dai prompt di design/art/carnage-ramp-prompts.md." }
+      }
+    },
+    "tessere": {
+      "game": "base", "type": "tessere", "status": "dati",
+      "source": "Griglie da data/trv/game_base.json. La scansione ufficiale (Road Tiles Base.pdf) è estratta in assets/estratti/base/road_tiles, ma il gioco non la usa ancora."
+    },
+    "tessere_carnage": {
+      "game": "carnage", "type": "tessere", "status": "dati",
+      "source": "Griglie da data/trv/carnage.json. Le scansioni (Road Tiles v2.pdf) sono estratte in assets/estratti/expansions/road_v2, non ancora associate alle facce."
+    },
+    "mappe": {
+      "game": "base", "type": "tessere", "status": "dati",
+      "source": "Composte dalle tessere disegnate dai dati.",
+      "items": {
+        "carnage_a": { "game": "carnage" },
+        "carnage_b": { "game": "carnage" }
+      }
+    },
+    "cruscotti": {
+      "game": "base", "type": "plance", "status": "ricalcato",
+      "source": "Player Boards and Dice Base.docx, ricalcati in assets/base/vettoriale/traced/boards.json."
+    },
+    "plancia": {
+      "game": "base", "type": "plance", "status": "ricalcato",
+      "source": "Player Boards and Dice Base.docx, ricalcata in assets/base/vettoriale/traced/boards.json; disegni originali del proprietario in assets/base/plance.",
+      "items": {
+        "command_dashboard_characters": { "game": "choppe_shoppe", "source": "Disegno del proprietario (Illustrator) della plancia dei capisquadra." },
+        "command_dashboard": { "source": "Disegno del proprietario (Illustrator) di plancia e cruscotti." }
+      }
+    },
+    "dadi": {
+      "game": "base", "type": "dadi", "status": "ricalcato",
+      "source": "Player Boards and Dice Base.docx, ricalcati in assets/base/vettoriale/traced/dice.json; direzione e slam anche nei disegni del proprietario (assets/base/dadi)."
+    },
+    "pericolo": {
+      "game": "base", "type": "segnalini", "status": "ricalcato",
+      "source": "Danger Tiles Base.pdf, ricalcati in assets/base/vettoriale/traced/hazards.json."
+    },
+    "danno": {
+      "game": "base", "type": "segnalini", "status": "ricalcato",
+      "source": "Custom Tiles Base.pdf, ricalcati in assets/base/vettoriale/traced/damage.json; sagoma del proprietario in assets/base/segnalini/danno."
+    },
+    "carnage": {
+      "game": "carnage", "type": "segnalini", "status": "bozza",
+      "source": "Disegni aperti provvisori. Le scansioni ufficiali sono estratte in assets/estratti/expansions (danger_tiles, custom_tiles), non ancora ricalcate.",
+      "items": {
+        "fire_die": { "type": "dadi", "status": "ricalcato", "source": "Player Boards and Dice Base.docx, immagine 21, ricalcato da tools/art/trace_fire_die.py in assets/carnage/vettoriale/fire_die.json." },
+        "on_fire_token": { "status": "estratto", "source": "Fire Tile.pdf, anello ritagliato in assets/carnage/segnalini/on_fire.png.", "official": "assets/carnage/segnalini/on_fire.png" }
+      }
+    },
+    "continui": {
+      "game": "carnage", "type": "carte", "status": "estratto",
+      "source": "TRV v2.pdf, fogli delle carte (tools/art/extract_cards.py).",
+      "official": "assets/carnage/carte/effetto_continuo/{id}.jpg"
+    },
+    "icone": {
+      "game": "base", "type": "icone", "status": "bozza",
+      "source": "Icone dell'interfaccia disegnate per il gioco digitale: non hanno un originale."
+    }
+  },
+  "missing": [
+    { "game": "base", "what": "Linea del traguardo", "note": "Nessuna grafica nelle scansioni (catalog_base.json: missing_art)." },
+    { "game": "carnage", "what": "Tessere 6a–10b con la grafica ufficiale", "note": "Scansioni estratte, da associare alle facce e rilevare." },
+    { "game": "carnage", "what": "Pericoli e danni nuovi con la grafica ufficiale", "note": "Scansioni estratte (danger_tiles, custom_tiles), da ricalcare." },
+    { "game": "choppe_shoppe", "what": "Segnalino comando", "note": "Non trovato nelle scansioni." },
+    { "game": "big_rig", "what": "Plance di Big Rig e moto, segnalini", "note": "Scansioni estratte (big_rig, fast_five); espansione non ancora nel gioco." },
+    { "game": "extra_ammo", "what": "Carte Extra Ammo", "note": "Nei fogli di TRV v2.pdf; espansione non ancora nel gioco." }
+  ]
+}

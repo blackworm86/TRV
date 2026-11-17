@@ -28,7 +28,7 @@ describe('vector art', () => {
   });
   it('cuts the six faces out of the owner’s dice drawings, without captions or classes', () => {
     for (const kind of ['direction', 'slam']) {
-      const raw = readFileSync(`assets/ui/dice/${kind}.svg`, 'utf8');
+      const raw = readFileSync(`assets/base/dadi/${kind}.svg`, 'utf8');
       const faces = ownerDieFaces(raw, OWNER_DIE_ORDER[kind]);
       expect([...faces.keys()].sort()).toEqual([...new Set(OWNER_DIE_ORDER[kind])].sort());
       for (const body of faces.values()) {
@@ -44,7 +44,7 @@ describe('vector art', () => {
     expect(dieSvg({ kind: 'slam', value: 'top' })).not.toBe(dieSvg({ kind: 'slam', value: 'bottom' }));
   });
   it('cuts front and back out of the owner’s damage token template', () => {
-    const own = ownerDamage(readFileSync('assets/ui/damage/template.svg', 'utf8'));
+    const own = ownerDamage(readFileSync('assets/base/segnalini/danno/template.svg', 'utf8'));
     expect(own).not.toBeNull();
     for (const side of [own!.front, own!.back]) {
       expect(side).not.toContain('class=');

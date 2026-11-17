@@ -15,7 +15,9 @@ Lingua di lavoro con l'utente: **italiano**.
 - **Fonte delle regole**: il regolamento ufficiale fornito dall'utente
   (`reference/rulebook/`) è l'unica autorità. Non inventare né "ricordare"
   regole: se manca un dettaglio, chiedi.
-- **Asset**: grafica ufficiale fornita dall'utente, in `assets/licensed/`. L'utente
+- **Asset**: in `assets/`, per gioco e per tipo (`base/`, `choppe_shoppe/`, `carnage/`, con
+  `modelli/`, `carte/`, `segnalini/`…). I file ufficiali originali sono in `assets/sorgenti/`, ciò
+  che se ne estrae in `assets/estratti/` (entrambi fuori da git). L'utente
   sviluppa la versione digitale insieme a Restoration Games e ha il loro permesso
   di pubblicarla: gli asset possono andare nel repository e sul sito (decisione
   dell'utente, 2026-11-16). Il regolamento in `reference/rulebook/` resta fuori

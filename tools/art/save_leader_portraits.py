@@ -1,8 +1,8 @@
 """Cuts each crew leader's portrait out of the scanned character boards (Choppe Shoppe).
 
-The boards are assets/licensed/_derived/expansions/character_boards/image<N>.png, in the order of
+The boards are assets/estratti/expansions/character_boards/image<N>.png, in the order of
 the leaders in data/trv/choppe_shoppe.json. The portrait is the coloured window at the top right of
-the board, in the same place on every board (WINDOW). It is saved as assets/licensed/leaders/<id>.jpg, where the game looks for it.
+the board, in the same place on every board (WINDOW). It is saved as assets/choppe_shoppe/capisquadra/<id>.jpg, where the game looks for it.
 
 Usage: python tools/art/save_leader_portraits.py
 """
@@ -12,8 +12,8 @@ from pathlib import Path
 import cv2
 import numpy as np
 
-BOARDS = Path('assets/licensed/_derived/expansions/character_boards')
-OUT = Path('assets/licensed/leaders')
+BOARDS = Path('assets/estratti/expansions/character_boards')
+OUT = Path('assets/choppe_shoppe/capisquadra')
 
 
 #: The portrait window on every board, as shares of the board's width and height (measured on the

@@ -17,18 +17,18 @@ describe('base catalog', () => {
     expect(BASE_CATALOG.crews).toHaveLength(4);
   });
   it('builds image urls for each component face', () => {
-    expect(roadTileImage(BASE_CATALOG, 3, 'b')).toBe('/assets/licensed/_derived/base/road_tiles/3b.png');
-    expect(tokenImage(BASE_CATALOG, 'hazard_token', 'mine', true)).toBe('/assets/licensed/_derived/base/hazards/mine.png');
-    expect(tokenImage(BASE_CATALOG, 'hazard_token', 'mine', false)).toBe('/assets/licensed/_derived/base/hazards/back.png');
-    expect(dieFaceImage(BASE_CATALOG, 'direction', 1)).toBe('/assets/licensed/_derived/base/dice/direction/FL.png');
-    expect(dashboardImage(BASE_CATALOG, 'green', 'L', true)).toBe('/assets/licensed/_derived/base/dashboards/green_L.png');
-    expect(dashboardImage(BASE_CATALOG, 'green', 'L', false)).toBe('/assets/licensed/_derived/base/dashboards/back_L.png');
+    expect(roadTileImage(BASE_CATALOG, 3, 'b')).toBe('/assets/estratti/base/road_tiles/3b.png');
+    expect(tokenImage(BASE_CATALOG, 'hazard_token', 'mine', true)).toBe('/assets/estratti/base/hazards/mine.png');
+    expect(tokenImage(BASE_CATALOG, 'hazard_token', 'mine', false)).toBe('/assets/estratti/base/hazards/back.png');
+    expect(dieFaceImage(BASE_CATALOG, 'direction', 1)).toBe('/assets/estratti/base/dice/direction/FL.png');
+    expect(dashboardImage(BASE_CATALOG, 'green', 'L', true)).toBe('/assets/estratti/base/dashboards/green_L.png');
+    expect(dashboardImage(BASE_CATALOG, 'green', 'L', false)).toBe('/assets/estratti/base/dashboards/back_L.png');
   });
 });
 
 describe('catalog modules', () => {
   const expansion: CatalogModule = {
-    schema: 1, module: 'test_exp', name: 'Test', image_root: 'assets/licensed/_derived/test_exp',
+    schema: 1, module: 'test_exp', name: 'Test', image_root: 'assets/estratti/test_exp',
     crews: [{ id: 'red', name: 'Rosso', color: '#f00' }],
     components: [{ id: 'big_rig', kind: 'big_rig', count: 1, size_mm: [90, 30, 25], measured: false }],
   };

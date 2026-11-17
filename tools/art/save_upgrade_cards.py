@@ -5,7 +5,7 @@ cut is upside down; '_size' the card size in px, 10 px per mm) and writes <out>/
 The game draws the Italian name and text over the card's panel (src/view/cards.ts).
 
 Usage: python tools/art/save_upgrade_cards.py <folder of cut cards> [<map json> <out folder>]
-Defaults: tools/art/upgrade_cards.json and assets/licensed/cards/upgrades (63 x 88 mm).
+Defaults: tools/art/upgrade_cards.json and assets/choppe_shoppe/carte/potenziamenti (63 x 88 mm).
 """
 import json
 import sys
@@ -17,7 +17,7 @@ from PIL import Image
 def main() -> None:
     cut = Path(sys.argv[1])
     table = json.loads(Path(sys.argv[2] if len(sys.argv) > 2 else 'tools/art/upgrade_cards.json').read_text(encoding='utf8'))
-    out = Path(sys.argv[3] if len(sys.argv) > 3 else 'assets/licensed/cards/upgrades')
+    out = Path(sys.argv[3] if len(sys.argv) > 3 else 'assets/choppe_shoppe/carte/potenziamenti')
     size = tuple(table.get('_size', [630, 880]))
     out.mkdir(parents=True, exist_ok=True)
     for key, value in table.items():

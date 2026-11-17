@@ -1,4 +1,4 @@
-// The dice faces drawn by the project owner (assets/ui/dice/*.svg, exported from Illustrator).
+// The dice faces drawn by the project owner (assets/base/dadi/*.svg, exported from Illustrator).
 // Each file holds the six faces of one die side by side, every face a plain <g> with a
 // 96 x 96 rounded square, plus grey captions under them. This module cuts the faces out,
 // drops the captions and turns the file's CSS classes into fill attributes, so a face can be

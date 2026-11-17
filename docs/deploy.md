@@ -38,9 +38,10 @@ pochi KB.
 
 ## Account admin (ispettore degli asset)
 
-La pagina `admin.html` mostra tutti gli asset del gioco
-e permette di scaricare un template modificabile per ognuno (SVG; `.glb` per i
-modelli 3D). Si entra con un account Google; gli admin si aggiungono a mano.
+La pagina `admin.html` mostra tutti gli asset del gioco per gioco e per tipo, con lo
+stato di ognuno (ufficiale estratto o ricalcato, disegnato dai dati, bozza), una vista
+3D girevole, i download (template SVG, file ufficiale, `.glb` per i modelli 3D) e i
+commenti degli admin. Si entra con un account Google; gli admin si aggiungono a mano.
 
 1. **Authentication → Metodo di accesso → Aggiungi nuovo provider → Google →
    Abilita**, scegli l'email di assistenza e **Salva**. (Il dominio
@@ -56,10 +57,17 @@ modelli 3D). Si entra con un account Google; gli admin si aggiungono a mano.
    **Pubblica**.
 5. Ricarica `admin.html`: compare l'ispettore. Per toglierne uno, cancella il suo
    nodo in `admins`.
+6. **Commenti sugli asset** (dal 2026-11-17): `database.rules.json` ha la sezione
+   `assetComments`, che solo gli admin leggono e scrivono, con testi di al massimo
+   2000 caratteri e senza poterli sovrascrivere. Finché le regole nuove non sono
+   pubblicate (scheda **Regole**, punto 4), il modulo dei commenti risponde
+   "Commenti non leggibili".
 
 Nota: tutta la grafica dell'ispettore è già nel codice pubblico del sito; l'accesso
 admin tiene la pagina in ordine, non protegge segreti. Per una prova in locale
-senza accesso: `npm run dev` e `/admin.html?admin=local`.
+senza accesso: `npm run dev` e `/admin.html?admin=local`. In locale i commenti
+restano nel browser, e la scheda **Confronta con la fonte** mostra le scansioni di
+`assets/estratti/`, che il sito pubblicato non contiene.
 
 ## Come si gioca online
 
