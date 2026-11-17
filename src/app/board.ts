@@ -1,0 +1,59 @@
+// What stands on the table: the picking plane, the finish line, the maps of car, chopper and
+// hazard objects, hazard and dice sizes, the FX dice supply and the marker shapes.
+
+import * as THREE from 'three';
+import { tileDef, TILE_COLS, type Snapshot } from '../game/trv/engine';
+import { BASE_CATALOG as CAT, sizeOf } from '../game/trv/catalog';
+import { buildTile, hazardToken, GRID } from '../view/board3d';
+import { type Die3D } from '../view/dice3d';
+import { BOARD_X0, KX, KZ, MM, PITCH_W, TILE_H, TILE_T, scene } from './stage';
+
+export const pickPlane = new THREE.Mesh(new THREE.PlaneGeometry(140, 80), new THREE.MeshBasicMaterial({ visible: false }));
+pickPlane.rotation.x = -Math.PI / 2;
+pickPlane.position.y = TILE_T;
+scene.add(pickPlane);
+
+// Finish line (no art in the licensed files): chequered strip past the lead tile.
+export const finishTex = (() => {
+  const c = document.createElement('canvas'); c.width = 64; c.height = 448;
+  const x2 = c.getContext('2d')!;
+  for (let y = 0; y < 28; y++) for (let x = 0; x < 4; x++) { x2.fillStyle = (x + y) % 2 ? '#111' : '#eee'; x2.fillRect(x * 16, y * 16, 16, 16); }
+  const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; return t;
+})();
+export const FIN = sizeOf(CAT, 'finish_line');
+export const finish = new THREE.Mesh(new THREE.PlaneGeometry(FIN[0] * MM, GRID.rows * GRID.rowPitch * KZ), new THREE.MeshStandardMaterial({ map: finishTex }));
+finish.rotation.x = -Math.PI / 2;
+finish.position.set(BOARD_X0 + 3 * PITCH_W + 0.6 * KX * GRID.pitch + FIN[0] * MM / 2, TILE_T, (GRID.y0 + 2.5 * GRID.rowPitch - GRID.frameH / 2) * KZ);
+scene.add(finish);
+
+export const carObjs = new Map<string, THREE.Group>();
+export const chopperObjs = new Map<number, THREE.Group>();
+export const hazardObjs = new Map<string, { type: string; obj: ReturnType<typeof hazardToken>; gone?: number; ground?: string }>();
+export const HAZ = sizeOf(CAT, 'hazard_token');
+// A hazard token has the shape and size of a road space (asked by the user), so it covers it.
+export const HAZ_FILL = 0.96;
+export const HAZ_SIZE = { length: (GRID.pitch + GRID.tip) * KX * HAZ_FILL, depth: GRID.rowPitch * KZ * HAZ_FILL, thickness: HAZ[2] * MM };
+export const markerGroup = new THREE.Group();
+scene.add(markerGroup);
+// Dice tray: this turn's FX dice roll onto the table just below the road.
+export const DIE_W = sizeOf(CAT, 'die')[0] * MM;
+// Rolled dice are shown at twice their size, so their faces read from the camera.
+export const TRAY_SCALE = 2;
+/** FX dice land among the cars: a little smaller than the player's own, so they hide less of the road. */
+export const FX_SCALE = 1.6;
+export const TRAY_Z = TILE_H / 2 + 0.9;
+/** One FX die on the table and its current flight: from `from` to `to`, turning from q0 to q1, `t` from 0 to 1 over `dur` seconds, rising `hop` on the way. */
+export interface TableDie { kind: string; d: Die3D; from: THREE.Vector3; to: THREE.Vector3; q0: THREE.Quaternion; q1: THREE.Quaternion; t: number; dur: number; hop: number }
+/**
+ * The FX dice: one copy of each, as in the box (asked by the user, 2026-11-16). They rest in a row
+ * off the board, beside the player's own dice; a roll throws the die to the action, and once the
+ * effect is over it goes back to its resting place.
+ */
+export const fxSupply = new Map<string, TableDie>();
+/** The FX dice out on the road for the effect being played, in the order they were thrown. */
+/** When the dice out on the road go back to rest (seconds, performance clock), or null. */
+export const FX_ORDER = ['road', 'stunt', 'slam', 'shooting', 'direction', 'fire'];
+export const FORWARD = new THREE.Vector3(1, 0, 0), AWAY = new THREE.Vector3(0, 0, -1);
+export const ringGeo = new THREE.RingGeometry(0.42, 0.56, 32);
+export const carRingGeo = new THREE.RingGeometry(0.55, 0.78, 40);
+export interface Marker { mesh: THREE.Mesh; option: number; at: THREE.Vector3 }

@@ -1,0 +1,131 @@
+// The rings and tips on the table that show where a choice can be made (spaces, cars,
+// targets), and why a car cannot be shot.
+
+import * as THREE from 'three';
+import { ROWS, COLS, TILE_COLS, type Blocked } from '../game/trv/engine';
+import { spaceGeometry, spaceRimGeometry, GRID } from '../view/board3d';
+import { HAZ_SIZE, carObjs, carRingGeo, markerGroup, ringGeo } from './board';
+import { decision, g } from './game';
+import { upgradeName } from './info';
+import { BOARD_X0, KX, PITCH_W, TILE_H, TILE_T, TILE_W, camera, world } from './stage';
+import { S } from './state';
+import { $, esc } from './util';
+
+/** Why an ability keeps a car from being shot, said over the car during the shoot step. */
+export const BLOCK_WHY: Record<string, string> = {
+  stealth_technology: 'non puoi sparare a questa auto finché c’è un altro bersaglio!',
+  smoke_screen: 'non puoi sparare a questa auto dalla casella dietro di lei!',
+};
+/** What a target's card does to a shot at it, recalled while aiming. */
+export const TARGET_WARN: Record<string, string> = {
+  armor_plating: 'il risultato “qualsiasi” del dado sparo contro di lei manca.',
+};
+export let blockTips: { el: HTMLElement; at: THREE.Vector3 }[] = [];
+/** Keeps the "you cannot shoot" bubbles over their cars as the view moves. */
+export function placeBlockTips(): void {
+  for (const t of blockTips) {
+    const p = t.at.clone().setY(TILE_T + 0.6).project(camera);
+    t.el.style.left = `${(p.x + 1) / 2 * innerWidth}px`;
+    t.el.style.top = `${(1 - p.y) / 2 * innerHeight}px`;
+  }
+}
+
+/** Marks a car an ability keeps from being shot: red glow, red rim on its space, a bubble saying why. */
+export function markBlocked(b: Blocked): void {
+  const obj = carObjs.get(b.carId);
+  if (obj) obj.userData.glow = { color: '#ff3b30', strength: 0.85 };
+  const slot = Math.floor(b.pos.c / TILE_COLS), rc = b.pos.c - slot * TILE_COLS;
+  const rim = new THREE.Mesh(spaceRimGeometry(b.pos.r, rc, TILE_W, TILE_H, 0.97, 0.8),
+    new THREE.MeshBasicMaterial({ color: 0xff3b30, transparent: true, opacity: 1, depthWrite: false, toneMapped: false }));
+  rim.rotation.x = -Math.PI / 2;
+  rim.position.set(BOARD_X0 + slot * PITCH_W + (GRID.frameW / 2) * KX, TILE_T + HAZ_SIZE.thickness + 0.02, 0);
+  rim.renderOrder = 10;
+  markerGroup.add(rim);
+  const el = document.createElement('div');
+  el.className = 'blocktip';
+  el.innerHTML = `<b>${esc(upgradeName(b.because))}</b>${esc(BLOCK_WHY[b.because] ?? 'non puoi sparare a questa auto')}`;
+  $('fx').append(el);
+  blockTips.push({ el, at: world(b.pos) });
+}
+
+export function drawMarkers(): void {
+  markerGroup.clear();
+  S.markers = [];
+  for (const t of blockTips) t.el.remove();
+  blockTips = [];
+  // (The car that is moving glows anyway: see applyGlow.)
+  for (const o of carObjs.values()) o.userData.glow = null;
+  if (!g || !decision || S.playing) return;
+  const d = decision;
+  // Assigning: the cars that can still take a die glow in the player's colour; with a die in
+  // hand, only those that accept it, and they can be dropped on.
+  if (d.kind === 'assign') {
+    const p = g.players[d.player];
+    const free = new Set(p.dice.filter((_, i) => !p.used[i]));
+    const v = S.selDie === null ? null : p.dice[S.selDie];
+    const done = new Set<string>();
+    d.options.forEach((o, i) => {
+      if (!o.carId || done.has(o.carId)) return;
+      if (v === null ? !free.has(o.dieValue!) : o.dieValue !== v) return;
+      done.add(o.carId);
+      const obj = carObjs.get(o.carId);
+      if (!obj) return;
+      obj.userData.glow = { color: p.color, strength: v === null ? 0.35 : 0.75 };
+      if (v === null) return;
+      // An invisible marker: it only makes the car a drop target.
+      const at = (obj.userData.target as THREE.Vector3).clone();
+      const mesh = new THREE.Mesh(carRingGeo, new THREE.MeshBasicMaterial({ visible: false }));
+      markerGroup.add(mesh);
+      S.markers.push({ mesh, option: i, at });
+    });
+    return;
+  }
+  // Shooting: a car an ability keeps from being a target glows red and says why (Stealth
+  // Technology, Smoke Screen), so the player sees the other car's power at work.
+  for (const b of d.blocked ?? []) markBlocked(b);
+  // A target that can be shot but defends itself: a reminder, in amber, of what its card does.
+  if (d.kind === 'shoot') {
+    for (const o of d.options) {
+      const v = o.carId ? g.vehicles.find(x => x.id === o.carId) : undefined;
+      if (!v?.upgrade || v.status !== 'ok' || !TARGET_WARN[v.upgrade] || !v.pos) continue;
+      const el = document.createElement('div');
+      el.className = 'blocktip warn';
+      el.innerHTML = `<b>${esc(upgradeName(v.upgrade))}</b>${esc(TARGET_WARN[v.upgrade])}`;
+      $('fx').append(el);
+      blockTips.push({ el, at: world(v.pos) });
+    }
+  }
+  if (!['step', 'airstrike', 'shoot', 'peek', 'peekResult', 'plow', 'rollCage', 'dispense', 'radar'].includes(d.kind)) return;
+  d.options.forEach((o, i) => {
+    if (!o.pos) return;
+    const at = world(o.pos);
+    if (S.markers.some(m => m.at.distanceTo(at) < 0.05)) return;
+    const color = o.danger ? 0xff3b30 : d.kind === 'shoot' ? 0xffd23a : d.kind === 'airstrike' ? 0x7fd4ff : 0x4cff7a;
+    const onTable = o.pos.r >= 0 && o.pos.r < ROWS && o.pos.c >= 0 && o.pos.c < COLS;
+    let mesh: THREE.Mesh;
+    if (onTable) {
+      // A coloured border around the space, the terrain left visible inside (asked by the user,
+      // 2026-11-16). The space itself is an invisible pick target. Not tone mapped, so the
+      // colour stays vivid under the table's lighting.
+      const slot = Math.floor(o.pos.c / TILE_COLS);
+      const rc = o.pos.c - slot * TILE_COLS;
+      const glow = (opacity: number, additive: boolean): THREE.MeshBasicMaterial => new THREE.MeshBasicMaterial({
+        color, transparent: true, opacity, depthWrite: false, toneMapped: false, ...(additive ? { blending: THREE.AdditiveBlending } : {}),
+      });
+      mesh = new THREE.Mesh(spaceGeometry(o.pos.r, rc, TILE_W, TILE_H, 1.0), new THREE.MeshBasicMaterial({ visible: false }));
+      const rim = new THREE.Mesh(spaceRimGeometry(o.pos.r, rc, TILE_W, TILE_H, 0.97, 0.8), glow(1, false));
+      rim.position.z = 0.002;
+      const halo = new THREE.Mesh(spaceRimGeometry(o.pos.r, rc, TILE_W, TILE_H, 1.08, 0.97), glow(0.35, true));
+      mesh.add(rim, halo);
+      mesh.rotation.x = -Math.PI / 2;
+      mesh.position.set(BOARD_X0 + slot * PITCH_W + (GRID.frameW / 2) * KX, TILE_T + HAZ_SIZE.thickness + 0.02, 0);
+    } else {
+      mesh = new THREE.Mesh(ringGeo, new THREE.MeshBasicMaterial({ color, transparent: true, opacity: 0.9, side: THREE.DoubleSide, depthTest: false }));
+      mesh.rotation.x = -Math.PI / 2;
+      mesh.position.copy(at).setY(TILE_T + 0.1);
+    }
+    mesh.renderOrder = 10;
+    markerGroup.add(mesh);
+    S.markers.push({ mesh, option: i, at });
+  });
+}
