@@ -28,9 +28,27 @@ function bash(): string {
   return found ?? 'bash';
 }
 
+/** The real game, served by the Vite dev server on its own port for the checks. */
+const GAME_PORT = 5199;
+
 export default defineConfig({
   testDir: 'tests/integration',
   forbidOnly: !!process.env.CI,
+  // The game draws its 3D table in software here: slow, so roomy timeouts.
+  timeout: 120_000,
+  expect: { timeout: 20_000 },
+  projects: [
+    // The template's own check, on the single-file build (npm run test:e2e).
+    { name: 'template', testMatch: /boot\.spec\.ts/ },
+    // The game (npm run test:game): its page from the dev server, at a desk-sized window.
+    { name: 'game', testMatch: /game\.spec\.ts/, use: { baseURL: `http://localhost:${GAME_PORT}`, viewport: { width: 1366, height: 800 } } },
+  ],
+  webServer: {
+    command: `npx vite --port ${GAME_PORT} --strictPort`,
+    url: `http://localhost:${GAME_PORT}/prototypes/trv-play-spike/`,
+    reuseExistingServer: true,
+    timeout: 120_000,
+  },
   use: {
     viewport: { width: 1280, height: 720 },
     launchOptions: {
