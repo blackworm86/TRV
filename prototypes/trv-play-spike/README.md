@@ -1,16 +1,22 @@
-<!-- PROTOTYPE - NOT FOR PRODUCTION -->
+<!-- PROTOTYPE - CONCLUDED, see src/app/ -->
 # trv-play-spike — partita hot seat giocabile
 
 **Ipotesi**: il gioco base di Thunder Road: Vendetta si gioca bene in hot seat sul tavolo 3D,
 con le regole del regolamento applicate dal motore (`src/game/trv/engine.ts`) e il giocatore
 che sceglie solo tra mosse legali (anelli sul tavolo o pulsanti).
 
-**Come si avvia**: `npm run dev`, poi apri `http://localhost:5173/prototypes/trv-play-spike/`.
+**Concluso il 2026-11-17.** Il prototipo è diventato il gioco: il codice è in `src/app/` (pagine
+`index.html`, `admin.html`, `gallery.html` alla radice), la scelta è spiegata in
+`docs/architecture/adr-0001-client-del-gioco.md`. Questo file resta come registro di ciò che il
+prototipo ha provato e deciso; i nomi di file qui sotto sono quelli di allora (`main.ts` ora è
+diviso nei moduli di `src/app/`, `models-config.ts` è in `src/view/`).
+
+**Come si avvia**: `npm run dev`, poi apri `http://localhost:5173/`.
 Serve la grafica estratta in `assets/licensed/_derived/base/` (locale, esclusa da git): chi possiede i
 file ufficiali la rigenera con `python tools/assets/extract_base.py`. Senza, i pezzi restano grigi ma la
 partita funziona.
 
-**Stato**: in corso.
+**Stato**: concluso, promosso a gioco.
 
 ## Cosa c'è
 - 2-4 giocatori, tessera di partenza 1a o 1b, tutte le 10 facce delle tessere con terreno e pericoli.

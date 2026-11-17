@@ -18,7 +18,7 @@ qui ci sono lo stato attuale, le decisioni prese a voce e cosa resta da fare.
 - **Sito**: GitHub Pages (`.github/workflows/pages.yml`) più Firebase Realtime Database (progetto
   `trv-online`). La guida è in `docs/deploy.md`. L'host della partita fa da arbitro; si entra con
   link, QR o codice.
-- **Admin**: login Google; l'utente è admin. Il pannello (`prototypes/trv-play-spike/admin.html`)
+- **Admin**: login Google; l'utente è admin. Il pannello (`admin.html`)
   mostra tutti gli asset e permette di scaricare i template.
 - **Test**: 204 test unitari verdi (`npm run test:unit`). `npm run build:pages` funziona.
 
@@ -28,14 +28,14 @@ qui ci sono lo stato attuale, le decisioni prese a voce e cosa resta da fare.
 |---|---|
 | Motore delle regole (generatori, `play(g)`) | `src/game/trv/engine.ts` |
 | Dati delle regole | `data/trv/game_base.json`, `choppe_shoppe.json`, `carnage.json` (con `_rulings`) |
-| Interfaccia e scena 3D del gioco | `prototypes/trv-play-spike/main.ts`, `index.html` |
+| Interfaccia e scena 3D del gioco | `src/app/` (un modulo per argomento, avvio in `main.ts`, stile in `styles.css`), `index.html` alla radice |
 | Tavolo, tessere, segnalini 3D | `src/view/board3d.ts` |
 | Terreno procedurale, ostacoli | `src/view/terrain/procedural.ts`, `obstacles.ts` |
 | Fuoco a particelle, rampa | `src/view/terrain/carnage3d.ts` |
 | Buca della trappola | `src/view/terrain/pit3d.ts` |
-| Modelli GLB e loro configurazione | `assets/models/`, `prototypes/trv-play-spike/models-config.ts` |
+| Modelli GLB e loro configurazione | `assets/models/`, `src/view/models-config.ts` |
 | Rete e Firebase | `src/net/` (`room.ts`, `firebase-store.ts`, `admin-auth.ts`), `database.rules.json` |
-| Pannello admin | `prototypes/trv-play-spike/admin.ts` |
+| Pannello admin | `src/admin/admin.ts`, `admin.html` |
 | Prompt per generare modelli (Gemini, Meshy) | `design/art/carnage-ramp-prompts.md`, `design/art/wreck-prompts.md` |
 | Screenshot di verifica | `production/qa/evidence/` |
 
@@ -72,9 +72,9 @@ qui ci sono lo stato attuale, le decisioni prese a voce e cosa resta da fare.
 
 ## Da fare
 
-1. **Vista alle spalle delle auto (chase)**: così com'è è inutilizzabile e va rifatta provandola dal
-   vivo. Il pulsante è sulla plancia; il codice è in `main.ts` (`setChase`, `chaseButtons`,
-   `chaseDie`). Anche i dadi devono seguire la vista.
+1. **Vista alle spalle delle auto (chase)**: rifatta (bassa, lungo la strada, dadi posati sul
+   tavolo accanto all'auto; codice in `src/app/chase.ts` e `tableDice.ts`). Resta un difetto:
+   dall'area di partenza l'elicottero parcheggiato può stare davanti alla telecamera.
 2. **Trappola**: adeguare `pit3d.ts` all'artwork ufficiale del segnalino. L'utente deve mandarne una
    foto o una scansione.
 3. Da verificare dal vivo, perché nella sessione cloud non è stato possibile:
@@ -84,6 +84,15 @@ qui ci sono lo stato attuale, le decisioni prese a voce e cosa resta da fare.
    - una partita online con Carnage.
 4. Rispondere alle domande aperte dell'artefatto "Regole da decidere" e applicare le risposte.
 
+## Test
+
+- `npm run test:unit`: test unitari (Vitest) di motore, rete e parti pure del client
+  (`tests/unit/app/`).
+- `npm run test:e2e`: il gioco vero in Chromium (Playwright, `tests/integration/game.spec.ts`):
+  avvio, hot seat, partita ripresa uguale, viste con confronto di immagini, regia, stanza online
+  in modalità locale. `npm run smoke` lancia solo l'avvio.
+- I valori di regia (tempi, salti, telecamere) sono in `data/trv/presentation_base.json`.
+
 ## Abitudini di lavoro
 
 - Si lavora sul branch `main-rgpe4d`. Dopo ogni push si apre (o si aggiorna) la PR verso `main`;
@@ -91,7 +100,7 @@ qui ci sono lo stato attuale, le decisioni prese a voce e cosa resta da fare.
 - Dopo ogni merge si controlla che l'azione **Pages** su GitHub Actions sia verde e che il sito sia
   aggiornato. Una volta un test troppo lento su CI ha bloccato il deploy: per questo
   `testTimeout: 30_000` è in `vite.config.ts`.
-- Per vedere il gioco: `npm run dev`, poi aprire `/prototypes/trv-play-spike/`. Il pannello admin
+- Per vedere il gioco: `npm run dev`, poi aprire la radice `/`. Il pannello admin
   in locale si apre con `admin.html?admin=local`; `models.html` mostra i modelli 3D e dà accesso
   a `window.view` per le prove.
 - Nel dev server Vite capita che i moduli restino duplicati dopo modifiche grosse: in quel caso

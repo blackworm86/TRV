@@ -1,7 +1,7 @@
 # Relitti: prompt per altri modelli 3D (varietà sul tavolo)
 
 Oggi il gioco ha un solo modello di relitto (`assets/models/wreck_1.glb`). Ogni relitto sul tavolo
-ne sceglie uno in base al suo id (`MODEL.wrecks` in `prototypes/trv-play-spike/models-config.ts`):
+ne sceglie uno in base al suo id (`MODEL.wrecks` in `src/view/models-config.ts`):
 basta aggiungere i file e il gioco li alterna.
 
 ## Regole comuni a tutti i relitti

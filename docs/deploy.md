@@ -13,6 +13,8 @@ finché l'host non la chiude.
    push su `main` (oppure a mano da **Actions → Pages → Run workflow**).
    Esegue i test, `npm run build:pages` e pubblica `dist-pages/`.
 3. Indirizzo: `https://<utente>.github.io/<repository>/` (porta direttamente al gioco).
+   I vecchi indirizzi sotto `prototypes/trv-play-spike/` (inviti già mandati compresi)
+   rimandano alla radice tenendo `?room=…`: li scrive `tools/pages/finish.mjs`.
 
 Finché Firebase non è configurato, il sito funziona in hot seat e la sezione online
 dice "non ancora attivo".
@@ -36,14 +38,14 @@ pochi KB.
 
 ## Account admin (ispettore degli asset)
 
-La pagina `prototypes/trv-play-spike/admin.html` mostra tutti gli asset del gioco
+La pagina `admin.html` mostra tutti gli asset del gioco
 e permette di scaricare un template modificabile per ognuno (SVG; `.glb` per i
 modelli 3D). Si entra con un account Google; gli admin si aggiungono a mano.
 
 1. **Authentication → Metodo di accesso → Aggiungi nuovo provider → Google →
    Abilita**, scegli l'email di assistenza e **Salva**. (Il dominio
    `<utente>.github.io` deve essere già tra i domini autorizzati, punto 5 sopra.)
-2. Apri `https://<utente>.github.io/<repo>/prototypes/trv-play-spike/admin.html`
+2. Apri `https://<utente>.github.io/<repo>/admin.html`
    → **Accedi con Google**. Un account non admin vede il proprio **UID**:
    premi **Copia UID**.
 3. **Realtime Database → scheda Dati**: aggiungi alla radice il nodo `admins` e,
@@ -57,7 +59,7 @@ modelli 3D). Si entra con un account Google; gli admin si aggiungono a mano.
 
 Nota: tutta la grafica dell'ispettore è già nel codice pubblico del sito; l'accesso
 admin tiene la pagina in ordine, non protegge segreti. Per una prova in locale
-senza accesso: `npm run dev` e `/prototypes/trv-play-spike/admin.html?admin=local`.
+senza accesso: `npm run dev` e `/admin.html?admin=local`.
 
 ## Come si gioca online
 
@@ -78,5 +80,5 @@ senza accesso: `npm run dev` e `/prototypes/trv-play-spike/admin.html?admin=loca
 
 ## Provare senza Firebase
 
-`npm run dev`, poi apri `/prototypes/trv-play-spike/?net=local` in due schede dello
+`npm run dev`, poi apri `/?net=local` in due schede dello
 stesso browser: le stanze passano per `localStorage`.
