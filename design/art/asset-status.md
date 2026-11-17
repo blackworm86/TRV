@@ -32,9 +32,11 @@ I dati vivi sono in `data/trv/assets_catalog.json` e nel pannello admin
   - dadi strada, acrobazia, slam, sparo, direzione;
   - segnalini pericolo (5 tipi e retro);
   - i tre cruscotti e la plancia comandi per ogni crew.
-- **Estratti**: i segnalini danno come stampati (`tools/art/save_damage_tokens.py`, in
-  `assets/base/segnalini/danno/`), ritagliati nel gioco con la sagoma del proprietario
-  (`template.svg`). Le sei Sbandate: la scansione ha solo quella in avanti; le altre cinque sono
+- **Estratti**: i segnalini danno. La sagoma del proprietario (`template.svg`) disegna la cornice
+  rossa col bordo strappato e tutto il retro; dentro la cornice va la grafica stampata del fronte
+  (`tools/art/save_damage_tokens.py`, ritagliata sui bordi della cornice rossa, in
+  `assets/base/segnalini/danno/`), così non si vedono né la carta bianca né il bordo tagliato della
+  scansione. Le sei Sbandate: la scansione ha solo quella in avanti; le altre cinque sono
   ricavate da questa spostando il chevron pieno nella casella della direzione, come sulle facce
   del dado direzione (avanti, avanti-sinistra, avanti-destra, indietro e le due diagonali
   indietro). È una ricostruzione: va confrontata con i segnalini fisici.

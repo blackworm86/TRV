@@ -6,8 +6,8 @@
   them with the base hazard chevron (src/view/vector/art.ts);
 - the two new damage tokens, ON FIRE and ONGOING EFFECT (Custom Tiles.pdf,
   assets/estratti/expansions/custom_tiles), saved like the base damage tokens
-  (tools/art/save_damage_tokens.py) as assets/carnage/segnalini/danno/<type>.jpg. Their back is the
-  base game's (the same scan).
+  (tools/art/save_damage_tokens.py: cut to the red frame) as assets/carnage/segnalini/danno/<type>.jpg.
+  Their back is the base game's: the owner's drawing.
 
 Which scan is which was read off the scans themselves (the printed names and pictures). The danger
 tile sheet also holds the base game's mine, oil and back (red; the expansion's back is orange, with its mark) and five plain sand tiles: not tokens of
@@ -22,7 +22,7 @@ import cv2
 import numpy as np
 
 sys.path.insert(0, str(Path(__file__).parent))
-from save_damage_tokens import flat, no_paper, shrink_to  # noqa: E402
+from save_damage_tokens import FACE_RATIO, face_crop, flat, no_paper, shrink_to  # noqa: E402
 
 DANGER = Path('assets/estratti/expansions/danger_tiles')
 CUSTOM = Path('assets/estratti/expansions/custom_tiles')
@@ -40,7 +40,6 @@ PAPER_MIN = 222
 #: Share of the cut token, right and bottom, that is the scanner's shadow (measured: ~11 px of 306 at the bottom).
 SHADOW = (0.01, 0.036)
 DAMAGE_WIDTH = 480
-DAMAGE_SIZE = (480, 433)
 
 
 def scan(folder: Path, page: int) -> np.ndarray:
@@ -67,8 +66,8 @@ def main() -> None:
         cv2.imwrite(str(OUT_HAZARD / f'{name}.jpg'), tok, [cv2.IMWRITE_JPEG_QUALITY, 90])
         print('pericolo', name, tok.shape[1], 'x', tok.shape[0])
     for page, name in DAMAGE.items():
-        # Cut to the token and set to the base tokens' size (480 x 433), so the same outline cuts it.
-        tok = no_paper(cv2.resize(shrink_to(token_box(scan(CUSTOM, page)), DAMAGE_WIDTH), DAMAGE_SIZE, interpolation=cv2.INTER_AREA))
+        # Cut to the red frame like the base tokens, so the same outline frames it.
+        tok = cv2.resize(shrink_to(face_crop(scan(CUSTOM, page)), DAMAGE_WIDTH), (DAMAGE_WIDTH, round(DAMAGE_WIDTH * FACE_RATIO)), interpolation=cv2.INTER_AREA)
         cv2.imwrite(str(OUT_DAMAGE / f'{name}.jpg'), tok, [cv2.IMWRITE_JPEG_QUALITY, 90])
         print('danno', name, tok.shape[1], 'x', tok.shape[0])
 

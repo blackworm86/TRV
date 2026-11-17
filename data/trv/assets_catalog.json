@@ -85,11 +85,11 @@
     },
     "danno": {
       "game": "base", "type": "segnalini", "status": "estratto",
-      "source": "Custom Tiles Base.pdf: scansioni salvate da tools/art/save_damage_tokens.py in assets/base/segnalini/danno e ritagliate con la sagoma del proprietario (template.svg). Le cinque Sbandate oltre a quella in avanti sono ricavate dalla scansione, con la direzione come sulle facce del dado direzione."
+      "source": "Custom Tiles Base.pdf: grafica stampata del fronte (tools/art/save_damage_tokens.py, ritagliata sulla cornice rossa) dentro la sagoma del proprietario (template.svg), che disegna cornice, bordo strappato e retro. Le cinque Sbandate oltre a quella in avanti sono ricavate dalla scansione, con la direzione come sulle facce del dado direzione."
     },
     "carnage": {
       "game": "carnage", "type": "segnalini", "status": "estratto",
-      "source": "Danger Tiles.pdf e Custom Tiles.pdf: scansioni salvate da tools/art/save_carnage_tokens.py in assets/carnage/segnalini (pericolo, danno), ritagliate nel gioco con le sagome dei segnalini del gioco base (chevron dei pericoli, sagoma del proprietario per i danni).",
+      "source": "Danger Tiles.pdf e Custom Tiles.pdf: scansioni salvate da tools/art/save_carnage_tokens.py in assets/carnage/segnalini (pericolo, danno), con le sagome dei segnalini del gioco base: chevron dei pericoli; per i danni la grafica stampata dentro la cornice della sagoma del proprietario.",
       "items": {
         "fire_die": { "type": "dadi", "status": "ricalcato", "source": "Player Boards and Dice Base.docx, immagine 21, ricalcato da tools/art/trace_fire_die.py in assets/carnage/vettoriale/fire_die.json." },
         "on_fire_token": { "status": "estratto", "source": "Fire Tile.pdf, anello ritagliato in assets/carnage/segnalini/on_fire.png.", "official": "assets/carnage/segnalini/on_fire.png" }

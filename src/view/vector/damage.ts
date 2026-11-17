@@ -23,6 +23,12 @@ export interface OwnerDamage {
   frontClip: string;
   /** The back's shape, the same way. */
   backClip: string;
+  /** The front's placement in the 110 x 100 box: a transform from the drawing's units. */
+  frontAt: string;
+  /** The inside of the front's red frame (its inner edge, torn at the bottom), in the drawing's units. */
+  frontInner: string;
+  /** The front's outer box in the drawing's units: left, top, width. */
+  frontBox: { x: number; y: number; w: number };
 }
 
 /**
@@ -43,7 +49,14 @@ export function ownerDamage(raw: string): OwnerDamage | null {
   // A clip path takes shapes, not groups: every path of the side, each with the side's placement.
   const shape = (g: string, x: number): string => [...g.matchAll(/<path\b[^>]*?\sd="([^"]+)"/g)]
     .map(m => `<path transform="${at(x)}" d="${m[1]}"/>`).join('');
-  return { front: place(front, FRONT_X), back: place(back, BACK_X), frontClip: shape(front, FRONT_X), backClip: shape(back, BACK_X) };
+  // The red frame is one path with two rings: the outer edge and the inner one (which starts below the top).
+  const red = /<path[^>]*fill="#d42a2f"[^>]*\sd="([^"]+)"/.exec(front)?.[1] ?? /<path[^>]*\sd="([^"]+)"[^>]*fill="#d42a2f"/.exec(front)?.[1] ?? '';
+  const rings = red.split(/(?=M)/).map(r => r.trim()).filter(Boolean);
+  const inner = rings.find(r => Number(/^M[\d.]+,([\d.]+)/.exec(r)?.[1] ?? NaN) > TOP + 1) ?? '';
+  return {
+    front: place(front, FRONT_X), back: place(back, BACK_X), frontClip: shape(front, FRONT_X), backClip: shape(back, BACK_X),
+    frontAt: at(FRONT_X), frontInner: inner, frontBox: { x: FRONT_X, y: TOP, w: WIDTH },
+  };
 }
 
 /** Inner edge of the front's red frame in the 110 x 100 box: left, top, right (the frame is 13 units thick in the drawing). */

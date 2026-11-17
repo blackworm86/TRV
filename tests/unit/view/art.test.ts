@@ -53,15 +53,25 @@ describe('vector art', () => {
     expect(own!.front).toContain('#d42a2f'); // the red frame
     expect(own!.back).toContain('stroke="#d42a2f"'); // the warning sign
   });
-  it('shows the base game damage tokens as printed, cut with the owner’s outline', () => {
-    // Arrange / Act / Assert: each front is its own printed token inside the front's outline.
+  it('draws the base damage tokens on the owner’s outline, with the printed art inside the red frame', () => {
+    // Arrange
+    const own = ownerDamage(readFileSync('assets/base/segnalini/danno/template.svg', 'utf8'))!;
     for (const type of ['shrapnel', 'dazed', 'dent', 'blastoff']) {
+      // Act
       const s = damageTokenSvg(type, true);
-      expect(s).toMatch(new RegExp(`<image href="[^"]*/${type}[^"/]*\\.jpg"`));
-      expect(s).toMatch(/<clipPath id="dmg-front"><path transform="[^"]*translate\(-33\.09 -44\)"/);
+      // Assert: the owner's frame, then the picture laid on the frame's outer edges, shown only inside it.
+      expect(s).toContain('fill="#d42a2f"');
+      expect(s).toMatch(new RegExp(`<image href="[^"]*/${type}[^"/]*\\.jpg" x="33.09" y="44" width="213.82"`));
+      expect(s).toContain(`<clipPath id="dmg-inner"><path d="${own.frontInner}"/>`);
     }
-    // The back, with the back's outline.
-    expect(damageTokenSvg(null, false)).toMatch(/<clipPath id="dmg-back"><path transform="[^"]*translate\(-293\.09 -44\)"/);
+    // The inside of the frame starts inside the outer edge, below the top.
+    expect(own.frontInner).toMatch(/^M233\.82,57\.09/);
+  });
+  it('draws the damage token back from the owner’s drawing, with no printed picture', () => {
+    const back = damageTokenSvg(null, false);
+    expect(back).not.toContain('<image');
+    expect(back).toContain('translate(-293.09 -44)');
+    expect(back).toContain('stroke="#d42a2f"');
   });
   it('shows each SKID token with its own direction', () => {
     for (const dir of ['F', 'FL', 'FR', 'B', 'BL', 'BR'] as const) {
@@ -72,7 +82,7 @@ describe('vector art', () => {
     for (const type of ['on_fire', 'ongoing_effect']) {
       const s = damageTokenSvg(type, true);
       expect(s).toMatch(new RegExp(`<image href="[^"]*carnage/segnalini/danno/${type}[^"/]*\.jpg"`));
-      expect(s).toContain('clip-path="url(#dmg-front)"');
+      expect(s).toContain('clip-path="url(#dmg-inner)"');
     }
   });
   it('shows the Carnage hazard tokens as printed, in the base chevron, with the expansion’s own back', () => {

@@ -248,31 +248,33 @@ export function hazardTokenSvg(type: string | null, faceUp: boolean, extra = '')
 const DAMAGE_TITLE: Record<string, string> = { shrapnel: 'SCHEGGE', dazed: 'STORDITO', dent: 'AMMACCATURA', skid: 'SBANDATA', blastoff: 'DECOLLO', on_fire: 'IN FIAMME', ongoing_effect: 'EFFETTO' };
 
 /**
- * The official damage tokens as printed (tools/art/save_damage_tokens.py): fronts by type, the six
- * SKID tokens by direction (skid_F … skid_BR) and the back, cut in the game with the owner's outline;
- * with Carnage at Devil's Run's ON FIRE and ONGOING EFFECT (tools/art/save_carnage_tokens.py).
+ * The printed art of the official damage token fronts (tools/art/save_damage_tokens.py), cut to
+ * the token's red frame: by type, the six SKID tokens by direction (skid_F … skid_BR), and Carnage
+ * at Devil's Run's ON FIRE and ONGOING EFFECT (tools/art/save_carnage_tokens.py).
  */
 const DAMAGE_PRINT: Record<string, string> = Object.fromEntries(Object.entries(
   import.meta.glob<string>(['/assets/base/segnalini/danno/*.jpg', '/assets/carnage/segnalini/danno/*.jpg'], { eager: true, query: '?url', import: 'default' }),
 ).map(([path, url]) => [path.replace(/^.*\/|\.\w+$/g, ''), url]));
-/** Width / height of the printed tokens (the scans, 480 x 433). */
-const DAMAGE_PRINT_RATIO = 480 / 433;
+/** Height / width of the printed fronts (FACE_RATIO in tools/art/save_damage_tokens.py). */
+const DAMAGE_PRINT_RATIO = 0.95;
 
-/** The printed token `name` cut with the owner's outline (front or back), or null without both. */
-function printedDamage(name: string, back: boolean, extra: string): string | null {
+/**
+ * A damage token front: the owner's outline (red frame, torn edge) with the printed art inside the
+ * frame. The picture's edges are the frame's outer edges, so it sits where it was printed; only what
+ * is inside the frame's inner edge shows. Null without the outline or the picture.
+ */
+function printedDamage(name: string, extra: string): string | null {
   const own = ownerDamage, url = DAMAGE_PRINT[name];
-  if (!own || !url) return null;
-  const id = `dmg-${back ? 'back' : 'front'}`;
-  const w = 104, h = w / DAMAGE_PRINT_RATIO;
-  return svg(110, 100, `<defs><clipPath id="${id}">${back ? own.backClip : own.frontClip}</clipPath></defs>`
-    + `<image href="${url}" x="3" y="3" width="${w}" height="${h.toFixed(2)}" preserveAspectRatio="none" clip-path="url(#${id})"/>`, extra);
+  if (!own || !url || !own.frontInner) return null;
+  const { x, y, w } = own.frontBox;
+  return svg(110, 100, own.front + `<defs><clipPath id="dmg-inner"><path d="${own.frontInner}"/></clipPath></defs>`
+    + `<g transform="${own.frontAt}"><image href="${url}" x="${x}" y="${y}" width="${w}" height="${(w * DAMAGE_PRINT_RATIO).toFixed(2)}" preserveAspectRatio="none" clip-path="url(#dmg-inner)"/></g>`, extra);
 }
 
 /** Damage token, 110 x 100, torn bottom edge. faceUp=false draws the back (brake warning). */
 export function damageTokenSvg(type: string | null, faceUp: boolean, dir?: ArtDir, extra = ''): string {
-  // The printed token when there is one; drawn otherwise.
-  const printed = !faceUp || !type ? printedDamage('back', true, extra)
-    : printedDamage(type === 'skid' ? `skid_${dir ?? 'F'}` : type, false, extra);
+  // The front: the printed art in the owner's outline, when there is one. The back is the owner's drawing.
+  const printed = faceUp && type ? printedDamage(type === 'skid' ? `skid_${dir ?? 'F'}` : type, extra) : null;
   if (printed) return printed;
   const own = ownerDamage;
   if (!own) {

@@ -1,9 +1,12 @@
 """Saves the base game's damage tokens for the game, from the official scans
 (assets/estratti/base/damage/*.png, cut by tools/assets/extract_base.py from Custom Tiles Base.pdf).
 
-The front of each token and the back are kept as printed: assets/base/segnalini/danno/<type>.jpg.
-The game cuts them with the owner's outline (assets/base/segnalini/danno/template.svg), so the
-white page left in the notches of the torn edge never shows.
+The game draws each token on the owner's outline (assets/base/segnalini/danno/template.svg): the
+red frame with its torn edge, and the back whole, are the owner's drawing; inside the frame goes
+the printed art. So this script keeps the front of each token as printed, cut to the token's red
+silhouette (left, right and top edges of the frame), FACE_RATIO of its width tall:
+assets/base/segnalini/danno/<type>.jpg. The game lays that picture on the outline's edges and shows
+it only inside the frame, so neither the page around the token nor the scan's torn edge shows.
 
 SKID comes in six tokens, one per direction (rulebook p. 12), but the scans hold only the forward
 one: a grid of chevrons, rows offset by half a space like the board, the car on the hollow chevron
@@ -21,8 +24,10 @@ import numpy as np
 
 SRC = Path('assets/estratti/base/damage')
 OUT = Path('assets/base/segnalini/danno')
-TYPES = ['blastoff', 'dazed', 'dent', 'shrapnel', 'skid', 'back']
+TYPES = ['blastoff', 'dazed', 'dent', 'shrapnel', 'skid']
 WIDTH = 480
+#: Height / width of a saved front: the whole outline (its lowest torn point is at 0.91), and a little more.
+FACE_RATIO = 0.95
 
 #: The chevron grid of the skid scan (1064 x 960 px), measured on it: the car's (hollow) chevron,
 #: the step between spaces along a row, and between rows.
@@ -89,8 +94,25 @@ def shrink_to(img: np.ndarray, width: int) -> np.ndarray:
     return cv2.resize(small, (width, round(width * img.shape[0] / img.shape[1])), interpolation=cv2.INTER_AREA)
 
 
+def face_crop(img: np.ndarray) -> np.ndarray:
+    """The token cut to its red frame: from the frame's left to its right edge and from its top
+    edge down, FACE_RATIO of the width tall (padded with the frame's red past the scan's bottom)."""
+    hsv = cv2.cvtColor(img, cv2.COLOR_BGR2HSV)
+    h, w = img.shape[:2]
+    red = (hsv[:, :, 1] > 90) & (hsv[:, :, 2] > 90) & ((hsv[:, :, 0] < 15) | (hsv[:, :, 0] > 160))
+    cols = np.nonzero(red[int(h * 0.3):int(h * 0.6)].mean(axis=0) > 0.5)[0]
+    rows = np.nonzero(red[:, int(w * 0.3):int(w * 0.7)].mean(axis=1) > 0.5)[0]
+    left, right, top = cols.min(), cols.max() + 1, rows.min()
+    tall = round((right - left) * FACE_RATIO)
+    out = np.empty((tall, right - left, 3), np.uint8)
+    out[:] = (47, 42, 212)  # the frame's red (BGR), only where the scan ends
+    part = img[top:top + tall, left:right]
+    out[:part.shape[0]] = part
+    return out
+
+
 def save(img: np.ndarray, name: str) -> None:
-    small = no_paper(shrink_to(img, WIDTH))
+    small = cv2.resize(shrink_to(face_crop(img), WIDTH), (WIDTH, round(WIDTH * FACE_RATIO)), interpolation=cv2.INTER_AREA)
     cv2.imwrite(str(OUT / f'{name}.jpg'), small, [cv2.IMWRITE_JPEG_QUALITY, 90])
     print(name, small.shape[1], 'x', small.shape[0])
 

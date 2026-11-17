@@ -23,8 +23,8 @@ describe('extracted official images', () => {
     expect(missing(SHOPPE.leaders.map(l => `assets/choppe_shoppe/avatar_personaggi/${l.id}.png`))).toEqual([]);
   });
 
-  it('has the printed damage tokens, the back and the six SKID directions', () => {
-    const names = [...new Set((RULES.damage_tokens as { type: string; dir?: string }[]).map(d => (d.dir ? `${d.type}_${d.dir}` : d.type))), 'back'];
+  it('has the printed art of every damage token front, the six SKID directions included', () => {
+    const names = [...new Set((RULES.damage_tokens as { type: string; dir?: string }[]).map(d => (d.dir ? `${d.type}_${d.dir}` : d.type)))];
     expect(missing(names.map(n => `assets/base/segnalini/danno/${n}.jpg`))).toEqual([]);
   });
 
