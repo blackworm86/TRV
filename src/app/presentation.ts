@@ -30,7 +30,14 @@ export interface Presentation {
     lean: number; wobble: number; flipLift: number;
     slowMotion: { from: number; to: number; speed: number };
   };
-  director: { diceDist: number; shot: { blendIn: number; blendOut: number; wait: number; follow: number }; lift: number };
+  director: {
+    diceDist: number; shot: { blendIn: number; blendOut: number; wait: number; follow: number }; lift: number;
+    /** The new director (shots.ts): see the data file. */
+    hold: number; refresh: number; floor: number;
+    subject: { car: number; close: number; slam: number; chopper: number; chopperUp: number; die: number };
+    blocker: { rockR: number; rockH: number; carR: number; carH: number; chopperR: number };
+    shots: Record<string, { id: string; yaw: number; elev: number; fill: number; near?: number; orbit?: number }[]>;
+  };
   chase: { enabled: boolean; fov: number; back: number; up: number; pitch: number; lift: number; follow: number };
   chaseDice: { size: number; side: number; gap: number; ahead: number; rows: number; cols: number; every: number; slide: number };
   mapView: { fit: { side: number; high: number; gap: number }; swap: number; elevNear: number };

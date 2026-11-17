@@ -48,6 +48,7 @@ import { startReplay } from './replay';
 import { syncInert } from './screens';
 import { settings } from './settings';
 import { TILE_T, camera, controls, scene, world } from './stage';
+import { takeNow } from './shots';
 import { S } from './state';
 import { $, SAVE_KEY } from './util';
 commandTips(); // the command board's pop-up: name, dice and effect of the command under the pointer
@@ -67,7 +68,7 @@ try {
 // For automated checks.
 (window as unknown as { trv: object }).trv = {
   get game() { return g; }, get decision() { return decision; }, choose, undo, canUndo, get choices() { return S.saved?.choices.length ?? 0; }, render, snapshot: () => g && snapshot(g), terrain: (p: Pos) => g && terrainAt(g, p), zoneOption, scene, hazardObjs, camera, controls,
-  get queue() { return queue; }, get playing() { return S.playing; }, skipBeats, playBeats, // playBeats: replays frames (presentation only), for checks
+  get take() { return takeNow(); }, get queue() { return queue; }, get playing() { return S.playing; }, skipBeats, playBeats, // playBeats: replays frames (presentation only), for checks
   get rows() { return ROWS; }, get cols() { return COLS; },
   get cam() { return { chase, chaseSet: CHASE, chaseLens, action: !!S.shot, back: !!S.shotBack, focusGoal: S.focusGoal?.toArray(), focusDist: S.focusDist, settings }; },
 };

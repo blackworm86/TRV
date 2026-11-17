@@ -13,7 +13,7 @@ export function syncOptions(): void {
     const key = seg.dataset.set as 'quality' | 'speed';
     for (const b of seg.querySelectorAll<HTMLButtonElement>('button')) b.classList.toggle('on', b.dataset.v === settings[key]);
   }
-  for (const box of pop.querySelectorAll<HTMLInputElement>('input[data-set]')) box.checked = !!settings[box.dataset.set as 'grid' | 'actionCam' | 'effects' | 'words'];
+  for (const box of pop.querySelectorAll<HTMLInputElement>('input[data-set]')) box.checked = !!settings[box.dataset.set as 'grid' | 'actionCam' | 'director2' | 'effects' | 'words'];
   $('fps').textContent = `${fpsNow ? `${Math.round(fpsNow)} fotogrammi al secondo · ` : ''}qualità in uso: ${LEVEL_NAME[S.level]}`;
 }
 for (const seg of $('optspop').querySelectorAll<HTMLElement>('.seg')) {
@@ -30,7 +30,7 @@ for (const seg of $('optspop').querySelectorAll<HTMLElement>('.seg')) {
   });
 }
 for (const box of $('optspop').querySelectorAll<HTMLInputElement>('input[data-set]')) {
-  box.addEventListener('change', () => { settings[box.dataset.set as 'grid' | 'actionCam' | 'effects' | 'words'] = box.checked; saveSettings(); syncOptions(); });
+  box.addEventListener('change', () => { settings[box.dataset.set as 'grid' | 'actionCam' | 'director2' | 'effects' | 'words'] = box.checked; saveSettings(); syncOptions(); });
 }
 export function closePops(): void {
   for (const id of ['optspop', 'menupop']) $(id).classList.remove('show');

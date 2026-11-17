@@ -19,6 +19,7 @@ import { frameTimes } from './quality';
 import { timeScale } from './replay';
 import { fxGoHome } from './rolls';
 import { SPEED_SCALE, settings } from './settings';
+import { shotsTick } from './shots';
 import { camera, controls, renderer, scene, tileSlots } from './stage';
 import { S } from './state';
 import { animTableDice } from './tableDice';
@@ -98,6 +99,7 @@ renderer.setAnimationLoop(t => {
   const shot = directorCamera(now, rawDt);
   const chased = !shot && chaseCamera(rawDt);
   clearSight(chased);
+  shotsTick();
   if (!shot && !chased) {
     controls.update();
     tiltView();

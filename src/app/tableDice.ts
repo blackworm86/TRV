@@ -13,6 +13,7 @@ import { drag, pointer, ray } from './input';
 import { P } from './presentation';
 import { Box, Round, clearOf } from './spots';
 import { BOARD_X0, PITCH_W, TILE_T, TILE_W, camera, renderer, scene } from './stage';
+import { settings } from './settings';
 import { S } from './state';
 import { $, FACES, cssPx } from './util';
 
@@ -164,7 +165,8 @@ export function animTableDice(now: number, dt = 1 / 60): void {
       scale = chaseScale;
     } else {
       // A die placed on a car or on the command board leaves the table (asked by the user, 2026-11-17).
-      mesh.visible = diceOnTable && live[i];
+      // During a shot of the new director the player's dice leave the picture: they would stand in its foreground.
+      mesh.visible = diceOnTable && live[i] && !(S.shot && settings.director2);
       if (!mesh.visible) { t.glow.visible = false; return; }
       mesh.userData.chaseOn = false;
       mesh.position.copy(t.base);

@@ -50,8 +50,13 @@ export function homePose(target: THREE.Vector3, d: number): THREE.Vector3 {
   const e = elevAt(d);
   return new THREE.Vector3(target.x, target.y + d * Math.sin(e), target.z + d * Math.cos(e));
 }
-/** Starts a shot, from wherever the camera is now. */
-export function startShot(pos: Shot['pos'], look: Shot['look']): void {
+/** Records the beat the current shot was made for (shots.ts). */
+export function setShotFor(kind: Frame['kind'] | null): void { shotFor = kind; }
+/**
+ * Starts a shot, from wherever the camera is now. `lift` shifts the picture up for it (the old fixed
+ * shots); the new director centres its subjects in the free part of the screen by itself.
+ */
+export function startShot(pos: Shot['pos'], look: Shot['look'], lift = true): void {
   const now = performance.now() / 1000;
   if (!S.shot && !S.shotBack && !chase) S.camHome = { target: controls.target.clone(), dist: camera.position.distanceTo(controls.target) };
   const from = S.shot ? { pos: shotCam.pos.clone(), look: shotCam.look.clone() } : { pos: camera.position.clone(), look: controls.target.clone() };
@@ -61,7 +66,7 @@ export function startShot(pos: Shot['pos'], look: Shot['look']): void {
   shotCam.look.copy(look(now));
   actionSince = now;
   controls.enabled = false;
-  liftView(true);
+  if (lift) liftView(true);
 }
 /** Whether the director may take the camera now. */
 export function directing(): boolean {

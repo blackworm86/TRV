@@ -7,6 +7,7 @@ import { rampSurfaceAt } from '../view/terrain/carnage3d';
 import { carObjs, fxSupply, markerGroup } from './board';
 import { JUMP, JUMP_BY_SPACES, JUMP_FLIP_LIFT, JUMP_WOBBLE, Jump, STUNT_SLOWMO, jumpSeconds, ramps } from './cars';
 import { actionDone, actionShot, directBeat, directing, shotFor } from './director';
+import { filmBeat, filmDice } from './shots';
 import { burst, crash, explode, flash, impact, smokeOn, word } from './effects';
 import { decision, g } from './game';
 import { drawHud, toastLine } from './hud';
@@ -82,7 +83,7 @@ export function finishBeats(): void {
   // by the cars, and the view from above shows them with the cars and where one would go.
   if (decision && FX_ASK.has(decision.kind) && !decision.preview && S.trayDice.length) {
     const c = S.trayDice.reduce((a, t) => a.add(t.to), new THREE.Vector3()).multiplyScalar(1 / S.trayDice.length);
-    actionShot(c);
+    if (settings.director2) filmDice(S.trayDice.map(t => t.to)); else actionShot(c);
   } else {
     actionDone();
     // The effect is over: its dice go back to rest, after a moment to read them.
@@ -100,7 +101,7 @@ export function applyBeat(f: Frame, now: number): void {
   }
   drawTable(f.snap);
   const at = f.at ? world(f.at) : null;
-  directBeat(f);
+  if (settings.director2) filmBeat(f); else directBeat(f);
   switch (f.kind) {
     case 'roll':
       // A slam's dice: the shot of the impact is over, the view goes back up to see them land by the cars.

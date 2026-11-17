@@ -9,9 +9,10 @@ export type Quality = 'auto' | 'high' | 'medium' | 'low';
 export type Level = Exclude<Quality, 'auto'>;
 /** Animation speed: complete (slow, every beat), fast, or skip to the result. */
 export type Speed = 'full' | 'fast' | 'skip';
-export interface Settings { quality: Quality; speed: Speed; grid: boolean; actionCam: boolean; effects: boolean; words: boolean; zenith: boolean }
+/** `director2`: the new camera director (shots.ts) films the events; off, the old fixed shots do. */
+export interface Settings { quality: Quality; speed: Speed; grid: boolean; actionCam: boolean; director2: boolean; effects: boolean; words: boolean; zenith: boolean }
 export const SETTINGS_KEY = 'trv-settings';
-export const settings: Settings = { quality: 'auto', speed: 'full', grid: true, actionCam: true, effects: true, words: true, zenith: false };
+export const settings: Settings = { quality: 'auto', speed: 'full', grid: true, actionCam: true, director2: true, effects: true, words: true, zenith: false };
 try { Object.assign(settings, JSON.parse(localStorage.getItem(SETTINGS_KEY) ?? '{}') as Partial<Settings>); } catch { /* defaults */ }
 export function saveSettings(): void {
   try { localStorage.setItem(SETTINGS_KEY, JSON.stringify(settings)); } catch { /* storage off */ }
