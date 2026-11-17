@@ -6,7 +6,7 @@ import { ROTOR_SPEED, hover } from '../view/models-config';
 import { applyBeat, beatLength, effects, finishBeats, queue } from './beats';
 import { carObjs, chopperObjs, fxSupply, hazardObjs } from './board';
 import { carTimeScale, drive } from './cars';
-import { chaseCamera } from './chase';
+import { chaseCamera, clearSight } from './chase';
 import { SHOT, actionSince, directorCamera } from './director';
 import { placeActions, placeDock } from './dock';
 import { updateSmoke, updateWords } from './effects';
@@ -95,7 +95,10 @@ renderer.setAnimationLoop(t => {
     td.d.mesh.position.y = THREE.MathUtils.lerp(td.from.y, td.to.y, e) + rise;
     td.d.mesh.quaternion.slerpQuaternions(td.q0, td.q1, e);
   }
-  if (!directorCamera(now, rawDt) && !chaseCamera(rawDt)) {
+  const shot = directorCamera(now, rawDt);
+  const chased = !shot && chaseCamera(rawDt);
+  clearSight(chased);
+  if (!shot && !chased) {
     controls.update();
     tiltView();
   }

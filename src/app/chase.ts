@@ -3,12 +3,13 @@
 // Vista button or V bring the usual view back.
 
 import * as THREE from 'three';
-import { carObjs } from './board';
+import { carObjs, chopperObjs } from './board';
 import { g } from './game';
 import { drawHud } from './hud';
 import { fit } from './mapView';
 import { P } from './presentation';
 import { TILE_T, TILE_W, camera, controls } from './stage';
+import { hidesView } from './spots';
 import { S } from './state';
 import { $ } from './util';
 
@@ -89,4 +90,27 @@ export function chaseCamera(dt: number): boolean {
   camera.lookAt(chaseLook);
   controls.target.copy(chaseLook);
   return true;
+}
+
+const sightBox = new THREE.Box3();
+const sightSize = new THREE.Vector3();
+/**
+ * Keeps the chase view clear (asked by the user, 2026-11-17): a chopper standing between the camera
+ * and the followed car (the parked ones wait right behind the start area, where the camera stands)
+ * is hidden while the chase camera is on (`on`); every chopper shows again otherwise.
+ */
+export function clearSight(on: boolean): void {
+  const car = on && chase ? carObjs.get(chase) : undefined;
+  const spread = Math.tan(THREE.MathUtils.degToRad(camera.fov / 2)) * camera.aspect;
+  for (const o of chopperObjs.values()) {
+    if (!car) { o.visible = true; continue; }
+    if (o.userData.sightR === undefined) {
+      o.visible = true;
+      sightBox.setFromObject(o).getSize(sightSize);
+      o.userData.sightR = Math.max(sightSize.x, sightSize.z) / 2;
+    }
+    const depth = car.position.x - camera.position.x;
+    o.visible = !hidesView(camera.position.x, camera.position.z, depth, spread,
+      { x: o.position.x, z: o.position.z, r: o.userData.sightR as number });
+  }
 }

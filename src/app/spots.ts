@@ -15,3 +15,15 @@ export function clearOf(x: number, z: number, half: number, rounds: readonly Rou
   for (const b of boxes) if (Math.abs(b.x - x) < b.hx + half && Math.abs(b.z - z) < b.hz + half) return false;
   return true;
 }
+
+/**
+ * True when round piece `o` would stand in the way of a camera at (cx, cz) looking along +x at
+ * something `depth` ahead: it reaches the stretch between the camera and that point (the camera
+ * itself included) and lies inside the view, which widens by `spread` (tan of half the horizontal
+ * field of view) per unit of depth.
+ */
+export function hidesView(cx: number, cz: number, depth: number, spread: number, o: Round): boolean {
+  const d = o.x - cx;
+  if (d < -o.r || d > depth + o.r) return false;
+  return Math.abs(o.z - cz) < o.r + Math.max(0, d) * spread;
+}

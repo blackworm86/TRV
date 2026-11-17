@@ -73,8 +73,8 @@ qui ci sono lo stato attuale, le decisioni prese a voce e cosa resta da fare.
 ## Da fare
 
 1. **Vista alle spalle delle auto (chase)**: rifatta (bassa, lungo la strada, dadi posati sul
-   tavolo accanto all'auto; codice in `src/app/chase.ts` e `tableDice.ts`). Resta un difetto:
-   dall'area di partenza l'elicottero parcheggiato può stare davanti alla telecamera.
+   tavolo accanto all'auto; codice in `src/app/chase.ts` e `tableDice.ts`). Gli elicotteri che
+   starebbero tra la telecamera e l'auto si nascondono finché dura la vista (`clearSight`).
 2. **Trappola**: adeguare `pit3d.ts` all'artwork ufficiale del segnalino. L'utente deve mandarne una
    foto o una scansione.
 3. Da verificare dal vivo, perché nella sessione cloud non è stato possibile:
