@@ -1,5 +1,5 @@
-// Playwright runs tests/integration/ against dist-single/index.html, opened from
-// disk: no dev server and no port (npm run test:e2e builds it first).
+// Playwright runs tests/integration/ against the game served by the Vite dev server,
+// on its own port (npm run test:e2e; npm run smoke runs only the @boot test).
 import { defineConfig } from '@playwright/test';
 import { spawnSync } from 'node:child_process';
 import { existsSync } from 'node:fs';
@@ -38,14 +38,12 @@ export default defineConfig({
   timeout: 120_000,
   expect: { timeout: 20_000 },
   projects: [
-    // The template's own check, on the single-file build (npm run test:e2e).
-    { name: 'template', testMatch: /boot\.spec\.ts/ },
-    // The game (npm run test:game): its page from the dev server, at a desk-sized window.
-    { name: 'game', testMatch: /game\.spec\.ts/, use: { baseURL: `http://localhost:${GAME_PORT}`, viewport: { width: 1366, height: 800 } } },
+    // The game: its page from the dev server, at a desk-sized window.
+    { name: 'game', use: { baseURL: `http://localhost:${GAME_PORT}`, viewport: { width: 1366, height: 800 } } },
   ],
   webServer: {
     command: `npx vite --port ${GAME_PORT} --strictPort`,
-    url: `http://localhost:${GAME_PORT}/prototypes/trv-play-spike/`,
+    url: `http://localhost:${GAME_PORT}/`,
     reuseExistingServer: true,
     timeout: 120_000,
   },

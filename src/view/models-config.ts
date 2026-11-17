@@ -1,10 +1,9 @@
-// PROTOTYPE - NOT FOR PRODUCTION
 // The generated models of the crews' pieces and wrecks: where they are, how long they are drawn,
 // how the chopper's rotors and glass are found, and the idle motion (suspension, hovering).
 // Shared by the game (main.ts) and the model check page (models.ts).
 
 import * as THREE from 'three';
-import type { SpinPart, Tint, WheelSpec } from '../../src/view/models3d';
+import type { SpinPart, Tint, WheelSpec } from './models3d';
 
 // Imported through the bundler, so a build (GitHub Pages) ships the files and gets their real address.
 const FILES = import.meta.glob<string>('/assets/models/*.glb', { eager: true, query: '?url', import: 'default' });

@@ -1,4 +1,3 @@
-// PROTOTYPE - NOT FOR PRODUCTION
 // Admin area: Google sign-in (src/net/admin-auth.ts), then the asset inspector. Every piece of the
 // game drawn by the prototype, by category, with a large preview and an editable template to
 // download: SVG for the vector art, tiles and cards, the original .glb for the 3D models.
@@ -16,12 +15,12 @@ import {
   dieSvg, hazardTokenSvg, damageTokenSvg, dashboardSvg, commandBoardSvg, playerStripSvg, chopperSvg, carSvg, avatarSvg,
   OFFICIAL_ART, PALETTE, type ArtDir, type ArtSize, type CommandBoardArt,
   fireDieSvg, onFireTokenSvg, type FireFace,
-} from '../../src/view/vector/art';
-import { tileSvg, mapSvg, tileTitle } from '../../src/view/vector/tiles';
-import { cardSvg, sheetSvg, standaloneSvg, templateFileName } from '../../src/view/vector/templates';
-import { commandName, leaders, upgrades, type CommandId, type CommandSlot } from '../../src/game/trv/engine';
-import type { TileData } from '../../src/view/tile-grid';
-import { FIREBASE_CONFIG } from '../../src/net/firebase-config';
+} from '../view/vector/art';
+import { tileSvg, mapSvg, tileTitle } from '../view/vector/tiles';
+import { cardSvg, sheetSvg, standaloneSvg, templateFileName } from '../view/vector/templates';
+import { commandName, leaders, upgrades, type CommandId, type CommandSlot } from '../game/trv/engine';
+import type { TileData } from '../view/tile-grid';
+import { FIREBASE_CONFIG } from '../net/firebase-config';
 
 const $ = (id: string): HTMLElement => document.getElementById(id)!;
 const esc = (s: string): string => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/"/g, '&quot;');
@@ -60,7 +59,7 @@ function svgItem(cat: string, id: string, name: string, make: () => string, more
   };
 }
 
-// Texts the play page shows (prototypes/trv-play-spike/main.ts), copied: that file runs the game on import.
+// Texts the play page shows (src/app/main.ts), copied: that file runs the game on import.
 const UPGRADE_INFO: Record<string, string> = {
   grappling_hook: 'Dopo aver colpito un’auto e risolto il danno, può scambiarsi di posto con lei.',
   snowplow: 'Entrando su un relitto o un veicolo fuori uso, lo sposta in una casella vuota adiacente e prosegue.',
@@ -536,7 +535,7 @@ async function boot(): Promise<void> {
     return;
   }
   if (!FIREBASE_CONFIG) { show('nocfg'); return; }
-  const { createAdminAuth } = await import('../../src/net/admin-auth');
+  const { createAdminAuth } = await import('../net/admin-auth');
   const auth = createAdminAuth(FIREBASE_CONFIG);
   let started = false;
   $('google').onclick = async () => {

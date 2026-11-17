@@ -1,13 +1,12 @@
-// PROTOTYPE - NOT FOR PRODUCTION
 // Model check: the generated GLB pieces at table scale, one row per piece type, one column per
 // crew colour, next to the procedural stand-in and the untinted model, with idle motion and rotors.
 
 import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
-import { BASE_CATALOG as CAT, sizeOf, ofKind } from '../../src/game/trv/catalog';
-import { Pieces, TextureBank } from '../../src/view/pieces3d';
-import { ModelBank, dressed, fitToLength, splitParts, splitWheels, type Tint } from '../../src/view/models3d';
-import { MODEL, SHOW_LENGTH_MM, MODEL_YAW, CHOPPER_PARTS, ROTOR_SPEED, crewTint, WRECK_TINT, phaseOf, hover, CarRig, WHEELS } from './models-config';
+import { BASE_CATALOG as CAT, sizeOf, ofKind } from '../game/trv/catalog';
+import { Pieces, TextureBank } from '../view/pieces3d';
+import { ModelBank, dressed, fitToLength, splitParts, splitWheels, type Tint } from '../view/models3d';
+import { MODEL, SHOW_LENGTH_MM, MODEL_YAW, CHOPPER_PARTS, ROTOR_SPEED, crewTint, WRECK_TINT, phaseOf, hover, CarRig, WHEELS } from '../view/models-config';
 
 const TILE_MM = sizeOf(CAT, 'road_tile');
 const MM = 13.14 / TILE_MM[0];

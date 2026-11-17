@@ -1,11 +1,11 @@
 // Playwright: the real game (the hot seat and online table), served by the Vite dev server
 // (playwright.config.ts, project "game"). The safety net for moving the client out of
-// prototypes/ into src/: what a player does, driven through the page and the window.trv hook,
-// plus reference screenshots of the main screens. npm run test:game runs it.
+// prototypes/ into src/ and splitting it: what a player does, driven through the page and the window.trv hook,
+// plus reference screenshots of the main screens. npm run test:e2e runs it (npm run smoke: @boot only).
 import { expect, test, type Page } from '@playwright/test';
 
 /** Where the game's page is served. The one line to change when the page moves. */
-const GAME = '/prototypes/trv-play-spike/';
+const GAME = '/';
 /** A fixed seed: the same game every run (64 hex characters, as newSeed() makes). */
 const SEED = '7'.repeat(64);
 /** The saved hot seat game the page resumes (its localStorage key and shape: main.ts, Saved). */
@@ -79,7 +79,7 @@ async function playFirst(page: Page, n: number): Promise<number> {
 }
 
 test.describe('game', () => {
-  test('first screen opens with no errors', async ({ page }) => {
+  test('first screen opens with no errors @boot', async ({ page }) => {
     const errors = await open(page);
     await expect(page.locator('#mHot')).toBeVisible();
     await expect(page.locator('#mCreate')).toBeVisible();

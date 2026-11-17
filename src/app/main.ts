@@ -1,4 +1,3 @@
-// PROTOTYPE - NOT FOR PRODUCTION
 // Partita hot seat di Thunder Road: Vendetta. Regole: src/game/trv/engine.ts. Grafica tutta
 // vettoriale (src/view/vector/art.ts) e mappa a tessere incastrate (src/view/board3d.ts);
 // misure dal catalogo fisico (src/game/trv/catalog.ts). Interfaccia dallo schizzo dell'utente:
@@ -11,24 +10,24 @@ import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import {
   newGame, play, tileDef, ROWS, COLS, TILE_COLS, leaderOf, commandsOf, leaders, commandName, upgrades, type CommandSlot,
   snapshot, terrainAt, type Game, type Decision, type Pos, type Setup, type TileRef, type LogEntry, type Player, type Frame, type Snapshot, type Vehicle, type Blocked,
-} from '../../src/game/trv/engine';
-import { BASE_CATALOG as CAT, sizeOf, ofKind } from '../../src/game/trv/catalog';
-import { Pieces, TextureBank } from '../../src/view/pieces3d';
-import { tickFlames, flameCluster, useRampModel, rampPiece, rampSurfaceAt } from '../../src/view/terrain/carnage3d';
-import { pitPiece } from '../../src/view/terrain/pit3d';
-import { buildTile, hazardToken, spaceCenterPx, spaceGeometry, spaceRimGeometry, GRID, TILE_PITCH_PX } from '../../src/view/board3d';
-import { ongoingArt, ONGOING_PANEL_TOP, CARD_RED, upgradeArt } from '../../src/view/cards';
-import { dieSvg, damageTokenSvg, dashboardSvg, commandBoardSvg, playerStripSvg, STRIP_ASPECT, STRIP_ASPECT_LEADER, STRIP_LEADER_PLATE, avatarSvg, dataUrl } from '../../src/view/vector/art';
-import { newSeed } from '../../src/platform/entropy';
+} from '../game/trv/engine';
+import { BASE_CATALOG as CAT, sizeOf, ofKind } from '../game/trv/catalog';
+import { Pieces, TextureBank } from '../view/pieces3d';
+import { tickFlames, flameCluster, useRampModel, rampPiece, rampSurfaceAt } from '../view/terrain/carnage3d';
+import { pitPiece } from '../view/terrain/pit3d';
+import { buildTile, hazardToken, spaceCenterPx, spaceGeometry, spaceRimGeometry, GRID, TILE_PITCH_PX } from '../view/board3d';
+import { ongoingArt, ONGOING_PANEL_TOP, CARD_RED, upgradeArt } from '../view/cards';
+import { dieSvg, damageTokenSvg, dashboardSvg, commandBoardSvg, playerStripSvg, STRIP_ASPECT, STRIP_ASPECT_LEADER, STRIP_LEADER_PLATE, avatarSvg, dataUrl } from '../view/vector/art';
+import { newSeed } from '../platform/entropy';
 import {
   acceptable, backToLobby, cleanCode, closeRoom, createRoom, freeCrew, joinRoom, leaveRoom, readRoom, roomPath, seatOf, startMatch, startProblem,
   MAX_PLAYERS, NAME_MAX, type Room, type RoomStore,
-} from '../../src/net/room';
-import { FIREBASE_CONFIG } from '../../src/net/firebase-config';
+} from '../net/room';
+import { FIREBASE_CONFIG } from '../net/firebase-config';
 import qrcode from 'qrcode-generator';
-import { ModelBank, dressed, fitToLength, splitParts, splitWheels, type Tint } from '../../src/view/models3d';
-import { MODEL, SHOW_LENGTH_MM, MODEL_YAW, CHOPPER_PARTS, ROTOR_SPEED, WHEELS, GUNS, type GunSpec, crewTint, WRECK_TINT, wreckModel, phaseOf, hover, CarRig } from './models-config';
-import { makeDie, withOwnMaterials, type Die3D, type DiceFaces } from '../../src/view/dice3d';
+import { ModelBank, dressed, fitToLength, splitParts, splitWheels, type Tint } from '../view/models3d';
+import { MODEL, SHOW_LENGTH_MM, MODEL_YAW, CHOPPER_PARTS, ROTOR_SPEED, WHEELS, GUNS, type GunSpec, crewTint, WRECK_TINT, wreckModel, phaseOf, hover, CarRig } from '../view/models-config';
+import { makeDie, withOwnMaterials, type Die3D, type DiceFaces } from '../view/dice3d';
 import RULES from '../../data/trv/game_base.json';
 import CARNAGE from '../../data/trv/carnage.json';
 
@@ -2864,8 +2863,8 @@ let storePromise: Promise<RoomStore> | null = null;
 function openStore(): Promise<RoomStore> {
   storePromise ??= (async (): Promise<RoomStore> => {
     const mode = netMode();
-    if (mode === 'local') return (await import('../../src/net/tree-store')).createLocalStore();
-    const { createFirebaseStore } = await import('../../src/net/firebase-store');
+    if (mode === 'local') return (await import('../net/tree-store')).createLocalStore();
+    const { createFirebaseStore } = await import('../net/firebase-store');
     if (mode === 'emulator') {
       return createFirebaseStore({ apiKey: 'demo-key', authDomain: 'demo-trv.firebaseapp.com', projectId: 'demo-trv', appId: 'demo-app',
         databaseURL: 'https://demo-trv-default-rtdb.firebaseio.com' }, { auth: 9099, database: 9000 });
@@ -3090,7 +3089,7 @@ function drawAccount(user: { name: string | null; email: string | null; anonymou
 async function bootAccount(): Promise<void> {
   $('adminopen').style.display = 'none';
   if (netMode() !== 'firebase' || !FIREBASE_CONFIG) return;
-  const { createAdminAuth } = await import('../../src/net/admin-auth');
+  const { createAdminAuth } = await import('../net/admin-auth');
   const auth = createAdminAuth(FIREBASE_CONFIG);
   $('account').classList.add('on');
   drawAccount(null);

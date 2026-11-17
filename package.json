@@ -13,9 +13,8 @@
     "build:pages": "tsc --noEmit && vite build --mode pages && node tools/pages/finish.mjs",
     "test": "npm run test:unit && npm run test:e2e",
     "test:unit": "vitest run",
-    "test:e2e": "npm run build:single && playwright test --project=template",
-    "test:game": "playwright test --project=game",
-    "smoke": "npm run build:single && playwright test --grep @boot"
+    "test:e2e": "playwright test",
+    "smoke": "playwright test --grep @boot"
   },
   "dependencies": {
     "firebase": "13.2.0",

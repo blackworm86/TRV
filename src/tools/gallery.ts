@@ -1,4 +1,3 @@
-// PROTOTYPE - NOT FOR PRODUCTION
 // Galleria di tutti gli asset del gioco base usati nel prototipo: grafica vettoriale
 // (src/view/vector/art.ts) e pezzi 3D (src/view/board3d.ts, dice3d.ts, pieces3d.ts), con le
 // quantità del regolamento (data/trv/game_base.json) e le misure del catalogo fisico
@@ -11,15 +10,15 @@ import CATALOG from '../../data/trv/catalog_base.json';
 import CARNAGE from '../../data/trv/carnage.json';
 import {
   dieSvg, hazardTokenSvg, damageTokenSvg, dashboardSvg, commandBoardSvg, chopperSvg, carSvg, avatarSvg, PALETTE, OFFICIAL_ART,
-} from '../../src/view/vector/art';
-import { buildTile, hazardToken, type TileData } from '../../src/view/board3d';
-import { tickFlames, useRampModel } from '../../src/view/terrain/carnage3d';
-import { ModelBank } from '../../src/view/models3d';
-import { MODEL } from './models-config';
+} from '../view/vector/art';
+import { buildTile, hazardToken, type TileData } from '../view/board3d';
+import { tickFlames, useRampModel } from '../view/terrain/carnage3d';
+import { ModelBank } from '../view/models3d';
+import { MODEL } from '../view/models-config';
 void useRampModel(MODEL.ramp, u => new ModelBank().load(u));
-import { makeDie, type DiceFaces } from '../../src/view/dice3d';
-import { Pieces, TextureBank } from '../../src/view/pieces3d';
-import { texturesReady } from '../../src/view/texture';
+import { makeDie, type DiceFaces } from '../view/dice3d';
+import { Pieces, TextureBank } from '../view/pieces3d';
+import { texturesReady } from '../view/texture';
 
 const FACES = RULES.dice as unknown as DiceFaces;
 const CREWS = CATALOG.crews;

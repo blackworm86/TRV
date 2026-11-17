@@ -12,5 +12,5 @@
     "noEmit": true,
     "skipLibCheck": true
   },
-  "include": ["src", "prototypes/trv-play-spike"]
+  "include": ["src"]
 }
