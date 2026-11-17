@@ -54,22 +54,6 @@ const CARD_RAISE = 30, ONGOING_H = TOKEN_W * 680 / 440;
  * bottom, so a taller frame only takes room from the table.
  */
 export const STRIP_BOX = { x: 0, y: 0, w: DRAW_W, h: 292 };
-/**
- * The crew leader board (Choppe Shoppe) is the owner's second drawing, twice as tall: its command
- * panel is the standard one, moved down by LEAD_DY. In the strip the board is moved up by as much,
- * so the commands stay where they are and the leader's part rises above the dashboards.
- */
-const LEAD_DY = 252.91, LEAD_W = 292.54, LEAD_H = 512.4;
-/** Room on the left of the strip for the crew leader's power tab, pulled out (see stripSvg). */
-export const LEAD_PANEL_W = 236;
-/** Height of the crew leader's name plate above the command board, and width of the power tab's handle. */
-export const LEAD_NAME_H = 60;
-const LEAD_HANDLE = 40;
-const LEAD_PANEL = [42.56, 295.41, 248.4, 470.67];
-/** Where the leader board is cut to show its upper part alone: just under the title. */
-const LEAD_HEAD_H = 272;
-/** The strip's frame with a crew leader board: the same strip, grown upward. */
-export const STRIP_BOX_TALL = { x: 0, y: -LEAD_DY, w: DRAW_W, h: STRIP_BOX.h + LEAD_DY };
 /** The command board's coloured panel: left, top, right, bottom. */
 const PANEL = [42.5, 42.5, 248.4, 217.8];
 
@@ -236,23 +220,15 @@ const COMMANDS: { cmd: string; name: string; dice: string; slot: string; lines: 
  * Builds the two board drawings from the owner's SVG text.
  * Example: `const b = makeBoards(rawSvg, { dieSvg, damageTokenSvg, inkOn, font })`.
  */
-export function makeBoards(raw: string, base: BoardBase, leaderRaw?: string, stripRaw?: string): {
+export function makeBoards(raw: string, base: BoardBase, stripRaw?: string): {
   dashboardSvg(d: DashboardArt, extra?: string): string;
   commandBoardSvg(c: CommandBoardArt, extra?: string): string;
   stripSvg(c: CommandBoardArt, dashes: DashboardArt[], extra?: string): string;
-  /**
-   * The upper part of the crew leader board alone (portrait, name, title, command tokens), for an
-   * interface that shows the commands in the strip and the power as text. Null without the drawing.
-   */
-  leaderHeadSvg(c: CommandBoardArt, extra?: string): string | null;
-  /** True when the crew leader drawing is there: a board with `leader` makes the strip tall. */
-  hasLeaderBoard: boolean;
   /** The strip's frame (its viewBox), with or without a crew leader. */
   stripFrame(leader: boolean): { x: number; y: number; w: number; h: number };
 } {
   const all = parse(raw);
   const strip = stripRaw ? parseStrip(stripRaw) : null;
-  const lead = leaderRaw ? parse(leaderRaw) : null;
   const of = (id: BoardId): El[] => all.filter(e => boardOf(e.x) === id);
   const svg = (box: string, body: string, extra: string): string => `<svg xmlns="http://www.w3.org/2000/svg" viewBox="${box}" ${extra}>${body}</svg>`;
   /** Running text (what a power, a command or a card does): a plain sans-serif reads better than the display font. */
@@ -342,18 +318,7 @@ export function makeBoards(raw: string, base: BoardBase, leaderRaw?: string, str
 
   /** The command board: four commands with what they do, a die slot in each corner. */
   function commandBoardSvg(c: CommandBoardArt, extra = ''): string {
-    if (c.leader && lead) return svg(`0 0 ${LEAD_W} ${LEAD_H}`, leaderBody(c), `style="aspect-ratio:${LEAD_W}/${LEAD_H}" ${extra}`);
     return svg(`0 0 ${SPAN.cmd[1]} ${CMD_H}`, cmdBody(c), `style="aspect-ratio:${SPAN.cmd[1]}/${CMD_H}" ${extra}`);
-  }
-
-  /** Width of a row of `n` command tokens `size` wide. */
-  function rowWidth(n: number, size: number): number { return n * size + (n - 1) * size * 0.12; }
-  /** The command tokens left to a player, in a row centred on (cx, cy). */
-  function tokenRow(n: number, cx: number, cy: number, size: number): string {
-    let b = '';
-    const x0 = cx - rowWidth(n, size) / 2 + size / 2;
-    for (let i = 0; i < n; i++) b += base.commandToken(x0 + i * size * 1.12, cy, size);
-    return b;
   }
 
   /** The command board in the drawing's own coordinates (see commandBoardSvg). */
@@ -372,58 +337,6 @@ export function makeBoards(raw: string, base: BoardBase, leaderRaw?: string, str
     b += commandsPart(c, { corner, midX, midY, panel: PANEL, yTop: 70, yBottom: 153 }, ink);
     b += text(c.caption ?? 'COMANDI', (SPAN.cmd[0] + SPAN.cmd[1]) / 2, 250.6, 12, DARK, 'middle');
     return `<g>${b}</g>`;
-  }
-
-  /**
-   * The crew leader board in its drawing's own coordinates: the power top left, the portrait top
-   * right, the name across the middle, the four commands below as on the standard board.
-   */
-  function leaderBody(c: CommandBoardArt, head = false): string {
-    const els = lead!, L = c.leader!;
-    const ink = base.inkOn(c.color);
-    const corner = els.filter(e => e.tag === 'rect');
-    const cross = els.filter(e => e.tag === 'line');
-    const midX = num(cross.find(e => num(e.attrs, 'x1') === num(e.attrs, 'x2'))!.attrs, 'x1');
-    const midY = num(cross.find(e => num(e.attrs, 'y1') === num(e.attrs, 'y2'))!.attrs, 'y1');
-    const bg = els.find(e => e.layer === 'background')!;
-    const panel = els.find(e => e.layer === 'foreground' && e.tag === 'polygon')!;
-    const frame = els.find(e => e.layer === 'foreground' && e.tag === 'path')!;
-    const tag = els.find(e => e.layer === 'lines' && e.tag === 'polygon')!;
-    let b = `<path ${bg.attrs.trim()} fill="${DARK}"/><polygon ${panel.attrs.trim()} fill="${c.color}"/>`;
-    for (const e of cross) b += `<line ${e.attrs.trim()} stroke="${ink}" stroke-opacity=".35" stroke-width="1"/>`;
-    b += `<polygon ${tag.attrs.trim()} fill="${METAL}"/>`;
-    // The portrait fills its frame; without an image, the crew colour and the leader's initial.
-    const [fx, fy, fw, fh] = [130, 6, 137, 178];
-    b += `<clipPath id="leader-portrait"><path ${frame.attrs.trim()}/></clipPath>`;
-    b += L.portrait
-      ? `<image href="${L.portrait}" x="${fx}" y="${fy}" width="${fw}" height="${fh}" preserveAspectRatio="xMidYMid slice" clip-path="url(#leader-portrait)"/>`
-      : `<path ${frame.attrs.trim()} fill="${c.color}"/>` + text(L.name.charAt(0).toUpperCase(), fx + fw / 2, fy + fh / 2 + 34, 100, ink, 'middle', 'opacity=".45"');
-    b += `<path ${frame.attrs.trim()} fill="none" stroke="${LINE}" stroke-width="2"/>`;
-    // The special power, in the dark space beside the portrait.
-    if (head) {
-      // The head alone: the power is written beside it by the interface; here, the command tokens left.
-      b += text('SEGNALINI', 34, 44, 15, METAL, 'start', 'letter-spacing="1"') + text('COMANDO', 34, 60, 15, METAL, 'start', 'letter-spacing="1"');
-      b += L.tokens ? tokenRow(L.tokens, 34 + rowWidth(L.tokens, 28) / 2, 86, 28) : text('—', 34, 96, 30, METAL);
-    } else {
-      // In the dark space left of the portrait (x 30-126): the name of the power, then what it does.
-      const title = wrap(L.power.toUpperCase(), 12);
-      title.forEach((l, i) => { b += text(l, 30, 40 + i * 17, 18, '#f6c46a'); });
-      wrap(L.powerText, 16).forEach((l, i) => { b += prose(l, 30, 46 + title.length * 17 + i * 15, 13, CREAM); });
-    }
-    // Name and title, across the board.
-    const name = L.name.toUpperCase();
-    b += text(name, LEAD_W / 2, 238, Math.min(48, 500 / name.length), CREAM, 'middle');
-    b += text(L.title.toUpperCase(), LEAD_W / 2, 258, 14, METAL, 'middle', 'letter-spacing="1"');
-    if (head) return `<g>${b}</g>`;
-    b += commandsPart(c, { corner, midX, midY, panel: LEAD_PANEL, yTop: 70 + LEAD_DY, yBottom: 153 + LEAD_DY }, ink);
-    b += c.caption !== undefined || !L.tokens ? text(c.caption ?? 'NESSUN SEGNALINO', LEAD_W / 2, 503.5, 12, DARK, 'middle') : tokenRow(L.tokens, LEAD_W / 2, 499, 16);
-    return `<g>${b}</g>`;
-  }
-
-  /** The crew leader board's upper part, cut just under the title (see the returned type). */
-  function leaderHeadSvg(c: CommandBoardArt, extra = ''): string | null {
-    if (!c.leader || !lead) return null;
-    return svg(`0 0 ${LEAD_W} ${LEAD_HEAD_H}`, leaderBody(c, true), `style="aspect-ratio:${LEAD_W}/${LEAD_HEAD_H}" ${extra}`);
   }
 
   /** The four commands of a board: their writing, drop zones, dice and command tokens. */
@@ -482,19 +395,14 @@ export function makeBoards(raw: string, base: BoardBase, leaderRaw?: string, str
       const tab = c.leader ? `<g transform="translate(${dx} ${dy})">${powerTab(c)}</g>` : '';
       return svg(`${f.x} ${f.y} ${f.w} ${f.h}`, defs + tab + stripBoard(c) + order.map(dashBody).join(''), `data-strip="2" style="aspect-ratio:${f.w}/${f.h}" ${extra}`);
     }
-    // With a crew leader the strip has the leader's name above the command board and, on its left,
-    // room for the tab with the leader's power to be pulled out; boards and dashboards as always.
-    const x = c.leader ? -LEAD_PANEL_W : 0, y = c.leader ? -LEAD_NAME_H : 0, w = DRAW_W - x, h = STRIP_BOX.h - y;
-    const board = c.leader
-      ? leaderTab(c) + leaderName(c) + cmdBody({ ...c, caption: c.caption ?? (c.leader.tokens ? '' : 'NESSUN SEGNALINO') })
-        + (c.caption === undefined && c.leader.tokens ? tokenRow(c.leader.tokens, (SPAN.cmd[0] + SPAN.cmd[1]) / 2, 244, 22) : '')
-      : cmdBody(c);
-    return svg(`${x} ${y} ${w} ${h}`, board + order.map(dashBody).join(''), `style="aspect-ratio:${w}/${h}" ${extra}`);
+    // Without the second drawing: the first one's command board and dashboards (no leader's tab).
+    const { x, y, w, h } = STRIP_BOX;
+    return svg(`${x} ${y} ${w} ${h}`, cmdBody(c) + order.map(dashBody).join(''), `style="aspect-ratio:${w}/${h}" ${extra}`);
   }
 
   /** The strip's frame: the first drawing's, or the second's (room on the left for the tab pulled out). */
   function stripFrame(leader: boolean): { x: number; y: number; w: number; h: number } {
-    if (!strip) return leader ? { x: -LEAD_PANEL_W, y: -LEAD_NAME_H, w: DRAW_W + LEAD_PANEL_W, h: STRIP_BOX.h + LEAD_NAME_H } : STRIP_BOX;
+    if (!strip) return STRIP_BOX;
     const x = leader ? TAB_LEFT : STRIP_LEFT;
     return { x, y: 0, w: DRAW_W - x, h: STRIP_BOX.h };
   }
@@ -552,37 +460,6 @@ export function makeBoards(raw: string, base: BoardBase, leaderRaw?: string, str
     return `<g class="ptab" data-ptab="1"><title>${esc(`${L.power}: ${L.powerText}`)}</title>${b}</g>`;
   }
 
-  /** The crew leader's name and title on a plate above the command board, its foot behind the board. */
-  function leaderName(c: CommandBoardArt): string {
-    const L = c.leader!, x0 = 26, x1 = SPAN.cmd[1] - 26, y0 = -LEAD_NAME_H + 4, y1 = 24, k = 14, mid = SPAN.cmd[1] / 2;
-    const name = L.name.toUpperCase();
-    return `<path d="M${x0 + k} ${y0} H${x1 - k} L${x1} ${y0 + k} V${y1} H${x0} V${y0 + k}Z" fill="${DARK}" stroke="${LINE}" stroke-width="2" stroke-linejoin="round"/>`
-      + text(name, mid, y0 + 33, Math.min(34, 400 / name.length), CREAM, 'middle')
-      + text(L.title.toUpperCase(), mid, y0 + 49, 13, METAL, 'middle', 'letter-spacing="1"');
-  }
-
-  /**
-   * The crew leader's power on a pull-out tab: one solid block slid behind the command board from
-   * the left, only its handle showing (the power's name, written upward). With the pointer on it
-   * the tab comes out (CSS: `.leadtab` and `--pull`) and shows what the power does. Being behind
-   * the board, it also closes the notches of the board's left edge.
-   */
-  function leaderTab(c: CommandBoardArt): string {
-    const L = c.leader!;
-    const pull = LEAD_PANEL_W - LEAD_HANDLE - 6; // how far it comes out
-    const x0 = -LEAD_HANDLE, x1 = pull + 70, y0 = 40, y1 = 220, k = 14; // pulled out, 70 units stay behind the board
-    let b = `<path d="M${x0 + k} ${y0} H${x1} V${y1} H${x0 + k} L${x0} ${y1 - k} V${y0 + k}Z" fill="${DARK}" stroke="${LINE}" stroke-width="2" stroke-linejoin="round"/>`;
-    b += `<rect x="${x0 + 7}" y="${y0 + 16}" width="5" height="${y1 - y0 - 32}" rx="2.5" fill="${c.color}"/>`;
-    const hx = x0 + 27, hy = (y0 + y1) / 2, power = L.power.toUpperCase();
-    b += `<g transform="rotate(-90 ${hx} ${hy})">${text(power, hx, hy + 6, Math.min(19, 250 / power.length), '#f6c46a', 'middle')}</g>`;
-    b += `<line x1="${x0 + LEAD_HANDLE - 2}" y1="${y0 + 12}" x2="${x0 + LEAD_HANDLE - 2}" y2="${y1 - 12}" stroke="${LINE}" stroke-opacity=".35"/>`;
-    // What the power does: on the part that the board hides until the tab is out.
-    const tx = 14;
-    b += text(power, tx, y0 + 36, Math.min(26, 330 / power.length), '#f6c46a');
-    wrap(L.powerText, 23).forEach((l, i) => { b += prose(l, tx, y0 + 60 + i * 18, 14.5, CREAM); });
-    return `<g class="leadtab" style="--pull:${-pull}px"><title>${esc(`${L.power}: ${L.powerText}`)}</title>${b}</g>`;
-  }
-
   /**
    * A car's upgrade card (Choppe Shoppe), slid into the recess in the middle of the dashboard's top
    * edge (RECESS wide, as the owner drew it), behind the board. Only its name shows above the recess;
@@ -637,5 +514,5 @@ export function makeBoards(raw: string, base: BoardBase, leaderRaw?: string, str
       + `<g clip-path="url(#${clip})"><g class="upcard" style="--rise:${-rise}px" opacity="${off ? 0.7 : 1}"><title>${esc(`${d.upgrade.name}: ${d.upgrade.text}`)}</title>${b}</g></g>`;
   }
 
-  return { dashboardSvg, commandBoardSvg, stripSvg, leaderHeadSvg, hasLeaderBoard: !!lead, stripFrame };
+  return { dashboardSvg, commandBoardSvg, stripSvg, stripFrame };
 }

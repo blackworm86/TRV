@@ -3,7 +3,7 @@
 // as a data URL, onto 3D pieces. These open drawings never copy the licensed artwork; the faithful
 // official art, when present locally, takes their place (see "official art" below).
 
-import { makeBoards, STRIP_BOX, STRIP_BOX_TALL, LEAD_PANEL_W, LEAD_NAME_H } from './boards';
+import { makeBoards, STRIP_BOX } from './boards';
 import { ownerDieFaces, OWNER_DIE_ORDER } from './dice';
 import { ownerDamage as cutOwnerDamage, FRONT_FIELD } from './damage';
 
@@ -72,7 +72,6 @@ const boardsRaw = Object.values(import.meta.glob<string>('/assets/base/plance/co
 // The owner's drawing of the crew leader command board (Choppe Shoppe), twice as tall.
 /** The owner's second drawing of the player strip (2026-11-17): new command board, power tab, Undo plate, dice drawer. */
 const stripRaw = Object.values(import.meta.glob<string>('/assets/base/plance/plancia_striscia.svg', { eager: true, query: '?raw', import: 'default' }))[0];
-const leaderBoardRaw = Object.values(import.meta.glob<string>('/assets/choppe_shoppe/plance/command_dashboard_characters.svg', { eager: true, query: '?raw', import: 'default' }))[0];
 // The owner's drawings of the dice (./dice.ts), one SVG per die. Like the boards, they win over
 // both the open drawings below and the official art.
 const ownerDiceRaw: Record<string, string | undefined> = {
@@ -123,7 +122,7 @@ export const USER_BOARDS = !!boardsRaw;
 let userBoards: ReturnType<typeof makeBoards> | null | undefined;
 function boards(): ReturnType<typeof makeBoards> | null {
   if (userBoards === undefined) {
-    userBoards = USER_BOARDS ? makeBoards(boardsRaw, { dieSvg, damageTokenSvg: (t, up) => damageTokenSvg(t, up), onFireTokenSvg: () => onFireTokenSvg(), commandToken: commandTokenAt, commandIcon: commandIconAt, inkOn, font: FONT }, leaderBoardRaw, stripRaw) : null;
+    userBoards = USER_BOARDS ? makeBoards(boardsRaw, { dieSvg, damageTokenSvg: (t, up) => damageTokenSvg(t, up), onFireTokenSvg: () => onFireTokenSvg(), commandToken: commandTokenAt, commandIcon: commandIconAt, inkOn, font: FONT }, stripRaw) : null;
   }
   return userBoards;
 }
@@ -393,15 +392,11 @@ const SIZE_LABEL: Record<ArtSize, string> = { S: 'PICCOLA', M: 'MEDIA', L: 'GRAN
  * Drop zones carry data-drop="move:<carId>" / "coast:<carId>"; the root carries data-car.
  */
 const frameOf = (leader: boolean): { x: number; y: number; w: number; h: number } =>
-  boards()?.stripFrame(leader) ?? (leader ? { x: -LEAD_PANEL_W, y: -LEAD_NAME_H, w: STRIP_BOX.w + LEAD_PANEL_W, h: STRIP_BOX.h + LEAD_NAME_H } : STRIP_BOX);
+  boards()?.stripFrame(leader) ?? STRIP_BOX;
 /** Width over height of the player's strip (see playerStripSvg). */
 export const STRIP_ASPECT = frameOf(false).w / frameOf(false).h;
 /** Width over height of the player's strip with a crew leader (room for the power tab on the left, and on the first drawing a name plate above). */
 export const STRIP_ASPECT_LEADER = frameOf(true).w / frameOf(true).h;
-/** The share of that strip's height taken by the leader's name plate, above the boards (none on the second drawing). */
-export const STRIP_LEADER_PLATE = -frameOf(true).y / frameOf(true).h;
-/** How many times taller the strip is with a crew leader board (1 without the leader drawing). */
-export const STRIP_TALL = USER_BOARDS && leaderBoardRaw ? STRIP_BOX_TALL.h / STRIP_BOX.h : 1;
 /**
  * The player's whole strip in one drawing: command board, the three dashboards against it as in
  * the rulebook, damage tokens under them. Null without the owner's drawing (assets/base/plance).
@@ -411,14 +406,6 @@ export function playerStripSvg(c: CommandBoardArt, dashes: DashboardArt[], extra
   return boards()?.stripSvg(c, dashes, extra) ?? null;
 }
 
-/**
- * The upper part of a crew leader board alone: portrait, name, title and command tokens left.
- * Null without the owner's leader drawing or without `c.leader`.
- * Example: `el.innerHTML = leaderHeadSvg({ color, leader }) ?? ''`.
- */
-export function leaderHeadSvg(c: CommandBoardArt, extra = ''): string | null {
-  return boards()?.leaderHeadSvg(c, extra) ?? null;
-}
 /** Where the dashboards start in the strip, as a fraction of its width (to line things up with them). */
 export const STRIP_DASH_START = 268 / STRIP_BOX.w;
 

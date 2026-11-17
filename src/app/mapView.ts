@@ -2,7 +2,7 @@
 // the swap between the two views, and the reset (Home).
 
 import * as THREE from 'three';
-import { STRIP_ASPECT, STRIP_ASPECT_LEADER, STRIP_LEADER_PLATE } from '../view/vector/art';
+import { STRIP_ASPECT, STRIP_ASPECT_LEADER } from '../view/vector/art';
 import { DIE_W, TRAY_SCALE, TRAY_Z } from './board';
 import { chase, setChase } from './chase';
 import { liftView } from './director';
@@ -33,9 +33,7 @@ export function fit(): void {
   const tall = document.body.classList.contains('tall');
   const aspect = tall ? STRIP_ASPECT_LEADER : STRIP_ASPECT;
   // As wide as the window, as long as it leaves the table more than half of the height.
-  // The leader's name plate stands above the command board only: it does not count against the table.
-  const plate = tall ? STRIP_LEADER_PLATE : 0;
-  const stripW = Math.min(W - 24, H * 0.38 * aspect / (1 - plate));
+  const stripW = Math.min(W - 24, H * 0.38 * aspect);
   const stripH = stripW / aspect + 8;
   const root = document.documentElement.style;
   root.setProperty('--stripw', `${Math.round(stripW)}px`);
@@ -43,7 +41,7 @@ export function fit(): void {
   // The players' bubbles may hang below the top bar: the road starts under the lowest one.
   const bubbles = document.getElementById('players')?.getBoundingClientRect();
   const top = Math.max(cssPx('--top'), bubbles && bubbles.height > 0 ? bubbles.bottom + FIT.gap : 0), h = H;
-  const botLim = -1 + 2 * (stripH * (1 - plate) + 6) / h;
+  const botLim = -1 + 2 * (stripH + 6) / h;
   // The player bubbles float over the top of the map: keep the road below them.
   const topLim = 1 - 2 * top / h;
   renderer.setSize(W, h);

@@ -210,8 +210,6 @@
   #cmddock .mydie svg { width: 82%; height: 82%; }
   #cmddock .mydie.can { background: radial-gradient(circle, rgba(76,255,122,.6), rgba(76,255,122,0) 68%); }
   #cmddock .mydie.used { cursor: default; }
-  #strip .leadtab { pointer-events: auto; cursor: help; transition: transform .22s ease; }
-  #strip .leadtab:hover { transform: translateX(var(--pull)); }
   #strip .loose { display: flex; align-items: center; height: calc(var(--stripw) / 4.1); }
   #strip .loose svg { height: 80%; width: auto; }
   /* Upgrade cards, shaped as cards: the draft, and the hand to drag onto the cars. */

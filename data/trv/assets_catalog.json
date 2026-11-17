@@ -27,7 +27,7 @@
   "categories": {
     "capisquadra": {
       "game": "choppe_shoppe", "type": "plance", "status": "ricalcato",
-      "source": "Ritratto: Character Boards.docx (tools/art/save_leader_portraits.py). Plancia: disegno del proprietario (assets/choppe_shoppe/plance) con i testi dalle regole.",
+      "source": "Ritratto: Character Boards.docx (tools/art/save_leader_portraits.py). Plancia: la striscia del giocatore disegnata dal proprietario (assets/base/plance/plancia_striscia.svg), con la linguetta del potere e i testi dalle regole.",
       "official": "assets/choppe_shoppe/capisquadra/{id}.jpg"
     },
     "avatar_personaggi": {
@@ -75,7 +75,6 @@
       "game": "base", "type": "plance", "status": "ricalcato",
       "source": "Player Boards and Dice Base.docx, ricalcata in assets/base/vettoriale/traced/boards.json; disegni originali del proprietario in assets/base/plance.",
       "items": {
-        "command_dashboard_characters": { "game": "choppe_shoppe", "source": "Disegno del proprietario (Illustrator) della plancia dei capisquadra." },
         "command_dashboard": { "source": "Disegno del proprietario (Illustrator) di plancia e cruscotti." }
       }
     },

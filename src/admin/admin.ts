@@ -19,6 +19,7 @@ import {
   fireDieSvg, onFireTokenSvg, commandTokenSvg, commandIconAt, type FireFace,
 } from '../view/vector/art';
 import { tileSvg, mapSvg, tileTitle } from '../view/vector/tiles';
+import { TAB_PULL } from '../view/vector/boards';
 import { sheetSvg, standaloneSvg, templateFileName } from '../view/vector/templates';
 import { commandName, leaders, upgrades, type CommandId, type CommandSlot } from '../game/trv/engine';
 import type { TileData } from '../view/tile-grid';
@@ -170,17 +171,31 @@ const MODEL_INFO: Record<string, { name: string; comp: string }> = {
   Ramp: { name: 'Rampa (Carnage)', comp: '' },
 };
 
+/** The leaders' portraits by id, as the game finds them (src/app/info.ts: PORTRAITS). */
+const PORTRAITS: Record<string, string> = Object.fromEntries(Object.entries(
+  import.meta.glob<string>('/assets/choppe_shoppe/capisquadra/*.{png,jpg,jpeg,webp}', { eager: true, query: '?url', import: 'default' }),
+).map(([path, url]) => [path.replace(/^.*\/|\.\w+$/g, '').toLowerCase(), url]));
+
 const leaderArt = (i: number, l: ReturnType<typeof leaders>[number]): CommandBoardArt => ({
   color: CREWS[i % CREWS.length].color, used: null,
   commands: l.commands.map(s => ({ cmd: s.id, name: commandName(s.id as CommandId).toUpperCase(), slot: slotText(s), lines: CMD_LINES[s.id] ?? [] })),
-  leader: { name: l.name, title: l.title, power: POWER_INFO[l.power]?.[0] ?? l.power, powerText: POWER_INFO[l.power]?.[1] ?? '', tokens: l.tokens },
+  leader: { name: l.name, title: l.title, power: POWER_INFO[l.power]?.[0] ?? l.power, powerText: POWER_INFO[l.power]?.[1] ?? '', tokens: l.tokens,
+    ...(PORTRAITS[l.id] ? { portrait: PORTRAITS[l.id] } : {}) },
 });
+
+/** A crew leader's strip as in the game (assets/base/plance/plancia_striscia.svg), its power tab pulled out. */
+const leaderStripSvg = (i: number, l: ReturnType<typeof leaders>[number]): string => {
+  const color = CREWS[i % CREWS.length].color;
+  const dashes = SIZES.map(s => ({ carId: `x${s}`, size: s, color, status: 'ok' as const, placed: [], damage: 0 }));
+  return (playerStripSvg(leaderArt(i, l), dashes) ?? commandBoardSvg(leaderArt(i, l)) ?? '')
+    .replace('class="ptab"', `class="ptab" transform="translate(${-TAB_PULL} 0)"`);
+};
 
 const CATEGORIES: Category[] = [
   {
     id: 'capisquadra', group: 'Carte', name: 'Capisquadra',
-    note: 'Plance dei capisquadra (Choppe Shoppe): potere, nome, comandi. Senza ritratto: colore della crew e iniziale.',
-    items: leaders().map((l, i) => svgItem('capisquadra', l.id, l.name, () => commandBoardSvg(leaderArt(i, l)), {
+    note: 'Striscia di ogni capo squadra come nel gioco (Choppe Shoppe): linguetta del potere aperta, comandi, segnalini comando. Senza ritratto: colore della crew e iniziale.',
+    items: leaders().map((l, i) => svgItem('capisquadra', l.id, l.name, () => leaderStripSvg(i, l), {
       note: `${l.title} · potere ${POWER_INFO[l.power]?.[0] ?? l.power} · ${l.tokens} segnalini comando${l.needs?.length ? ` · non ancora in gioco (${l.needs.join(', ')})` : ''}`,
     })),
   },
