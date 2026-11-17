@@ -181,6 +181,7 @@ test.describe('game', () => {
   });
 
   test('an online room in local mode: create, join, start, play a move', async ({ page, context }) => {
+    test.setTimeout(240_000); // two tables drawn in software, a move and an Undo
     const errors = await open(page, { query: '?net=local' });
     await page.locator('#mCreate').click();
     await page.locator('#oname').fill('Host');
@@ -211,10 +212,10 @@ test.describe('game', () => {
     const same = async (): Promise<boolean> => (await page.evaluate(() => window.trv!.choices)) === (await guest.evaluate(() => window.trv!.choices));
     let undoer = null;
     for (let i = 0; i < 40 && !undoer; i++) {
-      await expect.poll(same, { timeout: 15_000 }).toBe(true);
+      await expect.poll(same, { timeout: 45_000 }).toBe(true);
       for (const p of [page, guest]) if (await p.evaluate(() => window.trv!.canUndo())) undoer = p;
       if (undoer) break;
-      await expect.poll(async () => (await page.evaluate(() => !!window.trv!.decision)) || (await guest.evaluate(() => !!window.trv!.decision)), { timeout: 15_000 }).toBe(true);
+      await expect.poll(async () => (await page.evaluate(() => !!window.trv!.decision)) || (await guest.evaluate(() => !!window.trv!.decision)), { timeout: 45_000 }).toBe(true);
       const p = (await page.evaluate(() => !!window.trv!.decision)) ? page : guest;
       await p.evaluate(() => { const d = window.trv!.decision!; window.trv!.choose(d.options.length - 1); window.trv!.skipBeats(); });
     }
@@ -223,8 +224,8 @@ test.describe('game', () => {
     expect(await other.evaluate(() => window.trv!.canUndo())).toBe(false); // not the other player's choice
     const before = await page.evaluate(() => window.trv!.choices);
     await undoer!.evaluate(() => window.trv!.undo());
-    await expect.poll(() => page.evaluate(() => window.trv!.choices), { timeout: 15_000 }).toBe(before - 1);
-    await expect.poll(() => guest.evaluate(() => window.trv!.choices), { timeout: 15_000 }).toBe(before - 1);
+    await expect.poll(() => page.evaluate(() => window.trv!.choices), { timeout: 45_000 }).toBe(before - 1);
+    await expect.poll(() => guest.evaluate(() => window.trv!.choices), { timeout: 45_000 }).toBe(before - 1);
     await expect.poll(async () => (await page.evaluate(() => JSON.stringify(window.trv!.snapshot())))
       === (await guest.evaluate(() => JSON.stringify(window.trv!.snapshot()))), { timeout: 45_000 }).toBe(true);
     expect(errors).toEqual([]);

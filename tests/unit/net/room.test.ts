@@ -140,6 +140,20 @@ describe('match', () => {
     // Taken at any log length once player 1 is asked in that round: the card's place in the hand.
     expect(acceptable(await room(stores[0]), 1, { player: 1, options: 4, draft: { r: 0, cards: ['b', 'c', 'nitro_kit', 'd'] } })).toEqual({ uid: 'u1', choice: 2 });
   });
+  it('places the upgrade cards a player planned in advance, in their order, when the rules ask that player', async () => {
+    // Arrange: the guest planned two cards while the host was placing its own.
+    const stores = await seated(2);
+    await startMatch(stores[0], CODE, await room(stores[0]), SEED, COLOR);
+    await stores[1].write(roomPath(CODE, 'intents', 'u1'), { n: 0, c: 0, assign: [{ card: 'nitro_kit', car: 'p1M' }, { card: 'spoiler', car: 'p1S' }] });
+    const options = [{ card: 'spoiler', car: 'p1S' }, { card: 'spoiler', car: 'p1M' }, { card: 'nitro_kit', car: 'p1S' }, { card: 'nitro_kit', car: 'p1M' }];
+    // Act + Assert: nothing while the host decides; then the first planned placement, at any log length.
+    expect(acceptable(await room(stores[0]), 3, { player: 0, options: 4, assign: options })).toBe(null);
+    expect(acceptable(await room(stores[0]), 7, { player: 1, options: 4, assign: options })).toEqual({ uid: 'u1', choice: 3 });
+    // The first one placed: the next planned one.
+    expect(acceptable(await room(stores[0]), 8, { player: 1, options: 1, assign: [{ card: 'spoiler', car: 'p1S' }] })).toEqual({ uid: 'u1', choice: 0 });
+    // Nothing planned matches: wait.
+    expect(acceptable(await room(stores[0]), 8, { player: 1, options: 1, assign: [{ card: 'spoiler', car: 'p1L' }] })).toBe(null);
+  });
   it('takes a choice back only for the player who made it, while nothing final followed it', async () => {
     // Arrange: three choices in the log, by players 0, 1 and 1; the first is final (a die was rolled).
     const stores = await seated(2);

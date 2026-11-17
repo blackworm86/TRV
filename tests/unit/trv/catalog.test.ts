@@ -14,7 +14,7 @@ describe('base catalog', () => {
     expect(total('damage_token')).toBe(20);
     expect(total('wreck')).toBe(4);
     expect(ofKind(BASE_CATALOG, 'road_tile')).toHaveLength(5);
-    expect(BASE_CATALOG.crews).toHaveLength(4);
+    expect(BASE_CATALOG.crews).toHaveLength(9); // the box's four, and five brighter ones (asked by the user, 2026-11-17)
   });
   it('builds image urls for each component face', () => {
     expect(roadTileImage(BASE_CATALOG, 3, 'b')).toBe('/assets/estratti/base/road_tiles/3b.png');

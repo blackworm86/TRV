@@ -50,12 +50,64 @@ export function mySeat(): number {
 export function setPending(d: Decision | null): void {
   pending = d;
   decision = d && (!S.net || d.player === mySeat()) ? d : null;
+  // Online, the upgrade cards are placed by everyone at once: my own placing, whoever the rules ask.
+  if (S.net && d?.kind === 'upgradeAssign') decision = myAssign();
+}
+
+/** Online: my upgrade cards placed in advance on my cars (card on car), sent to the host. */
+export let assignPlan: { card: string; car: string }[] = [];
+
+/**
+ * Online, while the upgrade cards go on the cars: my placing as a decision of its own, made of the
+ * cards and places I have not planned yet; null once all are planned (or outside that moment).
+ * The single last card goes on the single last place by itself, as the rules do.
+ */
+function myAssign(): Decision | null {
+  const seat = mySeat();
+  if (!g?.assign || seat < 0) return null;
+  const { left, cars } = unplanned(seat);
+  if (!left.length || !cars.length || (left.length === 1 && cars.length === 1)) return null;
+  const p = g.players[seat];
+  return {
+    kind: 'upgradeAssign', player: seat, prompt: `${p.name}: trascina un potenziamento su un’auto.`,
+    options: left.flatMap(id => cars.map(car => ({ label: id, upgrade: id, carId: car }))),
+  };
+}
+
+/** My upgrade cards and places the rules have not filled and my plan does not name. */
+function unplanned(seat: number): { left: string[]; cars: string[] } {
+  const left = [...g!.assign!.left[seat]], cars = [...g!.assign!.cars[seat]];
+  for (const p of assignPlan) {
+    const ci = left.indexOf(p.card), vi = cars.indexOf(p.car);
+    if (ci >= 0 && vi >= 0) { left.splice(ci, 1); cars.splice(vi, 1); }
+  }
+  return { left, cars };
+}
+
+/** Online: the upgrade cards I planned for a car and the rules have not placed yet (drawn on its dashboard). */
+export function plannedFor(carId: string): string[] {
+  const seat = mySeat();
+  if (!S.net || !g?.assign || seat < 0) return [];
+  return assignPlan.filter(p => p.car === carId && g!.assign!.left[seat].includes(p.card)).map(p => p.card);
+}
+
+/** Online: places card `card` on car `car` in my plan and sends the plan to the host. */
+export function planAssign(card: string, car: string): void {
+  if (!S.net || !S.saved) return;
+  assignPlan.push({ card, car });
+  // The last card goes on the last place by itself: planned too, so its dashboard shows it now.
+  const seat = mySeat(), rest = seat >= 0 && g?.assign ? unplanned(seat) : null;
+  if (rest && rest.left.length === 1 && rest.cars.length === 1) assignPlan.push({ card: rest.left[0], car: rest.cars[0] });
+  void S.net.store.write(roomPath(S.net.code, 'intents', S.net.uid), { n: S.saved.choices.length, c: 0, assign: assignPlan }).catch(netError);
+  if (pending) setPending(pending);
+  render();
 }
 
 export function startGame(s: Saved): void {
   S.replayFrames = null; // a replay belongs to the game it was seen in
   S.saved = s;
   S.draftSent = -1;
+  assignPlan = [];
   g = newGame(s.setup);
   S.gen = play(g);
   let r = S.gen.next(0);

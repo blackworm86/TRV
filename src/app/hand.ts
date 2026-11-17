@@ -5,11 +5,12 @@
 import { type Decision } from '../game/trv/engine';
 import { upgradeCardSvg, upgradeCardText } from '../view/cards';
 import { carObjs, pickPlane } from './board';
-import { choose, decision, g } from './game';
+import { choose, decision, g, planAssign } from './game';
 import { drawHud } from './hud';
 import { upgradeName } from './info';
 import { pointer, ray } from './input';
 import { camera, renderer } from './stage';
+import { S } from './state';
 import { $, esc } from './util';
 
 /** Tells the cards on a page apart (their SVG ids). */
@@ -39,7 +40,8 @@ export function assignCard(id: string, carId: string): boolean {
   const i = decision.options.findIndex(o => o.upgrade === id && o.carId === carId);
   if (i < 0) return false;
   selCard = null;
-  choose(i);
+  // Online the cards are placed by everyone at once: the placing waits at the host (game.ts).
+  if (S.net) planAssign(id, carId); else choose(i);
   return true;
 }
 

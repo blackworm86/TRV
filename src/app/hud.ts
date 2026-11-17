@@ -1,14 +1,14 @@
 // The 2D interface: the players' bubbles, the prompt, the toasts and the log drawer, the
 // player's strip with command board and dashboards, the winner's card.
 
-import { leaderOf, leaders, commandName, type Decision, type LogEntry, type Frame } from '../game/trv/engine';
+import { leaderOf, leaders, commandName, type Decision, type LogEntry, type Frame, type Vehicle } from '../game/trv/engine';
 import { ongoingIllustration, upgradeIllustration } from '../view/cards';
 import { damageTokenSvg, dieSvg, hazardTokenSvg, commandTokenSvg, dashboardSvg, commandBoardSvg, playerStripSvg, avatarSvg, dataUrl } from '../view/vector/art';
 import { FX_ASK } from './beats';
 import { carObjs } from './board';
 import { chase, chaseButtons } from './chase';
 import { drawDock } from './dock';
-import { canUndo, choose, decision, draftPick, g, hotZones, mySeat, onlineDraft, pending, undo, viewer, zoneOption } from './game';
+import { canUndo, plannedFor, choose, decision, draftPick, g, hotZones, mySeat, onlineDraft, pending, undo, viewer, zoneOption } from './game';
 import { assignCard, cardHtml, drawHand, selCard } from './hand';
 import { CMD_LINES, DAMAGE_INFO, ONGOING_INFO, PORTRAITS, POWER_INFO, UPGRADE_INFO, boardCommands, slotText, upgradeName } from './info';
 import { focusOn } from './keys';
@@ -18,6 +18,26 @@ import { syncFxSupply } from './rolls';
 import { S } from './state';
 import { syncTableDice } from './tableDice';
 import { $, esc } from './util';
+
+/**
+ * A dashboard's upgrade card: the car's own, else (online, while the cards go on the cars) the
+ * ones I planned for it. Ms. Betty's large car may carry two upgrades: one card naming both.
+ */
+function upgradeArt(v: Vehicle): { upgrade?: { name: string; text: string; art?: string; cue?: 'use' | 'fires' } } {
+  const ups = [v.upgrade, v.upgrade2].filter((x): x is string => !!x);
+  if (!ups.length) ups.push(...plannedFor(v.id).slice(0, 2));
+  if (!ups.length || v.status === 'elim') return {};
+  const d = decision;
+  // Glowing: its ability can be used now (the question names the card), or a passive one just fired.
+  const cue = v.status === 'ok' && d && d.player === v.owner && v.upgrade && ups.some(u => d.prompt.includes(upgradeName(u)))
+    ? 'use' as const : (S.cardFlash.get(v.id) ?? 0) > performance.now() ? 'fires' as const : null;
+  return { upgrade: {
+    ...(cue ? { cue } : {}),
+    name: ups.map(u => upgradeName(u)).join(' + '),
+    text: ups.map(x => UPGRADE_INFO[x] ?? '').join(' · '),
+    art: upgradeIllustration(ups[0]),
+  } };
+}
 
 /** The decisions whose options are pieces of the game, shown face up to pick from (see drawHud). */
 const PICK_ASSETS: Decision['kind'][] = ['pickDamage', 'tinker'];
@@ -274,14 +294,7 @@ export function drawHud(): void {
     // Ongoing effect cards (Carnage at Devil's Run) lie under their damage tokens.
     ...(v.damage.some(t => t.card) ? { cards: v.damage.map(t => t.card ? { id: t.card, name: ONGOING_INFO[t.card]?.[0] ?? t.card, art: ongoingIllustration(t.card) } : null) } : {}),
     // Ms. Betty's large car may carry two upgrades: one card naming both.
-    ...(v.upgrade && v.status !== 'elim' ? { upgrade: {
-      // Glowing: its ability can be used now (the question names the card), or a passive one just fired.
-      ...(v.status === 'ok' && d && d.player === v.owner && [v.upgrade, v.upgrade2].some(u => u && d.prompt.includes(upgradeName(u)))
-        ? { cue: 'use' as const } : (S.cardFlash.get(v.id) ?? 0) > performance.now() ? { cue: 'fires' as const } : {}),
-      name: v.upgrade2 ? `${upgradeName(v.upgrade)} + ${upgradeName(v.upgrade2)}` : upgradeName(v.upgrade),
-      text: [v.upgrade, v.upgrade2].filter((x): x is string => !!x).map(x => UPGRADE_INFO[x] ?? '').join(' · '),
-      art: upgradeIllustration(v.upgrade),
-    } } : {}),
+    ...upgradeArt(v),
   }));
   // With crew leaders the strip is wider (the leader's panel on its left): it keeps that size all game.
   const tall = g.players.some(p => leaderOf(p)); // class "tall": the strip has the leader's panel

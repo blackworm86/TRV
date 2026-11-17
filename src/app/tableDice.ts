@@ -163,8 +163,9 @@ export function animTableDice(now: number, dt = 1 / 60): void {
       mesh.quaternion.copy(t.q);
       scale = chaseScale;
     } else {
-      mesh.visible = diceOnTable;
-      if (!diceOnTable) { t.glow.visible = false; return; }
+      // A die placed on a car or on the command board leaves the table (asked by the user, 2026-11-17).
+      mesh.visible = diceOnTable && live[i];
+      if (!mesh.visible) { t.glow.visible = false; return; }
       mesh.userData.chaseOn = false;
       mesh.position.copy(t.base);
       mesh.quaternion.copy(t.q);
@@ -193,7 +194,7 @@ export function tableDieAt(e: PointerEvent): number {
   const rect = renderer.domElement.getBoundingClientRect();
   pointer.set(((e.clientX - rect.left) / rect.width) * 2 - 1, -((e.clientY - rect.top) / rect.height) * 2 + 1);
   ray.setFromCamera(pointer, camera);
-  const hit = ray.intersectObjects(tableDice.map(t => t.d.mesh), false)[0];
+  const hit = ray.intersectObjects(tableDice.map(t => t.d.mesh).filter(m => m.visible), false)[0];
   return hit ? tableDice.findIndex(t => t.d.mesh === hit.object) : -1;
 }
 

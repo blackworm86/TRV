@@ -246,23 +246,25 @@
   .hotzone { cursor: pointer; }
 
   /* Rolled dice, big, in the middle of the screen; comic words over the action */
-  /* Rolled dice and damage: a compact card at the left edge, off the road (popups were covering the table). */
-  #rolls { position: fixed; left: 12px; bottom: calc(var(--bottom) + 6px); transform: translate(-12px, 0); display: flex; gap: 12px; padding: 8px 12px 8px;
-    opacity: 0; pointer-events: none; transition: opacity .25s, transform .25s; z-index: 5; border-radius: 18px;
-    background: rgba(20,14,10,.9); border: 2px solid var(--acc); box-shadow: 0 10px 30px rgba(0,0,0,.6); }
-  #rolls.show { opacity: 1; transform: none; }
-  #rolls .roll { display: flex; flex-direction: column; align-items: center; gap: 3px; min-width: 70px; }
-  #rolls .roll svg { width: 52px; height: 52px; }
-  #rolls .roll b { font-family: 'League Gothic', Impact, sans-serif; font-weight: 400; font-size: 22px; color: var(--acc); line-height: 1; }
-  #rolls .roll span { font-size: 13px; max-width: 150px; text-align: center; line-height: 1.15; }
+  /* Rolled dice and damage: big, in the middle of the table, so everyone sees what happened (asked
+     by the user, 2026-11-17: not small at the left edge). It lets clicks through to the table. */
+  #rolls { position: fixed; left: 50%; top: calc(var(--top) + (100vh - var(--top) - var(--bottom)) * .42); transform: translate(-50%, -50%) scale(.85);
+    display: flex; align-items: flex-start; gap: 22px; padding: 18px 26px 20px;
+    opacity: 0; pointer-events: none; transition: opacity .25s, transform .25s; z-index: 5; border-radius: 24px;
+    background: rgba(20,14,10,.92); border: 3px solid var(--acc); box-shadow: 0 18px 50px rgba(0,0,0,.7); }
+  #rolls.show { opacity: 1; transform: translate(-50%, -50%); }
+  #rolls .roll { display: flex; flex-direction: column; align-items: center; gap: 6px; min-width: 110px; }
+  #rolls .roll svg { width: 92px; height: 92px; }
+  #rolls .roll b { font-family: 'League Gothic', Impact, sans-serif; font-weight: 400; font-size: 34px; color: var(--acc); line-height: 1; }
+  #rolls .roll span { font-size: 18px; max-width: 220px; text-align: center; line-height: 1.2; }
   /* A damage token turned over: bigger than a die, in the colour of the car's crew. */
-  #rolls .roll.dmg { min-width: 150px; padding-right: 14px; border-right: 2px solid rgba(255,255,255,.12); }
+  #rolls .roll.dmg { min-width: 230px; padding-right: 22px; border-right: 2px solid rgba(255,255,255,.12); }
   #rolls .roll.dmg:only-child { border-right: 0; padding-right: 0; }
-  #rolls .roll.dmg small { font-size: 12px; letter-spacing: 1px; text-transform: uppercase; color: var(--c); font-weight: 700; }
-  #rolls .roll.dmg .tok { display: block; animation: tokflip .55s ease-out; filter: drop-shadow(0 6px 10px rgba(0,0,0,.6)); }
-  #rolls .roll.dmg .tok svg { width: 84px; height: 76px; }
-  #rolls .roll.dmg b { font-size: 30px; color: #ff6a5a; }
-  #rolls .roll.dmg span { font-size: 14px; max-width: 210px; }
+  #rolls .roll.dmg small { font-size: 16px; letter-spacing: 1px; text-transform: uppercase; color: var(--c); font-weight: 700; }
+  #rolls .roll.dmg .tok { display: block; animation: tokflip .55s ease-out; filter: drop-shadow(0 8px 14px rgba(0,0,0,.6)); }
+  #rolls .roll.dmg .tok svg { width: 168px; height: 152px; }
+  #rolls .roll.dmg b { font-size: 46px; color: #ff6a5a; }
+  #rolls .roll.dmg span { font-size: 19px; max-width: 300px; }
   /* Ongoing effect card (Carnage): official art, Italian name and text over the red panel. */
   #rolls .roll.dmg.withcard { grid-template-columns: auto; }
   .ocard { --w: 190px; width: var(--w); aspect-ratio: 440 / 680; box-sizing: border-box; display: flex; flex-direction: column; gap: 4px;
@@ -285,6 +287,7 @@
   #ozoom .ocard { --w: 300px; margin: 0; animation: none; box-shadow: 0 18px 40px rgba(0,0,0,.7); }
   #ozoom .ocard b { font: italic 400 26px/1.05 'League Gothic', Impact, sans-serif; text-transform: uppercase; letter-spacing: .4px; color: #fff; }
   #ozoom .ocard span { font-size: 16px; line-height: 1.3; color: #fff; font-weight: 500; }
+  #rolls .ocard { --w: 240px; }
   #rolls .ocard b { font-size: 15px; color: #fff; font-style: italic; text-transform: uppercase; letter-spacing: .3px; line-height: 1.05; }
   #rolls .ocard span { font-size: 11.5px; line-height: 1.25; max-width: none; color: #fff; font-weight: 500; }
   @keyframes tokflip { 0% { transform: rotateY(180deg) scale(.5); opacity: 0; } 55% { transform: rotateY(60deg) scale(1.12); opacity: 1; } 100% { transform: none; } }

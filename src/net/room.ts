@@ -38,7 +38,11 @@ export interface RoomOptions { startSide: 'a' | 'b'; leaders: boolean; upgrades:
  * A player's request to the host: at log length `n`, option `c` of the pending decision. A draft
  * pick says instead which card, in which round: it waits until the rules ask that player.
  */
-export interface Intent { n: number; c: number; draft?: { r: number; card: string }; undo?: boolean }
+export interface Intent {
+  n: number; c: number; draft?: { r: number; card: string }; undo?: boolean;
+  /** The upgrade cards placed in advance, card on car, in the order they were placed. */
+  assign?: { card: string; car: string }[];
+}
 
 /** The shared record of a room, as read from the store and tidied by {@link readRoom}. */
 export interface Room {
@@ -234,7 +238,11 @@ export function undoable(room: Room, logLength: number, lock: number, deciders: 
  * The pending decision as far as the referee needs it: who decides, among how many options; for an
  * upgrade draft pick, the round and the cards in that player's hand.
  */
-export interface Pending { player: number; options: number; draft?: { r: number; cards: string[] } }
+export interface Pending {
+  player: number; options: number; draft?: { r: number; cards: string[] };
+  /** Placing an upgrade card: each option's card and car. */
+  assign?: { card: string; car: string }[];
+}
 
 /**
  * Host: the next intent it can accept, or null. An intent counts only if it was made at the
@@ -249,6 +257,14 @@ export function acceptable(room: Room, logLength: number, pending: Pending | nul
     if (intent.draft.r !== pending.draft.r) return null;
     const c = pending.draft.cards.indexOf(intent.draft.card);
     return c < 0 ? null : { uid: uid!, choice: c };
+  }
+  // Upgrade cards placed in advance: the first placement still to make among the options.
+  if (intent?.assign && pending.assign) {
+    for (const want of list<{ card: string; car: string }>(intent.assign)) {
+      const c = pending.assign.findIndex(o => o.card === want.card && o.car === want.car);
+      if (c >= 0) return { uid: uid!, choice: c };
+    }
+    return null;
   }
   if (!intent || intent.n !== logLength) return null;
   if (!Number.isInteger(intent.c) || intent.c < 0 || intent.c >= pending.options) return null;

@@ -211,6 +211,12 @@ export interface Game {
    * others (asked by the user, 2026-11-17); the rules still take the picks in seat order. Null otherwise.
    */
   draft: { round: number; hands: string[][]; picks: boolean[] } | null;
+  /**
+   * The drafted cards being put on the cars: each player's cards still to place and the places
+   * left (car ids; Bring the Bling's large car twice). Online every player places at once (asked by
+   * the user, 2026-11-17); the rules still take the placements in seat order. Null otherwise.
+   */
+  assign: { left: string[][]; cars: string[][] } | null;
   players: Player[];
   vehicles: Vehicle[];
   /** The three tiles on the table: rear, middle, lead. */
@@ -493,7 +499,7 @@ export function newGame(s: Setup): Game {
   if (!r.ok) throw new Error(r.error.message);
   if (s.players.length < 2 || s.players.length > 4) throw new Error('2-4 players');
   const g: Game = {
-    rng: r.value, draft: null, players: [], vehicles: [], board: [], pile: [], tilesPlaced: 3, finalTile: false,
+    rng: r.value, draft: null, assign: null, players: [], vehicles: [], board: [], pile: [], tilesPlaced: 3, finalTile: false,
     hazards: new Map(), hazardPile: [], hazardDiscard: [], damagePile: [], round: 0, firstPlayer: 0,
     current: 0, roadDie: 0, winner: null, log: [], zTop: 0, activeCar: null, lastRoll: [], pendingDice: [], frames: [],
     tokenSupply: shoppe.command_tokens, dealLeaders: !!s.leaders, dealUpgrades: !!s.upgrades, fx: { bump: false, calledShot: false, slams: 0, flamethrower: false },
@@ -1776,11 +1782,16 @@ function* draftUpgrades(g: Game): Gen<void> {
   g.draft = null;
   // Each kept card goes on a car, in the order the player likes: every choice is a card and a car
   // (the interface lets the card be dragged onto the car). The last card goes on the last car.
-  for (const p of g.players) {
-    const left = [...kept[p.id]];
-    // Bring the Bling: the large car takes a second card (it appears twice among the places).
+  // Bring the Bling: the large car takes a second card (it appears twice among the places).
+  const places = g.players.map(p => {
     const own = g.vehicles.filter(v => v.owner === p.id);
-    const cars = hasPower(g, p.id, 'bring_the_bling') ? [...own, ...own.filter(v => v.size === 'L')] : own;
+    return hasPower(g, p.id, 'bring_the_bling') ? [...own, ...own.filter(v => v.size === 'L')] : own;
+  });
+  const lefts = g.players.map(p => [...kept[p.id]]);
+  const ids = places.map(c => c.map(v => v.id));
+  g.assign = { left: lefts, cars: ids };
+  for (const p of g.players) {
+    const left = lefts[p.id], cars = places[p.id];
     while (cars.length && left.length) {
       let card = 0, car = 0;
       if (left.length > 1 || cars.length > 1) {
@@ -1792,9 +1803,11 @@ function* draftUpgrades(g: Game): Gen<void> {
         card = pairs[i].ci; car = pairs[i].vi;
       }
       const v = cars.splice(car, 1)[0], id = left.splice(card, 1)[0];
+      ids[p.id].splice(car, 1);
       if (v.upgrade) v.upgrade2 = id; else v.upgrade = id;
     }
   }
+  g.assign = null;
   g.upgradeDeck = [...deck, ...hands.flat()];
   for (const p of g.players) {
     say(g, `${p.name}: ${g.vehicles.filter(v => v.owner === p.id).map(v => `${SIZE_NAME[v.size]} ${upName(v.upgrade ?? '')}${v.upgrade2 ? ` + ${upName(v.upgrade2)}` : ''}`).join(', ')}.`, 'info');

@@ -8,7 +8,12 @@
     { "id": "grey", "name": "Grigio", "color": "#c9c8c2" },
     { "id": "green", "name": "Verde", "color": "#5b7a52" },
     { "id": "orange", "name": "Arancio", "color": "#ec9230" },
-    { "id": "blue", "name": "Azzurro", "color": "#a9c1dd" }
+    { "id": "blue", "name": "Azzurro", "color": "#a9c1dd" },
+    { "id": "crimson", "name": "Rosso", "color": "#d42f30" },
+    { "id": "royal", "name": "Blu", "color": "#2f6bd4" },
+    { "id": "lime", "name": "Verde acceso", "color": "#4cc23a" },
+    { "id": "yellow", "name": "Giallo", "color": "#f2c014" },
+    { "id": "purple", "name": "Viola", "color": "#8a3fd1" }
   ],
   "components": [
     { "id": "road_tile_1", "kind": "road_tile", "count": 1, "tile": 1, "size_mm": [368, 280, 2], "measured": false,
