@@ -19,6 +19,10 @@ export interface OwnerDamage {
   front: string;
   /** The back, complete. */
   back: string;
+  /** The front's shape (every path of it, placed), to cut the official picture with: clipPath content. */
+  frontClip: string;
+  /** The back's shape, the same way. */
+  backClip: string;
 }
 
 /**
@@ -34,8 +38,12 @@ export function ownerDamage(raw: string): OwnerDamage | null {
   const front = sides.find(g => left(g) < BACK_X);
   const back = sides.find(g => left(g) >= BACK_X);
   if (!front || !back) return null;
-  const place = (g: string, x: number): string => `<g transform="translate(${BOX_X} ${BOX_Y}) scale(${k}) translate(${-x} ${-TOP})">${g}</g>`;
-  return { front: place(front, FRONT_X), back: place(back, BACK_X) };
+  const at = (x: number): string => `translate(${BOX_X} ${BOX_Y}) scale(${k}) translate(${-x} ${-TOP})`;
+  const place = (g: string, x: number): string => `<g transform="${at(x)}">${g}</g>`;
+  // A clip path takes shapes, not groups: every path of the side, each with the side's placement.
+  const shape = (g: string, x: number): string => [...g.matchAll(/<path\b[^>]*?\sd="([^"]+)"/g)]
+    .map(m => `<path transform="${at(x)}" d="${m[1]}"/>`).join('');
+  return { front: place(front, FRONT_X), back: place(back, BACK_X), frontClip: shape(front, FRONT_X), backClip: shape(back, BACK_X) };
 }
 
 /** Inner edge of the front's red frame in the 110 x 100 box: left, top, right (the frame is 13 units thick in the drawing). */

@@ -401,7 +401,8 @@ export function makeBoards(raw: string, base: BoardBase, leaderRaw?: string): {
     const w = TOKEN_W, h = ONGOING_H, panel = y + ONGOING_PANEL_TOP * h;
     const clip = `ogclip-${key}`;
     let b = `<clipPath id="${clip}"><rect x="${x}" y="${y}" width="${w}" height="${h}" rx="6"/></clipPath><g clip-path="url(#${clip})">`;
-    b += c.art ? `<image href="${c.art}" x="${x}" y="${y}" width="${w}" height="${h}" preserveAspectRatio="none"/>` : `<rect x="${x}" y="${y}" width="${w}" height="${h}" fill="${DARK}"/>`;
+    b += `<rect x="${x}" y="${y}" width="${w}" height="${h}" fill="${DARK}"/>`;
+    if (c.art) b += `<image href="${c.art}" x="${x}" y="${y}" width="${w}" height="${panel - y + 2}" preserveAspectRatio="xMidYMin slice"/>`;
     b += `<rect x="${x}" y="${panel}" width="${w}" height="${h}" fill="${CARD_RED}"/></g>`;
     const words = c.name.toUpperCase().split(' ');
     const lines = words.length > 1 && c.name.length > 11 ? [words.slice(0, Math.ceil(words.length / 2)).join(' '), words.slice(Math.ceil(words.length / 2)).join(' ')] : [c.name.toUpperCase()];
@@ -426,10 +427,10 @@ export function makeBoards(raw: string, base: BoardBase, leaderRaw?: string): {
     const artY = top + CARD_PEEK + 4, artH = Math.max(10, textTop - top - CARD_PEEK - 18);
     b += `<g class="upbody"><rect x="${x + 6}" y="${artY}" width="${cw - 12}" height="${artH}" rx="4" fill="#3a3540"/>`;
     if (d.upgrade.art) {
-      // The official illustration (the card's top part, above its torn edge), framed in the art window.
+      // The official illustration (cut without the card's frame), filling the art window.
       const ac = `upart-${d.carId}`;
       b += `<clipPath id="${ac}"><rect x="${x + 6}" y="${artY}" width="${cw - 12}" height="${artH}" rx="4"/></clipPath>`
-        + `<image href="${d.upgrade.art}" x="${x + 6}" y="${artY - (cw - 12) * 0.08}" width="${cw - 12}" height="${(cw - 12) * 88 / 63}" preserveAspectRatio="none" clip-path="url(#${ac})"/>`;
+        + `<image href="${d.upgrade.art}" x="${x + 6}" y="${artY}" width="${cw - 12}" height="${artH}" preserveAspectRatio="xMidYMid slice" clip-path="url(#${ac})"/>`;
     }
     lines.forEach((l, i) => { b += prose(l, x + 8, textTop + i * 14, 11.5, CREAM); });
     if (off) b += text('INATTIVO: AUTO FUORI USO', x + cw / 2, textTop - 8, 11, '#ff8a7a', 'middle');

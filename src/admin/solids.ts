@@ -4,6 +4,9 @@
 
 import * as THREE from 'three';
 import { standaloneSvg, svgSize } from '../view/vector/templates';
+import { inlineImages } from '../view/inline-images';
+
+export { inlineImages };
 
 /** A face of a piece: SVG markup, or the address of an image (the official JPG/PNG). */
 export type Face = { svg: string } | { url: string };
@@ -21,7 +24,8 @@ function loadImage(src: string): Promise<HTMLImageElement> {
 }
 
 /** A texture from SVG markup, drawn at TEX_SIZE on its longest side; also its width / height. */
-export async function svgTexture(svg: string): Promise<{ tex: THREE.Texture; aspect: number }> {
+export async function svgTexture(svgIn: string): Promise<{ tex: THREE.Texture; aspect: number }> {
+  const svg = await inlineImages(svgIn);
   const [w, h] = svgSize(svg) ?? [1, 1];
   const url = URL.createObjectURL(new Blob([standaloneSvg(svg)], { type: 'image/svg+xml' }));
   try {

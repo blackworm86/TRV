@@ -2,7 +2,7 @@
 // player's strip with command board and dashboards, the winner's card.
 
 import { leaderOf, leaders, commandName, type Decision, type LogEntry, type Frame } from '../game/trv/engine';
-import { ongoingArt, upgradeArt } from '../view/cards';
+import { ongoingIllustration, upgradeIllustration } from '../view/cards';
 import { dieSvg, dashboardSvg, commandBoardSvg, playerStripSvg, avatarSvg, dataUrl } from '../view/vector/art';
 import { FX_ASK } from './beats';
 import { chase, chaseButtons } from './chase';
@@ -212,12 +212,12 @@ export function drawHud(): void {
     label: v.status === 'elim' ? '' : v.inStart ? 'IN PARTENZA' : '',
     ...(v.onFire && v.status !== 'elim' ? { onFire: true } : {}),
     // Ongoing effect cards (Carnage at Devil's Run) lie under their damage tokens.
-    ...(v.damage.some(t => t.card) ? { cards: v.damage.map(t => t.card ? { id: t.card, name: ONGOING_INFO[t.card]?.[0] ?? t.card, art: ongoingArt(t.card) } : null) } : {}),
+    ...(v.damage.some(t => t.card) ? { cards: v.damage.map(t => t.card ? { id: t.card, name: ONGOING_INFO[t.card]?.[0] ?? t.card, art: ongoingIllustration(t.card) } : null) } : {}),
     // Ms. Betty's large car may carry two upgrades: one card naming both.
     ...(v.upgrade && v.status !== 'elim' ? { upgrade: {
       name: v.upgrade2 ? `${upgradeName(v.upgrade)} + ${upgradeName(v.upgrade2)}` : upgradeName(v.upgrade),
       text: [v.upgrade, v.upgrade2].filter((x): x is string => !!x).map(x => UPGRADE_INFO[x] ?? '').join(' · '),
-      art: upgradeArt(v.upgrade),
+      art: upgradeIllustration(v.upgrade),
     } } : {}),
   }));
   // With crew leaders the strip is wider (the leader's panel on its left): it keeps that size all game.

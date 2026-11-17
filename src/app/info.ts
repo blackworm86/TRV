@@ -2,7 +2,8 @@
 // and ongoing card texts, the command board lines.
 
 import { leaderOf, commandsOf, leaders, commandName, upgrades, type CommandSlot, type Player, type Frame } from '../game/trv/engine';
-import { ongoingArt, ONGOING_PANEL_TOP, CARD_RED } from '../view/cards';
+import { ongoingCardSvg, ongoingCardText } from '../view/cards';
+import CARD_TEXT from '../../data/trv/cards_it.json';
 import { damageTokenSvg } from '../view/vector/art';
 import { g } from './game';
 import { dieHtml } from './hud';
@@ -128,26 +129,15 @@ export function boardCommands(p: Player): { cmd: string; name: string; slot: str
   return commandsOf(p).map(s => ({ cmd: s.id, name: commandName(s.id).toUpperCase(), slot: slotText(s), lines: CMD_LINES[s.id] ?? [] }));
 }
 
-/** The ongoing effect cards (Carnage at Devil's Run) in Italian: name and text (data/trv/carnage.json in English). */
-export const ONGOING_INFO: Record<string, [string, string]> = {
-  bald_tires: ['Gomme lisce', 'Ogni volta che il dado direzione sposta questa auto, spostala di una casella in più nella stessa direzione.'],
-  bent_frame: ['Telaio piegato', 'Se un’altra auto sperona questa auto, questa auto si sposta (non tirare il dado slam).'],
-  cracked_flywheel: ['Volano incrinato', 'Se possibile, questa deve essere la prima auto che muovi in ogni round.'],
-  dead_alternator: ['Alternatore morto', 'Quando un’altra auto esce dalla tessera strada in testa, elimina questa auto.'],
-  exposed_hardware: ['Meccanica scoperta', 'Quando un altro giocatore spara a questa auto, può ritirare il dado sparo.'],
-  faulty_airbag: ['Airbag difettoso', 'Se questa auto entra in una casella con un pericolo coperto, eliminala. Non girare il segnalino pericolo.'],
-  loose_wiring: ['Cavi allentati', 'Prima che questa auto si muova, tira il dado direzione e spostala di una casella in quella direzione.'],
-  lost_tools: ['Attrezzi persi', 'Questa auto non può essere riparata se nessuna delle tue altre auto le è adiacente.'],
-  nitro_leak: ['Perdita di nitro', 'Quando assegni un dado a questa auto, mettilo su 6. Se questa auto è coinvolta in uno speronamento, eliminala.'],
-  shattered_windshield: ['Parabrezza in frantumi', 'Se questa auto diventa fuori uso, eliminala.'],
-  transmission_failure: ['Cambio rotto', 'Prima che questa auto si muova, metti il suo dado movimento su 3. Non può ottenere movimenti extra.'],
-};
-/** An ongoing effect card as HTML: the official art with the Italian name and text over its red panel. */
+/** The ongoing effect cards (Carnage at Devil's Run) in Italian: name and text (data/trv/cards_it.json). */
+export const ONGOING_INFO: Record<string, [string, string]> = Object.fromEntries(
+  Object.keys(CARD_TEXT.ongoing).map(id => [id, ongoingCardText(id)]));
+/** Tells the cards on a page apart (their SVG ids). */
+let ongoingSerial = 0;
+/** An ongoing effect card as HTML: the digital card (src/view/cards.ts), Italian name and text on its red panel. */
 export function ongoingCardHtml(id: string): string {
-  const [name, text] = ONGOING_INFO[id] ?? [id, ''];
-  const art = ongoingArt(id);
-  return `<div class="ocard${art ? ' official' : ''}"${art ? ` style="--art:url(${art});--panel:${ONGOING_PANEL_TOP * 100}%;--red:${CARD_RED}"` : ''}>`
-    + `<b>${esc(name)}</b><span>${esc(text)}</span></div>`;
+  const [name, text] = ongoingCardText(id);
+  return `<div class="ocard drawn" title="${esc(`${name}: ${text.replace(/\n/g, ' ')}`)}">${ongoingCardSvg({ id, name, text, key: `${id}-${ongoingSerial++}` })}</div>`;
 }
 
 /** Hovering an ongoing effect card under a damage token shows the whole card, big enough to read. */

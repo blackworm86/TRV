@@ -3,29 +3,25 @@
 // (or onto the car on the table), or click it and then the car.
 
 import { type Decision } from '../game/trv/engine';
-import { upgradeArt } from '../view/cards';
+import { upgradeCardSvg, upgradeCardText } from '../view/cards';
 import { carObjs, pickPlane } from './board';
 import { choose, decision, g } from './game';
 import { drawHud } from './hud';
-import { UPGRADE_INFO, upgradeName } from './info';
+import { upgradeName } from './info';
 import { pointer, ray } from './input';
 import { camera, renderer } from './stage';
 import { $, esc } from './util';
 
+/** Tells the cards on a page apart (their SVG ids). */
+let cardSerial = 0;
 /**
- * An upgrade card: the official card (illustration and torn edge, src/view/cards.ts) with the
- * Italian name and text on its black panel; without the art file, a plain frame with a space for it.
+ * An upgrade card: the digital card (src/view/cards.ts: the official illustration, the Italian name
+ * and text on the black panel, the printed pictogram), with a ring in the crew's colour.
  */
 export function cardHtml(id: string, color: string, attrs = ''): string {
-  const art = upgradeArt(id);
-  if (art) {
-    return `<div class="ucard official" style="--c:${color};--art:url('${art}')" ${attrs}><b class="gothic">${esc(upgradeName(id))}</b>`
-      + `<p>${esc(UPGRADE_INFO[id] ?? '')}</p></div>`;
-  }
-  return `<div class="ucard" style="--c:${color}" ${attrs}><b class="gothic">${esc(upgradeName(id))}</b>`
-    + `<div class="art"></div><p>${esc(UPGRADE_INFO[id] ?? '')}</p></div>`;
+  return `<div class="ucard drawn" style="--c:${color}" title="${esc(`${upgradeName(id)}: ${upgradeCardText(id).replace(/\*\*/g, '')}`)}" ${attrs}>`
+    + `${upgradeCardSvg({ id, name: upgradeName(id), text: upgradeCardText(id), key: `${id}-${cardSerial++}` })}</div>`;
 }
-
 export let selCard: string | null = null;
 /** The cards still to place, over the table just above the strip. */
 export function drawHand(d: Decision | null): void {

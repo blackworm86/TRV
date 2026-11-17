@@ -200,8 +200,26 @@ export function hazardSymbol(cx: number, cy: number, s: number, color: string): 
   return `<g fill="none" stroke="${color}" stroke-width="${s * 0.16}" stroke-linejoin="round"><path d="${tri(1)}"/><path d="${tri(0.55)}"/></g>`;
 }
 
-/** Hazard token, 120 x 100, chevron-shaped. `type` null or faceUp=false draws the back. */
+/**
+ * Carnage at Devil's Run's hazard tokens as printed (tools/art/save_carnage_tokens.py): the six
+ * fronts by type and the expansion's own back, turned to point right like the base tokens.
+ */
+const CARNAGE_HAZARD_PRINT: Record<string, string> = Object.fromEntries(Object.entries(
+  import.meta.glob<string>('/assets/carnage/segnalini/pericolo/*.jpg', { eager: true, query: '?url', import: 'default' }),
+).map(([path, url]) => [path.replace(/^.*\/|\.\w+$/g, ''), url]));
+
+/**
+ * Hazard token, 120 x 100, chevron-shaped. `type` null or faceUp=false draws the back; a Carnage at
+ * Devil's Run type face down draws that expansion's back.
+ */
 export function hazardTokenSvg(type: string | null, faceUp: boolean, extra = ''): string {
+  // Carnage's tokens: the printed token cut with the base tokens' chevron.
+  const print = type && type !== 'back' && CARNAGE_HAZARD_PRINT[type] ? CARNAGE_HAZARD_PRINT[faceUp ? type : 'back'] : undefined;
+  if (print) {
+    return svg(120, 100, `<defs><clipPath id="hz-print"><path d="${CHEVRON}"/></clipPath></defs>`
+      + `<image href="${print}" x="1.5" y="1.5" width="117" height="97" preserveAspectRatio="none" clip-path="url(#hz-print)"/>`
+      + `<path d="${CHEVRON}" fill="none" stroke="rgba(0,0,0,.45)" stroke-width="2"/>`, extra);
+  }
   const o = off()?.hazardTokenSvg(type, faceUp, extra);
   if (o) return o;
   let fill: string = PALETTE.hazardRed, art = hazardSymbol(62, 50, 26, PALETTE.cream), label = '';
@@ -212,7 +230,7 @@ export function hazardTokenSvg(type: string | null, faceUp: boolean, extra = '')
       case 'oil': fill = PALETTE.road; art = `<defs><linearGradient id="oil" x1="0" x2="1"><stop offset="0" stop-color="#3cc"/><stop offset=".5" stop-color="#c3c"/><stop offset="1" stop-color="#cc3"/></linearGradient></defs>`
         + `<path d="M36 28 C56 18 90 30 84 50 C94 70 64 84 50 72 C30 80 26 60 38 50 C26 42 28 32 36 28Z" fill="#181818"/><path d="M44 40 C58 32 76 40 72 52 C76 64 58 70 50 62 C40 64 40 52 46 48Z" fill="url(#oil)" opacity=".85"/>`; break;
       case 'mine': fill = PALETTE.navy; art = `<path d="M30 62 L40 36 L48 52 L58 26 L64 50 L80 34 L76 62Z" fill="none" stroke="${PALETTE.hazardRed}" stroke-width="4" stroke-linejoin="round"/><path d="M28 66 H86" stroke="${PALETTE.hazardRed}" stroke-width="5"/>`; label = 'MINA'; break;
-      // Carnage at Devil's Run (CDR p3): provisional drawings, not the official art.
+      // Carnage at Devil's Run (CDR p3): open drawings, used when the printed tokens are not there.
       case 'desert_glass': fill = PALETTE.desertGlass; art = `<g fill="#e9fbff" stroke="#3a8a96" stroke-width="2"><path d="M34 60 L44 30 L52 58Z"/><path d="M52 64 L64 24 L74 62Z"/><path d="M72 62 L84 38 L90 64Z"/></g>`; break;
       case 'ramp': fill = PALETTE.road; art = `<path d="M30 64 L86 64 L86 40Z" fill="${PALETTE.ramp}" stroke="#3b2a12" stroke-width="3"/><path d="M42 58 H66 M58 50 L68 58 L58 66" stroke="#f7c21b" stroke-width="5" fill="none"/>`; break;
       case 'fire': fill = '#2a1a12'; art = `<path d="M60 22 C74 40 86 50 78 66 C74 76 46 78 42 66 C36 52 50 46 52 34 C58 44 62 40 60 22Z" fill="${PALETTE.fireOrange}"/><path d="M60 46 C68 56 70 64 64 70 C58 74 50 70 52 62 C54 56 58 54 60 46Z" fill="#ffd34a"/>`; break;
@@ -229,8 +247,33 @@ export function hazardTokenSvg(type: string | null, faceUp: boolean, extra = '')
 
 const DAMAGE_TITLE: Record<string, string> = { shrapnel: 'SCHEGGE', dazed: 'STORDITO', dent: 'AMMACCATURA', skid: 'SBANDATA', blastoff: 'DECOLLO', on_fire: 'IN FIAMME', ongoing_effect: 'EFFETTO' };
 
+/**
+ * The official damage tokens as printed (tools/art/save_damage_tokens.py): fronts by type, the six
+ * SKID tokens by direction (skid_F … skid_BR) and the back, cut in the game with the owner's outline;
+ * with Carnage at Devil's Run's ON FIRE and ONGOING EFFECT (tools/art/save_carnage_tokens.py).
+ */
+const DAMAGE_PRINT: Record<string, string> = Object.fromEntries(Object.entries(
+  import.meta.glob<string>(['/assets/base/segnalini/danno/*.jpg', '/assets/carnage/segnalini/danno/*.jpg'], { eager: true, query: '?url', import: 'default' }),
+).map(([path, url]) => [path.replace(/^.*\/|\.\w+$/g, ''), url]));
+/** Width / height of the printed tokens (the scans, 480 x 433). */
+const DAMAGE_PRINT_RATIO = 480 / 433;
+
+/** The printed token `name` cut with the owner's outline (front or back), or null without both. */
+function printedDamage(name: string, back: boolean, extra: string): string | null {
+  const own = ownerDamage, url = DAMAGE_PRINT[name];
+  if (!own || !url) return null;
+  const id = `dmg-${back ? 'back' : 'front'}`;
+  const w = 104, h = w / DAMAGE_PRINT_RATIO;
+  return svg(110, 100, `<defs><clipPath id="${id}">${back ? own.backClip : own.frontClip}</clipPath></defs>`
+    + `<image href="${url}" x="3" y="3" width="${w}" height="${h.toFixed(2)}" preserveAspectRatio="none" clip-path="url(#${id})"/>`, extra);
+}
+
 /** Damage token, 110 x 100, torn bottom edge. faceUp=false draws the back (brake warning). */
 export function damageTokenSvg(type: string | null, faceUp: boolean, dir?: ArtDir, extra = ''): string {
+  // The printed token when there is one; drawn otherwise.
+  const printed = !faceUp || !type ? printedDamage('back', true, extra)
+    : printedDamage(type === 'skid' ? `skid_${dir ?? 'F'}` : type, false, extra);
+  if (printed) return printed;
   const own = ownerDamage;
   if (!own) {
     const o = off()?.damageTokenSvg(type, faceUp, dir, extra);
@@ -301,7 +344,7 @@ export interface DashboardArt {
   /** The car is burning (Carnage at Devil's Run): its ON FIRE! token lies over the move die slot. */
   onFire?: boolean;
   /** The car's upgrade card (Choppe Shoppe): drawn above the dashboard in the player's strip. */
-  upgrade?: { name: string; text: string; /** URL of the official card art, when there is one (src/view/cards.ts). */ art?: string };
+  upgrade?: { name: string; text: string; /** URL of the card's official illustration, when there is one (src/view/cards.ts). */ art?: string };
 }
 
 const SIZE_LABEL: Record<ArtSize, string> = { S: 'PICCOLA', M: 'MEDIA', L: 'GRANDE' };

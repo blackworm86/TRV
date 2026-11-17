@@ -37,16 +37,29 @@ test.describe('admin inspector', () => {
   test('a group shows its pieces with their status, and the filter narrows them', async ({ page }) => {
     const errors = watchErrors(page);
     await page.goto(`${ADMIN}#carnage/segnalini`);
+    await expect(page.locator('.grid .item').first()).toBeVisible();
+    await page.screenshot({ path: `${EVIDENCE}/2-carnage-segnalini.png` });
+    // The base tokens mix printed (damage) and traced (hazards): only the printed ones.
+    await page.goto('about:blank'); // a new hash alone does not reload the inspector
+    await page.goto(`${ADMIN}#base/segnalini`);
+    await expect(page.locator('.grid .item')).toHaveCount(15);
     const items = page.locator('.grid .item');
     const all = await items.count();
-    expect(all).toBeGreaterThan(2);
-    await page.screenshot({ path: `${EVIDENCE}/2-carnage-segnalini.png` });
-    // Only the drafts.
-    await page.locator('.chip', { hasText: 'Bozza' }).click();
-    const drafts = await items.count();
-    expect(drafts).toBeGreaterThan(0);
-    expect(drafts).toBeLessThan(all);
-    await expect(page.locator('.grid .item .st-estratto')).toHaveCount(0);
+    await page.locator('.chip', { hasText: 'Ufficiale estratto' }).click();
+    const printed = await items.count();
+    expect(printed).toBeGreaterThan(0);
+    expect(printed).toBeLessThan(all);
+    await expect(page.locator('.grid .item .st-ricalcato')).toHaveCount(0);
+    await page.screenshot({ path: `${EVIDENCE}/2b-danni-stampati.png` });
+    expect(errors).toEqual([]);
+  });
+
+  test('the crew leaders’ avatars are listed as official pictures', async ({ page }) => {
+    const errors = watchErrors(page);
+    await page.goto(`${ADMIN}#choppe_shoppe/personaggi`);
+    await expect(page.locator('.grid .item')).toHaveCount(11);
+    await expect.poll(() => page.locator('.grid .item img').evaluateAll(imgs => imgs.every(i => (i as HTMLImageElement).naturalWidth > 0))).toBe(true);
+    await page.screenshot({ path: `${EVIDENCE}/7-avatar-personaggi.png` });
     expect(errors).toEqual([]);
   });
 
@@ -69,16 +82,29 @@ test.describe('admin inspector', () => {
     expect(errors).toEqual([]);
   });
 
-  test('an official card offers its file and turns in 3D', async ({ page }) => {
+  test('a card is drawn for the game, offers the official scan and turns in 3D', async ({ page }) => {
     const errors = watchErrors(page);
     await page.goto(`${ADMIN}#choppe_shoppe/carte`);
     await page.locator('.grid .item', { hasText: 'Rail Gun' }).click();
-    await expect(page.locator('#d-info')).toContainText('Ufficiale estratto');
+    await expect(page.locator('#d-info')).toContainText('Ufficiale ricalcato');
+    // The digital card: the illustration, the Italian text and the printed pictogram.
+    const card = page.locator('#d-big svg[data-id="rail_gun"]');
+    await expect(card).toContainText('Questa auto può');
+    await expect(card.locator('image')).toHaveCount(2);
+    await page.waitForTimeout(800);
+    await page.screenshot({ path: `${EVIDENCE}/4-carta-digitale.png` });
     await expect(page.locator('#d-actions')).toContainText('Scarica asset ufficiale (JPG)');
     await page.locator('[data-tab="3d"]').click();
     await expect(page.locator('#d-big canvas')).toBeVisible();
     await page.waitForTimeout(1200);
-    await page.screenshot({ path: `${EVIDENCE}/4-carta-3d.png` });
+    await page.screenshot({ path: `${EVIDENCE}/4b-carta-3d.png` });
+    // The ongoing effect cards, drawn the same way with the red panel.
+    await page.goto('about:blank');
+    await page.goto(`${ADMIN}#carnage/carte`);
+    await page.locator('.grid .item', { hasText: 'Perdita di nitro' }).click({ force: true });
+    await expect(page.locator('#d-big svg[data-id="nitro_leak"]')).toContainText('PERDITA DI NITRO');
+    await page.waitForTimeout(800);
+    await page.screenshot({ path: `${EVIDENCE}/4c-carta-effetto-continuo.png` });
     expect(errors).toEqual([]);
   });
 

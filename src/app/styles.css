@@ -200,6 +200,10 @@
     box-shadow: 0 0 0 2.5px var(--c), 0 8px 20px rgba(0,0,0,.55); }
   .ucard.official > b { background: none; color: #f3e6d0; padding: 0; border-radius: 0; font-size: calc(var(--w) * .12); font-style: italic; letter-spacing: .3px; text-transform: uppercase; }
   .ucard.official p, #hand .ucard.official p, .ucard.official.flying p { font-size: calc(var(--w) * .064); line-height: 1.22; color: #e9dcc6; font-weight: 500; }
+  /* The digital upgrade card (src/view/cards.ts): the drawing fills the card, a ring in the crew's colour. */
+  .ucard.drawn { padding: 0; border: 0; background: none; border-radius: calc(var(--w) * .048); overflow: hidden;
+    box-shadow: 0 0 0 2.5px var(--c), 0 8px 20px rgba(0,0,0,.55); }
+  .ucard.drawn > svg { display: block; width: 100%; height: 100%; }
   #leaderpick .hand { display: flex; gap: 18px; justify-content: center; flex-wrap: wrap; }
   #leaderpick .pickcard { padding: 0; border: 0; background: none; cursor: pointer; border-radius: 14px; transition: transform .15s; }
   #leaderpick .pickcard .ucard { --w: 230px; }
@@ -238,6 +242,9 @@
     box-shadow: 0 10px 22px rgba(0,0,0,.55); animation: tokflip .55s ease-out; }
   .ocard.official { padding: calc(var(--w) * 680 / 440 * var(--panel-k, .57) + 4px) 11px 9px;
     background: linear-gradient(var(--red) 0 0) bottom / 100% calc(100% - var(--panel)) no-repeat, var(--art) center / cover; }
+  /* The digital ongoing effect card (src/view/cards.ts). */
+  .ocard.drawn { padding: 0; background: none; border-radius: calc(var(--w) * .05); overflow: hidden; }
+  .ocard.drawn > svg { display: block; width: 100%; height: 100%; }
   #ozoom { position: fixed; z-index: 60; pointer-events: none; display: none; }
   #ozoom.show { display: block; }
   #ozoom .ocard { --w: 300px; margin: 0; animation: none; box-shadow: 0 18px 40px rgba(0,0,0,.7); }

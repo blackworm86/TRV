@@ -376,7 +376,7 @@ export function hazardToken(type: string, size: { length: number; depth: number;
   const chip = new THREE.Group();
   const top = face(hazardTokenSvg(type, true), true);
   const printed = (top.material as THREE.MeshStandardMaterial).map;
-  chip.add(card, top, face(hazardTokenSvg(null, false), false));
+  chip.add(card, top, face(hazardTokenSvg(type, false), false)); // the back of its own set (Carnage has its own)
   let ground: string | null = null, piece: THREE.Object3D | null = null;
   chip.position.y = size.thickness / 2;
   const group = new THREE.Group();

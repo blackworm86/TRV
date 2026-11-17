@@ -53,13 +53,37 @@ describe('vector art', () => {
     expect(own!.front).toContain('#d42a2f'); // the red frame
     expect(own!.back).toContain('stroke="#d42a2f"'); // the warning sign
   });
-  it('draws every damage token on the owner’s outline, with its title', () => {
-    for (const type of ['shrapnel', 'dazed', 'dent', 'skid', 'blastoff', 'on_fire', 'ongoing_effect']) {
-      const s = damageTokenSvg(type, true, 'FL');
-      expect(s).toContain('translate(-33.09 -44)');
-      expect(s).toMatch(/<text[^>]*>[A-Z ]+<\/text>/);
+  it('shows the base game damage tokens as printed, cut with the owner’s outline', () => {
+    // Arrange / Act / Assert: each front is its own printed token inside the front's outline.
+    for (const type of ['shrapnel', 'dazed', 'dent', 'blastoff']) {
+      const s = damageTokenSvg(type, true);
+      expect(s).toMatch(new RegExp(`<image href="[^"]*/${type}[^"/]*\\.jpg"`));
+      expect(s).toMatch(/<clipPath id="dmg-front"><path transform="[^"]*translate\(-33\.09 -44\)"/);
     }
-    expect(damageTokenSvg(null, false)).toContain('translate(-293.09 -44)');
+    // The back, with the back's outline.
+    expect(damageTokenSvg(null, false)).toMatch(/<clipPath id="dmg-back"><path transform="[^"]*translate\(-293\.09 -44\)"/);
+  });
+  it('shows each SKID token with its own direction', () => {
+    for (const dir of ['F', 'FL', 'FR', 'B', 'BL', 'BR'] as const) {
+      expect(damageTokenSvg('skid', true, dir)).toMatch(new RegExp(`<image href="[^"]*/skid_${dir}[^"/]*\\.jpg"`));
+    }
+  });
+  it('shows the Carnage damage tokens as printed, cut with the base tokens’ outline', () => {
+    for (const type of ['on_fire', 'ongoing_effect']) {
+      const s = damageTokenSvg(type, true);
+      expect(s).toMatch(new RegExp(`<image href="[^"]*carnage/segnalini/danno/${type}[^"/]*\.jpg"`));
+      expect(s).toContain('clip-path="url(#dmg-front)"');
+    }
+  });
+  it('shows the Carnage hazard tokens as printed, in the base chevron, with the expansion’s own back', () => {
+    for (const type of ['desert_glass', 'ramp', 'fire', 'pit_trap', 'quake', 'sand_worm']) {
+      const front = hazardTokenSvg(type, true);
+      expect(front).toMatch(new RegExp(`<image href="[^"]*pericolo/${type}[^"/]*\.jpg"`));
+      expect(front).toContain('clip-path="url(#hz-print)"');
+      expect(hazardTokenSvg(type, false)).toMatch(/<image href="[^"]*pericolo\/back[^"/]*\.jpg"/);
+    }
+    // The base game's tokens keep the base back.
+    expect(hazardTokenSvg('mud', false)).not.toContain('pericolo/back');
   });
   it('lays the ON FIRE token over the move slot of a burning car', () => {
     const dash = { carId: 'p0S', size: 'S' as const, color: '#ec9230', status: 'ok' as const, placed: [], damage: 0 };

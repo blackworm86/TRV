@@ -19,14 +19,15 @@ import {
   fireDieSvg, onFireTokenSvg, type FireFace,
 } from '../view/vector/art';
 import { tileSvg, mapSvg, tileTitle } from '../view/vector/tiles';
-import { cardSvg, sheetSvg, standaloneSvg, templateFileName } from '../view/vector/templates';
+import { sheetSvg, standaloneSvg, templateFileName } from '../view/vector/templates';
 import { commandName, leaders, upgrades, type CommandId, type CommandSlot } from '../game/trv/engine';
 import type { TileData } from '../view/tile-grid';
 import { FIREBASE_CONFIG } from '../net/firebase-config';
 import { assetKey, firebaseCommentStore, localCommentStore, type CommentStore } from '../net/asset-comments';
 import { BASE_CATALOG, commandBoardImage, dashboardImage, dieFaceImage, roadTileImage, tokenImage } from '../game/trv/catalog';
 import { ASSET_CATALOG, entryFor, officialPath, type ItemEntry } from './catalog';
-import { dieSolid, flatSolid, type Face } from './solids';
+import { dieSolid, flatSolid, inlineImages, type Face } from './solids';
+import { ongoingArt, ongoingCardSvg, ongoingCardText, upgradeArt, upgradeCardSvg, upgradeCardText } from '../view/cards';
 
 const $ = (id: string): HTMLElement => document.getElementById(id)!;
 const esc = (s: string): string => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/"/g, '&quot;');
@@ -70,40 +71,11 @@ const svgBlob = (text: string): Blob => new Blob([standaloneSvg(text)], { type: 
 function svgItem(cat: string, id: string, name: string, make: () => string, more: Partial<Item> = {}): Item {
   return {
     id, name, svg: make, ...more,
-    downloads: [{ label: 'Scarica template (SVG)', file: templateFileName(cat, id, 'svg'), get: async () => svgBlob(make()) }, ...(more.downloads ?? [])],
+    downloads: [{ label: 'Scarica template (SVG)', file: templateFileName(cat, id, 'svg'), get: async () => svgBlob(await inlineImages(make())) }, ...(more.downloads ?? [])],
   };
 }
 
 // Texts the play page shows (src/app/main.ts), copied: that file runs the game on import.
-const UPGRADE_INFO: Record<string, string> = {
-  grappling_hook: 'Dopo aver colpito un’auto e risolto il danno, può scambiarsi di posto con lei.',
-  snowplow: 'Entrando su un relitto o un veicolo fuori uso, lo sposta in una casella vuota adiacente e prosegue.',
-  big_red_button: 'Quando va fuori uso puoi eliminarla: elimini anche auto ed elicotteri adiacenti.',
-  armor_plating: 'Il risultato “qualsiasi” del dado sparo contro di lei è un colpo mancato.',
-  onboard_computer: 'Ignora gli effetti dei suoi danni: restano coperti.',
-  ghost_mode: 'Quando fa Drift guadagna 2 movimenti.',
-  smoke_screen: 'Non le si può sparare dalla casella direttamente dietro.',
-  skull_shift_knob: 'Non deve usare tutti i suoi movimenti.',
-  heavy_machine_gun: 'Quando spara e manca, può ritirare il dado sparo.',
-  rail_gun: 'Spara fino a tre caselle dritto davanti a sé.',
-  oil_dispenser: 'Dopo il movimento può posare una chiazza d’olio in una casella vuota adiacente. Tre volte a partita.',
-  roll_cage: 'Se uno slam la spingerebbe contro un’altra auto, può mettersi in una casella vuota adiacente.',
-  crumple_zones: 'Quando subisce un danno ne peschi due e ne scegli uno.',
-  sandbags: 'Negli slam che la coinvolgono gli avversari non possono ritirare i dadi.',
-  deep_treads: 'Per lei il fango vale come strada.',
-  heavy_frame: 'Regge un danno in più prima di andare fuori uso.',
-  spoiler: 'Per lei il dado strada vale sempre 2.',
-  anti_aircraft_radar: 'Se finisce il turno sotto un elicottero può spostarsi in una casella vuota adiacente.',
-  stability_control: 'Se uno slam la muoverebbe, puoi ritirare il dado direzione.',
-  punt_gun: 'Spara fino a due caselle di distanza.',
-  tank_treads: 'Con un dado da 3 o meno non rivela i pericoli coperti che attraversa: solo quello su cui si ferma.',
-  off_road_suspension: 'Se parte su strada può usare il dado strada, ovunque si muova.',
-  rear_guns: 'Spara in qualunque casella adiacente.',
-  boost_switch: 'Ha un movimento in più.',
-  assault_bumper: 'L’auto che sposta in uno slam va una casella più in là.',
-  stealth_technology: 'Non le si può sparare se c’è un altro veicolo a cui sparare.',
-  mine_dispenser: 'Dopo il movimento può posare una mina in una casella vuota adiacente. Tre volte a partita.',
-};
 const POWER_INFO: Record<string, [string, string]> = {
   junk_in_the_trunk: ['Junk in the Trunk', 'Se la tua auto verrebbe mossa in uno slam, puoi ritirare il dado direzione.'],
   spotter: ['Spotter', 'Quando spari, se un’altra tua auto operativa è adiacente al bersaglio, colpisci automaticamente.'],
@@ -155,6 +127,8 @@ const CARNAGE_TILES = (CARNAGE_DATA as unknown as { tiles: (TileData & { tile: n
 const UI_RAW = import.meta.glob<string>('/assets/*/plance/*.svg', { eager: true, query: '?raw', import: 'default' });
 // The generated 3D models, through the bundler so a build ships them.
 const MODELS = import.meta.glob<string>('/assets/*/modelli/*.glb', { eager: true, query: '?url', import: 'default' });
+// The leaders' faces (assets/choppe_shoppe/avatar_personaggi), drawn inside an SVG for the download.
+const AVATARS = import.meta.glob<string>('/assets/choppe_shoppe/avatar_personaggi/*.png', { eager: true, query: '?url', import: 'default' });
 const MODEL_INFO: Record<string, { name: string; comp: string }> = {
   Car_Small: { name: 'Auto piccola', comp: 'car_S' }, Car_Medium: { name: 'Auto media', comp: 'car_M' },
   Car_Large: { name: 'Auto grande', comp: 'car_L' }, Chopper: { name: 'Elicottero', comp: 'chopper' }, wreck_1: { name: 'Relitto 1', comp: 'wreck' },
@@ -178,11 +152,17 @@ const CATEGORIES: Category[] = [
     })),
   },
   {
+    id: 'avatar_personaggi', group: 'Personaggi', name: 'Avatar personaggi',
+    note: 'Il volto di ogni capisquadra, quadrato, per la nuova interfaccia (Choppe Shoppe).',
+    items: leaders().map(l => svgItem('avatar_personaggi', l.id, l.name,
+      () => `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512"><image href="${AVATARS[`/assets/choppe_shoppe/avatar_personaggi/${l.id}.png`] ?? ''}" width="512" height="512"/></svg>`,
+      { size: '512 × 512 px', note: l.title })),
+  },
+  {
     id: 'potenziamenti', group: 'Carte', name: 'Potenziamenti',
-    note: `Carte potenziamento (Choppe Shoppe): ${SHOPPE.upgrades.length} carte. Cornice 63 × 88 mm con spazio vuoto per l’illustrazione.`,
-    items: upgrades().map(u => svgItem('potenziamenti', u.id, u.name, () => cardSvg({
-      id: u.id, name: u.name, text: UPGRADE_INFO[u.id] ?? '', kicker: 'Potenziamento', ...(u.n !== undefined ? { n: u.n } : {}),
-    }), { size: '63 × 88 mm (formato carta standard, stima)' })),
+    note: `Carte potenziamento (Choppe Shoppe): ${SHOPPE.upgrades.length} carte, ridisegnate per il gioco digitale: illustrazione ufficiale ritagliata, testo italiano impaginato sul pannello nero, pittogrammi stampati. La carta ufficiale intera si scarica come asset.`,
+    items: upgrades().map(u => svgItem('potenziamenti', u.id, u.name, () => upgradeCardSvg({ id: u.id, name: u.name, text: upgradeCardText(u.id) }),
+      { size: '63 × 88 mm (formato carta standard, stima)' })),
   },
   {
     id: 'modelli', group: 'Modelli 3D', name: 'Modelli 3D',
@@ -277,13 +257,13 @@ const CATEGORIES: Category[] = [
   },
   {
     id: 'carnage', group: 'Espansioni', name: 'Carnage at Devil’s Run',
-    note: 'Grafica provvisoria (disegni aperti, non l’arte ufficiale) dei pezzi di Carnage at Devil’s Run: dado fuoco, segnalino ON FIRE!, i sei pericoli e i due danni nuovi, con le quantità della scatola.',
+    note: 'I pezzi di Carnage at Devil’s Run: dado fuoco, segnalino ON FIRE!, i sei pericoli (col retro dell’espansione) e i due danni nuovi, stampati come i segnalini del gioco base, con le quantità della scatola.',
     items: [
       svgItem('carnage', 'fire_die', 'Dado fuoco',
         () => sheetSvg(((CARNAGE_DATA as unknown as { dice: { fire: FireFace[] } }).dice.fire).map(f => ({ svg: fireDieSvg(f), caption: { '+1': '+1', '+2': '+2', out: 'si spegne', eliminated: 'eliminata' }[f] })), { cols: 6, cell: 100, gap: 16 })),
       svgItem('carnage', 'on_fire_token', 'Segnalino ON FIRE!', () => onFireTokenSvg(), { note: 'Quantità: illimitata (regola confermata)' }),
       ...Object.entries(CDR.hazard_tokens).filter(([k]) => !k.startsWith('_')).map(([type, n]) => svgItem('carnage', `pericolo_${type}`, `Pericolo ${CDR_HAZ[type] ?? type}`,
-        () => sheetSvg([{ svg: hazardTokenSvg(type, true), caption: 'Fronte' }, { svg: hazardTokenSvg(null, false), caption: 'Retro' }], { cell: 240 }),
+        () => sheetSvg([{ svg: hazardTokenSvg(type, true), caption: 'Fronte' }, { svg: hazardTokenSvg(type, false), caption: 'Retro' }], { cell: 240 }),
         { note: `Quantità: ${n}` })),
       ...Object.entries(CDR.damage_tokens).filter(([k]) => !k.startsWith('_')).map(([type, d]) => svgItem('carnage', `danno_${type}`, `Danno ${DAMAGE_IT[type] ?? type}`,
         () => sheetSvg([{ svg: damageTokenSvg(type, true), caption: 'Fronte' }, { svg: damageTokenSvg(null, false), caption: 'Retro' }], { cell: 240 }),
@@ -292,9 +272,9 @@ const CATEGORIES: Category[] = [
   },
   {
     id: 'continui', group: 'Espansioni', name: 'Carte effetto continuo',
-    note: `Le carte effetto continuo di Carnage at Devil’s Run: ${CDR.ongoing_effects.length} tipi, testo dallo scan (in inglese, come sulla carta).`,
-    items: CDR.ongoing_effects.map(c => svgItem('continui', c.id, c.name, () => cardSvg({ id: c.id, name: c.name, text: c.text, kicker: 'Effetto continuo', color: PALETTE.fireRed }),
-      { size: '63 × 88 mm (formato carta standard, stima)', note: `Copie: ${c.count}` })),
+    note: `Le carte effetto continuo di Carnage at Devil’s Run: ${CDR.ongoing_effects.length} tipi, ridisegnate come le Potenziamento: illustrazione ufficiale, nome e testo italiani sul pannello rosso.`,
+    items: CDR.ongoing_effects.map(c => svgItem('continui', c.id, ongoingCardText(c.id)[0], () => ongoingCardSvg({ id: c.id, name: ongoingCardText(c.id)[0], text: ongoingCardText(c.id)[1] }),
+      { size: '44 × 68 mm (formato mini euro, stima)', note: `Copie: ${c.count}` })),
   },
   {
     id: 'icone', group: 'Icone', name: 'Elicottero e auto',
@@ -367,15 +347,19 @@ function extras(c: Category, it: Item): { solid?: () => Promise<THREE.Object3D>;
         solid: () => flatSolid(own!, null, 2 / 109),
         compare: CREWS.some(cr => cr.id === id) ? [{ label: 'Scansione', url: commandBoardImage(BASE_CATALOG, id) }] : [],
       };
-    case 'potenziamenti': case 'continui':
-      return { solid: () => flatSolid(own!, null, 0.3 / 63) };
+    case 'potenziamenti': case 'continui': {
+      const scan = c.id === 'potenziamenti' ? upgradeArt(id) : ongoingArt(id);
+      return { solid: () => flatSolid(own!, null, 0.3 / 63), compare: [{ label: 'Carta ufficiale (scansione)', url: scan ?? null }] };
+    }
     case 'carnage':
       if (id === 'fire_die') return { solid: () => dieSolid(CARNAGE_FIRE.map(f => svgFace(fireDieSvg(f)))) };
-      if (id.startsWith('pericolo_')) return { solid: () => flatSolid(svgFace(hazardTokenSvg(id.slice(9), true)), svgFace(hazardTokenSvg(null, false)), 2 / 38) };
+      if (id.startsWith('pericolo_')) return { solid: () => flatSolid(svgFace(hazardTokenSvg(id.slice(9), true)), svgFace(hazardTokenSvg(id.slice(9), false)), 2 / 38) };
       if (id.startsWith('danno_')) return { solid: () => flatSolid(svgFace(damageTokenSvg(id.slice(6), true)), svgFace(damageTokenSvg(null, false)), 2 / 44.8) };
       return own ? { solid: () => flatSolid(own, null, 2 / 60) } : {};
     case 'capisquadra':
       return { solid: () => flatSolid(own!, null, 2 / 109) };
+    case 'avatar_personaggi':
+      return { compare: [{ label: 'Ritratto della plancia', url: OFFICIAL[`/assets/choppe_shoppe/capisquadra/${id}.jpg`] ?? null }] };
     default:
       return {};
   }

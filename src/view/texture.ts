@@ -3,6 +3,7 @@
 // canvas at a known resolution and the canvas becomes the texture.
 
 import * as THREE from 'three';
+import { hasLinkedImages, inlineImages } from './inline-images';
 import { dataUrl } from './vector/art';
 
 const cache = new Map<string, THREE.CanvasTexture>();
@@ -49,7 +50,10 @@ export function svgTexture(svgText: string, px = 256): THREE.CanvasTexture {
   pending.add(done);
   void done.then(() => pending.delete(done));
   // Explicit size on the root, so the browser rasterises at the canvas resolution.
-  img.src = dataUrl(svgText.replace('<svg ', `<svg width="${canvas.width}" height="${canvas.height}" `));
+  const sized = svgText.replace('<svg ', `<svg width="${canvas.width}" height="${canvas.height}" `);
+  // A drawing that shows a printed picture (the official tokens) gets the picture put inside it first.
+  if (hasLinkedImages(sized)) void inlineImages(sized).then(s => { img.src = dataUrl(s); }, () => { img.src = dataUrl(sized); });
+  else img.src = dataUrl(sized);
   cache.set(key, tex);
   return tex;
 }

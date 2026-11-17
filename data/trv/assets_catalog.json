@@ -15,6 +15,7 @@
     "plance": "Plance",
     "dadi": "Dadi",
     "segnalini": "Segnalini",
+    "personaggi": "Avatar personaggi",
     "icone": "Icone"
   },
   "statuses": {
@@ -29,9 +30,14 @@
       "source": "Ritratto: Character Boards.docx (tools/art/save_leader_portraits.py). Plancia: disegno del proprietario (assets/choppe_shoppe/plance) con i testi dalle regole.",
       "official": "assets/choppe_shoppe/capisquadra/{id}.jpg"
     },
+    "avatar_personaggi": {
+      "game": "choppe_shoppe", "type": "personaggi", "status": "estratto",
+      "source": "Character Boards.docx: volto di ogni capisquadra, quadrato 512 px (tools/art/save_leader_avatars.py), per la nuova interfaccia.",
+      "official": "assets/choppe_shoppe/avatar_personaggi/{id}.png"
+    },
     "potenziamenti": {
-      "game": "choppe_shoppe", "type": "carte", "status": "estratto",
-      "source": "TRV v2.pdf, fogli delle carte (tools/art/extract_cards.py, tools/art/save_upgrade_cards.py).",
+      "game": "choppe_shoppe", "type": "carte", "status": "ricalcato",
+      "source": "Carta digitale (src/view/cards.ts): illustrazione e pittogrammi ufficiali ritagliati da TRV v2.pdf (tools/art/save_card_art.py), pannello nero ridisegnato, testo italiano da data/trv/cards_it.json. La carta ufficiale intera è l'asset scaricabile.",
       "official": "assets/choppe_shoppe/carte/potenziamenti/{id}.jpg"
     },
     "modelli": {
@@ -78,20 +84,20 @@
       "source": "Danger Tiles Base.pdf, ricalcati in assets/base/vettoriale/traced/hazards.json."
     },
     "danno": {
-      "game": "base", "type": "segnalini", "status": "ricalcato",
-      "source": "Custom Tiles Base.pdf, ricalcati in assets/base/vettoriale/traced/damage.json; sagoma del proprietario in assets/base/segnalini/danno."
+      "game": "base", "type": "segnalini", "status": "estratto",
+      "source": "Custom Tiles Base.pdf: scansioni salvate da tools/art/save_damage_tokens.py in assets/base/segnalini/danno e ritagliate con la sagoma del proprietario (template.svg). Le cinque Sbandate oltre a quella in avanti sono ricavate dalla scansione, con la direzione come sulle facce del dado direzione."
     },
     "carnage": {
-      "game": "carnage", "type": "segnalini", "status": "bozza",
-      "source": "Disegni aperti provvisori. Le scansioni ufficiali sono estratte in assets/estratti/expansions (danger_tiles, custom_tiles), non ancora ricalcate.",
+      "game": "carnage", "type": "segnalini", "status": "estratto",
+      "source": "Danger Tiles.pdf e Custom Tiles.pdf: scansioni salvate da tools/art/save_carnage_tokens.py in assets/carnage/segnalini (pericolo, danno), ritagliate nel gioco con le sagome dei segnalini del gioco base (chevron dei pericoli, sagoma del proprietario per i danni).",
       "items": {
         "fire_die": { "type": "dadi", "status": "ricalcato", "source": "Player Boards and Dice Base.docx, immagine 21, ricalcato da tools/art/trace_fire_die.py in assets/carnage/vettoriale/fire_die.json." },
         "on_fire_token": { "status": "estratto", "source": "Fire Tile.pdf, anello ritagliato in assets/carnage/segnalini/on_fire.png.", "official": "assets/carnage/segnalini/on_fire.png" }
       }
     },
     "continui": {
-      "game": "carnage", "type": "carte", "status": "estratto",
-      "source": "TRV v2.pdf, fogli delle carte (tools/art/extract_cards.py).",
+      "game": "carnage", "type": "carte", "status": "ricalcato",
+      "source": "Carta digitale (src/view/cards.ts): illustrazione ufficiale ritagliata da TRV v2.pdf (tools/art/save_card_art.py), pannello rosso ridisegnato, nome e testo italiani da data/trv/cards_it.json. La carta ufficiale intera è l'asset scaricabile.",
       "official": "assets/carnage/carte/effetto_continuo/{id}.jpg"
     },
     "icone": {
@@ -102,7 +108,6 @@
   "missing": [
     { "game": "base", "what": "Linea del traguardo", "note": "Nessuna grafica nelle scansioni (catalog_base.json: missing_art)." },
     { "game": "carnage", "what": "Tessere 6a–10b con la grafica ufficiale", "note": "Scansioni estratte, da associare alle facce e rilevare." },
-    { "game": "carnage", "what": "Pericoli e danni nuovi con la grafica ufficiale", "note": "Scansioni estratte (danger_tiles, custom_tiles), da ricalcare." },
     { "game": "choppe_shoppe", "what": "Segnalino comando", "note": "Non trovato nelle scansioni." },
     { "game": "big_rig", "what": "Plance di Big Rig e moto, segnalini", "note": "Scansioni estratte (big_rig, fast_five); espansione non ancora nel gioco." },
     { "game": "extra_ammo", "what": "Carte Extra Ammo", "note": "Nei fogli di TRV v2.pdf; espansione non ancora nel gioco." }

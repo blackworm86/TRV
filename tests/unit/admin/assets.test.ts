@@ -19,6 +19,27 @@ describe('extracted official images', () => {
     expect(missing(SHOPPE.leaders.map(l => `assets/choppe_shoppe/capisquadra/${l.id}.jpg`))).toEqual([]);
   });
 
+  it('has the avatar of every crew leader', () => {
+    expect(missing(SHOPPE.leaders.map(l => `assets/choppe_shoppe/avatar_personaggi/${l.id}.png`))).toEqual([]);
+  });
+
+  it('has the printed damage tokens, the back and the six SKID directions', () => {
+    const names = [...new Set((RULES.damage_tokens as { type: string; dir?: string }[]).map(d => (d.dir ? `${d.type}_${d.dir}` : d.type))), 'back'];
+    expect(missing(names.map(n => `assets/base/segnalini/danno/${n}.jpg`))).toEqual([]);
+  });
+
+  it('has the printed Carnage hazard tokens, their back and the two new damage tokens', () => {
+    const hazards = Object.keys(CARNAGE.hazard_tokens).filter(k => !k.startsWith('_'));
+    expect(missing([...hazards, 'back'].map(h => `assets/carnage/segnalini/pericolo/${h}.jpg`))).toEqual([]);
+    const damage = Object.keys(CARNAGE.damage_tokens).filter(k => !k.startsWith('_'));
+    expect(missing(damage.map(d => `assets/carnage/segnalini/danno/${d}.jpg`))).toEqual([]);
+  });
+
+  it('has the illustration of every upgrade and ongoing effect card, cut without the card frame', () => {
+    expect(missing(SHOPPE.upgrades.map(u => `assets/choppe_shoppe/carte/potenziamenti/illustrazioni/${u.id}.jpg`))).toEqual([]);
+    expect(missing(CARNAGE.ongoing_effects.map(o => `assets/carnage/carte/effetto_continuo/illustrazioni/${o.id}.jpg`))).toEqual([]);
+  });
+
   it('has the card of every Carnage ongoing effect', () => {
     expect(missing(CARNAGE.ongoing_effects.map(o => `assets/carnage/carte/effetto_continuo/${o.id}.jpg`))).toEqual([]);
   });
