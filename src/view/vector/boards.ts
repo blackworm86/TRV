@@ -9,7 +9,7 @@ import { ONGOING_PANEL_TOP, CARD_RED } from '../cards';
 
 /** What this module needs from art.ts (passed in, so the two files do not import each other). */
 export interface BoardBase {
-  dieSvg(f: { kind: string; value: number | string; color?: string; number?: boolean }, extra?: string): string;
+  dieSvg(f: { kind: string; value: number | string; color?: string; number?: boolean; ui?: boolean }, extra?: string): string;
   damageTokenSvg(type: string | null, faceUp: boolean): string;
   /** The ON FIRE! token (Carnage at Devil's Run), 120 x 120. */
   onFireTokenSvg(): string;
@@ -241,7 +241,7 @@ export function makeBoards(raw: string, base: BoardBase, stripRaw?: string): {
   const text = (s: string, x: number, y: number, size: number, fill: string, anchor = 'start', extra = ''): string =>
     `<text x="${x}" y="${y}" font-size="${size}" fill="${fill}" text-anchor="${anchor}" ${base.font} pointer-events="none" ${extra}>${esc(s)}</text>`;
   const die = (x: number, y: number, s: number, value: number, color: string): string =>
-    `<g transform="translate(${x - s / 2} ${y - s / 2}) scale(${s / 100})" pointer-events="none">${inner(base.dieSvg({ kind: 'movement', value, color, number: true }))}</g>`;
+    `<g transform="translate(${x - s / 2} ${y - s / 2}) scale(${s / 100})" pointer-events="none">${inner(base.dieSvg({ kind: 'movement', value, color, number: true, ui: true }))}</g>`;
   const diamond = (x: number, y: number, r: number): string => `M${x} ${y - r} L${x + r} ${y} L${x} ${y + r} L${x - r} ${y}Z`;
 
   /** A car dashboard: the board, its writing, the dice on it and the damage tokens hanging below. */
@@ -516,10 +516,12 @@ export function makeBoards(raw: string, base: BoardBase, stripRaw?: string): {
     // Cut at the recess floor: whatever of the card is behind the board never shows through its lower notches.
     const clip = `upclip-${d.carId}`;
     return `<clipPath id="${clip}"><rect x="${x - 4}" y="${RECESS.y - 2 * ch}" width="${cw + 8}" height="${2 * ch + 3}"/></clipPath>`
-      + `<g clip-path="url(#${clip})"><g class="upcard${cue ? ' cue' : ''}" style="--rise:${-rise}px" opacity="${off ? 0.7 : 1}"><title>${esc(`${d.upgrade.name}: ${d.upgrade.text}`)}</title>${b}</g></g>`
-      // The glowing card's word, above it, outside the clip (asked by the user, 2026-11-17).
+      // The glowing card's word sits on its top edge and rises with it, never over its text
+      // (asked by the user, 2026-11-17); the clip reaches high enough for it.
+      + `<g clip-path="url(#${clip})"><g class="upcard${cue ? ' cue' : ''}" style="--rise:${-rise}px" opacity="${off ? 0.7 : 1}"><title>${esc(`${d.upgrade.name}: ${d.upgrade.text}`)}</title>${b}`
       + (cue ? `<g class="cuetag" pointer-events="none"><rect x="${x + cw / 2 - 52}" y="${top - 25}" width="104" height="20" rx="10" fill="${CUE_BLUE}"/>`
-        + text(cue === 'use' ? 'PUOI USARLA' : 'SI ATTIVA', x + cw / 2, top - 9.5, 15, '#fff', 'middle') + '</g>' : '');
+        + text(cue === 'use' ? 'PUOI USARLA' : 'SI ATTIVA', x + cw / 2, top - 9.5, 15, '#fff', 'middle') + '</g>' : '')
+      + '</g></g>';
   }
 
   return { dashboardSvg, commandBoardSvg, stripSvg, stripFrame };

@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import {
-  CODE_ALPHABET, CODE_LENGTH, acceptable, backToLobby, cleanCode, closeRoom, createRoom, freeCrew, joinRoom, leaveRoom,
+  CODE_ALPHABET, CODE_LENGTH, acceptable, undoable, backToLobby, cleanCode, closeRoom, createRoom, freeCrew, joinRoom, leaveRoom,
   newRoomCode, readRoom, roomPath, seatOf, startMatch, startProblem, type Room, type RoomStore,
 } from '../../../src/net/room';
 import { createTreeStore, memoryBacking, type TreeBacking } from '../../../src/net/tree-store';
@@ -127,6 +127,35 @@ describe('match', () => {
     await stores[1].write(roomPath(CODE, 'intents', 'u1'), { n: 0, c: 2 });
     expect(acceptable(await room(stores[0]), 0, pending)).toEqual({ uid: 'u1', choice: 2 });
     expect(acceptable(await room(stores[0]), 0, null)).toBe(null);
+  });
+  it('keeps a draft pick made in advance until the rules ask that player, then takes its card', async () => {
+    // Arrange: everyone picks at once; the guest picked "nitro_kit" in round 0 while the host was being asked.
+    const stores = await seated(2);
+    await startMatch(stores[0], CODE, await room(stores[0]), SEED, COLOR);
+    await stores[1].write(roomPath(CODE, 'intents', 'u1'), { n: 0, c: 0, draft: { r: 0, card: 'nitro_kit' } });
+    // Act + Assert: not taken while player 0 decides, nor for another round or a card not in hand.
+    expect(acceptable(await room(stores[0]), 0, { player: 0, options: 4, draft: { r: 0, cards: ['a', 'b', 'c', 'd'] } })).toBe(null);
+    expect(acceptable(await room(stores[0]), 1, { player: 1, options: 4, draft: { r: 1, cards: ['nitro_kit', 'b', 'c', 'd'] } })).toBe(null);
+    expect(acceptable(await room(stores[0]), 1, { player: 1, options: 3, draft: { r: 0, cards: ['b', 'c', 'd'] } })).toBe(null);
+    // Taken at any log length once player 1 is asked in that round: the card's place in the hand.
+    expect(acceptable(await room(stores[0]), 1, { player: 1, options: 4, draft: { r: 0, cards: ['b', 'c', 'nitro_kit', 'd'] } })).toEqual({ uid: 'u1', choice: 2 });
+  });
+  it('takes a choice back only for the player who made it, while nothing final followed it', async () => {
+    // Arrange: three choices in the log, by players 0, 1 and 1; the first is final (a die was rolled).
+    const stores = await seated(2);
+    await startMatch(stores[0], CODE, await room(stores[0]), SEED, COLOR);
+    const deciders = [0, 1, 1];
+    await stores[0].write(roomPath(CODE, 'intents', 'u0'), { n: 3, c: -1, undo: true });
+    // Act + Assert: player 0 did not make the last choice.
+    expect(undoable(await room(stores[0]), 3, 1, deciders)).toBe(null);
+    await stores[1].write(roomPath(CODE, 'intents', 'u1'), { n: 2, c: -1, undo: true }); // stale
+    expect(undoable(await room(stores[0]), 3, 1, deciders)).toBe(null);
+    await stores[1].write(roomPath(CODE, 'intents', 'u1'), { n: 3, c: 0 }); // a move, not an undo
+    expect(undoable(await room(stores[0]), 3, 1, deciders)).toBe(null);
+    await stores[1].write(roomPath(CODE, 'intents', 'u1'), { n: 3, c: -1, undo: true });
+    expect(undoable(await room(stores[0]), 3, 1, deciders)).toBe('u1');
+    // Nothing to take back once everything in the log is final.
+    expect(undoable(await room(stores[0]), 3, 3, deciders)).toBe(null);
   });
   it('goes back to the lobby with the same seats', async () => {
     const stores = await seated(2);

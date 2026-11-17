@@ -23,9 +23,16 @@ export interface Saved {
 /** What a choice shows that was hidden: after one of these it cannot be taken back. */
 const FINAL = new Set(['reveal', 'tile', 'damage', 'shot', 'roll', 'slam']);
 
-/** True when Undo may take the last choice back: hot seat, and nothing rolled or revealed since. */
+/** The player who made each choice of the log, in order (rebuilt on every replay). */
+export let deciders: number[] = [];
+
+/**
+ * True when Undo may take the last choice back: nothing rolled or revealed since. Online (asked by
+ * the user, 2026-11-17) only the player who made that choice may take it back, through the host.
+ */
 export function canUndo(): boolean {
-  return !S.net && !!S.saved && S.saved.choices.length > (S.saved.lock ?? 0);
+  if (!S.saved || S.saved.choices.length <= (S.saved.lock ?? 0)) return false;
+  return !S.net || (S.net.room?.status === 'playing' && deciders[S.saved.choices.length - 1] === mySeat());
 }
 export let g: Game | null = null;
 /** The decision this device may answer: the pending one in hot seat; online, only when it is this player's. */
@@ -48,10 +55,19 @@ export function setPending(d: Decision | null): void {
 export function startGame(s: Saved): void {
   S.replayFrames = null; // a replay belongs to the game it was seen in
   S.saved = s;
+  S.draftSent = -1;
   g = newGame(s.setup);
   S.gen = play(g);
   let r = S.gen.next(0);
-  for (const c of s.choices) { if (r.done) break; r = S.gen.next(c); }
+  deciders = [];
+  // The replay finds again which choices are final, as applyChoice did (online the lock is not stored).
+  for (const c of s.choices) {
+    if (r.done) break;
+    deciders.push(r.value.player);
+    const luck = JSON.stringify(g.rng), seen = g.frames.length;
+    r = S.gen.next(c);
+    if (JSON.stringify(g.rng) !== luck || g.frames.slice(seen).some(f => FINAL.has(f.kind))) s.lock = Math.max(s.lock ?? 0, deciders.length);
+  }
   setPending(r.done ? null : r.value);
   S.selDie = null;
   S.lastDecider = -1;
@@ -59,6 +75,25 @@ export function startGame(s: Saved): void {
   queue.length = 0;
   S.playing = false;
   persist();
+  render();
+}
+
+/**
+ * Online upgrade draft (asked by the user, 2026-11-17): every player sees their own hand at once
+ * and picks; the pick waits at the host until the rules reach that player, and the hands pass on
+ * when everyone has picked. Null in hot seat (the picks come one after the other) or outside a draft.
+ */
+export function onlineDraft(): { round: number; hand: string[]; sent: boolean } | null {
+  const seat = mySeat();
+  if (!S.net || !g?.draft || pending?.kind !== 'draft' || seat < 0 || !g.draft.picks[seat]) return null;
+  return { round: g.draft.round, hand: g.draft.hands[seat], sent: S.draftSent === g.draft.round };
+}
+
+/** Online: sends this player's draft pick for the current round (see onlineDraft). */
+export function draftPick(card: string): void {
+  if (!S.net || !S.saved || !g?.draft) return;
+  S.draftSent = g.draft.round;
+  void S.net.store.write(roomPath(S.net.code, 'intents', S.net.uid), { n: S.saved.choices.length, c: 0, draft: { r: g.draft.round, card } }).catch(netError);
   render();
 }
 
@@ -85,6 +120,7 @@ export function choose(i: number, sure = false): void {
 export function applyChoice(i: number): void {
   if (!S.gen || !pending || !S.saved) return;
   S.saved.choices.push(i);
+  deciders.push(pending.player);
   const luck = JSON.stringify(g!.rng);
   const r = S.gen.next(i);
   setPending(r.done ? null : r.value);
@@ -99,11 +135,30 @@ export function applyChoice(i: number): void {
 }
 
 export function undo(): void {
-  if (!canUndo()) return; // online the log is shared, and a revealed hazard stays revealed
+  if (!canUndo() || !S.saved) return; // a revealed hazard stays revealed
+  if (S.net) {
+    // Online the log is shared: the host takes the choice out of it, a guest asks the host.
+    if (S.net.host) { takeBack(); return; }
+    void S.net.store.write(roomPath(S.net.code, 'intents', S.net.uid), { n: S.saved.choices.length, c: -1, undo: true }).catch(netError);
+    return;
+  }
   S.winShown = false;
   $('win').style.display = 'none';
   const { setup, choices, lock } = S.saved!;
   startGame({ setup, choices: choices.slice(0, -1), ...(lock ? { lock } : {}) });
+}
+
+/** Online, host: takes the last choice out of the room's log and plays the match again without it. */
+export function takeBack(uid?: string): void {
+  if (!S.net || !S.saved) return;
+  const n = S.saved.choices.length, { setup, choices, lock } = S.saved;
+  startGame({ setup, choices: choices.slice(0, -1), ...(lock ? { lock } : {}) });
+  const net = S.net;
+  void (async () => {
+    // The log first: with the shorter log the request no longer matches (it was made at length n).
+    await net.store.write(roomPath(net.code, 'log', String(n - 1)), null);
+    if (uid) await net.store.write(roomPath(net.code, 'intents', uid), null);
+  })().catch(netError);
 }
 
 /**

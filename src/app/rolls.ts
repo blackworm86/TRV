@@ -2,7 +2,7 @@
 // round banner.
 
 import * as THREE from 'three';
-import { type Frame } from '../game/trv/engine';
+import { neighbor, type Dir, type Frame, type Pos } from '../game/trv/engine';
 import { GRID } from '../view/board3d';
 import { avatarSvg } from '../view/vector/art';
 import { makeDie } from '../view/dice3d';
@@ -10,7 +10,7 @@ import { AWAY, DIE_W, FORWARD, FX_ORDER, FX_SCALE, TRAY_SCALE, TRAY_Z, TableDie,
 import { g } from './game';
 import { dieHtml } from './hud';
 import type { Round } from './spots';
-import { BOARD_X0, KX, PITCH_W, TILE_H, TILE_W, scene, world } from './stage';
+import { BOARD_X0, KX, KZ, PITCH_W, TILE_H, TILE_W, scene, world } from './stage';
 import { S } from './state';
 import { $, FACES, esc } from './util';
 
@@ -71,10 +71,15 @@ export function rollOnTable(f: Frame): void {
   const td = fxDie(f.die.die);
   td.d.mesh.visible = true;
   const car = f.snap.vehicles.find(v => v.id === f.snap.activeCar);
-  const at = f.at ? world(f.at) : car?.pos ? world(car.pos) : null;
-  // A die already out stays where it is and is rolled again there.
+  const cell = f.at ?? car?.pos ?? null;
+  const at = cell ? world(cell) : null;
+  // Never on the action's space or the six around it (asked by the user, 2026-11-17): the dice
+  // must not hide what happens there, a slam's push, a car going off.
+  const zone = cell ? actionZone(cell) : [];
+  // A die already out stays where it is and is rolled again there, unless it lies in that ring.
   let to = S.trayDice.includes(td) ? td.to.clone() : null;
-  if (!to && at) to = fxSpot(at, S.trayDice.map(t => t.to), f.snap);
+  if (to && zone.some(z => onSpace(z, to!))) to = null;
+  if (!to && at) to = fxSpot(at, S.trayDice.filter(t => t !== td).map(t => t.to), f.snap, zone);
   to ??= fxRestSpot(f.die.die).add(new THREE.Vector3(0, 0, -1.2));
   if (!S.trayDice.includes(td)) S.trayDice.push(td);
   td.from = td.d.mesh.position.clone();
@@ -90,12 +95,13 @@ export function rollOnTable(f: Frame): void {
  * up beside it, in a row along the road. A spot is free when it is on the road and clear of the
  * vehicles, the spaces that can be picked and the dice already there.
  */
-export function fxSpot(c: THREE.Vector3, dice: THREE.Vector3[], snap: Frame['snap']): THREE.Vector3 | null {
+export function fxSpot(c: THREE.Vector3, dice: THREE.Vector3[], snap: Frame['snap'], zone: THREE.Vector3[] = []): THREE.Vector3 | null {
   const space = GRID.pitch * KX; // one road space, in world units
   const gap = DIE_W * FX_SCALE * 1.45;
   const cars = snap.vehicles.filter(v => v.pos && v.status !== 'elim').map(v => world(v.pos!));
   const roadZ = TILE_H / 2 - DIE_W * FX_SCALE;
   const free = (p: THREE.Vector3): boolean => Math.abs(p.z) <= roadZ && p.x >= BOARD_X0 + 0.5
+    && !zone.some(z => onSpace(z, p))
     && !cars.some(v => Math.hypot(v.x - p.x, v.z - p.z) < space * 0.75)
     && !S.markers.some(m => Math.hypot(m.at.x - p.x, m.at.z - p.z) < space * 0.6)
     && !dice.some(q => Math.hypot(q.x - p.x, q.z - p.z) < gap * 0.95);
@@ -109,7 +115,7 @@ export function fxSpot(c: THREE.Vector3, dice: THREE.Vector3[], snap: Frame['sna
     }
   }
   let best: THREE.Vector3 | null = null, bestScore = Infinity;
-  for (const r of [0.95, 1.25, 1.5, 1.8, 2.1]) {
+  for (const r of [0.95, 1.25, 1.5, 1.8, 2.1, 2.4, 2.7, 3.0]) {
     for (let a = 0; a < 24; a++) {
       const ang = (a / 24) * Math.PI * 2;
       const p = new THREE.Vector3(c.x + Math.cos(ang) * r * space, c.y + DIE_W * FX_SCALE / 2, c.z + Math.sin(ang) * r * space);
@@ -121,6 +127,18 @@ export function fxSpot(c: THREE.Vector3, dice: THREE.Vector3[], snap: Frame['sna
     }
   }
   return best;
+}
+
+/** The six directions around a space. */
+const AROUND: Dir[] = ['F', 'FR', 'BR', 'B', 'BL', 'FL'];
+/** The centres of a space and of the six around it, where the FX dice must not land. */
+export function actionZone(p: Pos): THREE.Vector3[] {
+  return [p, ...AROUND.map(d => neighbor(p, d))].map(world);
+}
+/** True when a die at `p` would lie, even partly, on the space centred at `z`. */
+function onSpace(z: THREE.Vector3, p: THREE.Vector3): boolean {
+  const die = DIE_W * FX_SCALE / 2;
+  return Math.abs(p.x - z.x) < GRID.pitch * KX / 2 + die && Math.abs(p.z - z.z) < GRID.rowPitch * KZ / 2 + die;
 }
 
 /** Start of a round: every crew rolls its movement dice, the first player rolls the road die. */

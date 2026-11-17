@@ -34,8 +34,11 @@ export interface Seat { name: string; crew: string; joinedAt: number }
 /** What the host chooses before the start. */
 export interface RoomOptions { startSide: 'a' | 'b'; leaders: boolean; upgrades: boolean; carnage?: boolean }
 
-/** A player's request to the host: at log length `n`, option `c` of the pending decision. */
-export interface Intent { n: number; c: number }
+/**
+ * A player's request to the host: at log length `n`, option `c` of the pending decision. A draft
+ * pick says instead which card, in which round: it waits until the rules ask that player.
+ */
+export interface Intent { n: number; c: number; draft?: { r: number; card: string }; undo?: boolean }
 
 /** The shared record of a room, as read from the store and tidied by {@link readRoom}. */
 export interface Room {
@@ -214,8 +217,24 @@ export function seatOf(room: Room | null, uid: string): number {
   return room ? room.order.indexOf(uid) : -1;
 }
 
-/** The pending decision as far as the referee needs it: who decides, among how many options. */
-export interface Pending { player: number; options: number }
+/**
+ * Host: the player whose request to take back the last choice it can grant, or null. Granted only
+ * when the request was made at the current log length, the last choice was that player's own and
+ * nothing final (a die, a reveal, a shot) followed it: `lock` is how many choices are final.
+ * @param deciders the player who made each choice of the log, in order.
+ */
+export function undoable(room: Room, logLength: number, lock: number, deciders: number[]): string | null {
+  if (logLength <= lock) return null;
+  const uid = room.order[deciders[logLength - 1]];
+  const intent = uid === undefined ? undefined : room.intents[uid];
+  return intent?.undo && intent.n === logLength ? uid! : null;
+}
+
+/**
+ * The pending decision as far as the referee needs it: who decides, among how many options; for an
+ * upgrade draft pick, the round and the cards in that player's hand.
+ */
+export interface Pending { player: number; options: number; draft?: { r: number; cards: string[] } }
 
 /**
  * Host: the next intent it can accept, or null. An intent counts only if it was made at the
@@ -225,6 +244,12 @@ export function acceptable(room: Room, logLength: number, pending: Pending | nul
   if (!pending) return null;
   const uid = room.order[pending.player];
   const intent = uid === undefined ? undefined : room.intents[uid];
+  // A draft pick made in advance (everyone picks at once): taken when the rules reach that player.
+  if (intent?.draft && pending.draft) {
+    if (intent.draft.r !== pending.draft.r) return null;
+    const c = pending.draft.cards.indexOf(intent.draft.card);
+    return c < 0 ? null : { uid: uid!, choice: c };
+  }
   if (!intent || intent.n !== logLength) return null;
   if (!Number.isInteger(intent.c) || intent.c < 0 || intent.c >= pending.options) return null;
   return { uid, choice: intent.c };

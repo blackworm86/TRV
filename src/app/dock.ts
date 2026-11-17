@@ -51,7 +51,7 @@ export function drawDock(d: Decision | null, mine: boolean, me?: Player): void {
   // The tokens: the printed command token, dragged the same way (input.ts).
   $('cmddice').innerHTML = tokens ? `<span class="mytok can" data-mytok="1" title="Trascina il segnalino sul comando da attivare">${commandTokenSvg()}</span>`.repeat(me?.tokens ?? 0) : me ? me.dice.map((v, i) => {
     const used = !!me.used[i], can = mine && !used && dieUsable(i), sel = S.selDie === i && !used;
-    const die = dieSvg({ kind: 'movement', value: v, color: me.color, number: true }, `class="${used ? 'used' : ''} ${sel ? 'sel' : ''}"`);
+    const die = dieSvg({ kind: 'movement', value: v, color: me.color, number: true, ui: true }, `class="${used ? 'used' : ''} ${sel ? 'sel' : ''}"`);
     return `<span class="mydie${used ? ' used' : ''}${can ? ' can' : ''}${sel ? ' sel' : ''}" data-mydie="${i}">${die}</span>`;
   }).join('') : '';
   row.innerHTML = '';
@@ -93,7 +93,6 @@ export function drawDock(d: Decision | null, mine: boolean, me?: Player): void {
   // Out while there are dice to play or a token to place; back behind the board otherwise.
   const live = !!me && mine && me.dice.some((_, i) => !me.used[i] && dieUsable(i));
   dock.classList.toggle('ask', asking || live);
-  ($('undo2') as HTMLElement).style.display = S.net ? 'none' : '';
   $('cmdwrap').classList.toggle('on', !!g && !menuOpen());
 }
 /** How far the drawer reaches behind the command board's top edge (hidden by the board), in px. */

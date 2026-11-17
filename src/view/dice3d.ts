@@ -37,7 +37,7 @@ export function makeDie(faces: DiceFaces, kind: string, size: number, color?: st
   let mats = matCache.get(key);
   if (!mats) {
     mats = list.map(v => new THREE.MeshStandardMaterial({
-      map: svgTexture(dieSvg({ kind, value: v, color, forward: 'up' }), 256), roughness: 0.35,
+      map: svgTexture(dieSvg({ kind, value: v, color, forward: 'up', number: kind === 'movement' }), 256), roughness: 0.35,
     }));
     matCache.set(key, mats);
   }

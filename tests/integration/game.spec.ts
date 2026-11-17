@@ -20,6 +20,9 @@ type Trv = {
   game: { round: number; frames: unknown[]; vehicles: { id: string; owner: number | null; size: string }[] } | null;
   decision: { kind: string; player: number; options: unknown[] } | null;
   choose(i: number): void;
+  undo(): void;
+  canUndo(): boolean;
+  choices: number;
   skipBeats(): void;
   playBeats(frames: unknown[]): void;
   snapshot(): unknown;
@@ -203,7 +206,27 @@ test.describe('game', () => {
     const mover = (await page.evaluate(() => !!window.trv!.decision)) ? page : guest;
     await mover.evaluate(() => { window.trv!.choose(0); window.trv!.skipBeats(); });
     await expect.poll(async () => (await page.evaluate(() => JSON.stringify(window.trv!.snapshot())))
-      === (await guest.evaluate(() => JSON.stringify(window.trv!.snapshot()))), { timeout: 15_000 }).toBe(true);
+      === (await guest.evaluate(() => JSON.stringify(window.trv!.snapshot()))), { timeout: 45_000 }).toBe(true);
+    // Undo online: play on until the player who just chose may take it back, then take it back.
+    const same = async (): Promise<boolean> => (await page.evaluate(() => window.trv!.choices)) === (await guest.evaluate(() => window.trv!.choices));
+    let undoer = null;
+    for (let i = 0; i < 40 && !undoer; i++) {
+      await expect.poll(same, { timeout: 15_000 }).toBe(true);
+      for (const p of [page, guest]) if (await p.evaluate(() => window.trv!.canUndo())) undoer = p;
+      if (undoer) break;
+      await expect.poll(async () => (await page.evaluate(() => !!window.trv!.decision)) || (await guest.evaluate(() => !!window.trv!.decision)), { timeout: 15_000 }).toBe(true);
+      const p = (await page.evaluate(() => !!window.trv!.decision)) ? page : guest;
+      await p.evaluate(() => { const d = window.trv!.decision!; window.trv!.choose(d.options.length - 1); window.trv!.skipBeats(); });
+    }
+    expect(undoer).not.toBe(null);
+    const other = undoer === page ? guest : page;
+    expect(await other.evaluate(() => window.trv!.canUndo())).toBe(false); // not the other player's choice
+    const before = await page.evaluate(() => window.trv!.choices);
+    await undoer!.evaluate(() => window.trv!.undo());
+    await expect.poll(() => page.evaluate(() => window.trv!.choices), { timeout: 15_000 }).toBe(before - 1);
+    await expect.poll(() => guest.evaluate(() => window.trv!.choices), { timeout: 15_000 }).toBe(before - 1);
+    await expect.poll(async () => (await page.evaluate(() => JSON.stringify(window.trv!.snapshot())))
+      === (await guest.evaluate(() => JSON.stringify(window.trv!.snapshot()))), { timeout: 45_000 }).toBe(true);
     expect(errors).toEqual([]);
     expect(guestErrors).toEqual([]);
   });

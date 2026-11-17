@@ -32,6 +32,8 @@ export const S = {
   selDie: null as number | null,
   /** The crew leader's power tab is pulled out (a click on it). */
   tabOpen: false,
+  /** Online upgrade draft: the round this device has sent its pick for (-1: none). */
+  draftSent: -1,
   /** Cars whose upgrade card has just fired a passive ability, and until when it glows (performance.now ms). */
   cardFlash: new Map<string, number>(),
   /** The dice drawer opened or closed by hand, for one decision (then it follows the game again). */

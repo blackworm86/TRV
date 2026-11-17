@@ -267,6 +267,20 @@ describe('upgrade cards', () => {
       expect(g.winner).not.toBeNull();
     }
   });
+  it('shows each player’s draft hand of the round, the one their pick is asked from, for an online table', () => {
+    // Arrange + Act: watch every draft question.
+    let asked = 0;
+    const g = run(3, { upgrades: true, players: 3 }, ({ d, g }) => {
+      if (d.kind !== 'draft') return;
+      asked++;
+      // Assert: the hand the player sees is exactly the cards they are asked to pick from.
+      expect(g.draft).not.toBeNull();
+      expect(g.draft!.picks[d.player]).toBe(true);
+      expect(g.draft!.hands[d.player]).toEqual(d.options.map(o => o.upgrade));
+    });
+    expect(asked).toBe(shoppe.upgrades_kept * 3);
+    expect(g.draft).toBeNull();
+  });
   it('leaves the cars without upgrades when the game does not use them', () => {
     expect(run(1, {}).vehicles.every(v => v.upgrade === null)).toBe(true);
   });

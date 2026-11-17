@@ -140,6 +140,38 @@ describe('revealed mud', () => {
     expect(g.vehicles.find(v => v.id === car)!.pos).toEqual(at);
     expect(g.log.some(l => /affonda nel fango e si ferma/.test(l.text))).toBe(true);
   });
+  it('takes the road die away, as for any mud entered this turn', () => {
+    // Arrange: a last move onto a road space after which the road die is offered; the same move
+    // again, with a face-down token there (plain road as the control, mud as the case).
+    const replay = (choices: number[]): { g: Game; d: Decision; it: ReturnType<typeof play> } => {
+      const g = newGame({ seed: SEED(3), players: PLAYERS.slice(0, 2), startSide: 'a' });
+      const it = play(g);
+      let r = it.next(0);
+      for (const c of choices) r = it.next(c);
+      return { g, d: r.value as Decision, it };
+    };
+    const afterToken = (choices: number[], to: number, type: 'road' | 'mud'): Decision => {
+      const { g, d, it } = replay(choices);
+      g.hazards.set(key(d.options[to].pos!), { type, faceUp: false });
+      return it.next(to).value as Decision;
+    };
+    const choices: number[] = [];
+    let found: { choices: number[]; to: number } | null = null;
+    const walk = replay([]);
+    let d = walk.d;
+    for (let n = 0; n < 5000 && !found; n++) {
+      const to = d.kind === 'step' ? d.options.findIndex(o => o.pos && !walk.g.hazards.has(key(o.pos)) && onBoard(o.pos)
+        && terrainAt(walk.g, o.pos) === 'R' && !vehiclesAt(walk.g, o.pos).length) : -1;
+      if (d.kind === 'step' && leftOf(d) === 1 && to >= 0 && afterToken(choices, to, 'road').kind === 'roadDie') found = { choices: [...choices], to };
+      const c = d.kind === 'step' && to >= 0 ? to : 0;
+      choices.push(c);
+      d = walk.it.next(c).value as Decision;
+    }
+    // Act
+    const next = afterToken(found!.choices, found!.to, 'mud');
+    // Assert
+    expect(next.kind).not.toBe('roadDie');
+  });
 });
 
 describe('damage pile', () => {

@@ -39,7 +39,7 @@ import { playBeats, queue, skipBeats } from './beats';
 import { carObjs, hazardObjs } from './board';
 import { CHASE, chase, chaseLens, setChase } from './chase';
 import { burst, crash, explode, word } from './effects';
-import { Saved, choose, decision, g, startGame, undo, zoneOption } from './game';
+import { Saved, canUndo, choose, decision, g, startGame, undo, zoneOption } from './game';
 import { showDamage, showRoll } from './info';
 import { markBlocked } from './markers';
 import { render } from './pieces';
@@ -66,7 +66,7 @@ try {
 
 // For automated checks.
 (window as unknown as { trv: object }).trv = {
-  get game() { return g; }, get decision() { return decision; }, choose, undo, render, snapshot: () => g && snapshot(g), terrain: (p: Pos) => g && terrainAt(g, p), zoneOption, scene, hazardObjs, camera, controls,
+  get game() { return g; }, get decision() { return decision; }, choose, undo, canUndo, get choices() { return S.saved?.choices.length ?? 0; }, render, snapshot: () => g && snapshot(g), terrain: (p: Pos) => g && terrainAt(g, p), zoneOption, scene, hazardObjs, camera, controls,
   get queue() { return queue; }, get playing() { return S.playing; }, skipBeats, playBeats, // playBeats: replays frames (presentation only), for checks
   get rows() { return ROWS; }, get cols() { return COLS; },
   get cam() { return { chase, chaseSet: CHASE, chaseLens, action: !!S.shot, back: !!S.shotBack, focusGoal: S.focusGoal?.toArray(), focusDist: S.focusDist, settings }; },

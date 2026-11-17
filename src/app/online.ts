@@ -7,10 +7,10 @@
 import { leaders, upgrades } from '../game/trv/engine';
 import { BASE_CATALOG as CAT } from '../game/trv/catalog';
 import { newSeed } from '../platform/entropy';
-import { acceptable, backToLobby, cleanCode, closeRoom, createRoom, freeCrew, joinRoom, leaveRoom, readRoom, roomPath, startMatch, startProblem, MAX_PLAYERS, NAME_MAX, type Room, type RoomStore } from '../net/room';
+import { acceptable, undoable, backToLobby, cleanCode, closeRoom, createRoom, freeCrew, joinRoom, leaveRoom, readRoom, roomPath, startMatch, startProblem, MAX_PLAYERS, NAME_MAX, type Room, type RoomStore } from '../net/room';
 import { FIREBASE_CONFIG } from '../net/firebase-config';
 import qrcode from 'qrcode-generator';
-import { applyChoice, pending, setPending, startGame } from './game';
+import { applyChoice, deciders, g, pending, setPending, startGame, takeBack } from './game';
 import { render } from './pieces';
 import { clearTable, openSetup } from './screens';
 import { S } from './state';
@@ -97,6 +97,10 @@ export function onRoom(room: Room | null): void {
       clearTable();
       S.net.lobbyOpen = false;
       startGame({ setup: room.setup, choices: room.log.slice() });
+    } else if (!S.net.host && room.log.length < S.saved.choices.length) {
+      // The host took a choice back (Undo): the match is played again up to the shorter log. Not on
+      // the host, who shortens the log itself and may read it before its own last write lands.
+      startGame({ setup: room.setup, choices: room.log.slice() });
     } else {
       for (let i = S.saved.choices.length; i < room.log.length; i++) applyChoice(room.log[i]);
     }
@@ -108,7 +112,11 @@ export function onRoom(room: Room | null): void {
 /** Host: accepts the intents that answer the pending decision, one after the other. */
 export function referee(): void {
   while (S.net?.room && S.saved) {
-    const ok = acceptable(S.net.room, S.saved.choices.length, pending && { player: pending.player, options: pending.options.length });
+    // A guest asks to take back the choice it just made.
+    const back = undoable(S.net.room, S.saved.choices.length, S.saved.lock ?? 0, deciders);
+    if (back) { takeBack(back); return; }
+    const draft = pending?.kind === 'draft' && g?.draft ? { r: g.draft.round, cards: pending.options.map(o => o.upgrade!) } : undefined;
+    const ok = acceptable(S.net.room, S.saved.choices.length, pending && { player: pending.player, options: pending.options.length, ...(draft ? { draft } : {}) });
     if (!ok) return;
     const n = S.saved.choices.length;
     applyChoice(ok.choice);

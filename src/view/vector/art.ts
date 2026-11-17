@@ -145,11 +145,13 @@ export interface DieFace {
   color?: string;
   /** Direction die: where "forward" points on screen (the map runs left to right). */
   forward?: 'up' | 'right';
-  /**
-   * Movement die in the interface: the face alone, flat, with its value as a digit instead of pips
-   * (asked by the user, 2026-11-17). The dice on the 3D table keep their pips.
-   */
+  /** Movement die: its value as a digit instead of pips, on the table and in the interface (asked by the user, 2026-11-17). */
   number?: boolean;
+  /**
+   * Movement die in the interface: drawn as a die seen from above (rounded bevelled edges in light
+   * and shade, the flat top, its shadow, the digit), not as a bare face (asked by the user, 2026-11-17).
+   */
+  ui?: boolean;
 }
 
 const PIPS: Record<number, [number, number][]> = {
@@ -162,9 +164,25 @@ const PIPS: Record<number, [number, number][]> = {
 export function dieSvg(f: DieFace, extra = ''): string {
   if (f.kind === 'fire') return fireDieSvg(f.value as FireFace, extra); // Carnage at Devil's Run
   if (f.kind === 'movement' && f.number) {
-    const bg = f.color ?? '#e8742a';
-    return svg(100, 100, `<rect x="3" y="3" width="94" height="94" rx="16" fill="${bg}" stroke="rgba(0,0,0,.5)" stroke-width="3"/>`
-      + `<text x="50" y="74" text-anchor="middle" font-size="72" fill="${inkOn(bg)}" ${FONT}>${esc(String(f.value))}</text>`, extra);
+    const bg = f.color ?? '#e8742a', ink = inkOn(bg), digit = esc(String(f.value));
+    if (!f.ui) {
+      // A face of the 3D die: the model gives the edges, the texture the face and its digit.
+      return svg(100, 100, `<rect x="0" y="0" width="100" height="100" fill="${bg}"/>`
+        + `<text x="50" y="76" text-anchor="middle" font-size="74" fill="${ink}" ${FONT}>${digit}</text>`, extra);
+    }
+    const id = `dieshade-${bg.replace(/[^0-9a-z]/gi, '')}`;
+    const lift = ink === PALETTE.ink ? '#ffffff' : '#000000';
+    return svg(100, 100, `<defs><linearGradient id="${id}" x1="0" y1="0" x2="1" y2="1">`
+      + '<stop offset="0" stop-color="#fff" stop-opacity=".55"/><stop offset=".45" stop-color="#fff" stop-opacity="0"/>'
+      + '<stop offset=".55" stop-color="#000" stop-opacity="0"/><stop offset="1" stop-color="#000" stop-opacity=".45"/></linearGradient></defs>'
+      + '<rect x="8" y="10" width="88" height="88" rx="20" fill="#000" opacity=".38"/>' // its shadow
+      + `<rect x="3" y="3" width="88" height="88" rx="20" fill="${bg}"/>` // the body
+      + `<rect x="3" y="3" width="88" height="88" rx="20" fill="url(#${id})"/>` // the rounded edges, lit from the top left
+      + `<rect x="13" y="13" width="68" height="68" rx="13" fill="${bg}"/>` // the flat top face
+      + '<rect x="13" y="13" width="68" height="68" rx="13" fill="none" stroke="#000" stroke-opacity=".18" stroke-width="1.5"/>'
+      + `<rect x="3" y="3" width="88" height="88" rx="20" fill="none" stroke="#000" stroke-opacity=".6" stroke-width="2.5"/>`
+      + `<text x="48.5" y="69.5" text-anchor="middle" font-size="58" fill="${lift}" fill-opacity=".35" ${FONT}>${digit}</text>`
+      + `<text x="47" y="68" text-anchor="middle" font-size="58" fill="${ink}" ${FONT}>${digit}</text>`, extra);
   }
   const own = ownerDice.get(f.kind)?.get(String(f.value));
   if (own) {
@@ -366,7 +384,7 @@ export function damageTokenSvg(type: string | null, faceUp: boolean, dir?: ArtDi
 
 /** A die placed on a board, drawn inside a slot. */
 function placedDie(x: number, y: number, s: number, value: number, color: string): string {
-  return `<g transform="translate(${x - s / 2} ${y - s / 2}) scale(${s / 100})" pointer-events="none">${inner(dieSvg({ kind: 'movement', value, color, number: true }))}</g>`;
+  return `<g transform="translate(${x - s / 2} ${y - s / 2}) scale(${s / 100})" pointer-events="none">${inner(dieSvg({ kind: 'movement', value, color, number: true, ui: true }))}</g>`;
 }
 
 export interface DashboardArt {

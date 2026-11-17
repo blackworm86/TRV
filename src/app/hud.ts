@@ -3,14 +3,14 @@
 
 import { leaderOf, leaders, commandName, type Decision, type LogEntry, type Frame } from '../game/trv/engine';
 import { ongoingIllustration, upgradeIllustration } from '../view/cards';
-import { dieSvg, hazardTokenSvg, commandTokenSvg, dashboardSvg, commandBoardSvg, playerStripSvg, avatarSvg, dataUrl } from '../view/vector/art';
+import { damageTokenSvg, dieSvg, hazardTokenSvg, commandTokenSvg, dashboardSvg, commandBoardSvg, playerStripSvg, avatarSvg, dataUrl } from '../view/vector/art';
 import { FX_ASK } from './beats';
 import { carObjs } from './board';
 import { chase, chaseButtons } from './chase';
 import { drawDock } from './dock';
-import { canUndo, choose, decision, g, hotZones, mySeat, pending, undo, viewer, zoneOption } from './game';
+import { canUndo, choose, decision, draftPick, g, hotZones, mySeat, onlineDraft, pending, undo, viewer, zoneOption } from './game';
 import { assignCard, cardHtml, drawHand, selCard } from './hand';
-import { CMD_LINES, ONGOING_INFO, PORTRAITS, POWER_INFO, UPGRADE_INFO, boardCommands, slotText, upgradeName } from './info';
+import { CMD_LINES, DAMAGE_INFO, ONGOING_INFO, PORTRAITS, POWER_INFO, UPGRADE_INFO, boardCommands, slotText, upgradeName } from './info';
 import { focusOn } from './keys';
 import { fit } from './mapView';
 import { drawMarkers } from './markers';
@@ -19,9 +19,12 @@ import { S } from './state';
 import { syncTableDice } from './tableDice';
 import { $, esc } from './util';
 
+/** The decisions whose options are pieces of the game, shown face up to pick from (see drawHud). */
+const PICK_ASSETS: Decision['kind'][] = ['pickDamage', 'tinker'];
+
 export function dieHtml(kind: string, value: number | string, color: string | undefined, cls = '', attrs = ''): string {
   // The face alone, flat (asked by the user, 2026-11-17): movement dice with their value as a digit.
-  return dieSvg({ kind, value, color, forward: 'right', number: kind === 'movement' }, `class="${cls}" ${attrs}`);
+  return dieSvg({ kind, value, color, forward: 'right', number: kind === 'movement', ui: true }, `class="${cls}" ${attrs}`);
 }
 
 export function logLine(e: LogEntry): string {
@@ -148,10 +151,20 @@ export function drawHud(): void {
     else if (['plow', 'rollCage', 'dispense', 'radar'].includes(d.kind)) btn(0, d.options[0].label, d.options[0].danger ? 'danger' : 'quiet');
     // Skull Shift Knob: the one step choice that is not a space.
     else if (d.kind === 'step') d.options.forEach((o, i) => { if (!o.pos) btn(i, o.label, 'quiet'); });
-    else if (!['assign', 'airstrike', 'repair', 'leader', 'peek', 'peekResult', 'draft', 'upgradeAssign'].includes(d.kind)) d.options.forEach((o, i) => btn(i, o.label));
+    else if (!['assign', 'airstrike', 'repair', 'leader', 'peek', 'peekResult', 'draft', 'upgradeAssign', ...PICK_ASSETS].includes(d.kind)) d.options.forEach((o, i) => btn(i, o.label));
   }
-  // Choppe Shoppe setup: the upgrade cards to draft, then one for each car.
-  if (d && d.kind === 'draft') {
+  // Choppe Shoppe setup: the upgrade cards to draft, then one for each car. Online everyone picks
+  // at once from their own hand; the cards passed on come when all have picked.
+  const od = onlineDraft();
+  if (od) {
+    const me = g.players[mySeat()];
+    const el = $('leaderpick');
+    el.innerHTML = od.sent
+      ? `<h2 class="gothic" style="color:${me.color}">Scelta fatta: in attesa degli altri giocatori…</h2>`
+      : `<h2 class="gothic" style="color:${me.color}">${esc(me.name)}: scegli un potenziamento (giro ${od.round + 1}).</h2><div class="hand">`
+        + od.hand.map(id => `<button class="pickcard" data-card="${esc(id)}">${cardHtml(id, me.color)}</button>`).join('') + '</div>';
+    el.querySelectorAll<HTMLElement>('.pickcard').forEach(b => { b.onclick = () => draftPick(b.dataset.card!); });
+  } else if (d && d.kind === 'draft') {
     const who = g.players[d.player];
     const el = $('leaderpick');
     el.innerHTML = `<h2 class="gothic" style="color:${who.color}">${esc(d.prompt)}</h2><div class="hand">`
@@ -160,7 +173,26 @@ export function drawHud(): void {
   }
   // Choppe Shoppe setup: the two crew leaders dealt to the player, as cards to pick from.
   const pick = $('leaderpick');
-  pick.style.display = d && ['leader', 'draft', 'peekResult'].includes(d.kind) ? 'grid' : 'none';
+  pick.style.display = od || (d && ['leader', 'draft', 'peekResult', ...PICK_ASSETS].includes(d.kind)) ? 'grid' : 'none';
+  // A choice between pieces of the game is made on the pieces themselves, face up, not on their
+  // names (asked by the user, 2026-11-17): Crumple Zones' two damage tokens, Tinker's upgrade cards.
+  if (d?.kind === 'pickDamage') {
+    const who = g.players[d.player];
+    pick.innerHTML = `<h2 class="gothic" style="color:${who.color}">${esc(d.prompt.replace(/^[^:]+: /, ''))}</h2><div class="pair">`
+      + d.options.map((o, i) => {
+        const [name, does] = o.token ? DAMAGE_INFO[o.token.type] ?? [o.label, ''] : [o.label, ''];
+        return `<button class="dmgpick" data-i="${i}" style="--c:${who.color}"><i class="tok">${o.token ? damageTokenSvg(o.token.type, true, o.token.dir as never) : ''}</i>`
+          + `<b class="gothic">${esc(name)}</b><span>${esc(does)}</span></button>`;
+      }).join('') + '</div>';
+    pick.querySelectorAll<HTMLElement>('.dmgpick').forEach(b => { b.onclick = () => choose(Number(b.dataset.i)); });
+  }
+  if (d?.kind === 'tinker') {
+    const who = g.players[d.player];
+    const size = (id?: string): string => ({ S: 'piccola', M: 'media', L: 'grande' } as Record<string, string>)[g!.vehicles.find(v => v.id === id)?.size ?? ''] ?? '';
+    pick.innerHTML = `<h2 class="gothic" style="color:${who.color}">${esc(d.prompt.replace(/^[^:]+: /, ''))}</h2><div class="hand">`
+      + d.options.map((o, i) => `<button class="pickcard" data-i="${i}">${cardHtml(o.upgrade!, who.color)}<small class="oncar">auto ${size(o.carId)}</small></button>`).join('') + '</div>';
+    pick.querySelectorAll<HTMLElement>('.pickcard').forEach(b => { b.onclick = () => choose(Number(b.dataset.i)); });
+  }
   // Third Eye: the hazard token peeked at, face up in the middle of the screen, and "Visto" under it.
   if (d?.kind === 'peekResult') {
     const who = g.players[d.player];
@@ -191,7 +223,7 @@ export function drawHud(): void {
     peek: 'Third Eye: scegli un pericolo coperto', transfer: d?.prompt.replace(/^[^:]+: /, '') ?? '',
   };
   // The upgrades' own questions are asked in full: they name the card.
-  const asked = d && (d.kind === 'command' || d.kind === 'token') ? '' : d ? ASK[d.kind] ?? (['plow', 'rollCage', 'dispense', 'radar', 'swap', 'pickDamage', 'redButton'].includes(d.kind) ? d.prompt.replace(/^[^:]+: /, '') : '') : '';
+  const asked = d && (d.kind === 'command' || d.kind === 'token') ? '' : d ? ASK[d.kind] ?? (['plow', 'rollCage', 'dispense', 'radar', 'swap', 'redButton'].includes(d.kind) ? d.prompt.replace(/^[^:]+: /, '') : '') : '';
   if (asked) actions.insertAdjacentHTML('afterbegin', `<span class="q">${esc(asked)}</span>`);
   actions.classList.toggle('only', !actions.querySelector('button'));
   actions.classList.toggle('many', actions.querySelectorAll('button').length > 3);
@@ -225,8 +257,8 @@ export function drawHud(): void {
     color: me.color, used: me.command,
     drop: d?.kind === 'token' && mine ? d.options.filter(o => o.command).map(o => o.command!) : [...hot].filter(z => z.startsWith('cmd:')).map(z => z.slice(4)),
     tokenOn: Object.entries(me.slots).filter(([, v]) => v === 'token').map(([k]) => k), keepOpen: me.tokens > 0,
-    // Undo on the board (hot seat only): lit when there is a choice to take back.
-    ...(S.net ? {} : { undo: (!canUndo() || S.playing ? 'off' : 'on') as 'on' | 'off' }),
+    // Undo on the board: lit when there is a choice to take back (online, only this player's own).
+    undo: (!canUndo() || S.playing ? 'off' : 'on') as 'on' | 'off',
     ...(cmds ? { commands: cmds } : {}),
     ...(lead ? { leader: {
       name: lead.name, title: lead.title, power: POWER_INFO[lead.power]?.[0] ?? lead.power, powerText: POWER_INFO[lead.power]?.[1] ?? '',
