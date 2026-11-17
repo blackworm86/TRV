@@ -54,9 +54,9 @@ type Quality = 'auto' | 'high' | 'medium' | 'low';
 type Level = Exclude<Quality, 'auto'>;
 /** Animation speed: complete (slow, every beat), fast, or skip to the result. */
 type Speed = 'full' | 'fast' | 'skip';
-interface Settings { quality: Quality; speed: Speed; grid: boolean; actionCam: boolean; effects: boolean; words: boolean }
+interface Settings { quality: Quality; speed: Speed; grid: boolean; actionCam: boolean; effects: boolean; words: boolean; zenith: boolean }
 const SETTINGS_KEY = 'trv-settings';
-const settings: Settings = { quality: 'auto', speed: 'full', grid: true, actionCam: true, effects: true, words: true };
+const settings: Settings = { quality: 'auto', speed: 'full', grid: true, actionCam: true, effects: true, words: true, zenith: false };
 try { Object.assign(settings, JSON.parse(localStorage.getItem(SETTINGS_KEY) ?? '{}') as Partial<Settings>); } catch { /* defaults */ }
 function saveSettings(): void {
   try { localStorage.setItem(SETTINGS_KEY, JSON.stringify(settings)); } catch { /* storage off */ }
@@ -701,6 +701,22 @@ const JUMP_ODDS: Record<number, Partial<Record<JumpStunt, number>>> = {
 };
 /** Lean of a one-wheel landing, natural wobble of a plain jump (radians), extra launch angle of a somersault. */
 const JUMP_LEAN = 0.17, JUMP_WOBBLE = 0.05, JUMP_FLIP_LIFT = 0.2;
+/**
+ * Slow motion in the middle of a stunt's flight (barrel roll, somersault): between `from` and `to`
+ * (shares of the flight) the car's time runs at `speed`. Only while the director films.
+ */
+const STUNT_SLOWMO = { from: 0.3, to: 0.7, speed: 0.45 };
+/** The time factor now for the cars: slower while a stunt is in its slow-motion part. */
+function carTimeScale(): number {
+  if (!directing()) return 1;
+  for (const o of carObjs.values()) {
+    const j = o.userData.jump as Jump | undefined;
+    if (!j || (j.stunt !== 'barrel' && j.stunt !== 'backflip')) continue;
+    const u = (j.t - JUMP.climb) / j.flight;
+    if (u > STUNT_SLOWMO.from && u < STUNT_SLOWMO.to) return STUNT_SLOWMO.speed;
+  }
+  return 1;
+}
 /** The stunt for a draw 0..1 among a jump length's odds. */
 function pickStunt(n: number, draw: number): JumpStunt {
   let acc = 0;
@@ -1084,7 +1100,11 @@ function beatLength(f: Frame): number {
   // A ramp jump lasts as long as its flight: the next beat waits for the landing.
   if (f.kind === 'jump' && f.from && f.at) {
     const jp = f.vehicleId ? carObjs.get(f.vehicleId)?.userData.jump as Jump | undefined : undefined;
-    return jp ? JUMP.climb + jp.flight + JUMP.land : jumpSeconds(Math.max(1, f.at.c - f.from.c));
+    if (!jp) return jumpSeconds(Math.max(1, f.at.c - f.from.c));
+    // A stunt's slow motion makes its flight longer: the next beat waits for it too.
+    const slow = directing() && (jp.stunt === 'barrel' || jp.stunt === 'backflip')
+      ? jp.flight * (STUNT_SLOWMO.to - STUNT_SLOWMO.from) * (1 / STUNT_SLOWMO.speed - 1) : 0;
+    return JUMP.climb + jp.flight + JUMP.land + slow;
   }
   if (f.kind !== 'log') return BEAT[f.kind] ?? 0.3;
   if (f.logKind === 'turn') return 0.6;
@@ -1139,54 +1159,207 @@ function finishBeats(): void {
   render();
 }
 
-// ---------------------------------------------------------------- action camera
-// On a slam, a shot, damage or a car destroyed the view flies to the action and comes close
-// ("action camera", asked by the user); when the beats are over it returns to where it was.
-// Off in the Options menu; not during the instant replay (it frames its own shots) or the chase view.
+// ---------------------------------------------------------------- action director
+// The action camera (asked by the user): on a jump, a shot, a slam, a car catching fire or being
+// destroyed, damage and an airstrike, the view cuts to a shot made for that event (a tracking
+// shot along a jump, over the shooter's shoulder, low beside a slam...), following what moves.
+// When the beats are over it hands the view back as it was (the map, or the chase view).
+// Off in the Options menu; not during the instant replay (it frames its own shots) or when the
+// animations are skipped.
 
-const ACTION_BEATS = new Set<Frame['kind']>(['slam', 'shot', 'damage', 'elim', 'jump', 'fire']);
-/** How close the action camera comes, as a share of the distance of the whole-map view. */
+const ACTION_BEATS = new Set<Frame['kind']>(['slam', 'shot', 'damage', 'elim', 'jump', 'fire', 'chopper']);
+/** How close the camera comes to dice it shows (a question about them), as a share of the whole-map view's distance. */
 const ACTION_DIST = 0.4;
-/** Longest wait, in seconds, of the beats for the camera to reach the action. */
-const ACTION_WAIT = 1.5;
-let actionBack: { target: THREE.Vector3; dist: number } | null = null;
-let actionSince = 0;
-function actionShot(at: THREE.Vector3): void {
-  if (!settings.actionCam || replaying || chase || settings.speed === 'skip') return;
-  actionSince = performance.now() / 1000;
-  actionBack ??= { target: controls.target.clone(), dist: camera.position.distanceTo(controls.target) };
-  focusGoal = at.clone().setY(0);
-  focusDist = Math.min(actionBack.dist, fitDist * ACTION_DIST);
+/**
+ * Timing of the shots, in seconds: the move into a shot, the way back to the player's view, how
+ * long the beats wait for the camera to arrive, and how fast a shot follows a moving subject.
+ */
+const SHOT = { blendIn: 0.45, blendOut: 0.9, wait: 0.35, follow: 6 };
+/**
+ * The picture of a shot is shifted up by this share of the window's height, so its subject sits in
+ * the band left free between the players' bubbles and the boards (as the chase view does).
+ */
+const SHOT_LIFT = 0.2;
+/** Shifts the picture up for a shot, or back. */
+function liftView(on: boolean): void {
+  if (on) camera.setViewOffset(innerWidth, innerHeight, 0, innerHeight * SHOT_LIFT, innerWidth, innerHeight);
+  else if (!chase) camera.clearViewOffset();
 }
+/** A camera shot: where the camera stands and what it looks at, as functions of the time (s). */
+interface Shot { t0: number; pos: (now: number) => THREE.Vector3; look: (now: number) => THREE.Vector3; from: { pos: THREE.Vector3; look: THREE.Vector3 } }
+let shot: Shot | null = null;
+/** Where the shot camera is now (smoothed toward the shot's own path). */
+const shotCam = { pos: new THREE.Vector3(), look: new THREE.Vector3() };
+/** The player's view to go back to (map view), and the way back once the action is over. */
+let camHome: { target: THREE.Vector3; dist: number } | null = null;
+let shotBack: { t0: number; from: { pos: THREE.Vector3; look: THREE.Vector3 } } | null = null;
+let actionSince = 0;
+
+/** The map view's camera for a target and a distance (as tiltView places it). */
+function homePose(target: THREE.Vector3, d: number): THREE.Vector3 {
+  const e = elevAt(d);
+  return new THREE.Vector3(target.x, target.y + d * Math.sin(e), target.z + d * Math.cos(e));
+}
+/** Starts a shot, from wherever the camera is now. */
+function startShot(pos: Shot['pos'], look: Shot['look']): void {
+  const now = performance.now() / 1000;
+  if (!shot && !shotBack && !chase) camHome = { target: controls.target.clone(), dist: camera.position.distanceTo(controls.target) };
+  const from = shot ? { pos: shotCam.pos.clone(), look: shotCam.look.clone() } : { pos: camera.position.clone(), look: controls.target.clone() };
+  shot = { t0: now, pos, look, from };
+  shotBack = null;
+  shotCam.pos.copy(pos(now));
+  shotCam.look.copy(look(now));
+  actionSince = now;
+  controls.enabled = false;
+  liftView(true);
+}
+/** Whether the director may take the camera now. */
+function directing(): boolean {
+  return settings.actionCam && !replaying && settings.speed !== 'skip';
+}
+/** A still shot on a point (used for dice a question is about): seen from the front, from close by. */
+function actionShot(at: THREE.Vector3): void {
+  if (!directing()) return;
+  const c = at.clone();
+  const d = fitDist * ACTION_DIST;
+  startShot(() => c.clone().add(new THREE.Vector3(0, d * 0.82, d * 0.57)), () => c.clone());
+}
+/** The action is over: the view goes back to the player's (the chase view takes itself back). */
 function actionDone(): void {
-  if (!actionBack) return;
-  focusGoal = actionBack.target;
-  focusDist = actionBack.dist;
-  actionBack = null;
+  if (!shot) return;
+  shotBack = { t0: performance.now() / 1000, from: { pos: shotCam.pos.clone(), look: shotCam.look.clone() } };
+  shot = null;
+}
+/** A shot made for a beat, if it is one the director films. */
+function directBeat(f: Frame): void {
+  if (!directing() || !ACTION_BEATS.has(f.kind)) return;
+  const S = TILE_W / 8;
+  const car = f.vehicleId ? carObjs.get(f.vehicleId) : undefined; // kept: a destroyed car leaves carObjs
+  const at = f.at ? world(f.at) : car?.position.clone();
+  if (!at) return;
+  const V = (x: number, y: number, z: number): THREE.Vector3 => new THREE.Vector3(x * S, y * S, z * S);
+  const carAt = (): THREE.Vector3 => (car ? car.position.clone() : at.clone());
+  switch (f.kind) {
+    case 'jump': {
+      // A tracking shot from the side: the camera runs along the road with the car, from the
+      // ramp to the landing space, far enough to keep the whole arc in the picture.
+      const from = f.from ? world(f.from) : at, land = at, spaces = Math.max(1, (land.x - from.x) / S);
+      startShot(
+        () => { const p = carAt(), x = THREE.MathUtils.clamp(p.x, from.x, land.x); return new THREE.Vector3(x - 0.6 * S, from.y + (1.6 + spaces * 0.25) * S, p.z + (3.4 + spaces * 0.45) * S); },
+        () => { const p = carAt(); return new THREE.Vector3(p.x + 0.4 * S, from.y + (p.y - from.y) * 0.6 + 0.3 * S, p.z); },
+      );
+      break;
+    }
+    case 'shot': {
+      // Over the shooter's shoulder, the target ahead.
+      const src = f.from ? world(f.from) : at;
+      const dir = at.clone().sub(src).setY(0);
+      if (dir.lengthSq() < 1e-6) dir.set(1, 0, 0);
+      dir.normalize();
+      const side = new THREE.Vector3(-dir.z, 0, dir.x);
+      if (side.z < 0) side.negate(); // the side toward the player
+      const pos = src.clone().addScaledVector(dir, -2.3 * S).addScaledVector(side, 0.9 * S).add(V(0, 1.6, 0));
+      const look = src.clone().lerp(at, 0.5).add(V(0, 0.1, 0));
+      startShot(() => pos.clone(), () => look.clone());
+      break;
+    }
+    case 'slam':
+      // Low and from the side, at the impact.
+      startShot(() => at.clone().add(V(-1.0, 0.7, 2.5)), () => at.clone().add(V(0, 0.2, 0)));
+      break;
+    case 'fire': {
+      // A slow turn around the burning car.
+      const t0 = performance.now() / 1000;
+      startShot(
+        now => { const a = -0.7 + (now - t0) * 0.55, c = carAt(); return c.add(V(Math.sin(a) * 2.4, 1.3, Math.cos(a) * 2.4)); },
+        () => carAt().add(V(0, 0.25, 0)),
+      );
+      break;
+    }
+    case 'elim':
+      // Following the wreck as it crashes and tumbles, then resting on it.
+      startShot(() => carAt().add(V(-1.4, 1.6, 3.2)), () => carAt().add(V(0, 0.2, 0)));
+      break;
+    case 'damage':
+      // Close on the car that was hit, while its damage token turns over.
+      startShot(() => carAt().add(V(-1.0, 1.5, 2.6)), () => carAt().add(V(0, 0.25, 0)));
+      break;
+    case 'chopper':
+      // From high above the chopper, onto the spaces below it.
+      startShot(() => at.clone().add(V(0, 4.6, 1.6)), () => at.clone());
+      break;
+  }
+}
+/** One frame of the director; false when it does not hold the camera. */
+function directorCamera(now: number, dt: number): boolean {
+  const ease = (u: number): number => { const x = THREE.MathUtils.clamp(u, 0, 1); return x * x * (3 - 2 * x); };
+  if (shot) {
+    const k = 1 - Math.exp(-dt * SHOT.follow);
+    shotCam.pos.lerp(shot.pos(now), k);
+    shotCam.look.lerp(shot.look(now), k);
+    const u = ease((now - shot.t0) / SHOT.blendIn);
+    camera.position.lerpVectors(shot.from.pos, shotCam.pos, u);
+    const look = shot.from.look.clone().lerp(shotCam.look, u);
+    camera.lookAt(look);
+    controls.target.copy(look);
+    return true;
+  }
+  if (shotBack) {
+    if (chase) { shotBack = null; chaseLens(true); return false; } // the chase view takes itself back
+    const home = camHome ?? { target: controls.target.clone(), dist: fitDist };
+    const u = ease((now - shotBack.t0) / SHOT.blendOut);
+    camera.position.lerpVectors(shotBack.from.pos, homePose(home.target, home.dist), u);
+    const look = shotBack.from.look.clone().lerp(home.target, u);
+    camera.lookAt(look);
+    controls.target.copy(look);
+    if (u >= 1) { shotBack = null; camHome = null; controls.enabled = true; controls.target.copy(home.target); liftView(false); }
+    return true;
+  }
+  return false;
 }
 
 // ---------------------------------------------------------------- chase view
 // The view from behind a car, picked from its dashboard; a second click on the dashboard, the
 // Vista button or V bring the usual view back.
 
-/** Where the chase camera sits, in road spaces: behind the car, above it, and where it looks ahead. */
 const SPACE_W = TILE_W / 8;
-// Low behind the car, looking down the road; the picture is shifted up (`lift`, a share of the
-// window's height) so the car sits in the band left free between the bubbles and the boards.
-const CHASE = { back: 3.2 * SPACE_W, up: 1.5 * SPACE_W, ahead: 1.1 * SPACE_W, follow: 4, lift: 0.24 };
+/**
+ * The chase view (rebuilt at the user's request, 2026-11-17: it must show where the car can go).
+ * The camera stands low behind the car and always looks down the road (+x), whatever way the car
+ * faces, tilted down by `pitch` radians so the horizon stays in the picture. It sees wider than the
+ * map view (`fov`, vertical degrees). `back` and `up` are in road spaces; `lift` shifts the picture
+ * up (a share of the window's height) so the car sits just above the boards; `follow` is how fast
+ * the camera catches up with the car (1/s).
+ */
+const CHASE = { fov: 50, back: 2.2, up: 0.85, pitch: 0.2, lift: 0.06, follow: 4 };
+/** The map view's field of view (vertical degrees), given back when the chase view ends. */
+const MAP_FOV = camera.fov;
 let chase: string | null = null;
 const chaseLook = new THREE.Vector3();
+/** Sets the camera's field of view and picture shift for the chase view (on) or the map (off). */
+function chaseLens(on: boolean): void {
+  camera.fov = on ? CHASE.fov : MAP_FOV;
+  if (on) camera.setViewOffset(innerWidth, innerHeight, 0, innerHeight * CHASE.lift, innerWidth, innerHeight);
+  else { camera.clearViewOffset(); camera.updateProjectionMatrix(); }
+}
 /** Turns the chase view on for car `id`, or off when it is already on (or `id` is null). */
 function setChase(id: string | null): void {
   chase = id && chase !== id ? id : null;
   controls.enabled = !chase;
-  if (chase) camera.setViewOffset(innerWidth, innerHeight, 0, innerHeight * CHASE.lift, innerWidth, innerHeight);
-  else camera.clearViewOffset();
+  chaseLens(!!chase);
   focusGoal = null;
   focusDist = null;
-  if (chase) { const o = carObjs.get(chase); if (o) chaseLook.copy(o.position); }
+  if (chase) { const o = carObjs.get(chase); if (o) { camera.position.copy(chasePose(o)); chaseLook.copy(chaseAim(camera.position)); } }
   else fit();
   drawHud();
+}
+/** Where the chase camera stands for car `o`: behind it along the road, a little above. */
+function chasePose(o: THREE.Object3D): THREE.Vector3 {
+  return new THREE.Vector3(o.position.x - CHASE.back * SPACE_W, TILE_T + CHASE.up * SPACE_W, o.position.z);
+}
+/** The point the chase camera looks at from `pos`: down the road, tilted down by CHASE.pitch. */
+function chaseAim(pos: THREE.Vector3): THREE.Vector3 {
+  return pos.clone().add(new THREE.Vector3(Math.cos(CHASE.pitch), -Math.sin(CHASE.pitch), 0).multiplyScalar(4 * SPACE_W));
 }
 /**
  * A button on each of the player's dashboards (top right corner) for the view from behind that
@@ -1219,13 +1392,10 @@ function chaseCamera(dt: number): boolean {
   if (!chase) return false;
   const o = carObjs.get(chase);
   if (!o || !o.visible) { setChase(null); return false; }
-  // Parked in the starting area a car stands sideways: there "behind" means facing down the road.
-  const v = g?.vehicles.find(x => x.id === chase);
-  const yaw = v?.inStart ? 0 : (o.userData.yaw ?? 0) as number, fwd = new THREE.Vector3(Math.cos(yaw), 0, -Math.sin(yaw));
-  const want = o.position.clone().addScaledVector(fwd, -CHASE.back).setY(o.position.y + CHASE.up);
+  // The camera keeps behind the car along the road; its height does not follow jumps and bumps.
   const k = 1 - Math.exp(-dt * CHASE.follow);
-  camera.position.lerp(want, k);
-  chaseLook.lerp(o.position.clone().addScaledVector(fwd, CHASE.ahead), k);
+  camera.position.lerp(chasePose(o), k);
+  chaseLook.copy(chaseAim(camera.position));
   camera.lookAt(chaseLook);
   controls.target.copy(chaseLook);
   return true;
@@ -1290,7 +1460,7 @@ function applyBeat(f: Frame, now: number): void {
   }
   drawTable(f.snap);
   const at = f.at ? world(f.at) : null;
-  if (at && ACTION_BEATS.has(f.kind)) actionShot(f.from && f.kind === 'shot' ? world(f.from).add(at).multiplyScalar(0.5) : at);
+  directBeat(f);
   switch (f.kind) {
     case 'roll': rollOnTable(f); showRoll(f); break;
     case 'slam':
@@ -2074,49 +2244,110 @@ function syncTableDice(me: Player, mine: boolean): void {
 }
 
 /**
- * In the chase view the dice leave the table and follow the view (asked by the user): they float
- * in a row just above the boards, `dist` world units in front of the camera, drawn over everything,
- * the same size and faces as on the table in the map view, so they can still be dragged.
+ * In the chase view the player's dice still to play lie on the table beside the followed car (asked
+ * by the user, 2026-11-17: real dice by the car, in handy spots, never through other pieces). They
+ * fill free spots in a small block on the car's left, then on its right, a little ahead of it so
+ * they stay above the boards; a spot is free when the table under the whole die is flat and clear
+ * (no car, chopper, hazard, ramp or pit). Used dice leave the table. While the car stands still the
+ * spots are looked for again every `every` seconds (pieces around it may change); the dice slide to
+ * them. They never follow the car as it drives: a die is placed before the move. All lengths are in road spaces:
+ * `size` the die's edge, `side` the gap from the car's middle to the block, `gap` between dice,
+ * `ahead` how far ahead of the car the first row lies.
  */
-const CHASE_DICE = { dist: 2.2, above: 56 };
-/** The camera's turn in the map view, against which the dice's resting faces are set. */
-const mapViewTurn = (() => {
-  const c = new THREE.PerspectiveCamera();
-  c.position.set(0, 1, 0.55);
-  c.lookAt(0, 0, 0);
-  return c.quaternion.clone().invert();
-})();
-/** Moves die `t` (index `i` of `n`) into the chase view's row. */
-function chaseDie(t: TableMyDie, i: number, n: number): void {
-  const k = CHASE_DICE.dist / fitDist; // same size on screen as on the table seen from the map view
-  const step = DIE_W * TRAY_SCALE * 1.55 / (fitDist * Math.tan(THREE.MathUtils.degToRad(camera.fov / 2)) * camera.aspect);
-  const y = innerHeight - cssPx('--bottom') - CHASE_DICE.above;
-  const ndc = new THREE.Vector3((i - (n - 1) / 2) * step, 1 - 2 * y / innerHeight, 0.5).unproject(camera);
-  t.d.mesh.position.copy(camera.position).addScaledVector(ndc.sub(camera.position).normalize(), CHASE_DICE.dist);
-  t.d.mesh.quaternion.copy(camera.quaternion).multiply(mapViewTurn).multiply(t.q);
-  t.d.mesh.scale.setScalar(TRAY_SCALE * k);
+const CHASE_DICE = { size: 0.17, side: 0.42, gap: 0.27, ahead: 0.25, rows: 3, cols: 4, every: 0.5, slide: 10 };
+let diceSpots: { at: number; key: string; spots: THREE.Vector3[] } = { at: -1, key: '', spots: [] };
+
+/**
+ * Whether a die of half-size `half` can lie at (x, z): clear of every car and chopper (a circle as
+ * wide as the model is long) and of every hazard token with what stands on it (flames, ramps, pits
+ * hang on the tokens). Plain distance checks: casting rays at the models made the game crawl.
+ */
+function freeTable(x: number, z: number, half: number): boolean {
+  for (const o of [...carObjs.values(), ...chopperObjs.values()]) {
+    if (!o.visible) continue;
+    const size = o.userData.modelSize as THREE.Vector3 | undefined;
+    const r = (size ? Math.max(size.x, size.z) : SPACE_W * 0.5) / 2;
+    if (Math.hypot(o.position.x - x, o.position.z - z) < r + half) return false;
+  }
+  for (const h of hazardObjs.values()) {
+    if (h.gone !== undefined) continue;
+    const p = h.obj.group.position;
+    if (Math.abs(p.x - x) < HAZ_SIZE.length / 2 + half && Math.abs(p.z - z) < HAZ_SIZE.depth / 2 + half) return false;
+  }
+  return true;
+}
+
+/** Where the dice lie by car `o` (one spot per die still to play), looked for again when needed. */
+function chaseDiceSpots(o: THREE.Object3D, n: number, now: number): THREE.Vector3[] {
+  // The dice are placed before the car moves (asked by the user): while it drives, or while the
+  // beats play, they stay where they are; they are laid out again once it is still.
+  const key = `${chase}|${n}`;
+  const goal = o.userData.target as THREE.Vector3 | undefined;
+  const moving = playing || !!o.userData.jump || (!!goal && Math.hypot(goal.x - o.position.x, goal.z - o.position.z) > 0.02);
+  if (key === diceSpots.key && (moving || now - diceSpots.at < CHASE_DICE.every)) return diceSpots.spots;
+  const half = CHASE_DICE.size * SPACE_W * 0.6;
+  const boards = innerHeight - cssPx('--bottom') - 8;
+  const spots: THREE.Vector3[] = [];
+  for (const side of [-1, 1]) {
+    for (let c = 0; c < CHASE_DICE.cols && spots.length < n; c++) for (let r = 0; r < CHASE_DICE.rows && spots.length < n; r++) {
+      const x = o.position.x + (CHASE_DICE.ahead + r * CHASE_DICE.gap) * SPACE_W;
+      const z = o.position.z + side * (CHASE_DICE.side + c * CHASE_DICE.gap) * SPACE_W;
+      if (!freeTable(x, z, half)) continue;
+      const spot = new THREE.Vector3(x, TILE_T + CHASE_DICE.size * SPACE_W / 2, z);
+      const q = spot.clone().project(camera);
+      if ((1 - q.y) / 2 * innerHeight > boards || Math.abs(q.x) > 0.95) continue; // under the boards or off screen
+      spots.push(spot);
+    }
+  }
+  // Nowhere room for all of them together: whatever free spots there are, then in front of the car.
+  while (spots.length < n) spots.push(o.position.clone().add(new THREE.Vector3((CHASE_DICE.ahead + 0.6 + spots.length * 0.1) * SPACE_W, TILE_T - o.position.y + CHASE_DICE.size * SPACE_W / 2, (spots.length - n / 2) * CHASE_DICE.gap * SPACE_W)));
+  diceSpots = { at: now, key, spots };
+  return spots;
 }
 
 /** Each frame: used dice fade, the selected die lifts and sways, the one being dragged dims. */
-function animTableDice(now: number): void {
-  const floating = !!chase;
+function animTableDice(now: number, dt = 1 / 60): void {
+  const car = chase ? carObjs.get(chase) : undefined;
+  const live = tableDice.map((_, i) => !tableDiceState.used[i]);
+  const spots = car ? chaseDiceSpots(car, live.filter(Boolean).length, now) : [];
+  const chaseScale = CHASE_DICE.size * SPACE_W / DIE_W;
+  let k = 0;
   tableDice.forEach((t, i) => {
     const sel = selDie === i && !tableDiceState.used[i];
-    if (floating) chaseDie(t, i, tableDice.length);
-    else { t.d.mesh.position.copy(t.base); t.d.mesh.quaternion.copy(t.q); t.d.mesh.scale.setScalar(TRAY_SCALE); }
-    t.d.mesh.renderOrder = floating ? 20 : 0;
-    t.d.mesh.castShadow = !floating;
-    if (sel) {
-      const lift = DIE_W * TRAY_SCALE * (0.45 + 0.08 * Math.sin(now * 5)) * (floating ? CHASE_DICE.dist / fitDist : 1);
-      t.d.mesh.position.addScaledVector(floating ? new THREE.Vector3(0, 1, 0).applyQuaternion(camera.quaternion) : new THREE.Vector3(0, 1, 0), lift);
-      t.d.mesh.quaternion.premultiply(new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 1, 0), Math.sin(now * 3) * 0.3));
+    const mesh = t.d.mesh;
+    let scale = TRAY_SCALE;
+    if (car) {
+      // On the table by the car: used dice are gone, the others slide to their spots.
+      mesh.visible = live[i];
+      if (!live[i]) { t.glow.visible = false; return; }
+      const spot = spots[k++];
+      const fresh = !mesh.userData.chaseOn;
+      mesh.userData.chaseOn = true;
+      mesh.position.lerp(spot, fresh ? 1 : Math.min(1, dt * CHASE_DICE.slide));
+      if (fresh) mesh.position.copy(spot);
+      mesh.quaternion.copy(t.q);
+      scale = chaseScale;
+    } else {
+      mesh.visible = true;
+      mesh.userData.chaseOn = false;
+      mesh.position.copy(t.base);
+      mesh.quaternion.copy(t.q);
     }
-    // The dice still to play glow, pulsing, so the player sees they must be played (on the table only).
-    const live = !tableDiceState.used[i] && !tableDiceState.idle[i];
-    t.glow.visible = live && !floating;
-    if (live) (t.glow.material as THREE.MeshBasicMaterial).opacity = 0.55 + 0.35 * Math.sin(now * 4 + i * 0.6);
+    mesh.scale.setScalar(scale);
+    mesh.renderOrder = 0;
+    mesh.castShadow = true;
+    if (sel) {
+      mesh.position.y += DIE_W * scale * (0.45 + 0.08 * Math.sin(now * 5));
+      mesh.quaternion.premultiply(new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 1, 0), Math.sin(now * 3) * 0.3));
+    }
+    // The dice still to play glow, pulsing, so the player sees they must be played.
+    const glowing = !tableDiceState.used[i] && !tableDiceState.idle[i];
+    t.glow.visible = glowing;
+    t.glow.scale.setScalar(DIE_W * scale * 2.6);
+    t.glow.position.set(mesh.position.x, car ? mesh.position.y - DIE_W * scale / 2 + 0.004 : 0.02, mesh.position.z);
+    if (glowing) (t.glow.material as THREE.MeshBasicMaterial).opacity = 0.55 + 0.35 * Math.sin(now * 4 + i * 0.6);
     const fade = tableDiceState.used[i] ? 0.2 : drag?.moved && drag.die === i ? 0.35 : 1;
-    for (const m of t.d.mesh.material as THREE.MeshStandardMaterial[]) { m.transparent = fade < 1; m.opacity = fade; m.depthTest = !floating; }
+    for (const m of mesh.material as THREE.MeshStandardMaterial[]) { m.transparent = fade < 1; m.opacity = fade; m.depthTest = true; }
   });
 }
 
@@ -2341,7 +2572,10 @@ addEventListener('keydown', e => {
     const me = viewer();
     const v = g && me ? g.vehicles.find(x => x.owner === g!.players.indexOf(me) && x.size === 'SML'[Number(key) - 1] && x.status !== 'elim') : undefined;
     if (v) focusOn(carObjs.get(v.id));
-  } else if (key === 'v' || key === 'home') {
+  } else if (key === 'v') {
+    if (chase || shot || shotBack) homeView();
+    else toggleZenith();
+  } else if (key === 'home') {
     homeView();
   } else if (key === 'g') {
     toggleGrid();
@@ -2918,6 +3152,12 @@ function bootOnline(): boolean {
 /** Distance of the framed view: zooming in from it tilts the view toward the horizon. */
 let fitDist = 40;
 /**
+ * The map's framing: `side` is how far toward the window's sides it reaches (1 = the edge, in NDC),
+ * `high` the height of the tallest pieces on the table (world units), kept in the picture too,
+ * `gap` the pixels left free under the players' bubbles.
+ */
+const FIT = { side: 0.96, high: 0.5, gap: 8 };
+/**
  * Lays out the screen: the bar and the players at the top, the player's strip at the bottom with
  * nothing around it (no background), the table framed in the free space between them. The strip is
  * as large as the window allows and keeps its size for the whole game.
@@ -2934,56 +3174,117 @@ function fit(): void {
   const root = document.documentElement.style;
   root.setProperty('--stripw', `${Math.round(stripW)}px`);
   root.setProperty('--bottom', `${Math.round(stripH)}px`);
-  const top = cssPx('--top'), h = H;
+  // The players' bubbles may hang below the top bar: the road starts under the lowest one.
+  const bubbles = document.getElementById('players')?.getBoundingClientRect();
+  const top = Math.max(cssPx('--top'), bubbles && bubbles.height > 0 ? bubbles.bottom + FIT.gap : 0), h = H;
   const botLim = -1 + 2 * (stripH * (1 - plate) + 6) / h;
   // The player bubbles float over the top of the map: keep the road below them.
   const topLim = 1 - 2 * top / h;
   renderer.setSize(W, h);
   camera.aspect = W / h;
   camera.updateProjectionMatrix();
-  // Frame the whole road (start area included): fit the corners on screen, then centre them.
+  // Frame what is on the table (asked by the user: always centred, as large as it can be): the
+  // road, the start area with its cars and parked choppers, the row of dice under the road. Points
+  // are taken at the table and at the height of the pieces, so tall things stay in the picture too.
   const x0 = BOARD_X0 - 3.2, x1 = BOARD_X0 + 2 * PITCH_W + TILE_W; // start area: cars and parked choppers
   const zTop = -TILE_H / 2, zBot = TRAY_Z + DIE_W * TRAY_SCALE * 0.9; // the road and the row of dice under it
-  const corners = [[x0, zTop], [x1, zTop], [x0, zBot], [x1, zBot]].map(([x, z]) => new THREE.Vector3(x, 0, z));
-  const dir = new THREE.Vector3(0, 1, 0.55).normalize();
+  const points: THREE.Vector3[] = [];
+  for (const x of [x0, x1]) for (const z of [zTop, zBot]) for (const y of [0, FIT.high]) points.push(new THREE.Vector3(x, y, z));
+  const dir = new THREE.Vector3(0, Math.sin(viewElev()), Math.cos(viewElev()));
   const target = new THREE.Vector3((x0 + x1) / 2, 0, (zTop + zBot) / 2);
-  const place = (dist: number): THREE.Box2 => {
+  const side = FIT.side;
+  /** The screen box (NDC) of the points with the camera `dist` from the target. */
+  const box = (dist: number): THREE.Box2 => {
     camera.position.copy(target).addScaledVector(dir, dist);
     camera.lookAt(target);
     camera.updateMatrixWorld();
-    const box = new THREE.Box2();
-    for (const c of corners) { const p = c.clone().project(camera); box.expandByPoint(new THREE.Vector2(p.x, p.y)); }
-    return box;
+    const out = new THREE.Box2();
+    for (const c of points) { const q = c.clone().project(camera); out.expandByPoint(new THREE.Vector2(q.x, q.y)); }
+    return out;
   };
-  for (let pass = 0; pass < 4; pass++) {
+  /** How far off the middle of the free band the box is (NDC), horizontally and vertically. */
+  const off = (bx: THREE.Box2): THREE.Vector2 => new THREE.Vector2((bx.min.x + bx.max.x) / 2, (bx.min.y + bx.max.y) / 2 - (topLim + botLim) / 2);
+  let dist = 40;
+  for (let pass = 0; pass < 6; pass++) {
+    // As close as it can be while it fits the width and the free band's height.
     let lo = 2, hi = 200;
     for (let i = 0; i < 30; i++) {
-      const mid = (lo + hi) / 2, b = place(mid);
-      if (b.min.x < -0.97 || b.max.x > 0.97 || b.max.y - b.min.y > topLim - botLim) lo = mid; else hi = mid; // fits the free band; centred below
+      const mid = (lo + hi) / 2, bx = box(mid);
+      if (bx.max.x - bx.min.x > 2 * side || bx.max.y - bx.min.y > topLim - botLim) lo = mid; else hi = mid;
     }
-    const b = place(hi);
-    // Shift the target so the projected board sits in the middle of the free part of the view.
-    const cy = (b.min.y + b.max.y) / 2 - (topLim + botLim) / 2;
-    target.z -= cy * (zBot - zTop) * 0.5;
+    dist = hi;
+    // Then centred: the target moves on the table by what the box is off (a step measured on the spot).
+    const o0 = off(box(dist)), eps = 0.05;
+    target.x += eps; const ox = off(box(dist)).x - o0.x; target.x -= eps;
+    target.z += eps; const oz = off(box(dist)).y - o0.y; target.z -= eps;
+    if (Math.abs(ox) > 1e-6) target.x -= o0.x * eps / ox;
+    if (Math.abs(oz) > 1e-6) target.z -= o0.y * eps / oz;
   }
+  box(dist);
   controls.target.copy(target);
   fitDist = camera.position.distanceTo(target);
   controls.maxDistance = fitDist * 1.8;
   controls.update();
 }
 
-/** Far from the table the view looks down as framed; near the ground it tilts toward the horizon. */
-const ELEV_FAR = Math.atan2(1, 0.55), ELEV_NEAR = 0.6;
-function tiltView(): void {
-  if (camBefore) return; // the instant replay frames its own shots
-  const t = controls.target, d = camera.position.distanceTo(t);
+/**
+ * Far from the table the angled map view looks down as framed; near the ground it tilts toward the
+ * horizon. The zenithal map view (V, asked by the user) looks straight down at any distance (a hair
+ * off the vertical, so the screen's top stays down the table as in the angled view).
+ */
+const ELEV_FAR = Math.atan2(1, 0.55), ELEV_NEAR = 0.6, ELEV_ZENITH = Math.PI / 2 - 0.002;
+/** Seconds the camera takes to move between the angled and the zenithal map view. */
+const VIEW_SWAP = 0.9;
+/** 0 = angled map view, 1 = zenithal; in between while the camera moves from one to the other. */
+let zenithK = settings.zenith ? 1 : 0;
+let viewSwap: { t0: number; from: { target: THREE.Vector3; dist: number; k: number }; to: { target: THREE.Vector3; dist: number } } | null = null;
+/** The map view's elevation (radians above the table) as it is framed, for the view in use. */
+function viewElev(): number { return settings.zenith ? ELEV_ZENITH : ELEV_FAR; }
+/** The elevation the map camera has at distance `d` from what it looks at. */
+function elevAt(d: number): number {
   const k = THREE.MathUtils.clamp((fitDist - d) / Math.max(1, fitDist - controls.minDistance), 0, 1);
   const e = THREE.MathUtils.lerp(ELEV_FAR, ELEV_NEAR, k * k * (3 - 2 * k));
+  return THREE.MathUtils.lerp(e, ELEV_ZENITH, zenithK);
+}
+/** V in the map: from the angled view to the zenithal one and back, with the camera moving between them. */
+function toggleZenith(): void {
+  const from = { target: controls.target.clone(), dist: camera.position.distanceTo(controls.target), k: zenithK };
+  settings.zenith = !settings.zenith;
+  saveSettings();
+  focusGoal = null;
+  focusDist = null;
+  fit();
+  viewSwap = { t0: performance.now() / 1000, from, to: { target: controls.target.clone(), dist: fitDist } };
+  drawHud();
+}
+function tiltView(): void {
+  if (camBefore) return; // the instant replay frames its own shots
+  const t = controls.target;
+  let d = camera.position.distanceTo(t);
+  if (viewSwap) {
+    const x = Math.min(1, (performance.now() / 1000 - viewSwap.t0) / VIEW_SWAP), u = x * x * (3 - 2 * x);
+    t.lerpVectors(viewSwap.from.target, viewSwap.to.target, u);
+    d = THREE.MathUtils.lerp(viewSwap.from.dist, viewSwap.to.dist, u);
+    zenithK = THREE.MathUtils.lerp(viewSwap.from.k, settings.zenith ? 1 : 0, u);
+    if (x >= 1) viewSwap = null;
+  } else zenithK = settings.zenith ? 1 : 0;
+  const e = elevAt(d);
   camera.position.set(t.x, t.y + d * Math.sin(e), t.z + d * Math.cos(e));
   camera.lookAt(t);
 }
 addEventListener('resize', fit);
 fit();
+// The bubbles change height when a game starts or ends: frame the map again for the new free band.
+{
+  let lastBottom = -1;
+  const players = document.getElementById('players');
+  if (players) new ResizeObserver(() => {
+    const b = Math.round(players.getBoundingClientRect().bottom);
+    if (b === lastBottom) return;
+    lastBottom = b;
+    if (!chase && !shot && !shotBack) fit();
+  }).observe(players);
+}
 
 // ---------------------------------------------------------------- HUD dice in 3D
 // A transparent WebGL layer over the interface: every element marked data-die3d="kind|value|color"
@@ -3315,7 +3616,7 @@ function placeActions(): void {
 }
 $('skip').addEventListener('click', () => skipBeats());
 /** Back to the view of the whole map, as at the start. */
-function homeView(): void { actionBack = null; if (chase) { setChase(null); return; } focusGoal = null; focusDist = null; fit(); }
+function homeView(): void { viewSwap = null; shot = null; shotBack = null; camHome = null; controls.enabled = !chase; liftView(false); if (chase) { setChase(null); return; } focusGoal = null; focusDist = null; fit(); }
 $('home').addEventListener('click', homeView);
 
 /** The lines of the spaces over the terrain, on or off (button and key G). */
@@ -3475,7 +3776,8 @@ renderer.setAnimationLoop(t => {
   const dt = rawDt * timeScale * (playing ? SPEED_SCALE[settings.speed] : 1);
   const k = 1 - Math.exp(-dt * 10);
   const now = performance.now() / 1000;
-  for (const o of carObjs.values()) drive(o, dt, k, now);
+  const carDt = dt * carTimeScale();
+  for (const o of carObjs.values()) drive(o, carDt, 1 - Math.exp(-carDt * 10), now);
   moveCamera(rawDt);
   for (const o of chopperObjs.values()) {
     const tg = o.userData.target as THREE.Vector3 | undefined;
@@ -3496,8 +3798,8 @@ renderer.setAnimationLoop(t => {
   for (const m of markers) (m.mesh.material as THREE.MeshBasicMaterial).opacity = (m.mesh.userData.hover ? 0.85 : 0.45) + Math.sin(now * 5) * 0.15;
   // Replay of the rules' beats, one at a time.
   // Beats follow the clock, not the frame rate: a slow frame plays every beat that is due.
-  // While the action camera flies to the action, the beats wait for it (at most ACTION_WAIT s).
-  if (playing && actionBack && (focusGoal || focusDist !== null) && now < actionSince + ACTION_WAIT) nextBeatAt = Math.max(nextBeatAt, now);
+  // While the director's camera moves into a shot, the beats wait for it (SHOT.wait seconds).
+  if (playing && shot && now < actionSince + SHOT.wait) nextBeatAt = Math.max(nextBeatAt, now);
   while (playing && now >= nextBeatAt) {
     const f = queue.shift();
     if (!f) { finishBeats(); break; }
@@ -3534,11 +3836,11 @@ renderer.setAnimationLoop(t => {
     td.d.mesh.position.y = THREE.MathUtils.lerp(td.from.y, td.to.y, e) + rise;
     td.d.mesh.quaternion.slerpQuaternions(td.q0, td.q1, e);
   }
-  if (!chaseCamera(rawDt)) {
+  if (!directorCamera(now, rawDt) && !chaseCamera(rawDt)) {
     controls.update();
     tiltView();
   }
-  animTableDice(now);
+  animTableDice(now, rawDt);
   const shake = now < shakeUntil ? new THREE.Vector3((Math.random() - 0.5) * 0.25, (Math.random() - 0.5) * 0.15, (Math.random() - 0.5) * 0.25) : null;
   if (shake) camera.position.add(shake);
   renderer.render(scene, camera);
@@ -3567,7 +3869,7 @@ try {
   get game() { return g; }, get decision() { return decision; }, choose, undo, render, snapshot: () => g && snapshot(g), terrain: (p: Pos) => g && terrainAt(g, p), zoneOption, scene, hazardObjs, camera, controls,
   get queue() { return queue; }, get playing() { return playing; }, skipBeats, playBeats, // playBeats: replays frames (presentation only), for checks
   get rows() { return ROWS; }, get cols() { return COLS; },
-  get cam() { return { chase, action: !!actionBack, focusGoal: focusGoal?.toArray(), focusDist, settings }; },
+  get cam() { return { chase, chaseSet: CHASE, chaseLens, action: !!shot, back: !!shotBack, focusGoal: focusGoal?.toArray(), focusDist, settings }; },
 };
 
 // Debug handle (prototype only): try the effects from the console without playing, e.g.
