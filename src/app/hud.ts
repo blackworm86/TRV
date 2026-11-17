@@ -3,7 +3,7 @@
 
 import { leaderOf, leaders, commandName, type Decision, type LogEntry, type Frame } from '../game/trv/engine';
 import { ongoingIllustration, upgradeIllustration } from '../view/cards';
-import { dieSvg, dashboardSvg, commandBoardSvg, playerStripSvg, avatarSvg, dataUrl } from '../view/vector/art';
+import { dieSvg, hazardTokenSvg, commandTokenSvg, dashboardSvg, commandBoardSvg, playerStripSvg, avatarSvg, dataUrl } from '../view/vector/art';
 import { FX_ASK } from './beats';
 import { chase, chaseButtons } from './chase';
 import { drawDock } from './dock';
@@ -82,7 +82,7 @@ export function drawHud(): void {
     const pl = leaderOf(p);
     return `<div class="bubble pl ${turn ? 'turn' : ''} ${decides ? 'decides' : ''} ${p.out ? 'out' : ''}" style="--c:${p.color}">
       <div class="av">${pl && PORTRAITS[pl.id] ? `<img src="${PORTRAITS[pl.id]}" alt="${esc(pl.name)}">` : avatarSvg(p.color, p.name)}</div>
-      <div class="nm gothic">${esc(p.name)}${pl ? `<small>${esc(pl.name)}${p.tokens ? ` ${'★'.repeat(p.tokens)}` : ''}</small>` : ''}</div>
+      <div class="nm gothic">${esc(p.name)}${pl ? `<small>${esc(pl.name)}${p.tokens ? ` <span class="ctoks">${commandTokenSvg().repeat(p.tokens)}</span>` : ''}</small>` : ''}</div>
       <div class="dice-row">${p.dice.length ? p.dice.map((n, i) => dieHtml('movement', n, p.color, p.used[i] ? 'used' : '')).join('') : '<span class="none">nessun dado</span>'}</div>
       <div class="cars">${cars}</div></div>`;
   }).join('');
@@ -130,7 +130,7 @@ export function drawHud(): void {
     else if (['plow', 'rollCage', 'dispense', 'radar'].includes(d.kind)) btn(0, d.options[0].label, d.options[0].danger ? 'danger' : 'quiet');
     // Skull Shift Knob: the one step choice that is not a space.
     else if (d.kind === 'step') d.options.forEach((o, i) => { if (!o.pos) btn(i, o.label, 'quiet'); });
-    else if (!['assign', 'airstrike', 'repair', 'leader', 'peek', 'draft', 'upgradeAssign'].includes(d.kind)) d.options.forEach((o, i) => btn(i, o.label));
+    else if (!['assign', 'airstrike', 'repair', 'leader', 'peek', 'peekResult', 'draft', 'upgradeAssign'].includes(d.kind)) d.options.forEach((o, i) => btn(i, o.label));
   }
   // Choppe Shoppe setup: the upgrade cards to draft, then one for each car.
   if (d && d.kind === 'draft') {
@@ -142,7 +142,15 @@ export function drawHud(): void {
   }
   // Choppe Shoppe setup: the two crew leaders dealt to the player, as cards to pick from.
   const pick = $('leaderpick');
-  pick.style.display = d && ['leader', 'draft'].includes(d.kind) ? 'grid' : 'none';
+  pick.style.display = d && ['leader', 'draft', 'peekResult'].includes(d.kind) ? 'grid' : 'none';
+  // Third Eye: the hazard token peeked at, face up in the middle of the screen, and "Visto" under it.
+  if (d?.kind === 'peekResult') {
+    const who = g.players[d.player];
+    const type = d.options[0].hazard ?? null;
+    pick.innerHTML = `<h2 class="gothic" style="color:${who.color}">${esc(d.prompt.replace(/^Solo per [^:]+: /, 'Third Eye: '))}</h2>`
+      + `<div class="peektile">${hazardTokenSvg(type, true)}</div><button class="peekok" data-key="Enter">Visto<kbd>↵</kbd></button>`;
+    pick.querySelector<HTMLElement>('.peekok')!.onclick = () => choose(0);
+  }
   if (d?.kind === 'leader') {
     const who = g.players[d.player];
     pick.innerHTML = `<h2 class="gothic" style="color:${who.color}">${esc(who.name)}: scegli il caposquadra</h2><div class="pair">`
@@ -152,7 +160,7 @@ export function drawHud(): void {
         return `<button class="leader" data-i="${i}" style="--c:${who.color}"><b class="gothic">${esc(l.name)}</b><small>${esc(l.title)}</small>`
           + `<p><i>${esc(pn)}</i> ${esc(pd)}</p><ul>`
           + l.commands.map(s => `<li><em>${esc(slotText(s))}</em><span><b>${esc(commandName(s.id))}</b> ${esc((CMD_LINES[s.id] ?? []).join(' '))}</span></li>`).join('')
-          + `</ul><span class="stars">${l.tokens ? `${'★'.repeat(l.tokens)} ${l.tokens === 1 ? 'segnalino comando' : 'segnalini comando'}` : 'nessun segnalino comando'}</span></button>`;
+          + `</ul><span class="stars">${l.tokens ? `<span class="ctoks">${commandTokenSvg().repeat(l.tokens)}</span> ${l.tokens === 1 ? 'segnalino comando' : 'segnalini comando'}` : 'nessun segnalino comando'}</span></button>`;
       }).join('') + '</div>';
     pick.querySelectorAll<HTMLElement>('.leader').forEach(b => { b.onclick = () => choose(Number(b.dataset.i)); });
   }
@@ -162,7 +170,7 @@ export function drawHud(): void {
     command: 'Un dado su un comando?', roadDie: `Dado strada: +${g.roadDie}?`, slamReroll: 'Slam: ritiri i dadi?', shoot: 'Scegli il bersaglio',
     step: left ? `${left} moviment${left === '1' ? 'o' : 'i'}` : 'Muovi', airstrike: 'Scegli una casella vuota', repair: 'Scegli l’auto da riparare',
     token: `Segnalino comando? (${d ? g.players[d.player].tokens : 0})`, shootReroll: 'Mancato: ritiri il dado sparo?', dirReroll: 'Slam: ritiri la direzione?',
-    peek: 'Third Eye: scegli un pericolo coperto', peekResult: d?.prompt.replace(/^Solo per [^:]+: /, 'Third Eye: ') ?? '', transfer: d?.prompt.replace(/^[^:]+: /, '') ?? '',
+    peek: 'Third Eye: scegli un pericolo coperto', transfer: d?.prompt.replace(/^[^:]+: /, '') ?? '',
   };
   // The upgrades' own questions are asked in full: they name the card.
   const asked = d && (d.kind === 'command' || d.kind === 'token') ? '' : d ? ASK[d.kind] ?? (['plow', 'rollCage', 'dispense', 'radar', 'swap', 'pickDamage', 'redButton'].includes(d.kind) ? d.prompt.replace(/^[^:]+: /, '') : '') : '';

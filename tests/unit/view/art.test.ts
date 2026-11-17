@@ -3,7 +3,7 @@ import { describe, it, expect } from 'vitest';
 import rules from '../../../data/trv/game_base.json';
 import { ownerDieFaces, OWNER_DIE_ORDER } from '../../../src/view/vector/dice';
 import { ownerDamage } from '../../../src/view/vector/damage';
-import { dieSvg, hazardTokenSvg, damageTokenSvg, dashboardSvg, commandBoardSvg, onFireTokenSvg } from '../../../src/view/vector/art';
+import { dieSvg, hazardTokenSvg, damageTokenSvg, dashboardSvg, commandBoardSvg, onFireTokenSvg, commandTokenSvg } from '../../../src/view/vector/art';
 
 describe('vector art', () => {
   it('draws every face of every die in the rules', () => {
@@ -94,6 +94,17 @@ describe('vector art', () => {
     }
     // The base game's tokens keep the base back.
     expect(hazardTokenSvg('mud', false)).not.toContain('pericolo/back');
+  });
+  it('draws the command token from its draft drawing, and lays it on a command that has one', () => {
+    // Arrange
+    const token = commandTokenSvg();
+    // Act
+    const board = commandBoardSvg({ color: '#ec9230', used: null, tokenOn: ['nitro'] });
+    // Assert: the cream tile with the navy star, nested in the board on the command.
+    expect(token).toContain('#ece5d3');
+    expect(token).toContain('#1c2242');
+    expect(board).toContain('viewBox="0 0 100 100"');
+    expect(commandBoardSvg({ color: '#ec9230', used: null })).not.toContain('viewBox="0 0 100 100"');
   });
   it('lays the ON FIRE token over the move slot of a burning car', () => {
     const dash = { carId: 'p0S', size: 'S' as const, color: '#ec9230', status: 'ok' as const, placed: [], damage: 0 };

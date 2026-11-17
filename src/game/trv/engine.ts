@@ -140,6 +140,8 @@ export interface Option {
   upgrade?: string;
   /** Damage choice (Crumple Zones): the token offered. */
   token?: DamageToken;
+  /** Third Eye: the hazard type of the token peeked at, for the player to see it. */
+  hazard?: string;
 }
 
 /** A vehicle in range that cannot be chosen because of an ability (an upgrade id), for the UI to explain. */
@@ -155,6 +157,8 @@ export interface Decision {
   player: number;
   prompt: string;
   options: Option[];
+  /** Slam rerolls: the car the current result would move, and the space it would go to (for the UI to show it). */
+  preview?: { carId: string; to: Pos };
 }
 
 /** A die as rolled: which die and the face index (into the face lists of game_base.json). */
@@ -819,6 +823,7 @@ function* slam(g: Game, at: Pos): Gen<void> {
         kind: 'slamReroll', player: big.owner,
         prompt: `${g.players[big.owner].name}: si muove ${carName(g, moving)} verso ${DIR_NAME[d]}. Ritirare entrambi i dadi?`,
         options: [{ label: 'Tieni il risultato' }, { label: 'Ritira i due dadi' }],
+        preview: { carId: moving.id, to: neighbor(at, d) },
       });
       if (i === 1) {
         which = bent ? 'bottom' : rollFx(g, 'slam', 'slam-reroll', at);
@@ -834,6 +839,7 @@ function* slam(g: Game, at: Pos): Gen<void> {
         kind: 'dirReroll', player: affected.owner!,
         prompt: `${g.players[affected.owner!].name}: ${carName(g, affected)} si muoverebbe verso ${DIR_NAME[d]}. Ritirare il dado direzione?`,
         options: [{ label: 'Tieni il risultato' }, { label: 'Ritira il dado direzione' }],
+        preview: { carId: affected.id, to: neighbor(at, d) },
       });
       if (i === 1) {
         d = rollFx(g, 'direction', 'junk-in-the-trunk', at);
@@ -1781,7 +1787,7 @@ function* thirdEye(g: Game, p: Player): Gen<void> {
   // Shown only in the prompt: the log is public.
   yield* ask({
     kind: 'peekResult', player: p.id, prompt: `Solo per ${p.name}: è ${HAZARD_NAME[down[i][1].type]}.`,
-    options: [{ label: 'Visto', pos: pos[i] }],
+    options: [{ label: 'Visto', pos: pos[i], hazard: down[i][1].type }],
   });
 }
 

@@ -16,7 +16,7 @@ import SHOPPE from '../../data/trv/choppe_shoppe.json';
 import {
   dieSvg, hazardTokenSvg, damageTokenSvg, dashboardSvg, commandBoardSvg, playerStripSvg, chopperSvg, carSvg, avatarSvg,
   OFFICIAL_ART, PALETTE, type ArtDir, type ArtSize, type CommandBoardArt,
-  fireDieSvg, onFireTokenSvg, type FireFace,
+  fireDieSvg, onFireTokenSvg, commandTokenSvg, type FireFace,
 } from '../view/vector/art';
 import { tileSvg, mapSvg, tileTitle } from '../view/vector/tiles';
 import { sheetSvg, standaloneSvg, templateFileName } from '../view/vector/templates';
@@ -256,6 +256,11 @@ const CATEGORIES: Category[] = [
     }),
   },
   {
+    id: 'comando', group: 'Segnalini', name: 'Segnalini comando',
+    note: 'Il segnalino comando dei capisquadra (Choppe Shoppe): bozza, da ridisegnare.',
+    items: [svgItem('comando', 'token', 'Segnalino comando', () => commandTokenSvg('width="400" height="400"'), { note: `Quantità: ${SHOPPE.command_tokens}` })],
+  },
+  {
     id: 'carnage', group: 'Espansioni', name: 'Carnage at Devil’s Run',
     note: 'I pezzi di Carnage at Devil’s Run: dado fuoco, segnalino ON FIRE!, i sei pericoli (col retro dell’espansione) e i due danni nuovi, stampati come i segnalini del gioco base, con le quantità della scatola.',
     items: [
@@ -358,6 +363,8 @@ function extras(c: Category, it: Item): { solid?: () => Promise<THREE.Object3D>;
       return own ? { solid: () => flatSolid(own, null, 2 / 60) } : {};
     case 'capisquadra':
       return { solid: () => flatSolid(own!, null, 2 / 109) };
+    case 'comando':
+      return { solid: () => flatSolid(svgFace(commandTokenSvg()), svgFace(commandTokenSvg()), 2 / 25) };
     case 'avatar_personaggi':
       return { compare: [{ label: 'Ritratto della plancia', url: OFFICIAL[`/assets/choppe_shoppe/capisquadra/${id}.jpg`] ?? null }] };
     default:

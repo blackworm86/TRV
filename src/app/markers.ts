@@ -2,7 +2,7 @@
 // targets), and why a car cannot be shot.
 
 import * as THREE from 'three';
-import { ROWS, COLS, TILE_COLS, type Blocked } from '../game/trv/engine';
+import { ROWS, COLS, TILE_COLS, type Blocked, type Pos } from '../game/trv/engine';
 import { spaceGeometry, spaceRimGeometry, GRID } from '../view/board3d';
 import { HAZ_SIZE, carObjs, carRingGeo, markerGroup, ringGeo } from './board';
 import { decision, g } from './game';
@@ -48,15 +48,75 @@ export function markBlocked(b: Blocked): void {
   blockTips.push({ el, at: world(b.pos) });
 }
 
+/**
+ * Shows where a slam's current result would send a car (asked by the user, 2026-11-17): a copy of
+ * the car at its destination, as if of glass in its player's colour, and an arrow from the car to it.
+ * Neither is a pick target.
+ */
+/** Where a slam preview is drawn (the car's space and its destination): the floating question keeps clear of them. */
+export const previewSpots: THREE.Vector3[] = [];
+export function markPreview(carId: string, to: Pos): void {
+  const obj = carObjs.get(carId);
+  const v = g?.vehicles.find(x => x.id === carId);
+  if (!obj || !v) return;
+  const color = new THREE.Color(v.owner !== null ? g!.players[v.owner].color : '#c9c8c2');
+  // From the car's space in the rules (the car on the table may still be driving there).
+  const from = (v.pos ? world(v.pos) : obj.position.clone()).setY(obj.position.y), dest = world(to).setY(from.y);
+  // The glass car: the car's own meshes, in a see-through colour, placed as the car is.
+  const glass = new THREE.MeshStandardMaterial({ color, transparent: true, opacity: 0.6, roughness: 0.1, metalness: 0.2, emissive: color, emissiveIntensity: 0.5, depthWrite: false });
+  const ghost = new THREE.Group();
+  obj.updateMatrixWorld(true);
+  const inv = obj.matrixWorld.clone().invert();
+  obj.traverse(m => {
+    if (!(m instanceof THREE.Mesh) || !m.visible) return;
+    const copy = new THREE.Mesh(m.geometry, glass);
+    copy.matrixAutoUpdate = false;
+    copy.matrix.multiplyMatrices(inv, m.matrixWorld);
+    copy.renderOrder = 11;
+    ghost.add(copy);
+  });
+  previewSpots.push(from.clone(), dest.clone());
+  ghost.position.copy(dest);
+  ghost.quaternion.copy(obj.quaternion);
+  ghost.scale.copy(obj.scale);
+  markerGroup.add(ghost);
+  // The arrow, flat on the table, from the car to its copy (stopping short of both).
+  const space = TILE_W / 8;
+  const along = dest.clone().sub(from).setY(0);
+  const len = along.length();
+  if (len < 1e-3) return;
+  const start = space * 0.28, end = len - space * 0.3, w = space * 0.07, head = space * 0.22;
+  // The arrow in the player's colour on a dark one a little bigger: it reads on every terrain.
+  const arrowShape = (k: number, s0: number, s1: number): THREE.Shape => {
+    const a = new THREE.Shape();
+    a.moveTo(s0, -w * k); a.lineTo(s1 - head, -w * k); a.lineTo(s1 - head, -w * 2.6 * k); a.lineTo(s1, 0);
+    a.lineTo(s1 - head, w * 2.6 * k); a.lineTo(s1 - head, w * k); a.lineTo(s0, w * k); a.closePath();
+    return a;
+  };
+  const pad = space * 0.025;
+  for (const [shape, c, order] of [[arrowShape(1.8, start - pad, end + pad * 2), new THREE.Color('#15110d'), 12], [arrowShape(1, start, end), color, 13]] as const) {
+    const arrow = new THREE.Mesh(new THREE.ShapeGeometry(shape),
+      new THREE.MeshBasicMaterial({ color: c, transparent: true, opacity: 0.95, depthTest: false, depthWrite: false, toneMapped: false, side: THREE.DoubleSide }));
+    arrow.rotation.order = 'YXZ';
+    arrow.rotation.set(-Math.PI / 2, Math.atan2(-along.z, along.x), 0);
+    arrow.position.set(from.x, TILE_T + HAZ_SIZE.thickness + 0.04, from.z);
+    arrow.renderOrder = order;
+    markerGroup.add(arrow);
+  }
+}
+
 export function drawMarkers(): void {
   markerGroup.clear();
   S.markers = [];
+  previewSpots.length = 0;
   for (const t of blockTips) t.el.remove();
   blockTips = [];
   // (The car that is moving glows anyway: see applyGlow.)
   for (const o of carObjs.values()) o.userData.glow = null;
   if (!g || !decision || S.playing) return;
   const d = decision;
+  // A slam reroll: where the current result would move which car, as a glass car and an arrow.
+  if (d.preview) markPreview(d.preview.carId, d.preview.to);
   // Assigning: the cars that can still take a die glow in the player's colour; with a die in
   // hand, only those that accept it, and they can be dropped on.
   if (d.kind === 'assign') {

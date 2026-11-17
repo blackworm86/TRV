@@ -35,7 +35,7 @@ export function chaseLens(on: boolean): void {
 }
 /** Turns the chase view on for car `id`, or off when it is already on (or `id` is null). */
 export function setChase(id: string | null): void {
-  chase = id && chase !== id ? id : null;
+  chase = CHASE.enabled && id && chase !== id ? id : null;
   controls.enabled = !chase;
   chaseLens(!!chase);
   S.focusGoal = null;
@@ -60,6 +60,7 @@ export function chaseAim(pos: THREE.Vector3): THREE.Vector3 {
 export function chaseButtons(): void {
   const strip = $('strip');
   strip.querySelectorAll('.chasebtn').forEach(b => b.remove());
+  if (!CHASE.enabled) return; // switched off for now (user, 2026-11-17): data/trv/presentation_base.json, chase.enabled
   const box = strip.getBoundingClientRect();
   for (const el of strip.querySelectorAll<SVGElement>('[data-car]')) {
     const id = el.dataset.car!;

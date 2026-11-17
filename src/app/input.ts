@@ -57,6 +57,7 @@ addEventListener('keydown', e => {
   if (S.playing || menuOpen() || typing(e) || e.ctrlKey || e.metaKey || e.altKey) return;
   const b = $('actions').querySelector<HTMLButtonElement>(`button[data-key="${e.key}"]`);
   if (b && $('actions').style.display !== 'none') { e.preventDefault(); b.click(); }
+  else if (!b) $('leaderpick').querySelector<HTMLButtonElement>(`button[data-key="${e.key}"]`)?.click(); // Third Eye's "Visto"
 });
 
 

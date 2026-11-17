@@ -214,6 +214,18 @@ describe('leader powers', () => {
     }
     expect(peeks).toBeGreaterThan(0);
   });
+  it('Third Eye: the answer names the hazard type peeked at, for the player to see the token', () => {
+    let seen = 0;
+    for (let s = 1; s <= GAMES; s++) {
+      run(s, { fixed: ['boudreaux', undefined] }, ({ d, g: now }) => {
+        if (d.kind !== 'peekResult') return;
+        seen++;
+        const pos = d.options[0].pos!;
+        expect(d.options[0].hazard).toBe(now.hazards.get(`${pos.r},${pos.c}`)!.type);
+      });
+    }
+    expect(seen).toBeGreaterThan(0);
+  });
   it('Trash into Treasure: Cruft gains a command token on a face-down hazard', () => {
     expect(logs(['cruft', undefined], /^Trash into Treasure/).length).toBeGreaterThan(0);
   });
@@ -411,6 +423,22 @@ describe('upgrade cards', () => {
       expect(d.player).toBe(0);
     });
     expect(slams).toBeGreaterThan(0);
+  });
+  it('a slam reroll question shows which car the current result moves, one space away from the slam', () => {
+    let asked = 0;
+    for (let s = 1; s <= GAMES; s++) {
+      run(s, { fixed: ['bumpo', undefined], upgrades: true }, ({ d, g: now }) => {
+        if (d.kind !== 'slamReroll' && d.kind !== 'dirReroll') return;
+        asked++;
+        const at = [...now.frames].reverse().find(f => f.kind === 'slam')!.at!;
+        expect(d.preview).toBeDefined();
+        expect(vehiclesAt(now, at).some(v => v.id === d.preview!.carId)).toBe(true);
+        expect(Math.abs(d.preview!.to.r - at.r) + Math.abs(d.preview!.to.c - at.c)).toBeGreaterThan(0);
+        expect(Math.abs(d.preview!.to.r - at.r)).toBeLessThanOrEqual(1);
+        expect(Math.abs(d.preview!.to.c - at.c)).toBeLessThanOrEqual(1);
+      });
+    }
+    expect(asked).toBeGreaterThan(0);
   });
   it('replays the same game with drafted upgrades from the same seed and choices', () => {
     expect(run(5, { upgrades: true }).log).toEqual(run(5, { upgrades: true }).log);

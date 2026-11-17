@@ -6,7 +6,7 @@ import { type Frame } from '../game/trv/engine';
 import { rampSurfaceAt } from '../view/terrain/carnage3d';
 import { carObjs, fxSupply, markerGroup } from './board';
 import { JUMP, JUMP_BY_SPACES, JUMP_FLIP_LIFT, JUMP_WOBBLE, Jump, STUNT_SLOWMO, jumpSeconds, ramps } from './cars';
-import { actionDone, actionShot, directBeat, directing } from './director';
+import { actionDone, actionShot, directBeat, directing, shotFor } from './director';
 import { burst, crash, explode, flash, impact, smokeOn, word } from './effects';
 import { decision, g } from './game';
 import { drawHud, toastLine } from './hud';
@@ -78,8 +78,9 @@ export function finishBeats(): void {
   S.playing = false;
   if (replaying) endReplay();
   // A question about the dice just rolled keeps the action camera close on them (it comes there
-  // when the beats were skipped); any other moment brings the view back.
-  if (decision && FX_ASK.has(decision.kind) && S.trayDice.length) {
+  // when the beats were skipped); any other moment brings the view back. Not a slam's: its dice lie
+  // by the cars, and the view from above shows them with the cars and where one would go.
+  if (decision && FX_ASK.has(decision.kind) && !decision.preview && S.trayDice.length) {
     const c = S.trayDice.reduce((a, t) => a.add(t.to), new THREE.Vector3()).multiplyScalar(1 / S.trayDice.length);
     actionShot(c);
   } else {
@@ -101,7 +102,11 @@ export function applyBeat(f: Frame, now: number): void {
   const at = f.at ? world(f.at) : null;
   directBeat(f);
   switch (f.kind) {
-    case 'roll': rollOnTable(f); showRoll(f); break;
+    case 'roll':
+      // A slam's dice: the shot of the impact is over, the view goes back up to see them land by the cars.
+      if (shotFor === 'slam' && f.die && (f.die.die === 'slam' || f.die.die === 'direction')) actionDone();
+      rollOnTable(f); showRoll(f);
+      break;
     case 'slam':
       S.shakeUntil = now + 0.35;
       if (at) { impact(at, 0xff6a2a, 1.6); impact(at, 0xffffff, 0.8); word('SLAM!', at, '#ffb02a'); }

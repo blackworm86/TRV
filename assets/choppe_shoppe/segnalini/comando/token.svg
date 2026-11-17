@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
+  <!-- Command token (Choppe Shoppe), DRAFT: a cream tile with wavy edges and a navy star, after the
+       box photo of the 15 command tokens. To be replaced by the owner's drawing. -->
+  <path d="M16,6 C30,2 38,11 50,9 C62,7 70,2 84,6 Q94,7 94,16 C98,30 89,38 91,50 C93,62 98,70 94,84 Q93,94 84,94 C70,98 62,89 50,91 C38,93 30,98 16,94 Q6,93 6,84 C2,70 11,62 9,50 C7,38 2,30 6,16 Q7,6 16,6 Z" fill="#000" fill-opacity=".28" transform="translate(1.5 3)"/>
+  <path d="M16,6 C30,2 38,11 50,9 C62,7 70,2 84,6 Q94,7 94,16 C98,30 89,38 91,50 C93,62 98,70 94,84 Q93,94 84,94 C70,98 62,89 50,91 C38,93 30,98 16,94 Q6,93 6,84 C2,70 11,62 9,50 C7,38 2,30 6,16 Q7,6 16,6 Z" fill="#ece5d3" stroke="#b9ae95" stroke-width="2"/>
+  <path d="M16,6 C30,2 38,11 50,9 C62,7 70,2 84,6 Q94,7 94,16 C98,30 89,38 91,50 C93,62 98,70 94,84 Q93,94 84,94 C70,98 62,89 50,91 C38,93 30,98 16,94 Q6,93 6,84 C2,70 11,62 9,50 C7,38 2,30 6,16 Q7,6 16,6 Z" fill="none" stroke="#fffaf0" stroke-width="2" stroke-opacity=".7" transform="translate(50 50) scale(.9) translate(-50 -50)"/>
+  <path d="M50.00,22.00 L57.17,41.13 L77.58,42.04 L61.60,54.77 L67.05,74.46 L50.00,63.20 L32.95,74.46 L38.40,54.77 L22.42,42.04 L42.83,41.13 Z" fill="#1c2242" stroke="#1c2242" stroke-width="3" stroke-linejoin="round"/>
+</svg>

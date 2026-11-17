@@ -31,7 +31,7 @@ export interface Presentation {
     slowMotion: { from: number; to: number; speed: number };
   };
   director: { diceDist: number; shot: { blendIn: number; blendOut: number; wait: number; follow: number }; lift: number };
-  chase: { fov: number; back: number; up: number; pitch: number; lift: number; follow: number };
+  chase: { enabled: boolean; fov: number; back: number; up: number; pitch: number; lift: number; follow: number };
   chaseDice: { size: number; side: number; gap: number; ahead: number; rows: number; cols: number; every: number; slide: number };
   mapView: { fit: { side: number; high: number; gap: number }; swap: number; elevNear: number };
   replay: { speed: number; before: number; after: number; camera: [number, number, number] };

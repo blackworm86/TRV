@@ -8,6 +8,7 @@ import { choose, g } from './game';
 import { camera, renderer } from './stage';
 import { S } from './state';
 import { fxDiceRect, tableDiceRect } from './tableDice';
+import { previewSpots } from './markers';
 import { $, cssPx, menuOpen } from './util';
 
 /**
@@ -126,6 +127,8 @@ export function placeActions(): void {
     const space = Math.abs(screen(anchor.clone().add(new THREE.Vector3(1, 0, 0)))[0] - gx); // a world unit, in pixels
     const keep: [number, number, number, number][] = []; // left, top, right, bottom of what must stay visible
     for (const m of S.markers) { const [mx, my] = screen(m.at); keep.push([mx - space * 0.75, my - space * 0.5, mx + space * 0.75, my + space * 0.5]); }
+    // A slam's preview (the glass car, the arrow) counts double: it is what the question is about.
+    for (const p of previewSpots) { const [px, py] = screen(p); const k: [number, number, number, number] = [px - space * 0.8, py - space * 0.6, px + space * 0.8, py + space * 0.5]; keep.push(k, k); }
     for (const c of carObjs.values()) { const [cx, cy] = screen(c.position); keep.push([cx - space * 0.6, cy - space * 0.55, cx + space * 0.6, cy + space * 0.3]); }
     let spots: [number, number][];
     if (fx) {

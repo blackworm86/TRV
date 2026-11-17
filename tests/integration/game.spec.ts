@@ -114,7 +114,7 @@ test.describe('game', () => {
     expect(errors2).toEqual([]);
   });
 
-  test('map, zenith and chase views switch and come back', async ({ page }) => {
+  test('map and zenith views switch and come back; the chase view is switched off', async ({ page }) => {
     const errors = await open(page, { save: [] });
     await page.waitForTimeout(1500);
     await same(page, 'map-angled.png', 0.03);
@@ -125,14 +125,10 @@ test.describe('game', () => {
     await same(page, 'map-zenith.png', 0.03);
     await page.keyboard.press('v');
     await expect.poll(() => page.evaluate(() => window.trv!.cam.settings.zenith)).toBe(false);
-    // The chase view, from a dashboard's button: a wider lens; V brings the map back.
-    await page.locator('.chasebtn').first().click();
-    await expect.poll(() => page.evaluate(() => window.trv!.cam.chase)).not.toBeNull();
-    expect(await page.evaluate(() => window.trv!.camera.fov)).toBeGreaterThan(40);
-    await page.waitForTimeout(1500);
-    await same(page, 'chase.png', 0.04);
-    await page.keyboard.press('v');
-    await expect.poll(() => page.evaluate(() => window.trv!.cam.chase)).toBeNull();
+    // The chase view is switched off for now (presentation_base.json, chase.enabled): no button, no view.
+    await expect(page.locator('.chasebtn')).toHaveCount(0);
+    await page.evaluate(() => (window as unknown as { __fx: { chase(id: string): void } }).__fx.chase('p0S'));
+    expect(await page.evaluate(() => window.trv!.cam.chase)).toBeNull();
     expect(await page.evaluate(() => window.trv!.camera.fov)).toBe(30);
     expect(errors).toEqual([]);
   });

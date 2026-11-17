@@ -77,7 +77,11 @@ addEventListener('pointermove', e => {
     cardDrag.moved = true;
     const src = document.querySelector<HTMLElement>(`#hand [data-up="${cardDrag.id}"]`);
     if (src) {
-      cardDrag.el = src.cloneNode(true) as HTMLElement;
+      // A fresh drawing, not a clone: a clone repeats the SVG ids (clip paths, masks, filters), and
+      // the copies would point at the hidden card's definitions, drawing the flying card see-through.
+      const holder = document.createElement('div');
+      holder.innerHTML = cardHtml(cardDrag.id, src.style.getPropertyValue('--c'));
+      cardDrag.el = holder.firstElementChild as HTMLElement;
       cardDrag.el.classList.add('flying');
       document.body.appendChild(cardDrag.el);
       src.style.visibility = 'hidden';

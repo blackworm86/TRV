@@ -82,12 +82,27 @@ for (const [kind, raw] of Object.entries(ownerDiceRaw)) if (raw) ownerDice.set(k
 // The owner's drawing of the damage token outline, front and back (./damage.ts): it wins too.
 const damageRaw = Object.values(import.meta.glob<string>('/assets/base/segnalini/danno/template.svg', { eager: true, query: '?raw', import: 'default' }))[0];
 const ownerDamage = damageRaw ? cutOwnerDamage(damageRaw) : null;
+// The command token (Choppe Shoppe): a draft drawing, 100 x 100, with no ids (it is nested many times).
+const commandTokenRaw = Object.values(import.meta.glob<string>('/assets/choppe_shoppe/segnalini/comando/token.svg', { eager: true, query: '?raw', import: 'default' }))[0] ?? '';
+const commandTokenInner = /<svg[^>]*>([\s\S]*)<\/svg>/.exec(commandTokenRaw)?.[1].replace(/<!--[\s\S]*?-->/g, '').trim()
+  ?? '<circle cx="50" cy="50" r="44" fill="#ece5d3"/><text x="50" y="66" font-size="48" text-anchor="middle" fill="#1c2242">★</text>';
+/**
+ * The command token (assets/choppe_shoppe/segnalini/comando/token.svg, a draft), 100 x 100.
+ * Example: `commandTokenSvg('class="ctok"')`.
+ */
+export function commandTokenSvg(extra = ''): string {
+  return svg(100, 100, commandTokenInner, extra);
+}
+/** The command token placed in another drawing: centred on (cx, cy), `size` units wide. */
+export function commandTokenAt(cx: number, cy: number, size: number): string {
+  return `<svg x="${(cx - size / 2).toFixed(2)}" y="${(cy - size / 2).toFixed(2)}" width="${size}" height="${size}" viewBox="0 0 100 100" overflow="visible">${commandTokenInner}</svg>`;
+}
 /** True when the boards come from the owner's drawing. */
 export const USER_BOARDS = !!boardsRaw;
 let userBoards: ReturnType<typeof makeBoards> | null | undefined;
 function boards(): ReturnType<typeof makeBoards> | null {
   if (userBoards === undefined) {
-    userBoards = USER_BOARDS ? makeBoards(boardsRaw, { dieSvg, damageTokenSvg: (t, up) => damageTokenSvg(t, up), onFireTokenSvg: () => onFireTokenSvg(), inkOn, font: FONT }, leaderBoardRaw) : null;
+    userBoards = USER_BOARDS ? makeBoards(boardsRaw, { dieSvg, damageTokenSvg: (t, up) => damageTokenSvg(t, up), onFireTokenSvg: () => onFireTokenSvg(), commandToken: commandTokenAt, inkOn, font: FONT }, leaderBoardRaw) : null;
   }
   return userBoards;
 }

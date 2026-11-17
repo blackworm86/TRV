@@ -35,6 +35,10 @@
       "source": "Character Boards.docx: volto di ogni capisquadra, quadrato 512 px (tools/art/save_leader_avatars.py), per la nuova interfaccia.",
       "official": "assets/choppe_shoppe/avatar_personaggi/{id}.png"
     },
+    "comando": {
+      "game": "choppe_shoppe", "type": "segnalini", "status": "bozza",
+      "source": "Bozza disegnata a mano (assets/choppe_shoppe/segnalini/comando/token.svg) dalla foto dei 15 segnalini comando: tessera crema dai bordi ondulati con la stella blu. Da sostituire col disegno definitivo."
+    },
     "potenziamenti": {
       "game": "choppe_shoppe", "type": "carte", "status": "ricalcato",
       "source": "Carta digitale (src/view/cards.ts): illustrazione e pittogrammi ufficiali ritagliati da TRV v2.pdf (tools/art/save_card_art.py), pannello nero ridisegnato, testo italiano da data/trv/cards_it.json. La carta ufficiale intera è l'asset scaricabile.",

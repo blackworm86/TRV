@@ -42,6 +42,8 @@ export interface Shot { t0: number; pos: (now: number) => THREE.Vector3; look: (
 export const shotCam = { pos: new THREE.Vector3(), look: new THREE.Vector3() };
 /** The player's view to go back to (map view), and the way back once the action is over. */
 export let actionSince = 0;
+/** The beat the current shot was made for (null with no shot). */
+export let shotFor: Frame['kind'] | null = null;
 
 /** The map view's camera for a target and a distance (as tiltView places it). */
 export function homePose(target: THREE.Vector3, d: number): THREE.Vector3 {
@@ -74,6 +76,7 @@ export function actionShot(at: THREE.Vector3): void {
 }
 /** The action is over: the view goes back to the player's (the chase view takes itself back). */
 export function actionDone(): void {
+  shotFor = null;
   if (!S.shot) return;
   S.shotBack = { t0: performance.now() / 1000, from: { pos: shotCam.pos.clone(), look: shotCam.look.clone() } };
   S.shot = null;
@@ -85,6 +88,7 @@ export function directBeat(f: Frame): void {
   const car = f.vehicleId ? carObjs.get(f.vehicleId) : undefined; // kept: a destroyed car leaves carObjs
   const at = f.at ? world(f.at) : car?.position.clone();
   if (!at) return;
+  shotFor = f.kind;
   const V = (x: number, y: number, z: number): THREE.Vector3 => new THREE.Vector3(x * S, y * S, z * S);
   const carAt = (): THREE.Vector3 => (car ? car.position.clone() : at.clone());
   switch (f.kind) {

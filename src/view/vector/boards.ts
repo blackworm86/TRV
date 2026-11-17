@@ -13,6 +13,8 @@ export interface BoardBase {
   damageTokenSvg(type: string | null, faceUp: boolean): string;
   /** The ON FIRE! token (Carnage at Devil's Run), 120 x 120. */
   onFireTokenSvg(): string;
+  /** A command token centred on (cx, cy), `size` units wide. */
+  commandToken(cx: number, cy: number, size: number): string;
   inkOn(hex: string): string;
   /** The font-family attribute of the interface's display font. */
   font: string;
@@ -241,6 +243,16 @@ export function makeBoards(raw: string, base: BoardBase, leaderRaw?: string): {
     return svg(`0 0 ${SPAN.cmd[1]} ${CMD_H}`, cmdBody(c), `style="aspect-ratio:${SPAN.cmd[1]}/${CMD_H}" ${extra}`);
   }
 
+  /** Width of a row of `n` command tokens `size` wide. */
+  function rowWidth(n: number, size: number): number { return n * size + (n - 1) * size * 0.12; }
+  /** The command tokens left to a player, in a row centred on (cx, cy). */
+  function tokenRow(n: number, cx: number, cy: number, size: number): string {
+    let b = '';
+    const x0 = cx - rowWidth(n, size) / 2 + size / 2;
+    for (let i = 0; i < n; i++) b += base.commandToken(x0 + i * size * 1.12, cy, size);
+    return b;
+  }
+
   /** The command board in the drawing's own coordinates (see commandBoardSvg). */
   function cmdBody(c: CommandBoardArt): string {
     const els = of('cmd');
@@ -288,7 +300,7 @@ export function makeBoards(raw: string, base: BoardBase, leaderRaw?: string): {
     if (head) {
       // The head alone: the power is written beside it by the interface; here, the command tokens left.
       b += text('SEGNALINI', 34, 44, 15, METAL, 'start', 'letter-spacing="1"') + text('COMANDO', 34, 60, 15, METAL, 'start', 'letter-spacing="1"');
-      b += L.tokens ? text('★'.repeat(L.tokens), 34, 96, 30, '#f6c46a') : text('—', 34, 96, 30, METAL);
+      b += L.tokens ? tokenRow(L.tokens, 34 + rowWidth(L.tokens, 28) / 2, 86, 28) : text('—', 34, 96, 30, METAL);
     } else {
       // In the dark space left of the portrait (x 30-126): the name of the power, then what it does.
       const title = wrap(L.power.toUpperCase(), 12);
@@ -301,7 +313,7 @@ export function makeBoards(raw: string, base: BoardBase, leaderRaw?: string): {
     b += text(L.title.toUpperCase(), LEAD_W / 2, 258, 14, METAL, 'middle', 'letter-spacing="1"');
     if (head) return `<g>${b}</g>`;
     b += commandsPart(c, { corner, midX, midY, panel: LEAD_PANEL, yTop: 70 + LEAD_DY, yBottom: 153 + LEAD_DY }, ink);
-    b += text(c.caption ?? (L.tokens ? `${'★'.repeat(L.tokens)}` : 'NESSUN SEGNALINO'), LEAD_W / 2, 503.5, 12, DARK, 'middle');
+    b += c.caption !== undefined || !L.tokens ? text(c.caption ?? 'NESSUN SEGNALINO', LEAD_W / 2, 503.5, 12, DARK, 'middle') : tokenRow(L.tokens, LEAD_W / 2, 499, 16);
     return `<g>${b}</g>`;
   }
 
@@ -334,7 +346,7 @@ export function makeBoards(raw: string, base: BoardBase, leaderRaw?: string): {
       b += `<path d="${diamond(sx, sy, r)}" fill="${hot ? '#1f5a30' : DARK}" stroke="${hot ? HOT : LINE}" stroke-width="${hot ? 3 : 1}" stroke-linejoin="round" data-drop="cmd:${k.cmd}"/>`;
       if (active) b += die(sx, sy, r * 0.95, c.used!.value, c.color);
       // A command token: a cream disc with a star, in the die space.
-      else if (token) b += `<circle cx="${sx}" cy="${sy}" r="${r * 0.62}" fill="${CREAM}" stroke="${DARK}" stroke-width="2"/>` + text('★', sx, sy + 6.5, 19, DARK, 'middle');
+      else if (token) b += base.commandToken(sx, sy, r * 1.35);
       else b += text(k.slot, sx, sy + 5.5, 16, CREAM, 'middle', `opacity="${dim ? 0.35 : 1}"`);
     }
     return b;
@@ -351,7 +363,8 @@ export function makeBoards(raw: string, base: BoardBase, leaderRaw?: string): {
     // room for the tab with the leader's power to be pulled out; boards and dashboards as always.
     const x = c.leader ? -LEAD_PANEL_W : 0, y = c.leader ? -LEAD_NAME_H : 0, w = DRAW_W - x, h = STRIP_BOX.h - y;
     const board = c.leader
-      ? leaderTab(c) + leaderName(c) + cmdBody({ ...c, caption: c.caption ?? (c.leader.tokens ? '★'.repeat(c.leader.tokens) : 'NESSUN SEGNALINO') })
+      ? leaderTab(c) + leaderName(c) + cmdBody({ ...c, caption: c.caption ?? (c.leader.tokens ? '' : 'NESSUN SEGNALINO') })
+        + (c.caption === undefined && c.leader.tokens ? tokenRow(c.leader.tokens, (SPAN.cmd[0] + SPAN.cmd[1]) / 2, 244, 22) : '')
       : cmdBody(c);
     return svg(`${x} ${y} ${w} ${h}`, board + order.map(dashBody).join(''), `style="aspect-ratio:${w}/${h}" ${extra}`);
   }

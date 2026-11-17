@@ -34,8 +34,8 @@
     "lift": 0.2
   },
   "chase": {
-    "_module": "chase.ts: the view from behind a car (fov in degrees, lift a share of the window's height, follow per second)",
-    "fov": 50, "back": 2.2, "up": 0.85, "pitch": 0.2, "lift": 0.06, "follow": 4
+    "_module": "chase.ts: the view from behind a car (fov in degrees, lift a share of the window's height, follow per second); enabled false hides it (user, 2026-11-17: to be reworked)",
+    "enabled": false, "fov": 50, "back": 2.2, "up": 0.85, "pitch": 0.2, "lift": 0.06, "follow": 4
   },
   "chase_dice": {
     "_module": "tableDice.ts: the dice lying by the car in the chase view (every in seconds, slide per second)",
