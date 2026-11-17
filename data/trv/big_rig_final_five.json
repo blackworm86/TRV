@@ -1,0 +1,132 @@
+{
+  "_note": "Thunder Road: Vendetta, Part 2: The Big Rig and the Final Five. Transcribed from the official rulebook supplied by the user (TRV-BRaFF_Rulebook.pdf, 8 pages: p2 introduction, p3 parts list, setup and minor damage, p4 the Big Rig's turn, p5 its interaction rules, damage and slams, p6 the section board, p7 the Final Five). Values marked null are NOT in the rulebook and must come from the user (component scans or confirmation). Section ids, command ids and marking ids are this file's own names.",
+  "_missing": [
+    "big_rig.dice.faces: the faces of the 4 custom Big Rig movement dice (the rulebook only shows red dice with pips; the print-and-play guide in Big Rig.docx maps a d6 roll of 1-3 to 1, 4-5 to 2, 6 to 3, i.e. faces 1, 1, 1, 2, 2, 3)",
+    "final_five.dice.faces: the faces of the 6 Final Five movement dice (yellow dice with pips in the parts list: a standard 1-6 die?)",
+    "final_five.motorcycles: which marking goes with which dashboard position, and their names (scans of the 5 dashboards: two lines, X, V, circle, wavy line)",
+    "off_road_tokens.art: the 8 off-road terrain tokens are not in the print-and-play files"
+  ],
+  "crew_choice": {
+    "_page": 3,
+    "either_is_a_crew": true,
+    "no_choppe_shoppe": "The Big Rig and the Final Five cannot use crew leaders or car upgrades (Choppe Shoppe), but can play in the same game as crews using them."
+  },
+  "minor_damage": {
+    "_page": 3,
+    "tokens_in_box": 15,
+    "effect": "none: it only fills a damage slot; repaired like other damage",
+    "when_out": "use a face-down damage token with no effect",
+    "missile_launcher_on_cars": "a car hit by the Missile Launcher places a minor damage token below its dashboard instead of a damage token"
+  },
+  "off_road_tokens": { "_page": 3, "count": 8, "art": null },
+  "big_rig": {
+    "_pages": [3, 4, 5, 6],
+    "figure_parts": ["rear", "mid", "front"],
+    "minor_damage_tokens": 10,
+    "chopper": 1,
+    "dice": { "count": 4, "color": "red", "faces": null, "_pnp_guide": [1, 1, 1, 2, 2, 3] },
+    "front_cab": {
+      "command": "hydraulic_steering",
+      "slot": "any",
+      "_rule": "On the first turn of each round, before the section die, assign one movement die here: its value is how many times this round the Big Rig may move front left or front right; each lane change lowers it by one (p4)."
+    },
+    "sections": {
+      "rear": [
+        { "id": "hazard_dispenser", "slot": "any", "when": "after_move", "targetable": true },
+        { "id": "repair", "slot": [3], "when": "before_move", "targetable": false },
+        { "id": "targeting_computer", "slot": "any", "when": "shoot", "targetable": true }
+      ],
+      "mid": [
+        { "id": "traction_drive", "slot": "any", "when": "move", "targetable": true },
+        { "id": "repair", "slot": [3], "when": "before_move", "targetable": false },
+        { "id": "airstrike", "slot": "any", "when": "command", "targetable": true }
+      ],
+      "front": [
+        { "id": "missile_launcher", "slot": "any", "when": "after_move", "targetable": true },
+        { "id": "repair", "slot": [3], "when": "before_move", "targetable": false },
+        { "id": "cow_catcher", "slot": "any", "when": "move", "targetable": true }
+      ]
+    },
+    "turn": {
+      "_page": 4,
+      "one_die_per_section_per_round": true,
+      "damaged_command_only_moves": true,
+      "moves_like_a_train": true,
+      "straight_unless_steering": true,
+      "road_die_only_with": "traction_drive",
+      "rear_arc": ["BL", "B", "BR"],
+      "shoot_from": ["front_arc", "rear_arc"]
+    },
+    "interaction": {
+      "_page": 5,
+      "massive": "On the road tile of its front section; only the spaces the front section enters count (terrain costs, hazards).",
+      "sturdy": "Never moved or stopped by an effect: instead one minor damage on a command of its owner's choice, and that space becomes off-road (an off-road token replaces any token there); it keeps moving.",
+      "dependable": "Entering an impassable space does not eliminate it: one minor damage, the space becomes off-road, it keeps moving.",
+      "solid": "Ending a turn with any section on a chopper: one minor damage, the chopper goes back to its owner.",
+      "fire": "Carnage at Devil's Run: never catches fire; entering a fire space gives one minor damage and the space becomes off-road."
+    },
+    "damage": {
+      "_page": 5,
+      "hit_on_chosen_command": "The shooter picks a targetable, undamaged command of the section in its front arc before rolling; a hit covers it with a minor damage token.",
+      "other_damage": "its owner chooses the command",
+      "section_is_large_vehicle_when_shot": true,
+      "eliminated_at": 6,
+      "dumped_only_if_all_sections_on_rear_tile": true,
+      "on_elimination": "its player is out; the finish line is added at once (the lead tile becomes the final tile)"
+    },
+    "slam": {
+      "_page": 5,
+      "stack_on_section": true,
+      "direction_die_only": true,
+      "other_vehicle_moves": true,
+      "no_rerolls": true
+    },
+    "shooting": {
+      "_page": 5,
+      "damaged_cars": "draw a damage token",
+      "damaged_motorcycles": "take a minor damage token",
+      "missile_launcher_is_not_shooting": true
+    },
+    "commands": {
+      "_page": 6,
+      "hazard_dispenser": "After moving, you may take a random token from the hazard pile and place it face down, unseen, in an empty space of the rear arc.",
+      "repair": "Before moving, remove one damage token from this section.",
+      "targeting_computer": "You may reroll your shooting attack this turn.",
+      "traction_drive": "You may use the road die this turn (whatever spaces the Big Rig moves on).",
+      "airstrike": "As the base game's Airstrike: place your chopper on an empty space and shoot with it.",
+      "missile_launcher": "After moving, roll the shooting die: each road vehicle on or adjacent to the space two spaces in front of you takes one minor damage if hit by the roll.",
+      "cow_catcher": "The first time you enter a space with another car or motorcycle, its controller moves it to the front left or front right; a wreck, you choose the space."
+    }
+  },
+  "final_five": {
+    "_pages": [3, 7],
+    "motorcycles": 5,
+    "size": "S",
+    "markings": ["two_lines", "x", "v", "circle", "wave"],
+    "minor_damage_tokens": 5,
+    "chopper": 1,
+    "dice": { "count": 6, "color": "yellow", "faces": null },
+    "command_board": [
+      { "id": "airstrike", "slot": "any" },
+      { "id": "nitro", "slot": [1, 2] },
+      { "id": "repair", "slot": [6] }
+    ],
+    "turn": {
+      "_page": 7,
+      "dice_per_turn": 2,
+      "once_per_round_one_die_to_a_command": true,
+      "move_and_shoot_one_then_the_other": true,
+      "coast_max": 4
+    },
+    "drift_through_all_vehicles": true,
+    "slam": {
+      "side_by_side_not_stacked": true,
+      "direction_die_only": true,
+      "motorcycle_moves": true,
+      "no_rerolls": true,
+      "two_of_yours_you_choose": true
+    },
+    "damage": "a damaged motorcycle takes a minor damage token and becomes inoperable: it turns to face backward and its dashboard flips; Repair makes it operable again",
+    "fire": "Carnage at Devil's Run: never draws an ON FIRE! damage token, can still catch fire from terrain or effects"
+  }
+}

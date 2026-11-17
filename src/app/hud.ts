@@ -7,14 +7,14 @@ import { dieSvg, hazardTokenSvg, commandTokenSvg, dashboardSvg, commandBoardSvg,
 import { FX_ASK } from './beats';
 import { chase, chaseButtons } from './chase';
 import { drawDock } from './dock';
-import { choose, decision, g, hotZones, mySeat, pending, viewer, zoneOption } from './game';
+import { choose, decision, g, hotZones, mySeat, pending, undo, viewer, zoneOption } from './game';
 import { assignCard, cardHtml, drawHand, selCard } from './hand';
 import { CMD_LINES, ONGOING_INFO, PORTRAITS, POWER_INFO, UPGRADE_INFO, boardCommands, slotText, upgradeName } from './info';
 import { fit } from './mapView';
 import { drawMarkers } from './markers';
 import { syncFxSupply } from './rolls';
 import { S } from './state';
-import { syncTableDice } from './tableDice';
+import { setDiceOnTable, syncTableDice } from './tableDice';
 import { $, esc } from './util';
 
 export function dieHtml(kind: string, value: number | string, color: string | undefined, cls = '', attrs = ''): string {
@@ -207,6 +207,8 @@ export function drawHud(): void {
     color: me.color, used: me.command,
     drop: d?.kind === 'token' && mine ? d.options.filter(o => o.command).map(o => o.command!) : [...hot].filter(z => z.startsWith('cmd:')).map(z => z.slice(4)),
     tokenOn: Object.entries(me.slots).filter(([, v]) => v === 'token').map(([k]) => k), keepOpen: me.tokens > 0,
+    // Undo on the board (hot seat only): lit when there is a choice to take back.
+    ...(S.net ? {} : { undo: (!S.saved?.choices.length || S.playing ? 'off' : 'on') as 'on' | 'off' }),
     ...(cmds ? { commands: cmds } : {}),
     ...(lead ? { leader: {
       name: lead.name, title: lead.title, power: POWER_INFO[lead.power]?.[0] ?? lead.power, powerText: POWER_INFO[lead.power]?.[1] ?? '',
@@ -233,7 +235,15 @@ export function drawHud(): void {
   if (tall !== document.body.classList.contains('tall')) { document.body.classList.toggle('tall', tall); fit(); }
   drawHand(d);
   // One drawing, laid out as in the rulebook; without the owner's drawing, the boards side by side.
-  $('strip').innerHTML = playerStripSvg(cmdArt, dashArt) ?? `<div class="loose">${commandBoardSvg(cmdArt)}${dashArt.map(a => dashboardSvg(a)).join('')}</div>`;
+  const strip = $('strip');
+  strip.innerHTML = playerStripSvg(cmdArt, dashArt) ?? `<div class="loose">${commandBoardSvg(cmdArt)}${dashArt.map(a => dashboardSvg(a)).join('')}</div>`;
+  // The second strip drawing: the dice are in the drawer behind the board, not on the table; the
+  // leader's tab comes out on a click; Undo is a plate on the board.
+  const strip2 = !!strip.querySelector('[data-strip="2"]');
+  setDiceOnTable(!strip2);
+  strip.classList.toggle('tab-open', S.tabOpen);
+  strip.querySelector('[data-ptab]')?.addEventListener('click', () => { S.tabOpen = !S.tabOpen; strip.classList.toggle('tab-open', S.tabOpen); });
+  strip.querySelector('[data-undo]')?.addEventListener('click', e => { if (!(e.currentTarget as Element).classList.contains('off')) undo(); });
 
   // Clicks on boards: drop the selected die, or pick a car to repair.
   for (const el of document.querySelectorAll<SVGElement>('#bottom [data-drop]')) {
@@ -263,7 +273,7 @@ export function drawHud(): void {
     }
   }
   ($('undo2') as HTMLButtonElement).disabled = !!S.net || !S.saved?.choices.length || S.playing;
-  drawDock(d, !!mine);
+  drawDock(d, !!mine, me);
   ($('roomopen') as HTMLButtonElement).style.display = S.net ? '' : 'none';
   $('home').classList.toggle('on', !!chase);
   $('home').querySelector('small')!.textContent = chase ? 'Reimposta' : 'Vista';

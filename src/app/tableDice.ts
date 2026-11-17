@@ -34,6 +34,12 @@ export const glowGeo = new THREE.PlaneGeometry(1, 1).rotateX(-Math.PI / 2);
 export let tableDice: TableMyDie[] = [];
 export let tableDiceKey = '';
 export let tableDiceState: { used: boolean[]; idle: boolean[] } = { used: [], idle: [] };
+/**
+ * Whether the player's dice lie on the table in the map view. With the owner's strip drawing they
+ * are in the drawer behind the command board instead (dock.ts); the chase view keeps them by the car.
+ */
+export let diceOnTable = true;
+export function setDiceOnTable(on: boolean): void { diceOnTable = on; }
 
 /** Where die `i` of `n` rests: centred under the road, one die and a half apart. */
 export function tableDieSpot(i: number, n: number): THREE.Vector3 {
@@ -157,7 +163,8 @@ export function animTableDice(now: number, dt = 1 / 60): void {
       mesh.quaternion.copy(t.q);
       scale = chaseScale;
     } else {
-      mesh.visible = true;
+      mesh.visible = diceOnTable;
+      if (!diceOnTable) { t.glow.visible = false; return; }
       mesh.userData.chaseOn = false;
       mesh.position.copy(t.base);
       mesh.quaternion.copy(t.q);
@@ -182,7 +189,7 @@ export function animTableDice(now: number, dt = 1 / 60): void {
 
 /** The index of the player's die under the pointer, or -1. */
 export function tableDieAt(e: PointerEvent): number {
-  if (!tableDice.length) return -1;
+  if (!tableDice.length || (!diceOnTable && !chase)) return -1;
   const rect = renderer.domElement.getBoundingClientRect();
   pointer.set(((e.clientX - rect.left) / rect.width) * 2 - 1, -((e.clientY - rect.top) / rect.height) * 2 + 1);
   ray.setFromCamera(pointer, camera);
@@ -206,7 +213,7 @@ export function fxDiceRect(): { left: number; right: number; top: number; bottom
 }
 
 export function tableDiceRect(): { left: number; right: number; top: number; bottom: number } | null {
-  if (!tableDice.length) return null;
+  if (!tableDice.length || (!diceOnTable && !chase)) return null;
   const rect = renderer.domElement.getBoundingClientRect();
   const half = DIE_W * TRAY_SCALE * 0.6;
   let l = Infinity, r = -Infinity, t = Infinity, b = -Infinity;

@@ -44,7 +44,7 @@ function watchErrors(page: Page): string[] {
  * Opens the game. `save` puts a hot seat game in storage first (the page resumes it), with the
  * given choices already made; `settings` sets the display options.
  */
-async function open(page: Page, opts: { save?: number[]; settings?: object; query?: string } = {}): Promise<string[]> {
+async function open(page: Page, opts: { save?: number[]; settings?: object; query?: string; leaders?: string[] } = {}): Promise<string[]> {
   const errors = watchErrors(page);
   await page.addInitScript(([saveKey, settingsKey, save, settings]) => {
     if (sessionStorage.getItem('trv-test-init')) return; // only on the first load of the test
@@ -52,7 +52,8 @@ async function open(page: Page, opts: { save?: number[]; settings?: object; quer
     localStorage.clear();
     if (save) localStorage.setItem(saveKey as string, JSON.stringify(save));
     localStorage.setItem(settingsKey as string, JSON.stringify(settings));
-  }, [SAVE_KEY, SETTINGS_KEY, opts.save ? { setup: { seed: SEED, players: PLAYERS, startSide: 'a' }, choices: opts.save } : null,
+  }, [SAVE_KEY, SETTINGS_KEY, opts.save ? { setup: { seed: SEED, startSide: 'a',
+    ...(opts.leaders ? { players: PLAYERS.map((p, i) => ({ ...p, leader: opts.leaders![i] })), leaders: true } : { players: PLAYERS }) }, choices: opts.save } : null,
     { quality: 'low', ...opts.settings }] as const);
   await page.goto(GAME + (opts.query ?? ''));
   await expect.poll(() => page.evaluate(() => typeof window.trv?.choose)).toBe('function');
@@ -130,6 +131,37 @@ test.describe('game', () => {
     await page.evaluate(() => (window as unknown as { __fx: { chase(id: string): void } }).__fx.chase('p0S'));
     expect(await page.evaluate(() => window.trv!.cam.chase)).toBeNull();
     expect(await page.evaluate(() => window.trv!.camera.fov)).toBe(30);
+    expect(errors).toEqual([]);
+  });
+
+  test('the owner’s strip: the leader’s tab comes out, a die goes from the drawer to a car, Undo takes it back', async ({ page }) => {
+    // Many pointer steps, each a frame of the 3D table drawn in software (about 2.5 s here).
+    test.setTimeout(240_000);
+    const errors = await open(page, { save: [], leaders: ['betty', 'asha'] });
+    await page.waitForTimeout(1500);
+    const strip = page.locator('#strip');
+    // The tab: at rest only its portrait's edge; a click pulls it out.
+    await expect(strip.locator('svg[data-strip="2"] .ptab')).toHaveCount(1);
+    await strip.locator('[data-ptab]').click({ position: { x: 20, y: 60 } });
+    await expect(strip).toHaveClass(/tab-open/);
+    // The drawer is open with the player's four dice: one is dragged onto the small car's move slot.
+    await expect(page.locator('#cmddock')).toHaveClass(/ask/);
+    await expect(page.locator('#cmddice [data-mydie]')).toHaveCount(4);
+    const die = (await page.locator('#cmddice [data-mydie="0"]').boundingBox())!;
+    const slot = (await strip.locator('[data-drop^="move:"]').first().boundingBox())!;
+    await page.mouse.move(die.x + die.width / 2, die.y + die.height / 2);
+    await page.mouse.down();
+    await page.mouse.move(die.x + 30, die.y - 20);
+    await page.mouse.move(slot.x + slot.width / 2, slot.y + slot.height / 2, { steps: 2 });
+    await page.mouse.up();
+    // The seat whose turn it is (the seed starts with the second player).
+    const seat = await page.evaluate(() => (window.trv!.decision as unknown as { player: number }).player);
+    const used = (): Promise<boolean> => page.evaluate(s => (window.trv!.game as unknown as { players: { used: boolean[] }[] }).players[s].used[0], seat);
+    await expect.poll(used).toBe(true);
+    // Undo, on its plate on the board.
+    await expect(strip.locator('.undoplate')).not.toHaveClass(/off/);
+    await strip.locator('[data-undo]').click();
+    await expect.poll(used).toBe(false);
     expect(errors).toEqual([]);
   });
 

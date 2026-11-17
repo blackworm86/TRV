@@ -15,6 +15,8 @@ export interface BoardBase {
   onFireTokenSvg(): string;
   /** A command token centred on (cx, cy), `size` units wide. */
   commandToken(cx: number, cy: number, size: number): string;
+  /** A command's icon centred on (cx, cy), `size` units wide, in `color` ('' when it has none). */
+  commandIcon(cmd: string, cx: number, cy: number, size: number, color: string): string;
   inkOn(hex: string): string;
   /** The font-family attribute of the interface's display font. */
   font: string;
@@ -70,6 +72,104 @@ const LEAD_HEAD_H = 272;
 export const STRIP_BOX_TALL = { x: 0, y: -LEAD_DY, w: DRAW_W, h: STRIP_BOX.h + LEAD_DY };
 /** The command board's coloured panel: left, top, right, bottom. */
 const PANEL = [42.5, 42.5, 248.4, 217.8];
+
+/**
+ * The player strip of the owner's second drawing (assets/base/plance/plancia_striscia.svg, sent by
+ * the user on 2026-11-17): the same three dashboards, moved by STRIP_SHIFT, beside a new command
+ * board (narrower, its cross with four equal arms), with a pull-out tab on its left for the crew
+ * leader's portrait and power, an Undo plate at the top of the board, the command tokens heaped at
+ * its foot and a drawer behind its top edge for the player's dice (the page's #cmddock). The command
+ * board is read from that drawing and moved back by STRIP_SHIFT, so it meets the first drawing's
+ * dashboards exactly.
+ */
+const STRIP_SHIFT = { x: -18.45, y: -24.97 };
+/**
+ * The dice drawer behind the board's top edge (the page's #cmddock, placed by dock.ts), in the
+ * strip's units: the board's top edge, the drawer's middle and width, and how much of it shows above
+ * the board when closed (the drawing's drawer, moved by STRIP_SHIFT).
+ */
+export const DRAWER = { edge: 38.8 - 24.97, mid: 179.05 - 18.45, w: 146.3, peek: 20 };
+/** How far the power tab slides out to the left (CSS `#strip.tab-open .ptab`); the rest stays under the board. */
+export const TAB_PULL = 166;
+/** The strip's left edge with a crew leader: room for the tab pulled out. */
+const TAB_LEFT = -175;
+/** The strip's left edge without a crew leader: just left of the command board. */
+const STRIP_LEFT = 30;
+/** The die slots of the corners, as in the first drawing (40.14-unit squares turned 45°). */
+const SLOT = 40.14;
+/** The tab's grey and its shape in the second drawing's units: the drawing's tab, 6 units longer so the power's text fits beside a narrower portrait (mockup approved 2026-11-17). */
+const TAB_GREY = '#c9c8c2';
+const TAB_PATH = 'M280,76.1 L272,68 c-0.9-0.9-2.2-1.5-3.5-1.5 H27.9 c-1.3,0-2.6,0.5-3.5,1.5 l-8.1,8.1 c-0.9,0.9-1.5,2.2-1.5,3.5 v151 c0,1.3,0.5,2.6,1.5,3.5 l8.1,8.1 c0.9,0.9,2.2,1.5,3.5,1.5 h242.6 c1.3,0,2.6-0.5,3.5-1.5 l6-6 c0.9-0.9,1.5-2.2,1.5-3.5 V79.6 z';
+/** The portrait's window on the tab: its left 90 units. */
+const TAB_PORTRAIT = { x: 14, y: 66.5, w: 90, h: 177.2 };
+const TAB_PORTRAIT_PATH = 'M27.9,66.5 H104 V243.7 H27.9 c-1.3,0-2.6-0.5-3.5-1.5 l-8.1-8.1 c-0.9-0.9-1.5-2.2-1.5-3.5 v-151 c0-1.3,0.5-2.6,1.5-3.5 l8.1-8.1 c0.9-0.9,2.2-1.5,3.5-1.5 z';
+/** The Undo plate: the COMANDI plate turned up, in the dark band above the coloured panel. */
+const UNDO_PLATE = '141.8,48.5 149.7,40.6 208.4,40.6 216.3,48.5 208.4,56.4 149.7,56.4';
+/** Command tokens heaped at the board's foot, over the left end of the COMANDI plate: centre, turn (degrees), in the second drawing's units. */
+const TOKEN_HEAP: [number, number, number][] = [[146, 263, -14], [157, 255, 9], [168, 262, -5], [151, 249, 16], [163, 246, -9]];
+const HEAP_SIZE = 28;
+
+/** The command board of the second drawing, in that drawing's units (see parseStrip). */
+interface StripBoard {
+  board: string; orange: string; plaque: string;
+  /** The two arms of the cross, as attributes of a <line>. */
+  cross: string[];
+  /** The centres of the four die slots: top left, top right, bottom left, bottom right. */
+  slots: [number, number][];
+  /** The cross's centre and the length of an arm: a command's sector is the square on two arms. */
+  mid: [number, number]; arm: number;
+  /** The coloured panel's box: left, top, right, bottom. */
+  panel: number[];
+}
+
+/** The end points of a path's segments (M, L, H, V, C and their relative forms, Z): enough for the box of a shape. */
+export function pathPoints(d: string): [number, number][] {
+  const out: [number, number][] = [];
+  let x = 0, y = 0, sx = 0, sy = 0;
+  for (const m of d.matchAll(/([MLHVCZmlhvcz])([^MLHVCZmlhvcz]*)/g)) {
+    const n = (m[2].match(/-?(?:\d+\.?\d*|\.\d+)(?:e-?\d+)?/g) ?? []).map(Number);
+    const rel = m[1] === m[1].toLowerCase();
+    const step = { m: 2, l: 2, h: 1, v: 1, c: 6, z: 0 }[m[1].toLowerCase() as 'm']!;
+    if (!step) { x = sx; y = sy; out.push([x, y]); continue; }
+    for (let i = 0; i + step <= n.length; i += step) {
+      const k = m[1].toLowerCase();
+      if (k === 'h') x = rel ? x + n[i] : n[i];
+      else if (k === 'v') y = rel ? y + n[i] : n[i];
+      else { const ex = n[i + step - 2], ey = n[i + step - 1]; x = rel ? x + ex : ex; y = rel ? y + ey : ey; }
+      if (k === 'm' && i === 0) { sx = x; sy = y; }
+      out.push([x, y]);
+    }
+  }
+  return out;
+}
+const boxOf = (pts: [number, number][]): number[] => [Math.min(...pts.map(p => p[0])), Math.min(...pts.map(p => p[1])), Math.max(...pts.map(p => p[0])), Math.max(...pts.map(p => p[1]))];
+const polyPoints = (s: string): [number, number][] => {
+  const n = s.trim().split(/[\s,]+/).map(Number);
+  return n.filter((_, i) => i % 2 === 0).map((v, i) => [v, n[i * 2 + 1]]);
+};
+
+/**
+ * Reads the command board out of the second drawing, by the classes of its Illustrator export: the
+ * board (the first `st1` path), its coloured panel (`st2`), the COMANDI plate (`st3`), the cross
+ * (`st4`, two lines) and the four die slots (`st5`). Null when one is missing.
+ */
+export function parseStrip(raw: string): StripBoard | null {
+  const first = (re: RegExp): string | undefined => re.exec(raw)?.[1];
+  const board = first(/<path class="st1" d="([^"]+)"/), orange = first(/<polygon class="st2" points="([^"]+)"/), plaque = first(/<polygon class="st3" points="([^"]+)"/);
+  const cross = [...raw.matchAll(/<line class="st4" ([^/>]*)\/>/g)].slice(0, 2).map(m => m[1].trim());
+  const slots = [...raw.matchAll(/<path class="st5" d="([^"]+)"/g)].slice(0, 4).map(m => {
+    const b = boxOf(pathPoints(m[1]));
+    return [(b[0] + b[2]) / 2, (b[1] + b[3]) / 2] as [number, number];
+  });
+  if (!board || !orange || !plaque || cross.length < 2 || slots.length < 4) return null;
+  const at = (a: string, k: string): number => num(a, k);
+  const across = cross.find(a => at(a, 'y1') === at(a, 'y2')), down = cross.find(a => at(a, 'x1') === at(a, 'x2'));
+  if (!across || !down) return null;
+  const mid: [number, number] = [at(down, 'x1'), at(across, 'y1')];
+  const rank = (p: [number, number]): number => (p[1] > mid[1] ? 2 : 0) + (p[0] > mid[0] ? 1 : 0);
+  slots.sort((p, q) => rank(p) - rank(q));
+  return { board, orange, plaque, cross, slots, mid, arm: Math.abs(at(across, 'x2') - at(across, 'x1')) / 2, panel: boxOf(polyPoints(orange)) };
+}
 
 const num = (attrs: string, name: string): number => Number(new RegExp(`\\b${name}="([-\\d.]+)"`).exec(attrs)?.[1] ?? NaN);
 const inner = (s: string): string => s.replace(/^<svg[^>]*>|<\/svg>$/g, '');
@@ -136,7 +236,7 @@ const COMMANDS: { cmd: string; name: string; dice: string; slot: string; lines: 
  * Builds the two board drawings from the owner's SVG text.
  * Example: `const b = makeBoards(rawSvg, { dieSvg, damageTokenSvg, inkOn, font })`.
  */
-export function makeBoards(raw: string, base: BoardBase, leaderRaw?: string): {
+export function makeBoards(raw: string, base: BoardBase, leaderRaw?: string, stripRaw?: string): {
   dashboardSvg(d: DashboardArt, extra?: string): string;
   commandBoardSvg(c: CommandBoardArt, extra?: string): string;
   stripSvg(c: CommandBoardArt, dashes: DashboardArt[], extra?: string): string;
@@ -147,8 +247,11 @@ export function makeBoards(raw: string, base: BoardBase, leaderRaw?: string): {
   leaderHeadSvg(c: CommandBoardArt, extra?: string): string | null;
   /** True when the crew leader drawing is there: a board with `leader` makes the strip tall. */
   hasLeaderBoard: boolean;
+  /** The strip's frame (its viewBox), with or without a crew leader. */
+  stripFrame(leader: boolean): { x: number; y: number; w: number; h: number };
 } {
   const all = parse(raw);
+  const strip = stripRaw ? parseStrip(stripRaw) : null;
   const lead = leaderRaw ? parse(leaderRaw) : null;
   const of = (id: BoardId): El[] => all.filter(e => boardOf(e.x) === id);
   const svg = (box: string, body: string, extra: string): string => `<svg xmlns="http://www.w3.org/2000/svg" viewBox="${box}" ${extra}>${body}</svg>`;
@@ -324,7 +427,7 @@ export function makeBoards(raw: string, base: BoardBase, leaderRaw?: string): {
   }
 
   /** The four commands of a board: their writing, drop zones, dice and command tokens. */
-  function commandsPart(c: CommandBoardArt, geo: { corner: El[]; midX: number; midY: number; panel: number[]; yTop: number; yBottom: number }, ink: string): string {
+  function commandsPart(c: CommandBoardArt, geo: { corner: El[]; midX: number; midY: number; panel: number[]; yTop: number; yBottom: number; arm?: number }, ink: string): string {
     const { corner, midX, midY, panel: PANEL } = geo;
     let b = '';
     const list = c.commands?.length === COMMANDS.length
@@ -338,11 +441,24 @@ export function makeBoards(raw: string, base: BoardBase, leaderRaw?: string): {
       const dim = !!c.used && !active && !token && !c.keepOpen;
       // The whole quarter takes the die, not only the diamond.
       const qx = k.left ? PANEL[0] : midX, qy = k.top ? PANEL[1] : midY;
-      b += `<rect x="${qx}" y="${qy}" width="${k.left ? midX - PANEL[0] : PANEL[2] - midX}" height="${k.top ? midY - PANEL[1] : PANEL[3] - midY}" fill="${hot ? HOT : '#000'}" fill-opacity="${hot ? 0.25 : 0}" data-drop="cmd:${k.cmd}"><title>${esc(`${k.name} (${k.dice}): ${k.lines.join(' ')}`)}</title></rect>`;
-      const tx = k.left ? midX - 7 : midX + 7, anchor = k.left ? 'end' : 'start';
-      const y0 = k.top ? geo.yTop : geo.yBottom;
-      b += `<g opacity="${dim ? 0.35 : 1}">${text(k.name, tx, y0, k.name.length > 8 ? 15.5 : 23, ink, anchor)}`
-        + k.lines.map((l, i) => text(l, tx, y0 + 17 + i * 14.5, 13.5, ink, anchor)).join('') + '</g>';
+      const qw = k.left ? midX - PANEL[0] : PANEL[2] - midX, qh = k.top ? midY - PANEL[1] : PANEL[3] - midY;
+      // Name, die and effect go with the quarter, for the pop-up the interface shows on hover (src/app/cmdtip.ts).
+      b += `<rect x="${qx}" y="${qy}" width="${qw}" height="${qh}" fill="${hot ? HOT : '#000'}" fill-opacity="${hot ? 0.25 : 0}" data-drop="cmd:${k.cmd}"`
+        + ` data-cmd-name="${esc(k.name)}" data-cmd-dice="${esc(k.dice)}" data-cmd-text="${esc(k.lines.join(' '))}"/>`;
+      // The command's icon: on the second drawing, centred in its sector, the square built on two
+      // arms of the cross (asked by the user, 2026-11-17), as wide as 91.5% of an arm so the widest
+      // drawing keeps a margin; on the first, in the middle of its quarter, a little toward the
+      // board's centre. The written name and effect when it has none.
+      const icon = geo.arm
+        ? base.commandIcon(k.cmd, midX + (k.left ? -1 : 1) * geo.arm / 2, midY + (k.top ? -1 : 1) * geo.arm / 2, geo.arm * 0.915, ink)
+        : base.commandIcon(k.cmd, qx + qw / 2 + (k.left ? 6 : -6), qy + qh / 2 + (k.top ? 5 : -5), Math.min(qw, qh) * 0.74, ink);
+      if (icon) b += `<g opacity="${dim ? 0.35 : 1}" pointer-events="none">${icon}</g>`;
+      else {
+        const tx = k.left ? midX - 7 : midX + 7, anchor = k.left ? 'end' : 'start';
+        const y0 = k.top ? geo.yTop : geo.yBottom;
+        b += `<g opacity="${dim ? 0.35 : 1}" pointer-events="none">${text(k.name, tx, y0, k.name.length > 8 ? 15.5 : 23, ink, anchor)}`
+          + k.lines.map((l, i) => text(l, tx, y0 + 17 + i * 14.5, 13.5, ink, anchor)).join('') + '</g>';
+      }
       b += `<path d="${diamond(sx, sy, r)}" fill="${hot ? '#1f5a30' : DARK}" stroke="${hot ? HOT : LINE}" stroke-width="${hot ? 3 : 1}" stroke-linejoin="round" data-drop="cmd:${k.cmd}"/>`;
       if (active) b += die(sx, sy, r * 0.95, c.used!.value, c.color);
       // A command token: a cream disc with a star, in the die space.
@@ -359,6 +475,13 @@ export function makeBoards(raw: string, base: BoardBase, leaderRaw?: string): {
   function stripSvg(c: CommandBoardArt, dashes: DashboardArt[], extra = ''): string {
     // The medium dashboard's side points lie over its neighbours, as in the drawing's layer order.
     const order = [...dashes].sort((a, b) => 'SLM'.indexOf(a.size) - 'SLM'.indexOf(b.size));
+    if (strip) {
+      // The second drawing: the tab under the board, the board, the dashboards over its right edge.
+      const f = stripFrame(!!c.leader), { x: dx, y: dy } = STRIP_SHIFT;
+      const defs = '<defs><filter id="tokshadow" x="-30%" y="-30%" width="160%" height="160%"><feDropShadow dx="0.6" dy="1.2" stdDeviation="0.9" flood-opacity=".55"/></filter></defs>';
+      const tab = c.leader ? `<g transform="translate(${dx} ${dy})">${powerTab(c)}</g>` : '';
+      return svg(`${f.x} ${f.y} ${f.w} ${f.h}`, defs + tab + stripBoard(c) + order.map(dashBody).join(''), `data-strip="2" style="aspect-ratio:${f.w}/${f.h}" ${extra}`);
+    }
     // With a crew leader the strip has the leader's name above the command board and, on its left,
     // room for the tab with the leader's power to be pulled out; boards and dashboards as always.
     const x = c.leader ? -LEAD_PANEL_W : 0, y = c.leader ? -LEAD_NAME_H : 0, w = DRAW_W - x, h = STRIP_BOX.h - y;
@@ -367,6 +490,66 @@ export function makeBoards(raw: string, base: BoardBase, leaderRaw?: string): {
         + (c.caption === undefined && c.leader.tokens ? tokenRow(c.leader.tokens, (SPAN.cmd[0] + SPAN.cmd[1]) / 2, 244, 22) : '')
       : cmdBody(c);
     return svg(`${x} ${y} ${w} ${h}`, board + order.map(dashBody).join(''), `style="aspect-ratio:${w}/${h}" ${extra}`);
+  }
+
+  /** The strip's frame: the first drawing's, or the second's (room on the left for the tab pulled out). */
+  function stripFrame(leader: boolean): { x: number; y: number; w: number; h: number } {
+    if (!strip) return leader ? { x: -LEAD_PANEL_W, y: -LEAD_NAME_H, w: DRAW_W + LEAD_PANEL_W, h: STRIP_BOX.h + LEAD_NAME_H } : STRIP_BOX;
+    const x = leader ? TAB_LEFT : STRIP_LEFT;
+    return { x, y: 0, w: DRAW_W - x, h: STRIP_BOX.h };
+  }
+
+  /**
+   * The second drawing's command board, in the strip's units: board, panel, cross, the commands,
+   * the COMANDI plate, the Undo plate (when `c.undo` is set) and the command tokens left, heaped.
+   */
+  function stripBoard(c: CommandBoardArt): string {
+    const s = strip!, ink = base.inkOn(c.color), { x: dx, y: dy } = STRIP_SHIFT;
+    const plaque = boxOf(polyPoints(s.plaque));
+    let b = `<path d="${s.board}" fill="${DARK}"/><polygon points="${s.orange}" fill="${c.color}"/>`;
+    b += s.cross.map(a => `<line ${a} stroke="${ink}" stroke-opacity=".35" stroke-width="1"/>`).join('');
+    b += `<polygon points="${s.plaque}" fill="${METAL}"/>` + text(c.caption ?? 'COMANDI', (plaque[0] + plaque[2]) / 2, plaque[3] - 3.7, 12, DARK, 'middle', 'font-style="italic"');
+    if (c.undo) {
+      // Undo, always in view, on a plate like the COMANDI one (asked by the user, 2026-11-17).
+      b += `<g class="undoplate${c.undo === 'off' ? ' off' : ''}" data-undo="1"><title>Annulla l’ultima scelta (Ctrl+Z)</title><polygon points="${UNDO_PLATE}" fill="${METAL}"/>`
+        + `<path d="M159.5,48.6 a3.6,3.6 0 1 1 1.8,3.3 M157.4,46.5 L159.5,49.4 L161.9,46.8" fill="none" stroke="${DARK}" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>`
+        + text('ANNULLA', 185, 52.9, 12, DARK, 'middle', 'font-style="italic"') + '</g>';
+    }
+    const corner: El[] = s.slots.map(([x, y]) => ({ layer: '', tag: 'rect', cls: '', x: x + dx, attrs: `x="${x + dx - SLOT / 2}" y="${y + dy - SLOT / 2}" width="${SLOT}" height="${SLOT}"` }));
+    const panel = s.panel.map((v, i) => v + (i % 2 ? dy : dx));
+    let out = `<g transform="translate(${dx} ${dy})">${b}</g>`;
+    out += commandsPart(c, { corner, midX: s.mid[0] + dx, midY: s.mid[1] + dy, panel, yTop: panel[1] + 27, yBottom: s.mid[1] + dy + 23, arm: s.arm }, ink);
+    // The command tokens left, heaped at the board's foot as a player leaves them (asked by the user, 2026-11-17).
+    const n = c.leader?.tokens ?? 0;
+    let heap = '';
+    for (let i = 0; i < n; i++) {
+      const [x, y, a] = TOKEN_HEAP[i % TOKEN_HEAP.length];
+      const lift = Math.floor(i / TOKEN_HEAP.length) * -6;
+      heap += `<g transform="rotate(${a} ${x} ${y + lift})" filter="url(#tokshadow)">${base.commandToken(x, y + lift, HEAP_SIZE)}</g>`;
+    }
+    if (heap) out += `<g class="tokenheap" transform="translate(${dx} ${dy})" pointer-events="none">${heap}</g>`;
+    return out;
+  }
+
+  /**
+   * The crew leader's tab (second drawing): the portrait on its left, beside it the name, the title,
+   * the power and what it does. At rest only the portrait's left edge shows beside the board; a
+   * click pulls it out by TAB_PULL (CSS `#strip.tab-open .ptab`), its right end always under the
+   * board, so it stays a tab (asked by the user, 2026-11-17). In the second drawing's units.
+   */
+  function powerTab(c: CommandBoardArt): string {
+    const L = c.leader!, P0 = TAB_PORTRAIT;
+    let b = `<path d="${TAB_PATH}" fill="${TAB_GREY}"/>`;
+    b += `<clipPath id="ptab-portrait"><path d="${TAB_PORTRAIT_PATH}"/></clipPath>`;
+    b += L.portrait
+      ? `<image href="${L.portrait}" x="${P0.x}" y="${P0.y}" width="${P0.w}" height="${P0.h}" preserveAspectRatio="xMidYMid slice" clip-path="url(#ptab-portrait)"/>`
+      : `<path d="${TAB_PORTRAIT_PATH}" fill="${c.color}"/>` + text(L.name.charAt(0).toUpperCase(), P0.x + P0.w / 2, P0.y + P0.h / 2 + 22, 64, base.inkOn(c.color), 'middle', 'opacity=".45"');
+    const tx = 110;
+    b += prose(`${L.name} · ${L.title}`.toUpperCase(), tx, 84, 8.5, '#5b5660');
+    const title = wrap(L.power.toUpperCase(), 13);
+    title.forEach((l, i) => { b += text(l, tx, 104 + i * 20, 21, DARK, 'start', 'font-style="italic"'); });
+    wrap(L.powerText, 23).forEach((l, i) => { b += prose(l, tx, 104 + title.length * 20 + 2 + i * 13.5, 10.5, DARK); });
+    return `<g class="ptab" data-ptab="1"><title>${esc(`${L.power}: ${L.powerText}`)}</title>${b}</g>`;
   }
 
   /** The crew leader's name and title on a plate above the command board, its foot behind the board. */
@@ -454,5 +637,5 @@ export function makeBoards(raw: string, base: BoardBase, leaderRaw?: string): {
       + `<g clip-path="url(#${clip})"><g class="upcard" style="--rise:${-rise}px" opacity="${off ? 0.7 : 1}"><title>${esc(`${d.upgrade.name}: ${d.upgrade.text}`)}</title>${b}</g></g>`;
   }
 
-  return { dashboardSvg, commandBoardSvg, stripSvg, leaderHeadSvg, hasLeaderBoard: !!lead };
+  return { dashboardSvg, commandBoardSvg, stripSvg, leaderHeadSvg, hasLeaderBoard: !!lead, stripFrame };
 }

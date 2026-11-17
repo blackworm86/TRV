@@ -38,6 +38,9 @@ export function syncHudDice(now: number): void {
   for (const el of document.querySelectorAll('[data-die3d]')) {
     const r = el.getBoundingClientRect();
     if (r.width < 2 || el.closest('[style*="display: none"]') || el.closest('#roundbox:not(.show)') || el.closest('#rolls:not(.show)')) continue;
+    // A die in the drawer behind the command board shows only once out from behind the board.
+    const behind = el.closest<HTMLElement>('#cmdwrap');
+    if (behind && (!behind.classList.contains('on') || (behind.dataset.edge && r.top + r.height * 0.55 > Number(behind.dataset.edge)))) continue;
     const key = el.getAttribute('data-die3d')!;
     let h = hudDice.get(el);
     if (h && h.key !== key) { hudScene.remove(h.d.mesh); h = undefined; }

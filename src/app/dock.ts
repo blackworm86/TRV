@@ -1,10 +1,12 @@
 // The command dock (the question and its buttons) and the action buttons by the dice.
 
 import * as THREE from 'three';
-import { commandName, type Decision } from '../game/trv/engine';
+import { commandName, type Decision, type Player } from '../game/trv/engine';
+import { dieSvg } from '../view/vector/art';
+import { DRAWER } from '../view/vector/boards';
 import { skipBeats } from './beats';
 import { carObjs } from './board';
-import { choose, g } from './game';
+import { choose, decision, dieUsable, g } from './game';
 import { camera, renderer } from './stage';
 import { S } from './state';
 import { fxDiceRect, tableDiceRect } from './tableDice';
@@ -33,8 +35,27 @@ export function commandLastChance(d: Decision): boolean {
 /** The command drawer is asking "are you sure?" before skipping the command. */
 export let skipConfirm = false;
 
-export function drawDock(d: Decision | null, mine: boolean): void {
+/** The arguments of the last drawDock, to draw it again when the drawer is opened or closed by hand. */
+let last: [Decision | null, boolean, Player | undefined] = [null, false, undefined];
+$('cmdhandle').addEventListener('click', () => {
+  S.drawerPin = { d: decision, open: !$('cmddock').classList.contains('ask') };
+  drawDock(...last);
+});
+
+/**
+ * The drawer behind the command board (the owner's strip drawing, 2026-11-17): the player's dice in
+ * 3D, to drag onto a board or a car, and the command questions. It comes out when there are dice to
+ * play or a command to choose; its handle opens or closes it by hand until the next decision.
+ */
+export function drawDock(d: Decision | null, mine: boolean, me?: Player): void {
+  last = [d, mine, me];
   const dock = $('cmddock'), q = $('cmdq'), row = $('cmdbtns');
+  // The player's dice: the SVG keeps the place and takes the drag, the HUD layer draws the 3D die (hudDice.ts).
+  $('cmddice').innerHTML = me ? me.dice.map((v, i) => {
+    const used = !!me.used[i], can = mine && !used && dieUsable(i), sel = S.selDie === i && !used;
+    const die = dieSvg({ kind: 'movement', value: v, color: me.color, forward: 'right' }, `class="${used ? 'used' : ''} ${sel ? 'sel' : ''}" data-die3d="movement|${v}|${me.color}"`);
+    return `<span class="mydie${used ? ' used' : ''}${can ? ' can' : ''}${sel ? ' sel' : ''}" data-mydie="${i}">${die}</span>`;
+  }).join('') : '';
   row.innerHTML = '';
   q.textContent = '';
   const asking = !!d && mine && (d.kind === 'command' || d.kind === 'token');
@@ -72,9 +93,12 @@ export function drawDock(d: Decision | null, mine: boolean): void {
     }
   }
   if (!asking) skipConfirm = false;
-  dock.classList.toggle('ask', asking);
+  // Open for a command to choose or dice to play; a hand on the handle wins until the next decision.
+  const live = !!me && mine && me.dice.some((_, i) => !me.used[i] && dieUsable(i));
+  if (S.drawerPin && S.drawerPin.d !== d) S.drawerPin = null;
+  dock.classList.toggle('ask', S.drawerPin ? S.drawerPin.open : asking || live);
   ($('undo2') as HTMLElement).style.display = S.net ? 'none' : '';
-  $('cmdwrap').classList.toggle('on', !!g && !menuOpen() && (asking || !S.net));
+  $('cmdwrap').classList.toggle('on', !!g && !menuOpen());
 }
 /** How far the drawer reaches behind the command board's top edge (hidden by the board), in px. */
 export const DOCK_TUCK = 22;
@@ -91,11 +115,25 @@ export function placeDock(): void {
   const top = Math.min(...slots.map(r => r.top));
   const upper = slots.filter(r => r.top < top + 30); // the two corner slots at the top (and the quarters next to them)
   const left = Math.min(...upper.map(r => r.left + r.width / 2)), right = Math.max(...upper.map(r => r.left + r.width / 2));
+  const root = $('strip').querySelector<SVGSVGElement>('svg[data-strip="2"]');
+  if (root) {
+    // The owner's strip drawing: the drawer as drawn, behind the board's top edge.
+    const vb = root.viewBox.baseVal, u = svg.width / vb.width;
+    const edge = svg.top + (DRAWER.edge - vb.y) * u;
+    const width = `${Math.round(DRAWER.w * u)}px`;
+    if (dock.style.width !== width) dock.style.width = width;
+    dock.style.setProperty('--u', u.toFixed(4));
+    wrap.style.left = `${svg.left + (DRAWER.mid - vb.x) * u}px`;
+    wrap.style.bottom = `${innerHeight - edge - DOCK_TUCK}px`;
+    wrap.dataset.edge = String(edge); // the 3D dice show only above it (hudDice.ts)
+    return;
+  }
   const edge = document.body.classList.contains('tall') ? svg.top + 4 : top - 4; // base board: its top edge runs just above the corner slots
   const width = `${Math.round(right - left)}px`;
   if (dock.style.width !== width) dock.style.width = width;
   wrap.style.left = `${(left + right) / 2}px`;
   wrap.style.bottom = `${innerHeight - edge - DOCK_TUCK}px`;
+  delete wrap.dataset.edge;
 }
 
 export function placeActions(): void {

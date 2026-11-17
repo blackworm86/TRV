@@ -30,6 +30,10 @@ export const S = {
   replayFrames: null as Frame[] | null,
   saved: null as Saved | null,
   selDie: null as number | null,
+  /** The crew leader's power tab is pulled out (a click on it). */
+  tabOpen: false,
+  /** The dice drawer opened or closed by hand, for one decision (then it follows the game again). */
+  drawerPin: null as { d: unknown; open: boolean } | null,
   shakeUntil: 0,
   shot: null as Shot | null,
   shotBack: null as { t0: number; from: { pos: THREE.Vector3; look: THREE.Vector3 } } | null,

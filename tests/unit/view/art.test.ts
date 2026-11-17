@@ -3,7 +3,8 @@ import { describe, it, expect } from 'vitest';
 import rules from '../../../data/trv/game_base.json';
 import { ownerDieFaces, OWNER_DIE_ORDER } from '../../../src/view/vector/dice';
 import { ownerDamage } from '../../../src/view/vector/damage';
-import { dieSvg, hazardTokenSvg, damageTokenSvg, dashboardSvg, commandBoardSvg, onFireTokenSvg, commandTokenSvg } from '../../../src/view/vector/art';
+import { dieSvg, hazardTokenSvg, damageTokenSvg, dashboardSvg, commandBoardSvg, onFireTokenSvg, commandTokenSvg, commandIconAt, hasCommandIcon, playerStripSvg } from '../../../src/view/vector/art';
+import { parseStrip, pathPoints } from '../../../src/view/vector/boards';
 
 describe('vector art', () => {
   it('draws every face of every die in the rules', () => {
@@ -95,16 +96,69 @@ describe('vector art', () => {
     // The base game's tokens keep the base back.
     expect(hazardTokenSvg('mud', false)).not.toContain('pericolo/back');
   });
-  it('draws the command token from its draft drawing, and lays it on a command that has one', () => {
+  it('draws the command token from the owner’s drawing, and lays it on a command that has one', () => {
     // Arrange
     const token = commandTokenSvg();
     // Act
     const board = commandBoardSvg({ color: '#ec9230', used: null, tokenOn: ['nitro'] });
-    // Assert: the cream tile with the navy star, nested in the board on the command.
-    expect(token).toContain('#ece5d3');
-    expect(token).toContain('#1c2242');
-    expect(board).toContain('viewBox="0 0 100 100"');
-    expect(commandBoardSvg({ color: '#ec9230', used: null })).not.toContain('viewBox="0 0 100 100"');
+    // Assert: the off-white tile with the navy star (as printed, Choppe Shoppe rulebook p. 3), nested in the board on the command.
+    expect(token).toContain('#efede7');
+    expect(token).toContain('#141528');
+    expect(board).toContain('#efede7');
+    expect(commandBoardSvg({ color: '#ec9230', used: null })).not.toContain('#efede7');
+  });
+  it('shows each command as its icon, with its name, dice and effect kept for the pop-up', () => {
+    // Arrange
+    const ids = ['airstrike', 'nitro', 'drift', 'repair'];
+    // Act
+    const board = commandBoardSvg({ color: '#ec9230', used: null });
+    // Assert: an icon per command (each with masks of its own), the words on the quarter, no written effect.
+    for (const id of ids) expect(hasCommandIcon(id)).toBe(true);
+    expect(board.match(/<mask id="k\d+-/g)?.length).toBeGreaterThanOrEqual(2); // drift and repair cut gaps
+    expect(new Set(board.match(/<mask id="k\d+-[a-z]+"/g)).size).toBe(board.match(/<mask id="k\d+-[a-z]+"/g)!.length);
+    expect(board).toContain('data-cmd-name="NITRO"');
+    expect(board).toContain('data-cmd-text="Aggiungi il dado al movimento dell’auto."');
+    expect(board).not.toContain('>Aggiungi il dado<');
+  });
+  it('has an icon for every crew leader command', () => {
+    for (const id of ['bump', 'pain_transfer', 'need_for_speed', 'called_shot', 'tinker', 'show_time', 'flamethrower']) expect(hasCommandIcon(id)).toBe(true);
+    expect(commandIconAt('nope', 0, 0, 10, '#000')).toBe('');
+  });
+  it('reads the command board out of the owner’s strip drawing: cross, sectors and die slots', () => {
+    // Arrange
+    const raw = readFileSync('assets/base/plance/plancia_striscia.svg', 'utf8');
+    // Act
+    const s = parseStrip(raw)!;
+    // Assert: the cross of four equal arms in the middle of the coloured panel, a slot in each corner.
+    expect(s.mid).toEqual([179.1, 155.1]);
+    expect(s.arm).toBeCloseTo(67.75, 2);
+    expect(s.slots.map(p => p.map(v => Math.round(v)))).toEqual([[94, 70], [264, 70], [94, 240], [264, 240]]);
+    expect(s.panel).toEqual([91.3, 67.5, 266.8, 242.7]);
+  });
+  it('walks a path’s relative and absolute segments to its end points', () => {
+    expect(pathPoints('M10,10 l5,0 v5 H0 c1,1,2,2,3,3 z')).toEqual([[10, 10], [15, 10], [15, 15], [0, 15], [3, 18], [10, 10]]);
+  });
+  it('draws the strip with the leader’s tab, the Undo plate, the heaped tokens and the icons in their sectors', () => {
+    // Arrange
+    const leader = { name: 'Ms. Betty', title: 'The Tinkerer', power: 'Bring the Bling', powerText: 'Tieni una carta in più.', tokens: 2 };
+    const dash = { carId: 'p0S', size: 'S' as const, color: '#ec9230', status: 'ok' as const, placed: [], damage: 0 };
+    // Act
+    const strip = playerStripSvg({ color: '#ec9230', used: null, leader, undo: 'off' }, [dash])!;
+    const plain = playerStripSvg({ color: '#ec9230', used: null }, [dash])!;
+    // Assert
+    expect(strip).toContain('data-strip="2"');
+    expect(strip).toContain('class="ptab"');
+    expect(strip).toContain('BRING THE');
+    expect(strip).toContain('class="undoplate off"');
+    expect(strip.match(/filter="url\(#tokshadow\)"/g)?.length).toBe(2);
+    expect(plain).not.toContain('class="ptab"');
+    expect(plain).not.toContain('undoplate');
+    // The airstrike icon centred in the top-left sector: half an arm left of and above the cross's
+    // centre, moved like the whole board to meet the dashboards (-18.45, -24.97).
+    const cx = 179.1 - 67.75 / 2 - 18.45, cy = 155.1 - 67.75 / 2 - 24.97, size = 67.75 * 0.915;
+    const icon = commandIconAt('airstrike', cx, cy, size, '#000');
+    const at = /<svg x="([-\d.]+)" y="([-\d.]+)"/.exec(icon)!;
+    expect(strip).toContain(`<svg x="${at[1]}" y="${at[2]}"`);
   });
   it('lays the ON FIRE token over the move slot of a burning car', () => {
     const dash = { carId: 'p0S', size: 'S' as const, color: '#ec9230', status: 'ok' as const, placed: [], damage: 0 };

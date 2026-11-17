@@ -63,6 +63,22 @@ test.describe('admin inspector', () => {
     expect(errors).toEqual([]);
   });
 
+  test('the Big Rig and Final Five boards are listed as official pictures, and a dashboard turns in 3D', async ({ page }) => {
+    const errors = watchErrors(page);
+    await page.goto(`${ADMIN}#big_rig/plance`);
+    await expect(page.locator('.grid .item')).toHaveCount(12);
+    await expect.poll(() => page.locator('.grid .item img').evaluateAll(imgs => imgs.every(i => (i as HTMLImageElement).naturalWidth > 0))).toBe(true);
+    await page.screenshot({ path: 'production/qa/evidence/trv-big-rig-asset-2026-11-17/plance.png' });
+    await page.locator('.grid .item', { hasText: 'Cruscotto moto: cerchio' }).click();
+    await expect(page.locator('#d-info')).toContainText('Ufficiale estratto');
+    await expect(page.locator('#d-actions')).toContainText('Scarica asset ufficiale (WEBP)');
+    await page.locator('[data-tab="3d"]').click();
+    await expect(page.locator('#d-big canvas')).toBeVisible();
+    await page.waitForTimeout(800);
+    await page.screenshot({ path: 'production/qa/evidence/trv-big-rig-asset-2026-11-17/cruscotto-3d.png' });
+    expect(errors).toEqual([]);
+  });
+
   test('the detail turns a token in 3D, sets it beside its scan and offers its files', async ({ page }) => {
     const errors = watchErrors(page);
     await page.goto(`${ADMIN}#base/segnalini`);

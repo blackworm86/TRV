@@ -30,6 +30,7 @@ import './hudDice';
 import './quality';
 import './menus';
 import './dock';
+import { commandTips } from './cmdtip';
 import './loop';
 import * as THREE from 'three';
 import { ROWS, COLS, snapshot, terrainAt, type Pos, type Frame } from '../game/trv/engine';
@@ -49,6 +50,7 @@ import { settings } from './settings';
 import { TILE_T, camera, controls, scene, world } from './stage';
 import { S } from './state';
 import { $, SAVE_KEY } from './util';
+commandTips(); // the command board's pop-up: name, dice and effect of the command under the pointer
 
 applyLevel(S.level);
 syncInert();

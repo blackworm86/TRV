@@ -25,6 +25,17 @@ document.addEventListener('pointerdown', e => {
   S.selDie = i;
   drawHud();
 }, true);
+// A die in the drawer behind the command board (dock.ts) is picked up the same way.
+document.addEventListener('pointerdown', e => {
+  const el = (e.target as Element | null)?.closest?.<HTMLElement>('[data-mydie]');
+  if (!el || e.button !== 0) return;
+  const i = Number(el.dataset.mydie);
+  if (!dieUsable(i)) return;
+  e.preventDefault();
+  drag = { die: i, x: e.clientX, y: e.clientY, moved: false };
+  S.selDie = i;
+  drawHud();
+}, true);
 addEventListener('pointermove', e => {
   if (!drag || !g || !decision) return;
   if (!drag.moved && Math.hypot(e.clientX - drag.x, e.clientY - drag.y) < 6) return;

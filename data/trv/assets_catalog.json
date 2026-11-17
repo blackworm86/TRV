@@ -36,8 +36,8 @@
       "official": "assets/choppe_shoppe/avatar_personaggi/{id}.png"
     },
     "comando": {
-      "game": "choppe_shoppe", "type": "segnalini", "status": "bozza",
-      "source": "Bozza disegnata a mano (assets/choppe_shoppe/segnalini/comando/token.svg) dalla foto dei 15 segnalini comando: tessera crema dai bordi ondulati con la stella blu. Da sostituire col disegno definitivo."
+      "game": "choppe_shoppe", "type": "segnalini", "status": "ricalcato",
+      "source": "Disegno del proprietario (design/art/segnalino-comando/CommandToken_utente.svg, 2026-11-17), corretto sul segnalino stampato nel regolamento di Choppe Shoppe (p. 3): sagoma misurata sulla foto (rombo con punte arrotondate su un quadrato), bianco caldo con grana, stella blu notte a punte vive (assets/choppe_shoppe/segnalini/comando/token.svg)."
     },
     "potenziamenti": {
       "game": "choppe_shoppe", "type": "carte", "status": "ricalcato",
@@ -104,6 +104,24 @@
       "source": "Carta digitale (src/view/cards.ts): illustrazione ufficiale ritagliata da TRV v2.pdf (tools/art/save_card_art.py), pannello rosso ridisegnato, nome e testo italiani da data/trv/cards_it.json. La carta ufficiale intera è l'asset scaricabile.",
       "official": "assets/carnage/carte/effetto_continuo/{id}.jpg"
     },
+    "icone_comandi": {
+      "game": "base", "type": "icone", "status": "bozza",
+      "source": "Disegnate per il gioco digitale da tools/art/make_command_icons.py, con pezzi ricalcati dai dadi ufficiali (tools/art/trace_icon_parts.py): auto e barra del dado slam, mirino del dado sparo, barre e numero del dado stunt. Un solo colore, secondo tono al 40 %."
+    },
+    "icone_comandi_cs": {
+      "game": "choppe_shoppe", "type": "icone", "status": "bozza",
+      "source": "Come le icone dei comandi base (tools/art/make_command_icons.py), per i comandi dei capisquadra."
+    },
+    "big_rig": {
+      "game": "big_rig", "type": "plance", "status": "estratto",
+      "source": "Big Rig.docx: scansioni ritagliate dalla carta, girate e salvate in WebP con trasparenza (tools/art/save_big_rig_assets.py).",
+      "official": "assets/big_rig/plance/{id}.webp",
+      "items": {
+        "sezione_rear": { "source": "Immagine della plancia intera nel regolamento (p. 6), fornita dall'utente: le scansioni si fermano a metà di Hazard Dispenser. Bassa risoluzione, da rifare in vettoriale." },
+        "danno_minore": { "type": "segnalini", "official": "assets/big_rig/segnalini/{id}.webp" },
+        "big_rig_alto": { "type": "icone", "official": "assets/big_rig/icone/{id}.webp", "source": "Big Rig.docx: render della miniatura visto dall'alto (78 px di altezza), staccato dal fondo nero." }
+      }
+    },
     "icone": {
       "game": "base", "type": "icone", "status": "bozza",
       "source": "Icone dell'interfaccia disegnate per il gioco digitale: non hanno un originale."
@@ -112,8 +130,10 @@
   "missing": [
     { "game": "base", "what": "Linea del traguardo", "note": "Nessuna grafica nelle scansioni (catalog_base.json: missing_art)." },
     { "game": "carnage", "what": "Tessere 6a–10b con la grafica ufficiale", "note": "Scansioni estratte, da associare alle facce e rilevare." },
-    { "game": "choppe_shoppe", "what": "Segnalino comando", "note": "Non trovato nelle scansioni." },
-    { "game": "big_rig", "what": "Plance di Big Rig e moto, segnalini", "note": "Scansioni estratte (big_rig, fast_five); espansione non ancora nel gioco." },
+    { "game": "big_rig", "what": "Plancia a sezioni del Big Rig in vettoriale", "note": "La sezione posteriore viene dall'immagine del regolamento, a bassa risoluzione." },
+    { "game": "big_rig", "what": "Dadi di Big Rig e moto, segnalini fuoristrada", "note": "Solo nella foto del regolamento (big_rig_final_five.json: _missing)." },
+    { "game": "big_rig", "what": "Retro dei cruscotti: due righe, X, onda", "note": "Scansionati solo i retro di cerchio e V." },
+    { "game": "big_rig", "what": "Modelli 3D di Big Rig e moto", "note": "Da decidere da dove vengono." },
     { "game": "extra_ammo", "what": "Carte Extra Ammo", "note": "Nei fogli di TRV v2.pdf; espansione non ancora nel gioco." }
   ]
 }

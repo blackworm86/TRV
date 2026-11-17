@@ -16,7 +16,7 @@ import SHOPPE from '../../data/trv/choppe_shoppe.json';
 import {
   dieSvg, hazardTokenSvg, damageTokenSvg, dashboardSvg, commandBoardSvg, playerStripSvg, chopperSvg, carSvg, avatarSvg,
   OFFICIAL_ART, PALETTE, type ArtDir, type ArtSize, type CommandBoardArt,
-  fireDieSvg, onFireTokenSvg, commandTokenSvg, type FireFace,
+  fireDieSvg, onFireTokenSvg, commandTokenSvg, commandIconAt, type FireFace,
 } from '../view/vector/art';
 import { tileSvg, mapSvg, tileTitle } from '../view/vector/tiles';
 import { sheetSvg, standaloneSvg, templateFileName } from '../view/vector/templates';
@@ -127,8 +127,41 @@ const CARNAGE_TILES = (CARNAGE_DATA as unknown as { tiles: (TileData & { tile: n
 const UI_RAW = import.meta.glob<string>('/assets/*/plance/*.svg', { eager: true, query: '?raw', import: 'default' });
 // The generated 3D models, through the bundler so a build ships them.
 const MODELS = import.meta.glob<string>('/assets/*/modelli/*.glb', { eager: true, query: '?url', import: 'default' });
+// The commands with an icon (tools/art/make_command_icons.py), by their Italian names.
+const CMD_TEXT: Record<string, string> = {
+  airstrike: 'Attacco aereo', nitro: 'Nitro', drift: 'Drift', repair: 'Riparazione', bump: 'Bump!', pain_transfer: 'Pain Transfer',
+  need_for_speed: 'Need for Speed', called_shot: 'Called Shot', tinker: 'Tinker', show_time: 'Show Time', flamethrower: 'Flamethrower',
+};
+/** The four commands of every command board (the rest are the crew leaders'). */
+const BASE_CMDS = ['airstrike', 'nitro', 'drift', 'repair'];
+/** A command's icon alone, on a square of colour `bg`, drawn in `ink`. */
+function commandIconSheet(id: string, ink: string, bg: string): string {
+  return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 120" width="240" height="240"><rect width="120" height="120" rx="14" fill="${bg}"/>${commandIconAt(id, 60, 60, 96, ink)}</svg>`;
+}
 // The leaders' faces (assets/choppe_shoppe/avatar_personaggi), drawn inside an SVG for the download.
 const AVATARS = import.meta.glob<string>('/assets/choppe_shoppe/avatar_personaggi/*.png', { eager: true, query: '?url', import: 'default' });
+// The pieces of The Big Rig and the Final Five, cut from the scans (tools/art/save_big_rig_assets.py).
+const BIG_RIG_ART = import.meta.glob<string>('/assets/big_rig/**/*.webp', { eager: true, query: '?url', import: 'default' });
+const MARK_NAMES: Record<string, string> = { two_lines: 'due righe', x: 'X', v: 'V', circle: 'cerchio', wave: 'onda' };
+/** id, folder, name, pixel size, note, and the back (another id) for the 3D view. */
+const BIG_RIG_PIECES: { id: string; dir: string; name: string; w: number; h: number; note?: string; back?: string; thick: number }[] = [
+  { id: 'motrice', dir: 'plance', name: 'Motrice (Hydraulic Steering)', w: 900, h: 919, thick: 2 / 60 },
+  { id: 'sezione_front', dir: 'plance', name: 'Sezione anteriore', w: 1200, h: 901, note: 'Il bordo sinistro è tagliato di poco dalla scansione.', thick: 2 / 100 },
+  { id: 'sezione_mid', dir: 'plance', name: 'Sezione centrale', w: 1200, h: 921, thick: 2 / 100 },
+  { id: 'sezione_rear', dir: 'plance', name: 'Sezione posteriore', w: 451, h: 360, note: 'Dall’immagine del regolamento (p. 6): intera ma a bassa risoluzione, in attesa della versione vettoriale.', thick: 2 / 100 },
+  { id: 'comandi_final_five', dir: 'plance', name: 'Plancia comandi Final Five', w: 900, h: 855, thick: 2 / 60 },
+  ...(['two_lines', 'x', 'v', 'circle', 'wave'] as const).map(m => ({
+    id: `cruscotto_${m}`, dir: 'plance', name: `Cruscotto moto: ${MARK_NAMES[m]}`, w: 600, h: ({ two_lines: 779, x: 683, v: 786, circle: 681, wave: 779 })[m],
+    back: m === 'circle' || m === 'v' ? `cruscotto_retro_${m}` : undefined, thick: 2 / 45,
+  })),
+  ...(['circle', 'v'] as const).map(m => ({ id: `cruscotto_retro_${m}`, dir: 'plance', name: `Retro del cruscotto: ${MARK_NAMES[m]}`, w: 600, h: m === 'v' ? 776 : 676, note: 'Moto inoperabile. Scansionati solo questi due retro.', thick: 2 / 45 })),
+  { id: 'danno_minore', dir: 'segnalini', name: 'Segnalino danno minore', w: 400, h: 379, note: 'Quantità: 15 (10 Big Rig, 5 moto)', thick: 2 / 25 },
+  { id: 'big_rig_alto', dir: 'icone', name: 'Big Rig visto dall’alto', w: 376, h: 78, note: 'Render della miniatura, piccolo: riferimento per il modello 3D.', thick: 0 },
+];
+const bigRigUrl = (id: string): string => {
+  const p = BIG_RIG_PIECES.find(x => x.id === id)!;
+  return BIG_RIG_ART[`/assets/big_rig/${p.dir}/${id}.webp`] ?? '';
+};
 const MODEL_INFO: Record<string, { name: string; comp: string }> = {
   Car_Small: { name: 'Auto piccola', comp: 'car_S' }, Car_Medium: { name: 'Auto media', comp: 'car_M' },
   Car_Large: { name: 'Auto grande', comp: 'car_L' }, Chopper: { name: 'Elicottero', comp: 'chopper' }, wreck_1: { name: 'Relitto 1', comp: 'wreck' },
@@ -222,7 +255,9 @@ const CATEGORIES: Category[] = [
         () => playerStripSvg({ color: CREWS[2].color, used: null }, SIZES.map(s => ({ carId: `x${s}`, size: s, color: CREWS[2].color, status: 'ok' as const, placed: [], damage: 0 })))!)] : []),
       ...Object.entries(UI_RAW).map(([path, raw]) => {
         const base = path.replace(/^.*\/|\.svg$/g, '');
-        return svgItem('plancia', base, base === 'command_dashboard' ? 'Disegno originale: plance' : 'Disegno originale: capisquadra', () => raw, { note: `${path.slice(1)} (file originale)` });
+        return svgItem('plancia', base, ({ command_dashboard: 'Disegno originale: plance', plancia_striscia: 'Disegno originale: striscia del giocatore' } as Record<string, string>)[base] ?? 'Disegno originale: capisquadra',
+          // The strip drawing links its portrait as a file beside it (Ms. Betty's, AFA30F17.jpg): the game's copy stands in.
+          () => raw.replace('xlink:href="AFA30F17.jpg"', `xlink:href="${OFFICIAL['/assets/choppe_shoppe/capisquadra/betty.jpg'] ?? ''}"`), { note: `${path.slice(1)} (file originale)` });
       }),
     ],
   },
@@ -257,7 +292,7 @@ const CATEGORIES: Category[] = [
   },
   {
     id: 'comando', group: 'Segnalini', name: 'Segnalini comando',
-    note: 'Il segnalino comando dei capisquadra (Choppe Shoppe): bozza, da ridisegnare.',
+    note: 'Il segnalino comando dei capisquadra (Choppe Shoppe), come stampato: il disegno del proprietario corretto sulla foto del regolamento.',
     items: [svgItem('comando', 'token', 'Segnalino comando', () => commandTokenSvg('width="400" height="400"'), { note: `Quantità: ${SHOPPE.command_tokens}` })],
   },
   {
@@ -276,6 +311,13 @@ const CATEGORIES: Category[] = [
     ],
   },
   {
+    id: 'big_rig', group: 'Espansioni', name: 'The Big Rig and the Final Five',
+    note: 'Plance, cruscotti e segnalini dell’espansione, ritagliati dalle scansioni ufficiali (Big Rig.docx). L’espansione non è ancora nel gioco: mancano dadi e segnalini fuoristrada; la sezione posteriore viene dal regolamento, a bassa risoluzione.',
+    items: BIG_RIG_PIECES.map(p => svgItem('big_rig', p.id, p.name,
+      () => `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${p.w} ${p.h}" width="${p.w}" height="${p.h}"><image href="${bigRigUrl(p.id)}" width="${p.w}" height="${p.h}"/></svg>`,
+      { size: `${p.w} × ${p.h} px`, note: p.note })),
+  },
+  {
     id: 'continui', group: 'Espansioni', name: 'Carte effetto continuo',
     note: `Le carte effetto continuo di Carnage at Devil’s Run: ${CDR.ongoing_effects.length} tipi, ridisegnate come le Potenziamento: illustrazione ufficiale, nome e testo italiani sul pannello rosso.`,
     items: CDR.ongoing_effects.map(c => svgItem('continui', c.id, ongoingCardText(c.id)[0], () => ongoingCardSvg({ id: c.id, name: ongoingCardText(c.id)[0], text: ongoingCardText(c.id)[1] }),
@@ -292,12 +334,19 @@ const CATEGORIES: Category[] = [
       svgItem('icone', 'avatar', 'Avatar', () => sheetSvg(CREWS.map(cr => ({ svg: avatarSvg(cr.color, cr.name), caption: cr.name })), { cell: 120 })),
     ],
   },
+  ...([['icone_comandi', 'Icone dei comandi', BASE_CMDS], ['icone_comandi_cs', 'Icone dei comandi dei capisquadra', Object.keys(CMD_TEXT).filter(id => !BASE_CMDS.includes(id))]] as const)
+    .map(([cat, name, ids]) => ({
+      id: cat, group: 'Icone', name,
+      note: 'Le icone dei comandi sulla plancia comandi (un solo colore, il secondo tono trasparente). Il nome e l’effetto sono nella finestrella al passaggio del mouse.',
+      items: ids.map(id => svgItem(cat, id, CMD_TEXT[id],
+        () => sheetSvg([{ svg: commandIconSheet(id, '#26232b', '#ec9230'), caption: 'Sulla plancia' }, { svg: commandIconSheet(id, '#f3e6d0', '#26232b'), caption: 'Su fondo scuro' }], { cell: 200 }))),
+    })),
 ];
 
 // ---------------------------------------------------------------- catalogue: status, official files, 3D, sources
 
 // The official files the game ships (cards, portraits, the fire ring), by site address.
-const OFFICIAL = import.meta.glob<string>(['/assets/choppe_shoppe/**/*.{jpg,png}', '/assets/carnage/**/*.{jpg,png}'], { eager: true, query: '?url', import: 'default' });
+const OFFICIAL = import.meta.glob<string>(['/assets/choppe_shoppe/**/*.{jpg,png}', '/assets/carnage/**/*.{jpg,png}', '/assets/big_rig/**/*.webp'], { eager: true, query: '?url', import: 'default' });
 /**
  * The scans extracted from the original files (assets/estratti) stay on this computer, outside git
  * and outside the site: the dev server shows them for the side-by-side check, a build never does.
@@ -365,6 +414,11 @@ function extras(c: Category, it: Item): { solid?: () => Promise<THREE.Object3D>;
       return { solid: () => flatSolid(own!, null, 2 / 109) };
     case 'comando':
       return { solid: () => flatSolid(svgFace(commandTokenSvg()), svgFace(commandTokenSvg()), 2 / 25) };
+    case 'big_rig': {
+      const p = BIG_RIG_PIECES.find(x => x.id === id)!;
+      if (!p.thick) return {};
+      return { solid: () => flatSolid({ url: bigRigUrl(id) }, p.back ? { url: bigRigUrl(p.back) } : null, p.thick) };
+    }
     case 'avatar_personaggi':
       return { compare: [{ label: 'Ritratto della plancia', url: OFFICIAL[`/assets/choppe_shoppe/capisquadra/${id}.jpg`] ?? null }] };
     default:

@@ -183,6 +183,33 @@
   #strip .upcard .upbody { opacity: 0; transition: opacity .15s; }
   #strip .upcard:hover .upbody { opacity: 1; }
   /* The crew leader's power: a tab behind the command board, pulled out to the left by the pointer. */
+  /* The owner's strip drawing (2026-11-17): the leader's tab comes out on a click and stays a tab
+     (its end under the board); Undo is a plate on the board, lit when there is something to undo. */
+  #strip .ptab { pointer-events: auto; cursor: pointer; transition: transform .35s cubic-bezier(.3,.7,.3,1); }
+  #strip.tab-open .ptab { transform: translateX(-166px); }
+  #strip .undoplate { pointer-events: auto; cursor: pointer; }
+  #strip .undoplate polygon { transition: fill .15s; }
+  #strip .undoplate:hover polygon { fill: #f3e6d0; }
+  #strip .undoplate.off { opacity: .45; cursor: default; }
+  #strip .undoplate.off:hover polygon { fill: #aba3a6; }
+  /* The drawer behind it: grey like the tab, its top corners cut as drawn, the dice in a row. */
+  body:has(#strip svg[data-strip="2"]) #cmddock { background: #c9c8c2; border: 0; border-radius: 0; box-shadow: none;
+    clip-path: polygon(calc(var(--u, 1) * 8px) 0, calc(100% - var(--u, 1) * 8px) 0, 100% calc(var(--u, 1) * 8px), 100% 100%, 0 100%, 0 calc(var(--u, 1) * 8px));
+    padding: calc(var(--u, 1) * 20px) 6px 28px; gap: 4px; transform: translateY(calc(100% - var(--u, 1) * 20px - 22px)); }
+  body:has(#strip svg[data-strip="2"]) #cmddock.ask { transform: translateY(0); }
+  body:has(#strip svg[data-strip="2"]) #cmddock .stripe, body:has(#strip svg[data-strip="2"]) #cmddock .undo { display: none; }
+  body:has(#strip svg[data-strip="2"]) #cmddock .q { color: #26232b; font-size: calc(var(--u, 1) * 14px); }
+  #cmddock .handle { display: none; }
+  body:has(#strip svg[data-strip="2"]) #cmddock .handle { display: block; position: absolute; left: 0; right: 0; top: 0; height: calc(var(--u, 1) * 20px); border: 0; padding: 0; background: none; cursor: pointer; }
+  body:has(#strip svg[data-strip="2"]) #cmddock .handle::before { content: ''; position: absolute; left: 50%; top: 50%; width: calc(var(--u, 1) * 7px); height: calc(var(--u, 1) * 7px);
+    border: solid #26232b; border-width: 2px 2px 0 0; opacity: .55; transform: translate(-50%, -25%) rotate(-45deg); transition: transform .3s; }
+  body:has(#strip svg[data-strip="2"]) #cmddock.ask .handle::before { transform: translate(-50%, -75%) rotate(135deg); }
+  #cmddock .dice { display: flex; justify-content: center; gap: calc(var(--u, 1) * 3px); }
+  #cmddock .dice:empty { display: none; }
+  #cmddock .mydie { width: calc(var(--u, 1) * 32px); height: calc(var(--u, 1) * 32px); display: grid; place-items: center; border-radius: 50%; cursor: grab; touch-action: none; }
+  #cmddock .mydie svg { width: 82%; height: 82%; }
+  #cmddock .mydie.can { background: radial-gradient(circle, rgba(76,255,122,.6), rgba(76,255,122,0) 68%); }
+  #cmddock .mydie.used { cursor: default; }
   #strip .leadtab { pointer-events: auto; cursor: help; transition: transform .22s ease; }
   #strip .leadtab:hover { transform: translateX(var(--pull)); }
   #strip .loose { display: flex; align-items: center; height: calc(var(--stripw) / 4.1); }
@@ -245,6 +272,13 @@
   /* The digital ongoing effect card (src/view/cards.ts). */
   .ocard.drawn { padding: 0; background: none; border-radius: calc(var(--w) * .05); overflow: hidden; }
   .ocard.drawn > svg { display: block; width: 100%; height: 100%; }
+  /* The command board's pop-up (src/app/cmdtip.ts): name, dice and effect of the command under the pointer. */
+  #cmdtip { position: fixed; z-index: 60; pointer-events: none; display: none; width: 240px; background: #f3e6d0; color: #26232b; border-radius: 12px;
+    padding: 9px 13px 11px; box-shadow: 0 12px 28px rgba(0,0,0,.6); }
+  #cmdtip.show { display: block; }
+  #cmdtip b { display: block; font: 400 25px/1 'League Gothic', Impact, sans-serif; text-transform: uppercase; letter-spacing: .4px; }
+  #cmdtip small { display: block; opacity: .6; text-transform: uppercase; letter-spacing: 1px; font-size: 12px; margin-top: 2px; }
+  #cmdtip p { margin: 5px 0 0; font-size: 16px; line-height: 1.25; font-weight: 500; }
   #ozoom { position: fixed; z-index: 60; pointer-events: none; display: none; }
   #ozoom.show { display: block; }
   #ozoom .ocard { --w: 300px; margin: 0; animation: none; box-shadow: 0 18px 40px rgba(0,0,0,.7); }

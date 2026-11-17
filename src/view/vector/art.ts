@@ -70,6 +70,8 @@ function off(): OfficialArt | null {
 // When it is there, the boards are drawn from it (./boards.ts), also with `?art=open`: it is open material, in the repository.
 const boardsRaw = Object.values(import.meta.glob<string>('/assets/base/plance/command_dashboard.svg', { eager: true, query: '?raw', import: 'default' }))[0];
 // The owner's drawing of the crew leader command board (Choppe Shoppe), twice as tall.
+/** The owner's second drawing of the player strip (2026-11-17): new command board, power tab, Undo plate, dice drawer. */
+const stripRaw = Object.values(import.meta.glob<string>('/assets/base/plance/plancia_striscia.svg', { eager: true, query: '?raw', import: 'default' }))[0];
 const leaderBoardRaw = Object.values(import.meta.glob<string>('/assets/choppe_shoppe/plance/command_dashboard_characters.svg', { eager: true, query: '?raw', import: 'default' }))[0];
 // The owner's drawings of the dice (./dice.ts), one SVG per die. Like the boards, they win over
 // both the open drawings below and the official art.
@@ -86,6 +88,25 @@ const ownerDamage = damageRaw ? cutOwnerDamage(damageRaw) : null;
 const commandTokenRaw = Object.values(import.meta.glob<string>('/assets/choppe_shoppe/segnalini/comando/token.svg', { eager: true, query: '?raw', import: 'default' }))[0] ?? '';
 const commandTokenInner = /<svg[^>]*>([\s\S]*)<\/svg>/.exec(commandTokenRaw)?.[1].replace(/<!--[\s\S]*?-->/g, '').trim()
   ?? '<circle cx="50" cy="50" r="44" fill="#ece5d3"/><text x="50" y="66" font-size="48" text-anchor="middle" fill="#1c2242">★</text>';
+// The commands' icons (tools/art/make_command_icons.py): one colour (currentColor), 100 x 100.
+const COMMAND_ICONS = new Map(Object.entries(import.meta.glob<string>(['/assets/base/icone/comandi/*.svg', '/assets/choppe_shoppe/icone/comandi/*.svg'],
+  { eager: true, query: '?raw', import: 'default' })).map(([path, raw]) => [/([\w-]+)\.svg$/.exec(path)![1], /<svg[^>]*>([\s\S]*)<\/svg>/.exec(raw)?.[1] ?? '']));
+/** Tells the icons' masks apart when a page shows the same icon more than once. */
+let iconSerial = 0;
+/** Whether command `cmd` has an icon. */
+export function hasCommandIcon(cmd: string): boolean { return COMMAND_ICONS.has(cmd); }
+/**
+ * The icon of command `cmd`, centred on (cx, cy), `size` units wide, in `color`: markup for
+ * another drawing, or '' when the command has none. Its masks get ids of their own.
+ * Example: `commandIconAt('nitro', 90, 85, 60, '#26232b')`.
+ */
+export function commandIconAt(cmd: string, cx: number, cy: number, size: number, color: string): string {
+  const body = COMMAND_ICONS.get(cmd);
+  if (!body) return '';
+  const n = iconSerial++;
+  return `<svg x="${(cx - size / 2).toFixed(2)}" y="${(cy - size / 2).toFixed(2)}" width="${size}" height="${size}" viewBox="0 0 100 100" color="${color}" overflow="visible">`
+    + `${body.replace(/(id="|url\(#)k-/g, `$1k${n}-`)}</svg>`;
+}
 /**
  * The command token (assets/choppe_shoppe/segnalini/comando/token.svg, a draft), 100 x 100.
  * Example: `commandTokenSvg('class="ctok"')`.
@@ -102,7 +123,7 @@ export const USER_BOARDS = !!boardsRaw;
 let userBoards: ReturnType<typeof makeBoards> | null | undefined;
 function boards(): ReturnType<typeof makeBoards> | null {
   if (userBoards === undefined) {
-    userBoards = USER_BOARDS ? makeBoards(boardsRaw, { dieSvg, damageTokenSvg: (t, up) => damageTokenSvg(t, up), onFireTokenSvg: () => onFireTokenSvg(), commandToken: commandTokenAt, inkOn, font: FONT }, leaderBoardRaw) : null;
+    userBoards = USER_BOARDS ? makeBoards(boardsRaw, { dieSvg, damageTokenSvg: (t, up) => damageTokenSvg(t, up), onFireTokenSvg: () => onFireTokenSvg(), commandToken: commandTokenAt, commandIcon: commandIconAt, inkOn, font: FONT }, leaderBoardRaw, stripRaw) : null;
   }
   return userBoards;
 }
@@ -371,12 +392,14 @@ const SIZE_LABEL: Record<ArtSize, string> = { S: 'PICCOLA', M: 'MEDIA', L: 'GRAN
  * and two damage slots below with face-down tokens hanging under them (rulebook p. 6).
  * Drop zones carry data-drop="move:<carId>" / "coast:<carId>"; the root carries data-car.
  */
+const frameOf = (leader: boolean): { x: number; y: number; w: number; h: number } =>
+  boards()?.stripFrame(leader) ?? (leader ? { x: -LEAD_PANEL_W, y: -LEAD_NAME_H, w: STRIP_BOX.w + LEAD_PANEL_W, h: STRIP_BOX.h + LEAD_NAME_H } : STRIP_BOX);
 /** Width over height of the player's strip (see playerStripSvg). */
-export const STRIP_ASPECT = STRIP_BOX.w / STRIP_BOX.h;
-/** Width over height of the player's strip with a crew leader (name plate above, room for the power tab on the left). */
-export const STRIP_ASPECT_LEADER = (STRIP_BOX.w + LEAD_PANEL_W) / (STRIP_BOX.h + LEAD_NAME_H);
-/** The share of that strip's height taken by the leader's name plate, above the boards. */
-export const STRIP_LEADER_PLATE = LEAD_NAME_H / (STRIP_BOX.h + LEAD_NAME_H);
+export const STRIP_ASPECT = frameOf(false).w / frameOf(false).h;
+/** Width over height of the player's strip with a crew leader (room for the power tab on the left, and on the first drawing a name plate above). */
+export const STRIP_ASPECT_LEADER = frameOf(true).w / frameOf(true).h;
+/** The share of that strip's height taken by the leader's name plate, above the boards (none on the second drawing). */
+export const STRIP_LEADER_PLATE = -frameOf(true).y / frameOf(true).h;
 /** How many times taller the strip is with a crew leader board (1 without the leader drawing). */
 export const STRIP_TALL = USER_BOARDS && leaderBoardRaw ? STRIP_BOX_TALL.h / STRIP_BOX.h : 1;
 /**
@@ -460,6 +483,8 @@ export interface CommandBoardArt {
    * a portrait (`portrait` is an image address; without it, the crew colour and an initial).
    */
   leader?: { name: string; title: string; power: string; powerText: string; tokens: number; portrait?: string };
+  /** The Undo plate on the strip's command board: 'on' when there is something to undo, 'off' when not; none without it. */
+  undo?: 'on' | 'off';
 }
 
 /** The four commands in the board's corners, with the die values each accepts (data/trv/game_base.json). */

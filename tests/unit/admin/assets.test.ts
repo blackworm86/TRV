@@ -6,6 +6,7 @@ import { describe, expect, it } from 'vitest';
 import RULES from '../../../data/trv/game_base.json';
 import SHOPPE from '../../../data/trv/choppe_shoppe.json';
 import CARNAGE from '../../../data/trv/carnage.json';
+import BIG_RIG from '../../../data/trv/big_rig_final_five.json';
 
 const json = <T>(path: string): T => JSON.parse(readFileSync(path, 'utf8')) as T;
 const missing = (paths: string[]): string[] => paths.filter(p => !existsSync(p));
@@ -42,6 +43,23 @@ describe('extracted official images', () => {
 
   it('has the card of every Carnage ongoing effect', () => {
     expect(missing(CARNAGE.ongoing_effects.map(o => `assets/carnage/carte/effetto_continuo/${o.id}.jpg`))).toEqual([]);
+  });
+
+  it('has the Big Rig and Final Five pieces, one dashboard per motorcycle marking, cut out with transparency', () => {
+    // Arrange
+    const boards = ['motrice', 'sezione_front', 'sezione_mid', 'sezione_rear', 'comandi_final_five'];
+    const dashboards = BIG_RIG.final_five.markings.map(m => `cruscotto_${m}`);
+    const paths = [...[...boards, ...dashboards].map(id => `assets/big_rig/plance/${id}.webp`), 'assets/big_rig/segnalini/danno_minore.webp'];
+    // Act
+    const absent = missing(paths);
+    // Assert: a WebP with an alpha channel says VP8X with the alpha bit, or is lossless VP8L.
+    expect(absent).toEqual([]);
+    for (const p of paths) {
+      const b = readFileSync(p);
+      expect(b.toString('ascii', 0, 4) + b.toString('ascii', 8, 12), p).toBe('RIFFWEBP');
+      const chunk = b.toString('ascii', 12, 16);
+      expect(chunk === 'VP8L' || (chunk === 'VP8X' && (b[20] & 0x10) !== 0), p).toBe(true);
+    }
   });
 
   it('has the flame ring of the ON FIRE token, with its measures', () => {
