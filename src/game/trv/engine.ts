@@ -692,6 +692,13 @@ function* enter(g: Game, v: Vehicle, to: Pos, ctx: MoveCtx | null, dir?: Dir): G
         say(g, `Trash into Treasure: ${g.players[v.owner!].name} prende un segnalino comando.`, 'good');
       }
       h.faceUp = true; beat(g, 'reveal', { at: { ...to } }); say(g, `Pericolo scoperto: ${HAZARD_NAME[h.type]}!`, 'info');
+      // Mud revealed while moving: the space is muddy now, and entering it costs 2 (p. 7). The
+      // step was paid as the space was before (1): the car spends one more move, and with none
+      // left it stops there (ruling of the rules owner, 2026-11-17). Deep Treads: mud is road.
+      if (h.type === 'mud' && ctx && groundFor(g, v, to) === 'M') {
+        if (ctx.left > 0) { ctx.left--; say(g, `${capital(carName(g, v))} affonda nel fango: un movimento in più.`, 'info'); }
+        else say(g, `${capital(carName(g, v))} affonda nel fango e si ferma.`, 'info');
+      }
     }
     else say(g, `${capital(carName(g, v))} finisce su ${HAZARD_NAME[h.type]}.`, 'info');
     if (h.type === 'wreck') {
@@ -726,6 +733,10 @@ function* enter(g: Game, v: Vehicle, to: Pos, ctx: MoveCtx | null, dir?: Dir): G
       const hit = f === 'ANY' || f === v.size || (f === 'SM' && (v.size === 'S' || v.size === 'M'));
       say(g, `Trappola: dado sparo ${f} — ${hit ? 'presa!' : 'scampata.'}`, 'dice');
       if (hit) { eliminate(g, v, 'è caduta nella trappola', to); return true; }
+      // Not hit: it may drive on with the moves it has left; with none (or pushed there by a slam or
+      // damage) it ends its turn on an impassable space and is eliminated (ruling of the rules
+      // owner, 2026-11-17). A car that stops there later is caught at the end of moveCar.
+      if (!ctx || ctx.left === 0) { eliminate(g, v, 'è rimasta sulla trappola, ora invalicabile', to); return true; }
       return false;
     }
   }
@@ -1175,9 +1186,9 @@ function sandWorm(g: Game): void {
 
 /** Internals for unit tests only: moving into a space and taking damage, outside a whole game. */
 export const __test = {
-  /** Enters `to` going `dir`; `ctx` carries the moves left (and says whether salt flats were crossed). */
-  enter: (g: Game, v: Vehicle, to: Pos, ctx: { left: number; salt?: boolean }, dir?: Dir): Gen<boolean> =>
-    enter(g, v, to, Object.assign(ctx, { drift: false, driftUsed: false }) as MoveCtx, dir),
+  /** Enters `to` going `dir`; `ctx` carries the moves left (and says whether salt flats were crossed); null: pushed there, not moving. */
+  enter: (g: Game, v: Vehicle, to: Pos, ctx: { left: number; salt?: boolean } | null, dir?: Dir): Gen<boolean> =>
+    enter(g, v, to, ctx ? Object.assign(ctx, { drift: false, driftUsed: false }) as MoveCtx : null, dir),
   /** Damages `v` with exactly token `t`. */
   damageWith: (g: Game, v: Vehicle, t: DamageToken): Gen<void> => { g.damagePile = [t]; return damage(g, v); },
   beforeMove,
@@ -1370,6 +1381,11 @@ function* moveCar(g: Game, car: Vehicle, moves: number, drift: boolean, coast: b
     if (yield* enter(g, car, car.pos, ctx)) stopped = true;
   }
   if (!stopped && car.pos && vehiclesAt(g, car.pos).length > 1) yield* slam(g, car.pos);
+  // A car whose move ends on an impassable space (a revealed pit trap: Skull Shift Knob stopping
+  // there, an oil slick) is eliminated, as if it had entered one (ruling of the rules owner, 2026-11-17).
+  if (car.status === 'ok' && car.pos && onBoard(car.pos) && terrainAt(g, car.pos) === 'X' && g.winner === null) {
+    eliminate(g, car, 'ha finito il movimento su una casella invalicabile', car.pos);
+  }
 }
 
 function stepOption(g: Game, car: Vehicle, to: Pos, left: number, name: string, dir: Dir = 'F'): Option {

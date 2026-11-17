@@ -1,12 +1,12 @@
 // The command dock (the question and its buttons) and the action buttons by the dice.
 
 import * as THREE from 'three';
-import { commandName, type Decision, type Player } from '../game/trv/engine';
-import { dieSvg } from '../view/vector/art';
+import { type Decision, type Player } from '../game/trv/engine';
+import { commandTokenSvg, dieSvg, inkOn } from '../view/vector/art';
 import { DRAWER } from '../view/vector/boards';
 import { skipBeats } from './beats';
 import { carObjs } from './board';
-import { choose, decision, dieUsable, g } from './game';
+import { choose, dieUsable, g } from './game';
 import { camera, renderer } from './stage';
 import { S } from './state';
 import { fxDiceRect, tableDiceRect } from './tableDice';
@@ -35,25 +35,23 @@ export function commandLastChance(d: Decision): boolean {
 /** The command drawer is asking "are you sure?" before skipping the command. */
 export let skipConfirm = false;
 
-/** The arguments of the last drawDock, to draw it again when the drawer is opened or closed by hand. */
-let last: [Decision | null, boolean, Player | undefined] = [null, false, undefined];
-$('cmdhandle').addEventListener('click', () => {
-  S.drawerPin = { d: decision, open: !$('cmddock').classList.contains('ask') };
-  drawDock(...last);
-});
-
 /**
  * The drawer behind the command board (the owner's strip drawing, 2026-11-17): the player's dice in
- * 3D, to drag onto a board or a car, and the command questions. It comes out when there are dice to
- * play or a command to choose; its handle opens or closes it by hand until the next decision.
+ * 3D, to drag onto a board or a car, or, when a command token may be used, the tokens left, to drag
+ * onto a command. Never both (asked by the user, 2026-11-17). It stays out while the player has dice
+ * to play or a token to place, and goes back behind the board by itself once they are used up or
+ * the turn passes: there is no handle.
  */
 export function drawDock(d: Decision | null, mine: boolean, me?: Player): void {
-  last = [d, mine, me];
   const dock = $('cmddock'), q = $('cmdq'), row = $('cmdbtns');
-  // The player's dice: the SVG keeps the place and takes the drag, the HUD layer draws the 3D die (hudDice.ts).
-  $('cmddice').innerHTML = me ? me.dice.map((v, i) => {
+  const tokens = !!d && mine && d.kind === 'token';
+  // In the player's colour, as the power tab (asked by the user, 2026-11-17).
+  if (me) { dock.style.setProperty('--who', me.color); dock.style.setProperty('--whoInk', inkOn(me.color)); }
+  // The player's dice: flat faces with their value, dragged onto a board or a car (input.ts).
+  // The tokens: the printed command token, dragged the same way (input.ts).
+  $('cmddice').innerHTML = tokens ? `<span class="mytok can" data-mytok="1" title="Trascina il segnalino sul comando da attivare">${commandTokenSvg()}</span>`.repeat(me?.tokens ?? 0) : me ? me.dice.map((v, i) => {
     const used = !!me.used[i], can = mine && !used && dieUsable(i), sel = S.selDie === i && !used;
-    const die = dieSvg({ kind: 'movement', value: v, color: me.color, forward: 'right' }, `class="${used ? 'used' : ''} ${sel ? 'sel' : ''}" data-die3d="movement|${v}|${me.color}"`);
+    const die = dieSvg({ kind: 'movement', value: v, color: me.color, number: true }, `class="${used ? 'used' : ''} ${sel ? 'sel' : ''}"`);
     return `<span class="mydie${used ? ' used' : ''}${can ? ' can' : ''}${sel ? ' sel' : ''}" data-mydie="${i}">${die}</span>`;
   }).join('') : '';
   row.innerHTML = '';
@@ -86,17 +84,15 @@ export function drawDock(d: Decision | null, mine: boolean, me?: Player): void {
         row.append(b);
       } else add(0, 'Nessun comando', 'quiet');
     } else {
-      const p = g!.players[d!.player];
-      q.textContent = `Segnalino comando? (${p.tokens} ${p.tokens === 1 ? 'rimasto' : 'rimasti'})`;
-      d!.options.slice(1).forEach((o, i) => add(i + 1, `★ ${commandName(o.command!)}`));
+      // The commands it can go on glow on the board (hud.ts); a click on one also places it.
+      q.textContent = 'Trascina un segnalino su un comando';
       add(0, 'Nessun segnalino', 'quiet');
     }
   }
   if (!asking) skipConfirm = false;
-  // Open for a command to choose or dice to play; a hand on the handle wins until the next decision.
+  // Out while there are dice to play or a token to place; back behind the board otherwise.
   const live = !!me && mine && me.dice.some((_, i) => !me.used[i] && dieUsable(i));
-  if (S.drawerPin && S.drawerPin.d !== d) S.drawerPin = null;
-  dock.classList.toggle('ask', S.drawerPin ? S.drawerPin.open : asking || live);
+  dock.classList.toggle('ask', asking || live);
   ($('undo2') as HTMLElement).style.display = S.net ? 'none' : '';
   $('cmdwrap').classList.toggle('on', !!g && !menuOpen());
 }

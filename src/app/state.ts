@@ -32,8 +32,9 @@ export const S = {
   selDie: null as number | null,
   /** The crew leader's power tab is pulled out (a click on it). */
   tabOpen: false,
+  /** Cars whose upgrade card has just fired a passive ability, and until when it glows (performance.now ms). */
+  cardFlash: new Map<string, number>(),
   /** The dice drawer opened or closed by hand, for one decision (then it follows the game again). */
-  drawerPin: null as { d: unknown; open: boolean } | null,
   shakeUntil: 0,
   shot: null as Shot | null,
   shotBack: null as { t0: number; from: { pos: THREE.Vector3; look: THREE.Vector3 } } | null,

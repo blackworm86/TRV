@@ -169,7 +169,11 @@ let maskMats: [THREE.Material, THREE.Material] | null = null;
 /** The two invisible materials of the opening: stencil mark, then depth reset where marked. */
 function maskMaterials(): [THREE.Material, THREE.Material] {
   if (maskMats) return maskMats;
+  // All three steps go in the transparent pass (as the board's information layer, renderOrder 1),
+  // after it: otherwise the printed marks of the space (a hazard space's red triangles) would be
+  // drawn over the hole.
   const mark = new THREE.MeshBasicMaterial({
+    transparent: true,
     colorWrite: false, depthWrite: false, depthTest: true,
     stencilWrite: true, stencilRef: 1, stencilFunc: THREE.AlwaysStencilFunc, stencilZPass: THREE.ReplaceStencilOp,
     polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -4,
@@ -177,6 +181,7 @@ function maskMaterials(): [THREE.Material, THREE.Material] {
   const clear = new THREE.ShaderMaterial({
     vertexShader: 'void main() { gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }',
     fragmentShader: 'void main() { gl_FragColor = vec4(0.0); gl_FragDepth = 1.0; }',
+    transparent: true,
     colorWrite: false, depthWrite: true, depthTest: true, depthFunc: THREE.AlwaysDepth,
     stencilWrite: true, stencilRef: 1, stencilFunc: THREE.EqualStencilFunc, stencilZPass: THREE.ZeroStencilOp,
   });
@@ -205,7 +210,7 @@ export function pitPiece(space: number, seed = 1): THREE.Group {
   m1.renderOrder = 10; m2.renderOrder = 11;
   m1.position.y = m2.position.y = 0.0005;
 
-  const inside = new THREE.Mesh(mergeGeometries([well(s, seed, R), ...bottom(s, r, R)]), solid());
+  const inside = new THREE.Mesh(mergeGeometries([well(s, seed, R), ...bottom(s, r, R)]), Object.assign(solid(), { transparent: true }));
   inside.renderOrder = 12;
   inside.receiveShadow = false;
 

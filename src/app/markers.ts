@@ -2,7 +2,7 @@
 // targets), and why a car cannot be shot.
 
 import * as THREE from 'three';
-import { ROWS, COLS, TILE_COLS, type Blocked, type Pos } from '../game/trv/engine';
+import { ROWS, COLS, TILE_COLS, type Blocked, type Decision, type Pos } from '../game/trv/engine';
 import { spaceGeometry, spaceRimGeometry, GRID } from '../view/board3d';
 import { HAZ_SIZE, carObjs, carRingGeo, markerGroup, ringGeo } from './board';
 import { decision, g } from './game';
@@ -156,11 +156,18 @@ export function drawMarkers(): void {
     }
   }
   if (!['step', 'airstrike', 'shoot', 'peek', 'peekResult', 'plow', 'rollCage', 'dispense', 'radar'].includes(d.kind)) return;
+  const MARK_COLOR: Partial<Record<Decision['kind'], number>> = {
+    step: 0x4cff7a, shoot: 0xff2d2d, airstrike: 0x7fd4ff,
+    dispense: 0x2f7bff, plow: 0x2f7bff, rollCage: 0x2f7bff, radar: 0x2f7bff, peek: 0x2f7bff, peekResult: 0x2f7bff,
+  };
   d.options.forEach((o, i) => {
     if (!o.pos) return;
     const at = world(o.pos);
     if (S.markers.some(m => m.at.distanceTo(at) < 0.05)) return;
-    const color = o.danger ? 0xff3b30 : d.kind === 'shoot' ? 0xffd23a : d.kind === 'airstrike' ? 0x7fd4ff : 0x4cff7a;
+    // What the space is for, by colour (asked by the user, 2026-11-17): green a move, red a shot,
+    // blue a card's or a power's ability (oil, mine, Snowplow, Roll Cage, radar, Third Eye);
+    // the chopper's landing keeps its sky blue, a step that eliminates the car its warning red.
+    const color = o.danger ? 0xff3b30 : MARK_COLOR[d.kind] ?? 0x4cff7a;
     const onTable = o.pos.r >= 0 && o.pos.r < ROWS && o.pos.c >= 0 && o.pos.c < COLS;
     let mesh: THREE.Mesh;
     if (onTable) {

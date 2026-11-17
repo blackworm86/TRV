@@ -201,6 +201,21 @@ describe('new hazards', () => {
       expect(terrainAt(g, AT)).toBe('X');
     }
   });
+  it('eliminates the car that reveals a pit trap with no moves left, even when the roll misses (ruling of the rules owner)', () => {
+    for (let s = 0; s < 12; s++) {
+      for (const ctx of [{ left: 0 }, null]) {
+        // Arrange: a face-down pit trap, entered with the last move, or pushed there (no move context).
+        const g = newGame({ seed: SEED.slice(0, 62) + s.toString(16).padStart(2, '0'), players: PLAYERS, startSide: 'a', carnage: fixture() });
+        g.hazards.clear();
+        hazard(g, AT, 'pit_trap', false);
+        const v = place(g, 'p0M', BEHIND);
+        // Act
+        run(__test.enter(g, v, AT, ctx, 'F'));
+        // Assert: whatever the shooting die said, the car does not stay on the impassable space.
+        expect(v.status).toBe('elim');
+      }
+    }
+  });
   it('eliminates every road vehicle tied farthest back when a sand worm is revealed', () => {
     const g = game();
     const a = place(g, 'p1S', { r: 0, c: 2 });

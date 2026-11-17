@@ -3,6 +3,7 @@
 import * as THREE from 'three';
 import { skipBeats } from './beats';
 import { choose, decision, dieUsable, g, zoneOption } from './game';
+import { commandTokenSvg } from '../view/vector/art';
 import { dieHtml, drawHud } from './hud';
 import { markerAt } from './inspect';
 import { typing } from './keys';
@@ -36,6 +37,31 @@ document.addEventListener('pointerdown', e => {
   S.selDie = i;
   drawHud();
 }, true);
+// A command token in the drawer, dragged onto the command it activates (Choppe Shoppe).
+let tokDrag: { x: number; y: number; moved: boolean } | null = null;
+document.addEventListener('pointerdown', e => {
+  const el = (e.target as Element | null)?.closest?.('[data-mytok]');
+  if (!el || e.button !== 0 || decision?.kind !== 'token') return;
+  e.preventDefault();
+  tokDrag = { x: e.clientX, y: e.clientY, moved: false };
+}, true);
+addEventListener('pointermove', e => {
+  if (!tokDrag) return;
+  if (!tokDrag.moved && Math.hypot(e.clientX - tokDrag.x, e.clientY - tokDrag.y) < 6) return;
+  if (!tokDrag.moved) { tokDrag.moved = true; ghost.innerHTML = commandTokenSvg(); ghost.style.display = 'block'; }
+  ghost.style.left = `${e.clientX - 32}px`;
+  ghost.style.top = `${e.clientY - 32}px`;
+});
+addEventListener('pointerup', e => {
+  if (!tokDrag) return;
+  const moved = tokDrag.moved;
+  tokDrag = null;
+  ghost.style.display = 'none';
+  if (!moved || decision?.kind !== 'token') return;
+  const zone = document.elementFromPoint(e.clientX, e.clientY)?.closest<SVGElement>('[data-drop]')?.dataset.drop;
+  const i = zone ? decision.options.findIndex(o => o.command && `cmd:${o.command}` === zone) : -1;
+  if (i > 0) choose(i);
+});
 addEventListener('pointermove', e => {
   if (!drag || !g || !decision) return;
   if (!drag.moved && Math.hypot(e.clientX - drag.x, e.clientY - drag.y) < 6) return;

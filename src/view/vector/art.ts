@@ -145,6 +145,11 @@ export interface DieFace {
   color?: string;
   /** Direction die: where "forward" points on screen (the map runs left to right). */
   forward?: 'up' | 'right';
+  /**
+   * Movement die in the interface: the face alone, flat, with its value as a digit instead of pips
+   * (asked by the user, 2026-11-17). The dice on the 3D table keep their pips.
+   */
+  number?: boolean;
 }
 
 const PIPS: Record<number, [number, number][]> = {
@@ -156,6 +161,11 @@ const PIPS: Record<number, [number, number][]> = {
 /** A die face, 100 x 100. */
 export function dieSvg(f: DieFace, extra = ''): string {
   if (f.kind === 'fire') return fireDieSvg(f.value as FireFace, extra); // Carnage at Devil's Run
+  if (f.kind === 'movement' && f.number) {
+    const bg = f.color ?? '#e8742a';
+    return svg(100, 100, `<rect x="3" y="3" width="94" height="94" rx="16" fill="${bg}" stroke="rgba(0,0,0,.5)" stroke-width="3"/>`
+      + `<text x="50" y="74" text-anchor="middle" font-size="72" fill="${inkOn(bg)}" ${FONT}>${esc(String(f.value))}</text>`, extra);
+  }
   const own = ownerDice.get(f.kind)?.get(String(f.value));
   if (own) {
     // The direction drawing has forward up; turn it when forward is to the right.
@@ -356,7 +366,7 @@ export function damageTokenSvg(type: string | null, faceUp: boolean, dir?: ArtDi
 
 /** A die placed on a board, drawn inside a slot. */
 function placedDie(x: number, y: number, s: number, value: number, color: string): string {
-  return `<g transform="translate(${x - s / 2} ${y - s / 2}) scale(${s / 100})" pointer-events="none" data-die3d="movement|${value}|${color}">${inner(dieSvg({ kind: 'movement', value, color }))}</g>`;
+  return `<g transform="translate(${x - s / 2} ${y - s / 2}) scale(${s / 100})" pointer-events="none">${inner(dieSvg({ kind: 'movement', value, color, number: true }))}</g>`;
 }
 
 export interface DashboardArt {
@@ -381,7 +391,11 @@ export interface DashboardArt {
   /** The car is burning (Carnage at Devil's Run): its ON FIRE! token lies over the move die slot. */
   onFire?: boolean;
   /** The car's upgrade card (Choppe Shoppe): drawn above the dashboard in the player's strip. */
-  upgrade?: { name: string; text: string; /** URL of the card's official illustration, when there is one (src/view/cards.ts). */ art?: string };
+  upgrade?: {
+    name: string; text: string; /** URL of the card's official illustration, when there is one (src/view/cards.ts). */ art?: string;
+    /** The card glows: 'use' its ability can be used now, 'fires' a passive ability just took effect. */
+    cue?: 'use' | 'fires';
+  };
 }
 
 const SIZE_LABEL: Record<ArtSize, string> = { S: 'PICCOLA', M: 'MEDIA', L: 'GRANDE' };

@@ -180,6 +180,9 @@
   #strip > svg { overflow: visible; }
   #strip .upcard { transition: transform .22s ease; }
   #strip .upcard:hover { transform: translateY(var(--rise)); }
+  #strip .upcard.cue { filter: drop-shadow(0 0 6px #2f7bff); animation: cuepulse 1.1s ease-in-out infinite alternate; }
+  #strip .cuetag { animation: cuepulse 1.1s ease-in-out infinite alternate; }
+  @keyframes cuepulse { from { opacity: .75; } to { opacity: 1; } }
   #strip .upcard .upbody { opacity: 0; transition: opacity .15s; }
   #strip .upcard:hover .upbody { opacity: 1; }
   /* The crew leader's power: a tab behind the command board, pulled out to the left by the pointer. */
@@ -193,23 +196,24 @@
   #strip .undoplate.off { opacity: .45; cursor: default; }
   #strip .undoplate.off:hover polygon { fill: #aba3a6; }
   /* The drawer behind it: grey like the tab, its top corners cut as drawn, the dice in a row. */
-  body:has(#strip svg[data-strip="2"]) #cmddock { background: #c9c8c2; border: 0; border-radius: 0; box-shadow: none;
+  body:has(#strip svg[data-strip="2"]) #cmddock { background: var(--who, #c9c8c2); border: 0; border-radius: 0; box-shadow: none;
     clip-path: polygon(calc(var(--u, 1) * 8px) 0, calc(100% - var(--u, 1) * 8px) 0, 100% calc(var(--u, 1) * 8px), 100% 100%, 0 100%, 0 calc(var(--u, 1) * 8px));
-    padding: calc(var(--u, 1) * 20px) 6px 28px; gap: 4px; transform: translateY(calc(100% - var(--u, 1) * 20px - 22px)); }
+    /* At the foot: the part tucked behind the board's top edge (22px) and its rise around Undo (8 units). */
+    padding: calc(var(--u, 1) * 10px) 6px calc(26px + var(--u, 1) * 9px); gap: 4px; transform: translateY(100%); }
   body:has(#strip svg[data-strip="2"]) #cmddock.ask { transform: translateY(0); }
   body:has(#strip svg[data-strip="2"]) #cmddock .stripe, body:has(#strip svg[data-strip="2"]) #cmddock .undo { display: none; }
-  body:has(#strip svg[data-strip="2"]) #cmddock .q { color: #26232b; font-size: calc(var(--u, 1) * 14px); }
-  #cmddock .handle { display: none; }
-  body:has(#strip svg[data-strip="2"]) #cmddock .handle { display: block; position: absolute; left: 0; right: 0; top: 0; height: calc(var(--u, 1) * 20px); border: 0; padding: 0; background: none; cursor: pointer; }
-  body:has(#strip svg[data-strip="2"]) #cmddock .handle::before { content: ''; position: absolute; left: 50%; top: 50%; width: calc(var(--u, 1) * 7px); height: calc(var(--u, 1) * 7px);
-    border: solid #26232b; border-width: 2px 2px 0 0; opacity: .55; transform: translate(-50%, -25%) rotate(-45deg); transition: transform .3s; }
-  body:has(#strip svg[data-strip="2"]) #cmddock.ask .handle::before { transform: translate(-50%, -75%) rotate(135deg); }
+  body:has(#strip svg[data-strip="2"]) #cmddock .q { color: var(--whoInk, #26232b); font-size: calc(var(--u, 1) * 14px); }
   #cmddock .dice { display: flex; justify-content: center; gap: calc(var(--u, 1) * 3px); }
   #cmddock .dice:empty { display: none; }
   #cmddock .mydie { width: calc(var(--u, 1) * 32px); height: calc(var(--u, 1) * 32px); display: grid; place-items: center; border-radius: 50%; cursor: grab; touch-action: none; }
   #cmddock .mydie svg { width: 82%; height: 82%; }
   #cmddock .mydie.can { background: radial-gradient(circle, rgba(76,255,122,.6), rgba(76,255,122,0) 68%); }
   #cmddock .mydie.used { cursor: default; }
+  #cmddock .mydie.used svg { opacity: .25; }
+  #cmddock .mydie.sel svg { outline: 2px solid #4cff7a; outline-offset: 2px; border-radius: 18%; }
+  #cmddock .mytok { width: calc(var(--u, 1) * 30px); height: calc(var(--u, 1) * 30px); display: grid; place-items: center; cursor: grab; touch-action: none; }
+  #cmddock .mytok svg { width: 88%; height: 88%; filter: drop-shadow(0 2px 2px rgba(0,0,0,.45)); }
+  #cmddock .mytok.can { background: radial-gradient(circle, rgba(76,255,122,.55), rgba(76,255,122,0) 68%); }
   #strip .loose { display: flex; align-items: center; height: calc(var(--stripw) / 4.1); }
   #strip .loose svg { height: 80%; width: auto; }
   /* Upgrade cards, shaped as cards: the draft, and the hand to drag onto the cars. */
@@ -405,5 +409,14 @@
   #leaderpick .leader li em { font-style: normal; font-weight: 700; text-align: center; background: #120c07; border-radius: 6px; padding: 2px 0; }
   #leaderpick .stars { margin-top: auto; padding-top: 8px; color: #f3e6c8; }
   #win { position: fixed; inset: 0; display: none; place-items: center; background: rgba(0,0,0,.55); z-index: 8; }
+  /* "Vuoi entrare nella tessera pericolo?" (game.ts confirmHazard). */
+  #hzask { position: fixed; inset: 0; display: none; align-items: center; justify-content: center; background: rgba(0,0,0,.35); z-index: 9; }
+  #hzask .card { background: var(--card); padding: 18px 24px; border-radius: 14px; text-align: center; box-shadow: 0 10px 30px rgba(0,0,0,.6); max-width: 360px; }
+  #hzask p { margin: 0 0 4px; font: 400 26px/1.1 'League Gothic', Impact, sans-serif; color: var(--acc); letter-spacing: .5px; }
+  #hzask small { display: block; margin-bottom: 14px; opacity: .8; }
+  #hzask .row { display: flex; gap: 10px; justify-content: center; }
+  #hzask button { min-width: 96px; padding: 8px 14px; border: 0; border-radius: 8px; font: 700 15px system-ui, sans-serif; cursor: pointer; }
+  #hzask .yes { background: #d42f30; color: #fff; }
+  #hzask .no { background: #f3e6d0; color: #1a120c; }
   #win .card { background: var(--card); padding: 24px 30px; border-radius: 14px; text-align: center; }
   #win .big { font: 400 56px 'League Gothic', Impact, sans-serif; color: var(--acc); }

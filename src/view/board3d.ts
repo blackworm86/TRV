@@ -341,7 +341,22 @@ export function tokenGroundTexture(code: string): THREE.CanvasTexture {
   const k = m.w / GRID.frameW;
   const sx = Math.min(...xs) * k, sy = Math.min(...ys) * k, sw = (Math.max(...xs) - Math.min(...xs)) * k, sh = (Math.max(...ys) - Math.min(...ys)) * k;
   x.drawImage(src, sx, sy, sw, sh, 0, 0, W, H);
-  // The pit trap's hole is 3D (terrain/pit3d.ts): the token keeps only its dusty ground.
+  // The pit trap's hole is 3D (terrain/pit3d.ts): the token keeps only its dusty ground, framed by
+  // the yellow and black tape of impassable spaces, which it is from now on (CDR p3; asked by the
+  // user, 2026-11-17). The outline is still the path: the stroke's inner half shows inside the clip.
+  if (code === 'pit') {
+    const tape = document.createElement('canvas');
+    tape.width = tape.height = 24;
+    const t = tape.getContext('2d')!;
+    t.fillStyle = 'rgb(246,196,62)'; t.fillRect(0, 0, 24, 24);
+    t.fillStyle = 'rgb(28,24,22)';
+    t.beginPath(); t.moveTo(12, 0); t.lineTo(24, 0); t.lineTo(0, 24); t.lineTo(0, 12); t.closePath(); t.fill();
+    t.beginPath(); t.moveTo(24, 12); t.lineTo(24, 24); t.lineTo(12, 24); t.closePath(); t.fill();
+    x.strokeStyle = x.createPattern(tape, 'repeat')!;
+    x.lineWidth = 34;
+    x.lineJoin = 'miter';
+    x.stroke();
+  }
   x.restore();
   const t = new THREE.CanvasTexture(c);
   t.colorSpace = THREE.SRGBColorSpace;

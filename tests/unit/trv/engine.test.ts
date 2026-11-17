@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { newGame, play, neighbor, chopperSpaces, key, type Game, type Decision } from '../../../src/game/trv/engine';
+import { newGame, play, neighbor, chopperSpaces, key, onBoard, terrainAt, vehiclesAt, type Game, type Decision } from '../../../src/game/trv/engine';
 
 const SEED = (n: number): string => n.toString(16).padStart(8, '0').padEnd(64, 'a');
 const PLAYERS = [
@@ -96,6 +96,49 @@ describe('airstrike', () => {
     const spaces = chopperSpaces(g).map(key);
     expect(spaces).toEqual(expect.arrayContaining([key(a), key(b), key(c)]));
     expect(spaces).not.toContain(key(d));
+  });
+});
+
+describe('revealed mud', () => {
+  /** Plays first options until a car has `min` moves or more left on a road step; returns that step. */
+  function stepWith(min: number): { g: Game; it: ReturnType<typeof play>; d: Decision; to: number } {
+    const g = newGame({ seed: SEED(3), players: PLAYERS.slice(0, 2), startSide: 'a' });
+    const it = play(g);
+    let r = it.next(0);
+    for (let n = 0; n < 5000 && !r.done; n++) {
+      const d = r.value;
+      const left = Number(/(\d+) moviment/.exec(d.prompt)?.[1] ?? 0);
+      const to = d.kind === 'step' ? d.options.findIndex(o => o.pos && !g.hazards.has(key(o.pos)) && onBoard(o.pos)
+        && terrainAt(g, o.pos) === 'R' && !vehiclesAt(g, o.pos).length) : -1;
+      if (d.kind === 'step' && left === min && to >= 0) return { g, it, d, to };
+      r = it.next(d.kind === 'step' && to >= 0 ? to : 0);
+    }
+    throw new Error('no step found');
+  }
+  const leftOf = (d: Decision): number => Number(/(\d+) moviment/.exec(d.prompt)?.[1] ?? 0);
+
+  it('costs the car that reveals it one more move: two in all (ruling of the rules owner)', () => {
+    // Arrange: a face-down mud token on the road space the car is about to enter, 3 moves left.
+    const { g, it, d, to } = stepWith(3);
+    g.hazards.set(key(d.options[to].pos!), { type: 'mud', faceUp: false });
+    // Act
+    const next = it.next(to).value as Decision;
+    // Assert: 1 move left, as for a muddy space.
+    expect(g.hazards.get(key(d.options[to].pos!))!.faceUp).toBe(true);
+    expect(next.kind).toBe('step');
+    expect(leftOf(next)).toBe(1);
+  });
+  it('stops the car there when it entered with its last move', () => {
+    // Arrange
+    const { g, it, d, to } = stepWith(1);
+    const at = d.options[to].pos!;
+    g.hazards.set(key(at), { type: 'mud', faceUp: false });
+    const car = g.activeCar;
+    // Act
+    it.next(to);
+    // Assert: the car stays on the mud, told that it stops there.
+    expect(g.vehicles.find(v => v.id === car)!.pos).toEqual(at);
+    expect(g.log.some(l => /affonda nel fango e si ferma/.test(l.text))).toBe(true);
   });
 });
 

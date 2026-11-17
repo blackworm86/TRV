@@ -9,7 +9,7 @@ import { ONGOING_PANEL_TOP, CARD_RED } from '../cards';
 
 /** What this module needs from art.ts (passed in, so the two files do not import each other). */
 export interface BoardBase {
-  dieSvg(f: { kind: string; value: number | string; color?: string }, extra?: string): string;
+  dieSvg(f: { kind: string; value: number | string; color?: string; number?: boolean }, extra?: string): string;
   damageTokenSvg(type: string | null, faceUp: boolean): string;
   /** The ON FIRE! token (Carnage at Devil's Run), 120 x 120. */
   onFireTokenSvg(): string;
@@ -82,13 +82,17 @@ const STRIP_LEFT = 30;
 /** The die slots of the corners, as in the first drawing (40.14-unit squares turned 45°). */
 const SLOT = 40.14;
 /** The tab's grey and its shape in the second drawing's units: the drawing's tab, 6 units longer so the power's text fits beside a narrower portrait (mockup approved 2026-11-17). */
-const TAB_GREY = '#c9c8c2';
 const TAB_PATH = 'M280,76.1 L272,68 c-0.9-0.9-2.2-1.5-3.5-1.5 H27.9 c-1.3,0-2.6,0.5-3.5,1.5 l-8.1,8.1 c-0.9,0.9-1.5,2.2-1.5,3.5 v151 c0,1.3,0.5,2.6,1.5,3.5 l8.1,8.1 c0.9,0.9,2.2,1.5,3.5,1.5 h242.6 c1.3,0,2.6-0.5,3.5-1.5 l6-6 c0.9-0.9,1.5-2.2,1.5-3.5 V79.6 z';
 /** The portrait's window on the tab: its left 90 units. */
 const TAB_PORTRAIT = { x: 14, y: 66.5, w: 90, h: 177.2 };
 const TAB_PORTRAIT_PATH = 'M27.9,66.5 H104 V243.7 H27.9 c-1.3,0-2.6-0.5-3.5-1.5 l-8.1-8.1 c-0.9-0.9-1.5-2.2-1.5-3.5 v-151 c0-1.3,0.5-2.6,1.5-3.5 l8.1-8.1 c0.9-0.9,2.2-1.5,3.5-1.5 z';
-/** The Undo plate: the COMANDI plate turned up, in the dark band above the coloured panel. */
-const UNDO_PLATE = '141.8,48.5 149.7,40.6 208.4,40.6 216.3,48.5 208.4,56.4 149.7,56.4';
+/** The glow of an upgrade card whose ability is available or has just fired, and of its word. */
+const CUE_BLUE = '#2f7bff';
+/**
+ * The Undo plate: the COMANDI plate mirrored to the board's top. As COMANDI fills the board's rise at
+ * its foot, centred on the bottom edge, Undo fills the rise at its top, centred on the top edge (38.8).
+ */
+const UNDO_PLATE = '141.8,38.8 149.7,30.9 208.4,30.9 216.3,38.8 208.4,46.7 149.7,46.7';
 /** Command tokens heaped at the board's foot, over the left end of the COMANDI plate: centre, turn (degrees), in the second drawing's units. */
 const TOKEN_HEAP: [number, number, number][] = [[146, 263, -14], [157, 255, 9], [168, 262, -5], [151, 249, 16], [163, 246, -9]];
 const HEAP_SIZE = 28;
@@ -232,12 +236,12 @@ export function makeBoards(raw: string, base: BoardBase, stripRaw?: string): {
   const of = (id: BoardId): El[] => all.filter(e => boardOf(e.x) === id);
   const svg = (box: string, body: string, extra: string): string => `<svg xmlns="http://www.w3.org/2000/svg" viewBox="${box}" ${extra}>${body}</svg>`;
   /** Running text (what a power, a command or a card does): a plain sans-serif reads better than the display font. */
-  const prose = (s: string, x: number, y: number, size: number, fill: string, anchor = 'start'): string =>
-    `<text x="${x}" y="${y}" font-size="${size}" fill="${fill}" text-anchor="${anchor}" font-family="system-ui, 'Segoe UI', Roboto, sans-serif" font-weight="600" pointer-events="none">${esc(s)}</text>`;
+  const prose = (s: string, x: number, y: number, size: number, fill: string, anchor = 'start', opacity = '1'): string =>
+    `<text x="${x}" y="${y}" font-size="${size}" fill="${fill}" fill-opacity="${opacity}" text-anchor="${anchor}" font-family="system-ui, 'Segoe UI', Roboto, sans-serif" font-weight="600" pointer-events="none">${esc(s)}</text>`;
   const text = (s: string, x: number, y: number, size: number, fill: string, anchor = 'start', extra = ''): string =>
     `<text x="${x}" y="${y}" font-size="${size}" fill="${fill}" text-anchor="${anchor}" ${base.font} pointer-events="none" ${extra}>${esc(s)}</text>`;
   const die = (x: number, y: number, s: number, value: number, color: string): string =>
-    `<g transform="translate(${x - s / 2} ${y - s / 2}) scale(${s / 100})" pointer-events="none" data-die3d="movement|${value}|${color}">${inner(base.dieSvg({ kind: 'movement', value, color }))}</g>`;
+    `<g transform="translate(${x - s / 2} ${y - s / 2}) scale(${s / 100})" pointer-events="none">${inner(base.dieSvg({ kind: 'movement', value, color, number: true }))}</g>`;
   const diamond = (x: number, y: number, r: number): string => `M${x} ${y - r} L${x + r} ${y} L${x} ${y + r} L${x - r} ${y}Z`;
 
   /** A car dashboard: the board, its writing, the dice on it and the damage tokens hanging below. */
@@ -420,8 +424,8 @@ export function makeBoards(raw: string, base: BoardBase, stripRaw?: string): {
     if (c.undo) {
       // Undo, always in view, on a plate like the COMANDI one (asked by the user, 2026-11-17).
       b += `<g class="undoplate${c.undo === 'off' ? ' off' : ''}" data-undo="1"><title>Annulla l’ultima scelta (Ctrl+Z)</title><polygon points="${UNDO_PLATE}" fill="${METAL}"/>`
-        + `<path d="M159.5,48.6 a3.6,3.6 0 1 1 1.8,3.3 M157.4,46.5 L159.5,49.4 L161.9,46.8" fill="none" stroke="${DARK}" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>`
-        + text('ANNULLA', 185, 52.9, 12, DARK, 'middle', 'font-style="italic"') + '</g>';
+        + `<path d="M159.5,38.9 a3.6,3.6 0 1 1 1.8,3.3 M157.4,36.8 L159.5,39.7 L161.9,37.1" fill="none" stroke="${DARK}" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>`
+        + text('ANNULLA', 185, 43.2, 12, DARK, 'middle', 'font-style="italic"') + '</g>';
     }
     const corner: El[] = s.slots.map(([x, y]) => ({ layer: '', tag: 'rect', cls: '', x: x + dx, attrs: `x="${x + dx - SLOT / 2}" y="${y + dy - SLOT / 2}" width="${SLOT}" height="${SLOT}"` }));
     const panel = s.panel.map((v, i) => v + (i % 2 ? dy : dx));
@@ -446,17 +450,18 @@ export function makeBoards(raw: string, base: BoardBase, stripRaw?: string): {
    * board, so it stays a tab (asked by the user, 2026-11-17). In the second drawing's units.
    */
   function powerTab(c: CommandBoardArt): string {
-    const L = c.leader!, P0 = TAB_PORTRAIT;
-    let b = `<path d="${TAB_PATH}" fill="${TAB_GREY}"/>`;
+    // In the player's colour, as the drawer above the board (asked by the user, 2026-11-17).
+    const L = c.leader!, P0 = TAB_PORTRAIT, ink = base.inkOn(c.color);
+    let b = `<path d="${TAB_PATH}" fill="${c.color}"/>`;
     b += `<clipPath id="ptab-portrait"><path d="${TAB_PORTRAIT_PATH}"/></clipPath>`;
     b += L.portrait
       ? `<image href="${L.portrait}" x="${P0.x}" y="${P0.y}" width="${P0.w}" height="${P0.h}" preserveAspectRatio="xMidYMid slice" clip-path="url(#ptab-portrait)"/>`
-      : `<path d="${TAB_PORTRAIT_PATH}" fill="${c.color}"/>` + text(L.name.charAt(0).toUpperCase(), P0.x + P0.w / 2, P0.y + P0.h / 2 + 22, 64, base.inkOn(c.color), 'middle', 'opacity=".45"');
+      : `<path d="${TAB_PORTRAIT_PATH}" fill="${DARK}" opacity=".3"/>` + text(L.name.charAt(0).toUpperCase(), P0.x + P0.w / 2, P0.y + P0.h / 2 + 22, 64, ink, 'middle', 'opacity=".45"');
     const tx = 110;
-    b += prose(`${L.name} · ${L.title}`.toUpperCase(), tx, 84, 8.5, '#5b5660');
+    b += prose(`${L.name} · ${L.title}`.toUpperCase(), tx, 84, 8.5, ink, 'start', '.7');
     const title = wrap(L.power.toUpperCase(), 13);
-    title.forEach((l, i) => { b += text(l, tx, 104 + i * 20, 21, DARK, 'start', 'font-style="italic"'); });
-    wrap(L.powerText, 23).forEach((l, i) => { b += prose(l, tx, 104 + title.length * 20 + 2 + i * 13.5, 10.5, DARK); });
+    title.forEach((l, i) => { b += text(l, tx, 104 + i * 20, 21, ink, 'start', 'font-style="italic"'); });
+    wrap(L.powerText, 23).forEach((l, i) => { b += prose(l, tx, 104 + title.length * 20 + 2 + i * 13.5, 10.5, ink); });
     return `<g class="ptab" data-ptab="1"><title>${esc(`${L.power}: ${L.powerText}`)}</title>${b}</g>`;
   }
 
@@ -486,11 +491,11 @@ export function makeBoards(raw: string, base: BoardBase, stripRaw?: string): {
   function upgradeCard(d: DashboardArt): string {
     if (!d.upgrade) return '';
     const cw = RECESS.w - 3, ch = Math.round(cw * 88 / 63), x = DASH_MID[d.size] - cw / 2;
-    const off = d.status !== 'ok', head = off ? '#6d6b70' : d.color;
+    const off = d.status !== 'ok', head = off ? '#6d6b70' : d.color, cue = off ? undefined : d.upgrade.cue;
     const top = RECESS.y - CARD_PEEK; // hidden: only the name band sticks out of the recess
     const rise = ch - CARD_PEEK - CARD_TUCK; // raised: the whole card above the recess, its foot still tucked in
     const name = d.upgrade.name.toUpperCase();
-    let b = `<rect x="${x}" y="${top}" width="${cw}" height="${ch}" rx="7" fill="${DARK}" stroke="${head}" stroke-width="2.5"/>`;
+    let b = `<rect x="${x}" y="${top}" width="${cw}" height="${ch}" rx="7" fill="${DARK}" stroke="${cue ? CUE_BLUE : head}" stroke-width="${cue ? 5 : 2.5}"/>`;
     b += `<rect x="${x + 4}" y="${top + 4}" width="${cw - 8}" height="${CARD_PEEK - 6}" rx="4" fill="${head}"/>`;
     b += text(name, x + cw / 2, top + CARD_PEEK - 7.5, Math.min(19, 250 / name.length), base.inkOn(head), 'middle');
     const lines = wrap(d.upgrade.text, 21);
@@ -511,7 +516,10 @@ export function makeBoards(raw: string, base: BoardBase, stripRaw?: string): {
     // Cut at the recess floor: whatever of the card is behind the board never shows through its lower notches.
     const clip = `upclip-${d.carId}`;
     return `<clipPath id="${clip}"><rect x="${x - 4}" y="${RECESS.y - 2 * ch}" width="${cw + 8}" height="${2 * ch + 3}"/></clipPath>`
-      + `<g clip-path="url(#${clip})"><g class="upcard" style="--rise:${-rise}px" opacity="${off ? 0.7 : 1}"><title>${esc(`${d.upgrade.name}: ${d.upgrade.text}`)}</title>${b}</g></g>`;
+      + `<g clip-path="url(#${clip})"><g class="upcard${cue ? ' cue' : ''}" style="--rise:${-rise}px" opacity="${off ? 0.7 : 1}"><title>${esc(`${d.upgrade.name}: ${d.upgrade.text}`)}</title>${b}</g></g>`
+      // The glowing card's word, above it, outside the clip (asked by the user, 2026-11-17).
+      + (cue ? `<g class="cuetag" pointer-events="none"><rect x="${x + cw / 2 - 52}" y="${top - 25}" width="104" height="20" rx="10" fill="${CUE_BLUE}"/>`
+        + text(cue === 'use' ? 'PUOI USARLA' : 'SI ATTIVA', x + cw / 2, top - 9.5, 15, '#fff', 'middle') + '</g>' : '');
   }
 
   return { dashboardSvg, commandBoardSvg, stripSvg, stripFrame };

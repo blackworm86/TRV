@@ -5,21 +5,23 @@ import { leaderOf, leaders, commandName, type Decision, type LogEntry, type Fram
 import { ongoingIllustration, upgradeIllustration } from '../view/cards';
 import { dieSvg, hazardTokenSvg, commandTokenSvg, dashboardSvg, commandBoardSvg, playerStripSvg, avatarSvg, dataUrl } from '../view/vector/art';
 import { FX_ASK } from './beats';
+import { carObjs } from './board';
 import { chase, chaseButtons } from './chase';
 import { drawDock } from './dock';
-import { choose, decision, g, hotZones, mySeat, pending, undo, viewer, zoneOption } from './game';
+import { canUndo, choose, decision, g, hotZones, mySeat, pending, undo, viewer, zoneOption } from './game';
 import { assignCard, cardHtml, drawHand, selCard } from './hand';
 import { CMD_LINES, ONGOING_INFO, PORTRAITS, POWER_INFO, UPGRADE_INFO, boardCommands, slotText, upgradeName } from './info';
+import { focusOn } from './keys';
 import { fit } from './mapView';
 import { drawMarkers } from './markers';
 import { syncFxSupply } from './rolls';
 import { S } from './state';
-import { setDiceOnTable, syncTableDice } from './tableDice';
+import { syncTableDice } from './tableDice';
 import { $, esc } from './util';
 
 export function dieHtml(kind: string, value: number | string, color: string | undefined, cls = '', attrs = ''): string {
-  // The SVG keeps the layout and takes the clicks; the HUD overlay draws a 3D die on top of it.
-  return dieSvg({ kind, value, color, forward: 'right' }, `class="${cls}" data-die3d="${kind}|${value}|${color ?? ''}" ${attrs}`);
+  // The face alone, flat (asked by the user, 2026-11-17): movement dice with their value as a digit.
+  return dieSvg({ kind, value, color, forward: 'right', number: kind === 'movement' }, `class="${cls}" ${attrs}`);
 }
 
 export function logLine(e: LogEntry): string {
@@ -32,7 +34,23 @@ export let toastTimer = 0;
 export const SHOW_TOAST = false;
 export const toastLines: string[] = [];
 /** Shows a rules line that matters (shots, damage, hazards, eliminations, turns) over the map. */
+/** How long an upgrade card glows after its passive ability fired, in ms. */
+const CARD_FLASH_MS = 2600;
+/**
+ * A log line naming a car's upgrade (Boost Switch: +1 movimento, ...) makes that card glow for a
+ * moment, "SI ATTIVA" (asked by the user, 2026-11-17).
+ */
+function flashCards(text: string): void {
+  if (!g) return;
+  let any = false;
+  for (const v of g.vehicles) {
+    if ([v.upgrade, v.upgrade2].some(u => u && text.includes(upgradeName(u)))) { S.cardFlash.set(v.id, performance.now() + CARD_FLASH_MS); any = true; }
+  }
+  if (any) setTimeout(drawHud, CARD_FLASH_MS + 50);
+}
+
 export function toastLine(f: Frame): void {
+  if (f.text) flashCards(f.text);
   if (!f.text || !SHOW_TOAST) return;
   const important = f.logKind !== 'info' || /Pericolo|danno|sparo|bersaglio|armi|dado strada|COLPITO|nuova tessera|traguardo/i.test(f.text);
   if (!important) return;
@@ -208,7 +226,7 @@ export function drawHud(): void {
     drop: d?.kind === 'token' && mine ? d.options.filter(o => o.command).map(o => o.command!) : [...hot].filter(z => z.startsWith('cmd:')).map(z => z.slice(4)),
     tokenOn: Object.entries(me.slots).filter(([, v]) => v === 'token').map(([k]) => k), keepOpen: me.tokens > 0,
     // Undo on the board (hot seat only): lit when there is a choice to take back.
-    ...(S.net ? {} : { undo: (!S.saved?.choices.length || S.playing ? 'off' : 'on') as 'on' | 'off' }),
+    ...(S.net ? {} : { undo: (!canUndo() || S.playing ? 'off' : 'on') as 'on' | 'off' }),
     ...(cmds ? { commands: cmds } : {}),
     ...(lead ? { leader: {
       name: lead.name, title: lead.title, power: POWER_INFO[lead.power]?.[0] ?? lead.power, powerText: POWER_INFO[lead.power]?.[1] ?? '',
@@ -225,6 +243,9 @@ export function drawHud(): void {
     ...(v.damage.some(t => t.card) ? { cards: v.damage.map(t => t.card ? { id: t.card, name: ONGOING_INFO[t.card]?.[0] ?? t.card, art: ongoingIllustration(t.card) } : null) } : {}),
     // Ms. Betty's large car may carry two upgrades: one card naming both.
     ...(v.upgrade && v.status !== 'elim' ? { upgrade: {
+      // Glowing: its ability can be used now (the question names the card), or a passive one just fired.
+      ...(v.status === 'ok' && d && d.player === v.owner && [v.upgrade, v.upgrade2].some(u => u && d.prompt.includes(upgradeName(u)))
+        ? { cue: 'use' as const } : (S.cardFlash.get(v.id) ?? 0) > performance.now() ? { cue: 'fires' as const } : {}),
       name: v.upgrade2 ? `${upgradeName(v.upgrade)} + ${upgradeName(v.upgrade2)}` : upgradeName(v.upgrade),
       text: [v.upgrade, v.upgrade2].filter((x): x is string => !!x).map(x => UPGRADE_INFO[x] ?? '').join(' · '),
       art: upgradeIllustration(v.upgrade),
@@ -237,10 +258,9 @@ export function drawHud(): void {
   // One drawing, laid out as in the rulebook; without the owner's drawing, the boards side by side.
   const strip = $('strip');
   strip.innerHTML = playerStripSvg(cmdArt, dashArt) ?? `<div class="loose">${commandBoardSvg(cmdArt)}${dashArt.map(a => dashboardSvg(a)).join('')}</div>`;
-  // The second strip drawing: the dice are in the drawer behind the board, not on the table; the
-  // leader's tab comes out on a click; Undo is a plate on the board.
-  const strip2 = !!strip.querySelector('[data-strip="2"]');
-  setDiceOnTable(!strip2);
+  // The second strip drawing: the dice are both in the drawer behind the board and on the table
+  // (either can be played, asked by the user, 2026-11-17); the leader's tab comes out on a click;
+  // Undo is a plate on the board.
   strip.classList.toggle('tab-open', S.tabOpen);
   strip.querySelector('[data-ptab]')?.addEventListener('click', () => { S.tabOpen = !S.tabOpen; strip.classList.toggle('tab-open', S.tabOpen); });
   strip.querySelector('[data-undo]')?.addEventListener('click', e => { if (!(e.currentTarget as Element).classList.contains('off')) undo(); });
@@ -264,6 +284,16 @@ export function drawHud(): void {
     }
   }
   chaseButtons();
+  // A click on a dashboard brings the view close to its car (restored at the user's request,
+  // 2026-11-17: the chase view had taken its place, then was switched off). Not when the click
+  // picks the car (a repair, an upgrade card) or places a die on it.
+  for (const el of document.querySelectorAll<SVGElement>('#strip [data-car]')) {
+    el.addEventListener('click', e => {
+      if (d?.kind === 'repair' || d?.kind === 'upgradeAssign') return;
+      if ((e.target as Element).closest('[data-drop].hotzone')) return;
+      focusOn(carObjs.get(el.dataset.car!), true);
+    });
+  }
   // Upgrade cards: a car takes the selected card (the cards can also be dragged onto it).
   if (d?.kind === 'upgradeAssign') {
     for (const el of document.querySelectorAll<SVGElement>('#strip [data-car]')) {
@@ -272,7 +302,7 @@ export function drawHud(): void {
       el.addEventListener('click', () => { if (selCard) assignCard(selCard, el.dataset.car!); });
     }
   }
-  ($('undo2') as HTMLButtonElement).disabled = !!S.net || !S.saved?.choices.length || S.playing;
+  ($('undo2') as HTMLButtonElement).disabled = !canUndo() || S.playing;
   drawDock(d, !!mine, me);
   ($('roomopen') as HTMLButtonElement).style.display = S.net ? '' : 'none';
   $('home').classList.toggle('on', !!chase);
