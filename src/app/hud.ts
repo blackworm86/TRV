@@ -246,7 +246,11 @@ export function drawHud(): void {
   const asked = d && (d.kind === 'command' || d.kind === 'token') ? '' : d ? ASK[d.kind] ?? (['plow', 'rollCage', 'dispense', 'radar', 'swap', 'redButton'].includes(d.kind) ? d.prompt.replace(/^[^:]+: /, '') : '') : '';
   if (asked) actions.insertAdjacentHTML('afterbegin', `<span class="q">${esc(asked)}</span>`);
   actions.classList.toggle('only', !actions.querySelector('button'));
-  actions.classList.toggle('many', actions.querySelectorAll('button').length > 3);
+  // More than three answers, or a long question: the question on its own line, the answers under it.
+  actions.classList.toggle('many', actions.querySelectorAll('button').length > 3 || (!!actions.querySelector('button') && asked.length > 34));
+  // A new question finds its place again; the same one keeps it (see placeActions).
+  const asking = d ? `${S.saved?.choices.length ?? 0}:${d.kind}:${d.prompt}` : '';
+  if (actions.dataset.dec !== asking) { actions.dataset.dec = asking; delete actions.dataset.spot; }
   // Keys: Enter for the main choice, Esc for the quiet one (no, keep, stop), shown on the buttons.
   const btns = [...actions.querySelectorAll<HTMLButtonElement>('button')];
   const main = btns.find(b => !b.classList.contains('quiet')), quiet = btns.find(b => b.classList.contains('quiet'));

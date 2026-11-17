@@ -11,6 +11,7 @@ import { camera, renderer } from './stage';
 import { S } from './state';
 import { fxDiceRect, tableDiceRect } from './tableDice';
 import { previewSpots } from './markers';
+import { P } from './presentation';
 import { $, cssPx, menuOpen } from './util';
 
 /**
@@ -176,14 +177,23 @@ export function placeActions(): void {
         [gx - w / 2 - gap, gy + space * 0.5], [gx - w / 2 - gap, gy - space * 0.6 - h], [gx, gy + space * 1.1], [gx, gy - space * 1.5 - h],
       ];
     }
-    let best = Infinity;
-    for (const [sx, sy] of spots) {
+    // The side is chosen once per question, when the view and the dice have come to rest, and kept
+    // (asked by the user, 2026-11-17: the answers jumped from one side to the other before one could
+    // click them). Until then the answers wait unseen; afterwards they only follow their anchor.
+    const now = performance.now() / 1000;
+    const still = !S.shotBack && (!S.shot || now > S.shot.t0 + P.director.shot.blendIn + 0.3) && S.trayDice.every(t => t.t >= 1);
+    const locked = el.dataset.spot === undefined ? -1 : Number(el.dataset.spot);
+    let best = Infinity, pick = -1;
+    spots.forEach(([sx, sy], i) => {
+      if (locked >= 0 && i !== locked) return;
       const cx = Math.max(w / 2 + 8, Math.min(innerWidth - w / 2 - 8, sx)), ty = Math.max(cssPx('--top'), Math.min(floor - h, sy));
       let hidden = Math.hypot(cx - sx, ty - sy) * 20; // pushed away from its spot by the screen's edge
       for (const [l, t, r, bt] of keep) hidden += Math.max(0, Math.min(cx + w / 2, r) - Math.max(cx - w / 2, l)) * Math.max(0, Math.min(ty + h, bt) - Math.max(ty, t));
-      if (hidden < best - 1) { best = hidden; x = cx; top = ty; }
-    }
-  }
+      if (hidden < best - 1) { best = hidden; x = cx; top = ty; pick = i; }
+    });
+    if (locked < 0 && still && pick >= 0) el.dataset.spot = String(pick);
+    el.classList.toggle('wait', el.dataset.spot === undefined);
+  } else el.classList.remove('wait');
   el.style.left = `${Math.max(w / 2 + 8, Math.min(innerWidth - w / 2 - 8, x))}px`;
   el.style.top = `${top}px`;
 }

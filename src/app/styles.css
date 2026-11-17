@@ -80,6 +80,19 @@
   #bar .road svg { width: 40px; height: 40px; }
   #bar .road span { font-size: 13px; line-height: 1; text-align: left; opacity: .85; }
   #bar .tool.on { background: var(--acc); color: #16100b; }
+  /* A narrow window (down to 1024): only the current step keeps its name, so the question and every button stay in the bar. */
+  @media (max-width: 1480px) {
+    .st:not(.on) span, .st small { display: none; }
+    .st { padding: 0 14px 0 22px; }
+    #bar .road span { display: none; }
+  }
+  @media (max-width: 1180px) {
+    #bar { gap: 6px; padding: 0 8px; }
+    #bar .tool { min-width: 52px; padding: 3px 6px; }
+    #prompt { font-size: 17px; }
+    #prompt .passing { display: none; } /* no room: the prompt still flashes in the player's colour */
+    #prompt b { font-size: 26px; }
+  }
   .pop { position: fixed; top: calc(var(--bar) + 6px); right: 12px; z-index: 7; display: none; min-width: 300px; padding: 12px 16px 14px; border-radius: 14px;
     background: rgba(26,18,12,.97); border: 1px solid #4a3523; box-shadow: 0 12px 32px rgba(0,0,0,.6); }
   .pop.show { display: block; }
@@ -126,7 +139,9 @@
   #actions .q { font: 400 20px/1 'League Gothic', Impact, sans-serif; letter-spacing: .5px; color: var(--ink); padding: 0 6px 0 0; white-space: nowrap; }
   /* Many choices: they wrap under the question. */
   #actions.many { flex-wrap: wrap; border-radius: 16px; padding: 7px; }
-  #actions.many .q { flex-basis: 100%; text-align: center; padding: 2px 6px; }
+  #actions.many .q { flex-basis: 100%; text-align: center; padding: 2px 6px; white-space: normal; line-height: 1.1; }
+  #actions.many { justify-content: center; }
+  #actions.wait { visibility: hidden; }
   #replay.fresh { background: #d42f30; color: #fff; animation: callout 1.2s ease-in-out infinite; }
   #replaybadge { position: fixed; left: 50%; top: calc(var(--top) + 8px); transform: translateX(-50%); display: none; align-items: center; gap: 9px; z-index: 6; padding: 6px 16px;
     font: 400 26px/1 'League Gothic', Impact, sans-serif; letter-spacing: 2px; color: #fff; background: rgba(20,14,10,.9); border: 2px solid #d42f30; border-radius: 10px; }
@@ -201,7 +216,7 @@
     padding: calc(var(--u, 1) * 10px) 6px calc(26px + var(--u, 1) * 9px); gap: 4px; transform: translateY(100%); }
   body:has(#strip svg[data-strip="2"]) #cmddock.ask { transform: translateY(0); }
   body:has(#strip svg[data-strip="2"]) #cmddock .stripe, body:has(#strip svg[data-strip="2"]) #cmddock .undo { display: none; }
-  body:has(#strip svg[data-strip="2"]) #cmddock .q { color: var(--whoInk, #26232b); font-size: calc(var(--u, 1) * 14px); }
+  body:has(#strip svg[data-strip="2"]) #cmddock .q { color: var(--whoInk, #26232b); font-size: max(14px, calc(var(--u, 1) * 14px)); }
   #cmddock .dice { display: flex; justify-content: center; gap: calc(var(--u, 1) * 3px); }
   #cmddock .dice:empty { display: none; }
   #cmddock .mydie { width: calc(var(--u, 1) * 32px); height: calc(var(--u, 1) * 32px); display: grid; place-items: center; border-radius: 50%; cursor: grab; touch-action: none; }
@@ -248,11 +263,11 @@
   /* Rolled dice, big, in the middle of the screen; comic words over the action */
   /* Rolled dice and damage: big, in the middle of the table, so everyone sees what happened (asked
      by the user, 2026-11-17: not small at the left edge). It lets clicks through to the table. */
-  #rolls { position: fixed; left: 50%; top: calc(var(--top) + (100vh - var(--top) - var(--bottom)) * .42); transform: translate(-50%, -50%) scale(.85);
+  #rolls { position: fixed; left: 50%; top: var(--bandmid, 40vh); transform: translate(-50%, -50%) scale(calc(var(--rollk, 1) * .85));
     display: flex; align-items: flex-start; gap: 22px; padding: 18px 26px 20px;
     opacity: 0; pointer-events: none; transition: opacity .25s, transform .25s; z-index: 5; border-radius: 24px;
     background: rgba(20,14,10,.92); border: 3px solid var(--acc); box-shadow: 0 18px 50px rgba(0,0,0,.7); }
-  #rolls.show { opacity: 1; transform: translate(-50%, -50%); }
+  #rolls.show { opacity: 1; transform: translate(-50%, -50%) scale(var(--rollk, 1)); }
   #rolls .roll { display: flex; flex-direction: column; align-items: center; gap: 6px; min-width: 110px; }
   #rolls .roll svg { width: 92px; height: 92px; }
   #rolls .roll b { font-family: 'League Gothic', Impact, sans-serif; font-weight: 400; font-size: 34px; color: var(--acc); line-height: 1; }
@@ -266,7 +281,11 @@
   #rolls .roll.dmg b { font-size: 46px; color: #ff6a5a; }
   #rolls .roll.dmg span { font-size: 19px; max-width: 300px; }
   /* Ongoing effect card (Carnage): official art, Italian name and text over the red panel. */
-  #rolls .roll.dmg.withcard { grid-template-columns: auto; }
+  /* With an ongoing effect card: the token and what it does on the left, the card beside them, large enough to read. */
+  #rolls .roll.dmg.withcard { display: grid; grid-template-columns: 250px auto; column-gap: 24px; justify-items: center; align-content: center; }
+  #rolls .roll.dmg.withcard > * { grid-column: 1; }
+  #rolls .roll.dmg.withcard > .ocard { grid-column: 2; grid-row: 1 / span 4; align-self: center; margin: 0; }
+  #rolls .roll .ocard > svg { width: 100%; height: 100%; }
   .ocard { --w: 190px; width: var(--w); aspect-ratio: 440 / 680; box-sizing: border-box; display: flex; flex-direction: column; gap: 4px;
     padding: 10px; border-radius: 9px; background: #e01a30; color: #fff; text-align: left; margin-top: 8px;
     box-shadow: 0 10px 22px rgba(0,0,0,.55); animation: tokflip .55s ease-out; }
@@ -287,7 +306,7 @@
   #ozoom .ocard { --w: 300px; margin: 0; animation: none; box-shadow: 0 18px 40px rgba(0,0,0,.7); }
   #ozoom .ocard b { font: italic 400 26px/1.05 'League Gothic', Impact, sans-serif; text-transform: uppercase; letter-spacing: .4px; color: #fff; }
   #ozoom .ocard span { font-size: 16px; line-height: 1.3; color: #fff; font-weight: 500; }
-  #rolls .ocard { --w: 240px; }
+  #rolls .ocard { --w: 250px; }
   #rolls .ocard b { font-size: 15px; color: #fff; font-style: italic; text-transform: uppercase; letter-spacing: .3px; line-height: 1.05; }
   #rolls .ocard span { font-size: 11.5px; line-height: 1.25; max-width: none; color: #fff; font-weight: 500; }
   @keyframes tokflip { 0% { transform: rotateY(180deg) scale(.5); opacity: 0; } 55% { transform: rotateY(60deg) scale(1.12); opacity: 1; } 100% { transform: none; } }

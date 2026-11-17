@@ -41,6 +41,9 @@ export function fit(): void {
   // The players' bubbles may hang below the top bar: the road starts under the lowest one.
   const bubbles = document.getElementById('players')?.getBoundingClientRect();
   const top = Math.max(cssPx('--top'), bubbles && bubbles.height > 0 ? bubbles.bottom + FIT.gap : 0), h = H;
+  // The panel of the damage and the dice sits in the middle of the free band, never larger than it.
+  root.setProperty('--bandmid', `${Math.round(top + (H - top - stripH) / 2)}px`);
+  root.setProperty('--rollk', Math.max(0.5, Math.min(1, (H - top - stripH - 12) / 440, (W - 24) / 940)).toFixed(3));
   const botLim = -1 + 2 * (stripH + 6) / h;
   // The player bubbles float over the top of the map: keep the road below them.
   const topLim = 1 - 2 * top / h;
