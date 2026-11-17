@@ -15,7 +15,6 @@ import { scene } from './stage';
 import { S } from './state';
 import { $, esc, menuOpen } from './util';
 
-
 export const crewSelects: HTMLSelectElement[] = [];
 for (let i = 0; i < 4; i++) {
   const sel = document.createElement('select');

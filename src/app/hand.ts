@@ -1,4 +1,6 @@
 // The upgrade cards in hand (Choppe Shoppe): drawn under the strip, dragged onto a car.
+// Drafted, the cards are shown as cards; to put one on a car, drag it onto the car's dashboard
+// (or onto the car on the table), or click it and then the car.
 
 import { type Decision } from '../game/trv/engine';
 import { upgradeArt } from '../view/cards';
@@ -9,9 +11,6 @@ import { UPGRADE_INFO, upgradeName } from './info';
 import { pointer, ray } from './input';
 import { camera, renderer } from './stage';
 import { $, esc } from './util';
-
-// Drafted, the cards are shown as cards; to put one on a car, drag it onto the car's dashboard
-// (or onto the car on the table), or click it and then the car.
 
 /**
  * An upgrade card: the official card (illustration and torn edge, src/view/cards.ts) with the

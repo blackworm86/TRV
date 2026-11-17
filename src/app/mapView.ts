@@ -8,12 +8,12 @@ import { chase, setChase } from './chase';
 import { liftView } from './director';
 import { drawHud } from './hud';
 import { syncOptions } from './menus';
+import { P } from './presentation';
 import { camBefore } from './replay';
 import { saveSettings, settings } from './settings';
 import { BOARD_X0, PITCH_W, TILE_H, TILE_W, camera, controls, renderer } from './stage';
 import { S } from './state';
 import { $, cssPx } from './util';
-
 
 /** Distance of the framed view: zooming in from it tilts the view toward the horizon. */
 export let fitDist = 40;
@@ -22,7 +22,7 @@ export let fitDist = 40;
  * `high` the height of the tallest pieces on the table (world units), kept in the picture too,
  * `gap` the pixels left free under the players' bubbles.
  */
-export const FIT = { side: 0.96, high: 0.5, gap: 8 };
+export const FIT = P.mapView.fit;
 /**
  * Lays out the screen: the bar and the players at the top, the player's strip at the bottom with
  * nothing around it (no background), the table framed in the free space between them. The strip is
@@ -98,9 +98,9 @@ export function fit(): void {
  * horizon. The zenithal map view (V, asked by the user) looks straight down at any distance (a hair
  * off the vertical, so the screen's top stays down the table as in the angled view).
  */
-export const ELEV_FAR = Math.atan2(1, 0.55), ELEV_NEAR = 0.6, ELEV_ZENITH = Math.PI / 2 - 0.002;
+export const ELEV_FAR = Math.atan2(1, 0.55), ELEV_NEAR = P.mapView.elevNear, ELEV_ZENITH = Math.PI / 2 - 0.002;
 /** Seconds the camera takes to move between the angled and the zenithal map view. */
-export const VIEW_SWAP = 0.9;
+export const VIEW_SWAP = P.mapView.swap;
 /** 0 = angled map view, 1 = zenithal; in between while the camera moves from one to the other. */
 export let zenithK = settings.zenith ? 1 : 0;
 export let viewSwap: { t0: number; from: { target: THREE.Vector3; dist: number; k: number }; to: { target: THREE.Vector3; dist: number } } | null = null;

@@ -1,5 +1,7 @@
 // The player's movement dice on the table (in the map view under the road, in the chase
 // view beside the car), and where they are on screen.
+// The dice of the player the interface shows lie on the table, in a row just under the road:
+// they are picked up and dragged onto a board or onto a car.
 
 import * as THREE from 'three';
 import { type Player } from '../game/trv/engine';
@@ -8,12 +10,11 @@ import { AWAY, DIE_W, FX_SCALE, HAZ_SIZE, TRAY_SCALE, TRAY_Z, carObjs, chopperOb
 import { SPACE_W, chase } from './chase';
 import { dieUsable } from './game';
 import { drag, pointer, ray } from './input';
+import { P } from './presentation';
+import { Box, Round, clearOf } from './spots';
 import { BOARD_X0, PITCH_W, TILE_T, TILE_W, camera, renderer, scene } from './stage';
 import { S } from './state';
 import { $, FACES, cssPx } from './util';
-
-// The dice of the player the interface shows lie on the table, in a row just under the road:
-// they are picked up and dragged onto a board or onto a car.
 
 export interface TableMyDie { d: Die3D; base: THREE.Vector3; q: THREE.Quaternion; glow: THREE.Mesh }
 /** A soft round light, drawn under a die that can be played. */
@@ -81,7 +82,7 @@ export function syncTableDice(me: Player, mine: boolean): void {
  * `size` the die's edge, `side` the gap from the car's middle to the block, `gap` between dice,
  * `ahead` how far ahead of the car the first row lies.
  */
-export const CHASE_DICE = { size: 0.17, side: 0.42, gap: 0.27, ahead: 0.25, rows: 3, cols: 4, every: 0.5, slide: 10 };
+export const CHASE_DICE = P.chaseDice;
 export let diceSpots: { at: number; key: string; spots: THREE.Vector3[] } = { at: -1, key: '', spots: [] };
 
 /**
@@ -90,18 +91,19 @@ export let diceSpots: { at: number; key: string; spots: THREE.Vector3[] } = { at
  * hang on the tokens). Plain distance checks: casting rays at the models made the game crawl.
  */
 export function freeTable(x: number, z: number, half: number): boolean {
+  const rounds: Round[] = [];
   for (const o of [...carObjs.values(), ...chopperObjs.values()]) {
     if (!o.visible) continue;
     const size = o.userData.modelSize as THREE.Vector3 | undefined;
-    const r = (size ? Math.max(size.x, size.z) : SPACE_W * 0.5) / 2;
-    if (Math.hypot(o.position.x - x, o.position.z - z) < r + half) return false;
+    rounds.push({ x: o.position.x, z: o.position.z, r: (size ? Math.max(size.x, size.z) : SPACE_W * 0.5) / 2 });
   }
+  const boxes: Box[] = [];
   for (const h of hazardObjs.values()) {
     if (h.gone !== undefined) continue;
     const p = h.obj.group.position;
-    if (Math.abs(p.x - x) < HAZ_SIZE.length / 2 + half && Math.abs(p.z - z) < HAZ_SIZE.depth / 2 + half) return false;
+    boxes.push({ x: p.x, z: p.z, hx: HAZ_SIZE.length / 2, hz: HAZ_SIZE.depth / 2 });
   }
-  return true;
+  return clearOf(x, z, half, rounds, boxes);
 }
 
 /** Where the dice lie by car `o` (one spot per die still to play), looked for again when needed. */

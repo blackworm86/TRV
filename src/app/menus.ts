@@ -5,7 +5,6 @@ import { Level, Quality, Speed, saveSettings, settings } from './settings';
 import { S } from './state';
 import { $ } from './util';
 
-
 export const LEVEL_NAME: Record<Level, string> = { high: 'alta', medium: 'media', low: 'bassa' };
 /** Shows the settings in the Options popover. */
 export function syncOptions(): void {

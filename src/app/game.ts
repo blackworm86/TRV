@@ -10,7 +10,6 @@ import { keepReplay } from './replay';
 import { S } from './state';
 import { $, SAVE_KEY } from './util';
 
-
 export interface Saved { setup: Setup; choices: number[] }
 export let g: Game | null = null;
 /** The decision this device may answer: the pending one in hot seat; online, only when it is this player's. */

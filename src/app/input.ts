@@ -12,7 +12,6 @@ import { S } from './state';
 import { tableDieAt } from './tableDice';
 import { $, esc, menuOpen } from './util';
 
-
 export const ghost = $('ghost');
 export let drag: { die: number; x: number; y: number; moved: boolean } | null = null;
 // A die on the table is picked up before the camera can take the press for a pan.

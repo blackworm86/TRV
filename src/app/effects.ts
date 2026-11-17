@@ -1,16 +1,17 @@
 // Visual effects: smoke, floating words, explosions, crashes, impact rings, gunfire bursts,
 // sparks and flashes.
+// Smoke: soft grey puffs rising from inoperable cars (always) and burning wrecks (for a while).
 
 import * as THREE from 'three';
 import { effects } from './beats';
 import { carObjs, chopperObjs } from './board';
 import { collectMaterials } from './pieces';
+import { P } from './presentation';
 import { settings } from './settings';
 import { TILE_T, camera, renderer, scene } from './stage';
 import { S } from './state';
 import { $ } from './util';
 
-// Smoke: soft grey puffs rising from inoperable cars (always) and burning wrecks (for a while).
 export const smokeTex = (() => {
   const c = document.createElement('canvas'); c.width = c.height = 64;
   const x2 = c.getContext('2d')!;
@@ -198,7 +199,7 @@ export function impact(at: THREE.Vector3, color: number, size: number): void {
 }
 
 /** How a burst is fired: time to aim, rounds, seconds between them, bullet speed (units/s), spread at the target. */
-export const BURST = { aim: 0.32, rounds: 8, gap: 0.085, speed: 26, spread: 0.22 };
+export const BURST = P.burst;
 export const bulletGeo = new THREE.CylinderGeometry(0.022, 0.022, 1, 6);
 /**
  * A shot: the shooter (the car on that spot, or a chopper over it) turns its gun on the target

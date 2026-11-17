@@ -5,30 +5,28 @@ import * as THREE from 'three';
 import { type Frame } from '../game/trv/engine';
 import { rampSurfaceAt } from '../view/terrain/carnage3d';
 import { carObjs, fxSupply, markerGroup } from './board';
-import { JUMP, JUMP_BY_SPACES, JUMP_FLIP_LIFT, JUMP_WOBBLE, Jump, JumpStunt, STUNT_SLOWMO, hash01, jumpSeconds, pickStunt, ramps } from './cars';
+import { JUMP, JUMP_BY_SPACES, JUMP_FLIP_LIFT, JUMP_WOBBLE, Jump, STUNT_SLOWMO, jumpSeconds, ramps } from './cars';
 import { actionDone, actionShot, directBeat, directing } from './director';
 import { burst, crash, explode, flash, impact, smokeOn, word } from './effects';
 import { decision, g } from './game';
 import { drawHud, toastLine } from './hud';
 import { damageUntil, showDamage, showRoll } from './info';
 import { drawTable, render } from './pieces';
+import { P } from './presentation';
 import { endReplay, replaying } from './replay';
 import { rollOnTable, showRound } from './rolls';
 import { settings } from './settings';
 import { TILE_W, world } from './stage';
 import { S } from './state';
+import { JumpStunt, hash01, pickStunt } from './stunts';
 import { $ } from './util';
-
 
 /** Short-lived 3D effects (impacts, tracers, flashes): `step(u)` with u from 0 to 1. */
 export interface Effect { life: number; t: number; step: (u: number) => void }
 export const effects: Effect[] = [];
 export const queue: Frame[] = [];
 
-export const BEAT: Partial<Record<Frame['kind'], number>> = {
-  move: 0.32, roll: 1.15, slam: 1.0, shot: 1.7, damage: 1.9, elim: 1.5, reveal: 0.8, tile: 1.1, round: 2.6, chopper: 0.8,
-  jump: 1.4, fire: 1.0,
-};
+export const BEAT = P.beats.seconds as Partial<Record<Frame['kind'], number>>;
 export function beatLength(f: Frame): number {
   // A ramp jump lasts as long as its flight: the next beat waits for the landing.
   if (f.kind === 'jump' && f.from && f.at) {

@@ -8,8 +8,10 @@ import { directing } from './director';
 import { impact } from './effects';
 import { held } from './keys';
 import { applyGlow, driveGun } from './pieces';
+import { P } from './presentation';
 import { TILE_T, TILE_W, scene } from './stage';
 import { S } from './state';
+import type { JumpStunt } from './stunts';
 
 /**
  * A ramp jump (Carnage at Devil's Run): the run up the ramp to its lip and the landing roll-out
@@ -19,39 +21,21 @@ import { S } from './state';
  * car touches down `short` spaces before the landing space's centre, but flies at least
  * `minFlight` spaces; in the air its nose never dips more than `maxDive` radians.
  */
-export const JUMP = { climb: 0.4, land: 0.5, gravity: 4.5, minAngle: 0.25, maxAngle: 0.6, short: 0.35, minFlight: 0.45, maxDive: 0.35 };
+export const JUMP = P.jump;
 /**
  * How the car behaves in the air by jump length (the stunt die gives 1 to 4 spaces). `follow`: how
  * much the nose follows the flight path (0 = it keeps the ramp's tilt and drops tail first, as a car
  * too slow off a ramp does; 1 = a clean arc, nose down on the way down). `tail`: extra nose-up tilt
  * reached in the air (radians), so a short jump comes down on its rear wheels.
  */
-export const JUMP_BY_SPACES: Record<number, { follow: number; tail: number }> = {
-  1: { follow: 0, tail: 0.18 },
-  2: { follow: 0.25, tail: 0.08 },
-  3: { follow: 0.85, tail: 0 },
-  4: { follow: 1, tail: 0 },
-};
-/**
- * The ways a jump can go, with their odds by jump length: `flat` is the plain jump (by far the most
- * common, with a few degrees of natural wobble), `oneWheel` comes down leaning on one side
- * (JUMP_LEAN radians) and drops onto the other, `barrel` turns a full roll along the car's length,
- * `backflip` a full somersault backwards. Short jumps cannot turn over: they lack the time in the air.
- */
-export type JumpStunt = 'flat' | 'oneWheel' | 'barrel' | 'backflip';
-export const JUMP_ODDS: Record<number, Partial<Record<JumpStunt, number>>> = {
-  1: { flat: 0.85, oneWheel: 0.15 },
-  2: { flat: 0.80, oneWheel: 0.20 },
-  3: { flat: 0.78, oneWheel: 0.17, barrel: 0.05 },
-  4: { flat: 0.74, oneWheel: 0.16, barrel: 0.06, backflip: 0.04 },
-};
+export const JUMP_BY_SPACES = P.jump.bySpaces;
 /** Lean of a one-wheel landing, natural wobble of a plain jump (radians), extra launch angle of a somersault. */
-export const JUMP_LEAN = 0.17, JUMP_WOBBLE = 0.05, JUMP_FLIP_LIFT = 0.2;
+export const JUMP_LEAN = P.jump.lean, JUMP_WOBBLE = P.jump.wobble, JUMP_FLIP_LIFT = P.jump.flipLift;
 /**
  * Slow motion in the middle of a stunt's flight (barrel roll, somersault): between `from` and `to`
  * (shares of the flight) the car's time runs at `speed`. Only while the director films.
  */
-export const STUNT_SLOWMO = { from: 0.3, to: 0.7, speed: 0.45 };
+export const STUNT_SLOWMO = P.jump.slowMotion;
 /** The time factor now for the cars: slower while a stunt is in its slow-motion part. */
 export function carTimeScale(): number {
   if (!directing()) return 1;
@@ -62,18 +46,6 @@ export function carTimeScale(): number {
     if (u > STUNT_SLOWMO.from && u < STUNT_SLOWMO.to) return STUNT_SLOWMO.speed;
   }
   return 1;
-}
-/** The stunt for a draw 0..1 among a jump length's odds. */
-export function pickStunt(n: number, draw: number): JumpStunt {
-  let acc = 0;
-  for (const [k, w] of Object.entries(JUMP_ODDS[n])) { acc += w ?? 0; if (draw < acc) return k as JumpStunt; }
-  return 'flat';
-}
-/** A number 0..1 from a text (FNV-1a): the same jump always picks the same stunt, in replays too. */
-export function hash01(text: string): number {
-  let h = 2166136261;
-  for (let i = 0; i < text.length; i++) h = Math.imul(h ^ text.charCodeAt(i), 16777619);
-  return (h >>> 0) / 4294967296;
 }
 /** A car's box: half length, height, half width (world units); the origin is under its middle. */
 export function carBox(o: THREE.Object3D): { half: number; high: number; halfW: number } {
@@ -131,7 +103,7 @@ export function nearRamp(p: THREE.Vector3, now: number): boolean {
 }
 
 /** Car speed on the table (world units per second) and how fast it turns to face its way. */
-export const DRIVE = { speed: 7, turnRate: 9, parkTurnRate: 2.5, maxYaw: 0.87 };
+export const DRIVE = P.drive;
 /**
  * One frame of a car: it drives to its target at a steady speed, facing the way it goes
  * (backwards when pushed back), turns back along the road once parked; wheels and body follow.

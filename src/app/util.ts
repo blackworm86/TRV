@@ -1,10 +1,10 @@
 // Small helpers shared by the whole client: the dice faces the table draws, DOM lookups, escaping.
+// The fire die of Carnage at Devil's Run joins the dice the table can draw.
 
 import RULES from '../../data/trv/game_base.json';
 import { type DiceFaces } from '../view/dice3d';
 import CARNAGE from '../../data/trv/carnage.json';
 
-// The fire die of Carnage at Devil's Run joins the dice the table can draw.
 export const FACES = { ...RULES.dice, fire: CARNAGE.dice.fire } as unknown as DiceFaces;
 
 export const SAVE_KEY = 'trv-hotseat-v3';

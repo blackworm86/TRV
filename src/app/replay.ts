@@ -1,4 +1,6 @@
 // The instant replay of the last damage or destruction, slowed down and from close by.
+// When a car is damaged or destroyed, the beats around it are kept: the Replay button (or R) plays
+// them again, slowly and from close by, then puts the table and the camera back as they were.
 
 import * as THREE from 'three';
 import { type Frame } from '../game/trv/engine';
@@ -6,15 +8,13 @@ import { playBeats } from './beats';
 import { carObjs } from './board';
 import { g } from './game';
 import { drawTable } from './pieces';
+import { P } from './presentation';
 import { camera, controls, world } from './stage';
 import { S } from './state';
 import { $ } from './util';
 
-// When a car is damaged or destroyed, the beats around it are kept: the Replay button (or R) plays
-// them again, slowly and from close by, then puts the table and the camera back as they were.
-
 /** Replay speed, and where the camera stands from the spot it looks at. */
-export const REPLAY = { speed: 0.45, before: 8, after: 2, camera: new THREE.Vector3(-2.4, 4.4, 5.4) };
+export const REPLAY = { ...P.replay, camera: new THREE.Vector3(...P.replay.camera) };
 export let replaying = false;
 export let timeScale = 1;
 export let camBefore: { pos: THREE.Vector3; target: THREE.Vector3 } | null = null;

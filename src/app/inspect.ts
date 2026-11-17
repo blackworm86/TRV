@@ -1,4 +1,6 @@
 // The car inspection tip: a car's damage and abilities, shown on hover.
+// Pointing at a car, on the table or in a player's bubble, shows its card: owner, state, damage
+// and its special ability (the upgrade card, Choppe Shoppe).
 
 import { type Vehicle } from '../game/trv/engine';
 import { Marker, carObjs, pickPlane } from './board';
@@ -8,9 +10,6 @@ import { drag, pointer, ray } from './input';
 import { camera, renderer } from './stage';
 import { S } from './state';
 import { $, esc } from './util';
-
-// Pointing at a car, on the table or in a player's bubble, shows its card: owner, state, damage
-// and its special ability (the upgrade card, Choppe Shoppe).
 
 export const SIZE_NAME: Record<string, string> = { S: 'piccola', M: 'media', L: 'grande' };
 /** The card of a car, as HTML. */

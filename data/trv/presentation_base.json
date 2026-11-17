@@ -1,0 +1,58 @@
+{
+  "_comment": "How the game client presents the table: timings, camera shots, jumps, dice. Look and feel only: the rules never read this file. Lengths are in road spaces unless named otherwise, times in seconds at normal speed, angles in radians unless named otherwise. Each block names the module of src/app/ that reads it.",
+  "beats": {
+    "_module": "beats.ts: how long each beat of the rules lasts before the next one",
+    "seconds": { "move": 0.32, "roll": 1.15, "slam": 1.0, "shot": 1.7, "damage": 1.9, "elim": 1.5, "reveal": 0.8, "tile": 1.1, "round": 2.6, "chopper": 0.8, "jump": 1.4, "fire": 1.0 },
+    "speed_scale": { "full": 0.6, "fast": 1.15, "skip": 1 }
+  },
+  "drive": {
+    "_module": "cars.ts: cars driving between spaces (world units per second, radians per second, radians)",
+    "speed": 7, "turn_rate": 9, "park_turn_rate": 2.5, "max_yaw": 0.87
+  },
+  "jump": {
+    "_module": "cars.ts: the ramp jump (Carnage at Devil's Run)",
+    "climb": 0.4, "land": 0.5, "gravity": 4.5, "min_angle": 0.25, "max_angle": 0.6, "short": 0.35, "min_flight": 0.45, "max_dive": 0.35,
+    "by_spaces": {
+      "1": { "follow": 0, "tail": 0.18 },
+      "2": { "follow": 0.25, "tail": 0.08 },
+      "3": { "follow": 0.85, "tail": 0 },
+      "4": { "follow": 1, "tail": 0 }
+    },
+    "odds": {
+      "1": { "flat": 0.85, "one_wheel": 0.15 },
+      "2": { "flat": 0.80, "one_wheel": 0.20 },
+      "3": { "flat": 0.78, "one_wheel": 0.17, "barrel": 0.05 },
+      "4": { "flat": 0.74, "one_wheel": 0.16, "barrel": 0.06, "backflip": 0.04 }
+    },
+    "lean": 0.17, "wobble": 0.05, "flip_lift": 0.2,
+    "slow_motion": { "from": 0.3, "to": 0.7, "speed": 0.45 }
+  },
+  "director": {
+    "_module": "director.ts: the action camera's shots",
+    "dice_dist": 0.4,
+    "shot": { "blend_in": 0.45, "blend_out": 0.9, "wait": 0.35, "follow": 6 },
+    "lift": 0.2
+  },
+  "chase": {
+    "_module": "chase.ts: the view from behind a car (fov in degrees, lift a share of the window's height, follow per second)",
+    "fov": 50, "back": 2.2, "up": 0.85, "pitch": 0.2, "lift": 0.06, "follow": 4
+  },
+  "chase_dice": {
+    "_module": "tableDice.ts: the dice lying by the car in the chase view (every in seconds, slide per second)",
+    "size": 0.17, "side": 0.42, "gap": 0.27, "ahead": 0.25, "rows": 3, "cols": 4, "every": 0.5, "slide": 10
+  },
+  "map_view": {
+    "_module": "mapView.ts: framing the map (side in screen units, high in world units, gap in pixels; swap in seconds)",
+    "fit": { "side": 0.96, "high": 0.5, "gap": 8 },
+    "swap": 0.9,
+    "elev_near": 0.6
+  },
+  "replay": {
+    "_module": "replay.ts: the instant replay (speed a share of normal, before/after in beats, camera offset in world units)",
+    "speed": 0.45, "before": 8, "after": 2, "camera": [-2.4, 4.4, 5.4]
+  },
+  "burst": {
+    "_module": "effects.ts: a gun's burst",
+    "aim": 0.32, "rounds": 8, "gap": 0.085, "speed": 26, "spread": 0.22
+  }
+}

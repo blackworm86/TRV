@@ -1,16 +1,4 @@
 // The action director: a camera shot made for each big event, then the view handed back.
-
-import * as THREE from 'three';
-import { type Frame } from '../game/trv/engine';
-import { carObjs } from './board';
-import { chase, chaseLens } from './chase';
-import { carAt } from './inspect';
-import { elevAt, fitDist } from './mapView';
-import { replaying } from './replay';
-import { settings } from './settings';
-import { TILE_W, camera, controls, world } from './stage';
-import { S } from './state';
-
 // The action camera (asked by the user): on a jump, a shot, a slam, a car catching fire or being
 // destroyed, damage and an airstrike, the view cuts to a shot made for that event (a tracking
 // shot along a jump, over the shooter's shoulder, low beside a slam...), following what moves.
@@ -18,19 +6,31 @@ import { S } from './state';
 // Off in the Options menu; not during the instant replay (it frames its own shots) or when the
 // animations are skipped.
 
+import * as THREE from 'three';
+import { type Frame } from '../game/trv/engine';
+import { carObjs } from './board';
+import { chase, chaseLens } from './chase';
+import { carAt } from './inspect';
+import { elevAt, fitDist } from './mapView';
+import { P } from './presentation';
+import { replaying } from './replay';
+import { settings } from './settings';
+import { TILE_W, camera, controls, world } from './stage';
+import { S } from './state';
+
 export const ACTION_BEATS = new Set<Frame['kind']>(['slam', 'shot', 'damage', 'elim', 'jump', 'fire', 'chopper']);
 /** How close the camera comes to dice it shows (a question about them), as a share of the whole-map view's distance. */
-export const ACTION_DIST = 0.4;
+export const ACTION_DIST = P.director.diceDist;
 /**
  * Timing of the shots, in seconds: the move into a shot, the way back to the player's view, how
  * long the beats wait for the camera to arrive, and how fast a shot follows a moving subject.
  */
-export const SHOT = { blendIn: 0.45, blendOut: 0.9, wait: 0.35, follow: 6 };
+export const SHOT = P.director.shot;
 /**
  * The picture of a shot is shifted up by this share of the window's height, so its subject sits in
  * the band left free between the players' bubbles and the boards (as the chase view does).
  */
-export const SHOT_LIFT = 0.2;
+export const SHOT_LIFT = P.director.lift;
 /** Shifts the picture up for a shot, or back. */
 export function liftView(on: boolean): void {
   if (on) camera.setViewOffset(innerWidth, innerHeight, 0, innerHeight * SHOT_LIFT, innerWidth, innerHeight);

@@ -1,9 +1,8 @@
 // The display options (quality, animation speed, grid, action camera, effects, words, map
 // view from above), kept in the browser between visits.
-
-
-
 // The player's display options (Options menu in the bar), kept in this browser.
+
+import { P } from './presentation';
 
 /** Graphics quality: `auto` picks a level from the frame rate and steps down when it drops. */
 export type Quality = 'auto' | 'high' | 'medium' | 'low';
@@ -18,7 +17,7 @@ export function saveSettings(): void {
   try { localStorage.setItem(SETTINGS_KEY, JSON.stringify(settings)); } catch { /* storage off */ }
 }
 /** How fast the beats play for each speed setting (1 = the old pace, judged too fast by the user). */
-export const SPEED_SCALE: Record<Speed, number> = { full: 0.6, fast: 1.15, skip: 1 };
+export const SPEED_SCALE: Record<Speed, number> = P.beats.speedScale;
 /** What each quality level changes: render resolution, the lamp's shadow, model texture size, effects. */
 export const LEVELS: Record<Level, { pixelRatio: number; shadow: number; texture: number; particles: number }> = {
   high: { pixelRatio: 2, shadow: 4096, texture: 4096, particles: 1 },

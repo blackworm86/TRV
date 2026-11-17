@@ -1,5 +1,6 @@
 // The 3D stage: renderer, scene, camera and its controls, lights, the table, the physical
 // measures of the pieces, and where a road space is in the world.
+// stencil: the revealed pit trap opens a hole through the board (terrain/pit3d.ts).
 
 import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
@@ -8,8 +9,6 @@ import { BASE_CATALOG as CAT, sizeOf } from '../game/trv/catalog';
 import { Pieces, TextureBank } from '../view/pieces3d';
 import { spaceCenterPx, GRID, TILE_PITCH_PX } from '../view/board3d';
 
-
-// stencil: the revealed pit trap opens a hole through the board (terrain/pit3d.ts).
 export const renderer = new THREE.WebGLRenderer({ antialias: true, stencil: true });
 renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
 renderer.shadowMap.enabled = true;

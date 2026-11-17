@@ -1,16 +1,16 @@
 // The view from behind a car (the chase view), picked from a dashboard.
+// The view from behind a car, picked from its dashboard; a second click on the dashboard, the
+// Vista button or V bring the usual view back.
 
 import * as THREE from 'three';
 import { carObjs } from './board';
 import { g } from './game';
 import { drawHud } from './hud';
 import { fit } from './mapView';
+import { P } from './presentation';
 import { TILE_T, TILE_W, camera, controls } from './stage';
 import { S } from './state';
 import { $ } from './util';
-
-// The view from behind a car, picked from its dashboard; a second click on the dashboard, the
-// Vista button or V bring the usual view back.
 
 export const SPACE_W = TILE_W / 8;
 /**
@@ -21,7 +21,7 @@ export const SPACE_W = TILE_W / 8;
  * up (a share of the window's height) so the car sits just above the boards; `follow` is how fast
  * the camera catches up with the car (1/s).
  */
-export const CHASE = { fov: 50, back: 2.2, up: 0.85, pitch: 0.2, lift: 0.06, follow: 4 };
+export const CHASE = P.chase;
 /** The map view's field of view (vertical degrees), given back when the chase view ends. */
 export const MAP_FOV = camera.fov;
 export let chase: string | null = null;

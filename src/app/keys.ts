@@ -1,4 +1,6 @@
 // Keyboard camera controls: pan, focus on a car, cycle through the cars.
+// WASD (or arrows) slide the view over the table; Tab / Shift+Tab jump between the cars of the
+// player on turn, 1 2 3 go to their small, medium and large car, F to the car that is acting.
 
 import * as THREE from 'three';
 import { carObjs } from './board';
@@ -10,8 +12,6 @@ import { camera, controls } from './stage';
 import { S } from './state';
 import { menuOpen } from './util';
 
-// WASD (or arrows) slide the view over the table; Tab / Shift+Tab jump between the cars of the
-// player on turn, 1 2 3 go to their small, medium and large car, F to the car that is acting.
 export const held = new Set<string>();
 export const PAN_KEYS: Record<string, [number, number]> = {
   w: [0, 1], arrowup: [0, 1], s: [0, -1], arrowdown: [0, -1], a: [-1, 0], arrowleft: [-1, 0], d: [1, 0], arrowright: [1, 0],

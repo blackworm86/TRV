@@ -1,13 +1,12 @@
 // The dice of the interface drawn in 3D over the page (a transparent WebGL layer).
+// A transparent WebGL layer over the interface: every element marked data-die3d="kind|value|color"
+// (my dice, opponents', the road die, dice placed on boards, the dragged die) gets a 3D die drawn
+// exactly over it. The element stays in the page, invisible, for layout and clicks.
 
 import * as THREE from 'three';
 import { makeDie, withOwnMaterials, type Die3D } from '../view/dice3d';
 import { AWAY, FORWARD } from './board';
 import { FACES } from './util';
-
-// A transparent WebGL layer over the interface: every element marked data-die3d="kind|value|color"
-// (my dice, opponents', the road die, dice placed on boards, the dragged die) gets a 3D die drawn
-// exactly over it. The element stays in the page, invisible, for layout and clicks.
 
 export const hudRenderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
 hudRenderer.setPixelRatio(Math.min(devicePixelRatio, 2));

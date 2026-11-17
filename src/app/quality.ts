@@ -1,4 +1,7 @@
 // Graphics quality: fixed levels or automatic, dropped when the frame rate stays low.
+// Fixed levels or `auto`: the frame rate is measured all the time and, under `auto`, a level is
+// dropped when the game runs below FPS_LOW for a while (slow computers: 10-15 fps reported by
+// the user). It never climbs back by itself, to avoid flicker; the menu can set it again.
 
 import * as THREE from 'three';
 import { hudRenderer } from './hudDice';
@@ -8,10 +11,6 @@ import { LEVELS, Level, settings } from './settings';
 import { lamp, renderer } from './stage';
 import { S } from './state';
 import { $ } from './util';
-
-// Fixed levels or `auto`: the frame rate is measured all the time and, under `auto`, a level is
-// dropped when the game runs below FPS_LOW for a while (slow computers: 10-15 fps reported by
-// the user). It never climbs back by itself, to avoid flicker; the menu can set it again.
 
 export const FPS_LOW = 32, FPS_WINDOW = 2;
 export const ORDER: Level[] = ['high', 'medium', 'low'];

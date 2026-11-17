@@ -17,7 +17,6 @@ import { S } from './state';
 import { syncTableDice } from './tableDice';
 import { $, esc } from './util';
 
-
 export function dieHtml(kind: string, value: number | string, color: string | undefined, cls = '', attrs = ''): string {
   // The SVG keeps the layout and takes the clicks; the HUD overlay draws a 3D die on top of it.
   return dieSvg({ kind, value, color, forward: 'right' }, `class="${cls}" data-die3d="${kind}|${value}|${color ?? ''}" ${attrs}`);

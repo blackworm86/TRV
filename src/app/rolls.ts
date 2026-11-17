@@ -9,6 +9,7 @@ import { makeDie } from '../view/dice3d';
 import { AWAY, DIE_W, FORWARD, FX_ORDER, FX_SCALE, TRAY_SCALE, TRAY_Z, TableDie, fxSupply } from './board';
 import { g } from './game';
 import { dieHtml } from './hud';
+import type { Round } from './spots';
 import { BOARD_X0, KX, PITCH_W, TILE_H, TILE_W, scene, world } from './stage';
 import { S } from './state';
 import { $, FACES, esc } from './util';

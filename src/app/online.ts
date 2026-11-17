@@ -1,5 +1,8 @@
 // Online games: rooms on a shared store (Firebase, or local for checks), the lobby, the
 // host as referee of every move.
+// A room on a shared store (src/net/room.ts): the host's browser is the referee. Every device
+// replays the room's log of choices on its own copy of the rules; a guest's click becomes an
+// intent that the host checks and appends. The room stays open until the host closes it.
 
 import { leaders, upgrades } from '../game/trv/engine';
 import { BASE_CATALOG as CAT } from '../game/trv/catalog';
@@ -12,10 +15,6 @@ import { render } from './pieces';
 import { clearTable, openSetup } from './screens';
 import { S } from './state';
 import { $, esc } from './util';
-
-// A room on a shared store (src/net/room.ts): the host's browser is the referee. Every device
-// replays the room's log of choices on its own copy of the rules; a guest's click becomes an
-// intent that the host checks and appends. The room stays open until the host closes it.
 
 export const NAME_KEY = 'trv-name';
 export const CREW_IDS = CAT.crews.map(c => c.id);

@@ -1,4 +1,7 @@
 // The player's account (Google sign-in) and the admin link; booting the online part.
+// Optional Google sign-in on the first screen. A signed-in player keeps the same identity on
+// every device (the anonymous one of the online rooms is linked to it); an admin
+// (admins/<uid> in the database) also gets the asset inspector, from here and from the Menu.
 
 import { cleanCode, readRoom, roomPath, NAME_MAX } from '../net/room';
 import { FIREBASE_CONFIG } from '../net/firebase-config';
@@ -7,10 +10,6 @@ import { NAME_KEY, enterRoom, netError, netMode, openStore } from './online';
 import { showPane } from './screens';
 import { S } from './state';
 import { $ } from './util';
-
-// Optional Google sign-in on the first screen. A signed-in player keeps the same identity on
-// every device (the anonymous one of the online rooms is linked to it); an admin
-// (admins/<uid> in the database) also gets the asset inspector, from here and from the Menu.
 
 export let isAdminUser = false;
 /** Shows who is signed in and the buttons that apply. */
