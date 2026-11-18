@@ -10,7 +10,7 @@ import { markingSvg } from '../view/vector/markings';
 import { ongoingCardSvg, ongoingCardText } from '../view/cards';
 import { avatarSvg, carSvg, commandTokenSvg, damageTokenSvg, dieSvg, onFireTokenSvg } from '../view/vector/art';
 import { carObjs } from './board';
-import { carThumb } from './carthumbs';
+import { carThumb, thumbLate } from './carthumbs';
 import { g } from './game';
 import { cardHtml } from './hand';
 import { DAMAGE_INFO, PORTRAITS, POWER_INFO } from './info';
@@ -55,7 +55,7 @@ function carSlot(p: Player, v: Vehicle, redraw: () => void): string {
   const tag = v.bike !== undefined ? markingSvg(v.bike, 15) : v.rig ? RIG_TAG[v.rig] : v.size;
   const alt = v.bike !== undefined ? `Moto ${finalFive().marking_names[v.bike]}` : v.rig ? `Big Rig: ${bigRig().sectionName[v.rig]}` : `Auto ${SIZE[v.size]}`;
   return `<div class="slot ${st}"><i class="sz">${tag}</i>`
-    + `<button class="car" data-vid="${v.id}" ${gone ? 'disabled' : ''}>${pic ? `<img src="${pic}" alt="${alt}">` : carSvg(v.size, p.color)}${gone ? '<em class="x">✕</em>' : ''}</button>`
+    + `<button class="car" data-vid="${v.id}" ${gone ? 'disabled' : ''}>${pic ? `<img src="${pic}" alt="${alt}">` : thumbLate(v.id) ? carSvg(v.size, p.color) : '<i class="loading"></i>'}${gone ? '<em class="x">✕</em>' : ''}</button>`
     + `<div class="pcs">${pcs}</div></div>`;
 }
 

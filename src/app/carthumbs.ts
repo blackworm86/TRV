@@ -6,6 +6,17 @@ import * as THREE from 'three';
 import { carObjs } from './board';
 
 const W = 150, H = 84;
+/**
+ * How long a piece shows nothing while its 3D model loads (milliseconds): past it a stand-in is
+ * drawn instead, on the table (pieces.ts) and in the bubbles (bubbles.ts).
+ */
+export const STAND_IN_AFTER_MS = 6000;
+/** When each car's thumbnail was first asked for and not ready. */
+const asked = new Map<string, number>();
+/** Whether car `id`'s thumbnail has been waited for longer than STAND_IN_AFTER_MS. */
+export function thumbLate(id: string): boolean {
+  return performance.now() - (asked.get(id) ?? performance.now()) > STAND_IN_AFTER_MS;
+}
 const cache = new Map<string, string>();
 let renderer: THREE.WebGLRenderer | null = null;
 let retry = 0;
@@ -55,6 +66,7 @@ export function carThumb(id: string, color: string, redraw: () => void): string 
   if (hit) return hit;
   const model = carObjs.get(id)?.userData.model as THREE.Object3D | undefined;
   if (!model) {
+    if (!asked.has(id)) asked.set(id, performance.now());
     if (!retry) retry = window.setTimeout(() => { retry = 0; redraw(); }, 700);
     return null;
   }

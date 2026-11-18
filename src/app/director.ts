@@ -150,9 +150,10 @@ export function directBeat(f: Frame): void {
 /** Whether the players' bubbles are faded out for a shot now. */
 let veiled = false;
 /**
- * While the director holds the camera, the players' bubbles (and the TRV9000 cards beside them)
- * fade out, so the scene is always in full view (asked by the user, 2026-11-18); they fade back in
- * as the camera starts back. The fade itself is in styles.css (`body.directing`).
+ * While the director films a scene, the whole interface but the top bar fades out, so the scene is
+ * in full view, and the bar offers "Salta scena" (asked by the user, 2026-11-18); everything fades
+ * back in as the camera starts back. Not while a question waits (a shot on dice to reroll): its
+ * answer is on the interface. The fade itself is in styles.css (`body.directing`).
  */
 function veil(on: boolean): void {
   if (on === veiled) return;
@@ -161,7 +162,7 @@ function veil(on: boolean): void {
 }
 /** One frame of the director; false when it does not hold the camera. */
 export function directorCamera(now: number, dt: number): boolean {
-  veil(!!S.shot);
+  veil(!!S.shot && S.playing);
   const ease = (u: number): number => { const x = THREE.MathUtils.clamp(u, 0, 1); return x * x * (3 - 2 * x); };
   if (S.shot) {
     const k = 1 - Math.exp(-dt * SHOT.follow);

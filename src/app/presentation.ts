@@ -52,6 +52,7 @@ export interface Presentation {
   /** The "Tocca a..." splash at the start of a turn (app/turnsplash.ts). */
   turnSplash: { seconds: number };
   burst: { aim: number; rounds: number; gap: number; speed: number; spread: number };
+  salvo: { seconds: number; perSpace: number; stagger: number; flight: number; apex: number; mark: number };
 }
 
 /** The values in use. */

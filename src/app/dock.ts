@@ -5,6 +5,7 @@ import { type Decision, type Player } from '../game/trv/engine';
 import { commandTokenSvg, dieSvg, inkOn } from '../view/vector/art';
 import { DRAWER } from '../view/vector/boards';
 import { skipBeats } from './beats';
+import { actionDone } from './director';
 import { carObjs } from './board';
 import { choose, dieUsable, g } from './game';
 import { camera, renderer } from './stage';
@@ -228,3 +229,5 @@ export function placeActions(): void {
   el.style.top = `${top}px`;
 }
 $('skip').addEventListener('click', () => skipBeats());
+// While the director films a scene the bar has only this: it ends the scene and its animations.
+$('skipscene').addEventListener('click', () => { skipBeats(); actionDone(); });

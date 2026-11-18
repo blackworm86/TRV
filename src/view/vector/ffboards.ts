@@ -76,6 +76,23 @@ export const midY = (b: Box): number => (b[1] + b[3]) / 2;
 /** A shape again, with other paint. */
 export const draw = (s: Shape, paint: string): string => `<${s.tag} ${s.attrs} ${paint}/>`;
 
+/**
+ * Undo on a plate of the owner's drawing, as on the base board (boards.ts, stripBoard): the plate,
+ * the turning-back arrow and ANNULLA, laid out as there and scaled to this plate (asked by the user,
+ * 2026-11-18). `state` lights it ('on') or greys it ('off'); without it the plate shows `caption`.
+ */
+export function undoPlate(plate: Shape, state: 'on' | 'off' | undefined, caption: string): string {
+  const pb = boxOf(plate);
+  if (!state) return draw(plate, `fill="${METAL}"`) + text(caption, midX(pb), pb[3] - 4, 12, DARK, 'middle', 'font-style="italic"');
+  // The base board's plate is 74.5 x 15.8 from (141.8, 30.9): its arrow and words, moved onto this one.
+  const k = (pb[3] - pb[1]) / 15.8, w = (pb[2] - pb[0]) / k;
+  const ax = (w - 74.5) / 2;
+  return `<g class="undoplate${state === 'off' ? ' off' : ''}" data-undo="1"><title>Annulla l’ultima scelta (Ctrl+Z)</title>${draw(plate, `fill="${METAL}"`)}`
+    + `<g transform="translate(${pb[0]} ${pb[1]}) scale(${k.toFixed(4)}) translate(${(ax - 141.8).toFixed(2)} -30.9)" pointer-events="none">`
+    + `<path d="M159.5,38.9 a3.6,3.6 0 1 1 1.8,3.3 M157.4,36.8 L159.5,39.7 L161.9,37.1" fill="none" stroke="${DARK}" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>`
+    + text('ANNULLA', 185, 43.2, 12, DARK, 'middle', 'font-style="italic"') + '</g></g>';
+}
+
 /** The command board and the five dashboards, read from the drawing once. */
 interface Drawing {
   view: string; w: number; h: number;
@@ -149,11 +166,7 @@ function commandBoard(d: Drawing, c: CommandBoardArt): string {
     else b += text(k.slot, sx, sy + 5, 15, CREAM, 'middle', `opacity="${dim ? 0.4 : 1}"`);
   });
   // Undo, on the plate at the board's foot (mock-up approved 2026-11-18).
-  const pb = boxOf(B.plate);
-  if (c.undo) {
-    b += `<g class="undoplate${c.undo === 'off' ? ' off' : ''}" data-undo="1"><title>Annulla l’ultima scelta (Ctrl+Z)</title>${draw(B.plate, `fill="${METAL}"`)}`
-      + text('ANNULLA', midX(pb), pb[3] - 4, 12, DARK, 'middle', 'font-style="italic"') + '</g>';
-  } else b += draw(B.plate, `fill="${METAL}"`) + text('COMANDI', midX(pb), pb[3] - 4, 12, DARK, 'middle', 'font-style="italic"');
+  b += undoPlate(B.plate, c.undo, 'COMANDI');
   return b;
 }
 

@@ -52,6 +52,11 @@ export function safeFrame(now: number, fresh = false): SafeFrame {
   safeAt = now;
   const W = innerWidth, H = innerHeight;
   const rect = (id: string): DOMRect | null => { const r = document.getElementById(id)?.getBoundingClientRect(); return r && r.width > 0 && r.height > 0 ? r : null; };
+  // A scene of the animations: the interface fades out but for the bar (director.ts, veil).
+  if (S.playing) {
+    safeNow = toFrame(freeRect(W, H, [{ left: 0, top: 0, right: W, bottom: cssPx('--bar') }]), W, H);
+    return safeNow;
+  }
   const strip = rect('strip');
   const fixed: Rect[] = [
     { left: 0, top: 0, right: W, bottom: cssPx('--top') },
@@ -119,6 +124,8 @@ function subjectsOf(f: Frame): { subjects: Live[]; axis: THREE.Vector3 } | null 
   switch (f.kind) {
     case 'shot': {
       const from = f.from ? world(f.from) : at;
+      // A salvo: the launcher and every space it strikes.
+      if (f.spaces) return { subjects: [point(from, R.car), ...f.spaces.map(q => point(world(q), R.car * 0.6, 2))], axis: at.clone().sub(from) };
       return { subjects: [point(from, R.car), f.vehicleId ? car(f.vehicleId, at, R.car, 2) : point(at, R.car, 2)], axis: at.clone().sub(from) };
     }
     case 'slam': return { subjects: [point(at, R.slam, 2)], axis: ROAD };

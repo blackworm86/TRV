@@ -32,7 +32,12 @@ export default defineConfig(({ mode }) => ({
   build: {
     outDir: mode === 'single' ? 'dist-single' : mode === 'pages' ? 'dist-pages' : 'dist',
     emptyOutDir: true,
-    ...(mode === 'pages' ? { rolldownOptions: { input: ['index.html', 'gallery.html', 'admin.html'] } } : {}),
+    rolldownOptions: {
+      ...(mode === 'pages' ? { input: ['index.html', 'gallery.html', 'admin.html'] } : {}),
+      // three.js in a file of its own (asked by the user, 2026-11-18: lighten the game): it changes
+      // only when the library is upgraded, so a browser keeps it across updates of the game.
+      ...(mode === 'single' ? {} : { output: { codeSplitting: { groups: [{ name: 'three', test: /node_modules[\\/]three[\\/]/ }] } } }),
+    },
   },
   test: {
     include: ['tests/unit/**/*.test.ts'],

@@ -2,20 +2,29 @@
 // plancia_big_rig.svg, sent on 2026-11-18): the three sections left to right as the rules show
 // them (rear trailer, middle trailer, cab), then the steering board. The drawing's red is the
 // crew's colour. In each section the two guide lines split the board in three columns, one per
-// command: the red crosses mark the two systems an opponent can aim at (their icon sits on the
-// cross, a minor damage token covers it), the middle column is the Repair; the dashed squares under
+// command: the crosses mark the two systems an opponent can aim at (their icon sits on the cross,
+// a minor damage token covers it), drawn in the crew's colour a little darker, as slots (asked by
+// the user, 2026-11-18); the middle column is the Repair; the dashed squares under
 // the columns take the dice. On the steering board the diamond takes the Hydraulic Steering die, the
 // six places of the damage track sit above its icon and Undo is the plate at its foot; the drawer
 // behind its top edge is the page's dice drawer (#cmddock, placed by dock.ts from data-drawer).
 // The command names and effects come up on hover (data-cmd-*), as on the other boards. Drop zones:
-// data-drop="rig:<section>:<command>" and "steer"; a system to pick for a minor damage carries data-pick.
+// data-drop="rig:<section>:<command>" and "steer"; a system to pick for a minor damage carries
+// data-pick and has its slot shaded deeper, with a white outline.
 
 import { commandIconAt, dieSvg, inkOn } from './art';
-import { boxOf, draw, midX, midY, minorTokenAt, shapes, type Box, type Shape } from './ffboards';
+import { boxOf, draw, midX, midY, minorTokenAt, shapes, undoPlate, type Box, type Shape } from './ffboards';
 
 const RAW = Object.values(import.meta.glob<string>('/assets/big_rig/plance/plancia_big_rig.svg', { eager: true, query: '?raw', import: 'default' }))[0] ?? '';
 const FONT = `font-family="'League Gothic', Impact, 'Arial Narrow', sans-serif"`;
-const DARK = '#26232B', METAL = '#ACA3A6', LINE = '#ACA3A6', HOT = '#4cff7a', CREAM = '#f3e9d2', CROSS = '#D43343', PICK = '#ff3b3b';
+const DARK = '#26232B', METAL = '#ACA3A6', LINE = '#ACA3A6', HOT = '#4cff7a', CREAM = '#f3e9d2';
+
+/** `hex` darkened by `k` (0 none, 1 black): the slots a minor damage token can cover. */
+function darker(hex: string, k: number): string {
+  const n = parseInt(hex.replace('#', '').replace(/^(.)(.)(.)$/, '$1$1$2$2$3$3'), 16);
+  const c = [n >> 16, (n >> 8) & 255, n & 255].map(v => Math.round(v * (1 - k)));
+  return `#${c.map(v => v.toString(16).padStart(2, '0')).join('')}`;
+}
 
 /** One command of a section, as the board shows it. */
 export interface RigCommandArt {
@@ -98,7 +107,7 @@ function read(raw: string): Drawing | null {
   const cb = color.b, dx = drawer.b;
   // The colour band between the dark notch above and the dark foot below, as drawn: the notch's
   // diagonals run 40 units down from the colour's top, the foot's 35 units up from its bottom.
-  const band: Box = [cb[0] + 48, cb[1] + 40.24, cb[2] - 52, cb[3] - 35];
+  const band: Box = [cb[0] + 57, cb[1] + 40.24, cb[2] - 51.5, cb[3] - 35];
   // The dark space above the band, under the drawer's opening: the damage track.
   const track: Box = [dx[0] + 8, bodies[3].b[1] + 14, dx[2] - 8, cb[1] + 34];
   return { view, w, h, sections, steer: { body: bodies[3].s, color: color.s, slot: slot.s, plate: plate.s, drawer: dx, band, track } };
@@ -124,10 +133,17 @@ function section(d: SectionDrawing, a: RigBoardArt, s: RigBoardArt['sections'][n
     const dim = s.used && c.die === undefined && !c.pick;
     const tip = `data-drop="rig:${c.key}" data-cmd-name="${esc(c.name)}" data-cmd-dice="${esc(c.slot)}" data-cmd-text="${esc(c.lines.join(' '))}"${c.pick ? ` data-pick="${c.key}"` : ''}`;
     // The column takes the die too, and carries the name and the effect for the pop-up on hover.
-    const lit = c.pick ? `fill="${PICK}" fill-opacity=".38" stroke="${PICK}" stroke-width="3"` : `fill="${c.hot ? HOT : '#000'}" fill-opacity="${c.hot ? 0.25 : 0}"`;
-    b += rect([col[0] + 2, col[1], col[2] - 2, col[3]], `${lit} ${tip}`);
-    if (cross) b += draw(cross, `fill="${c.pick ? PICK : CROSS}" pointer-events="none"`);
-    const icon = commandIconAt(c.cmd, cx, crossY, crossW * (cross ? 0.6 : 0.78), cross ? DARK : ink);
+    b += rect([col[0] + 2, col[1], col[2] - 2, col[3]], `fill="${c.hot ? HOT : '#000'}" fill-opacity="${c.hot ? 0.25 : 0}" ${tip}`);
+    // A system to choose for a minor damage: its slot shaded deeper and outlined. The Repair has no
+    // cross drawn: its slot is the same cross shape, shown only while it can be chosen.
+    const slot = cross ?? (c.pick ? d.crosses[0] : null);
+    const dx = cross ? 0 : cx - midX(boxOf(d.crosses[0]));
+    if (slot) {
+      b += `<g transform="translate(${dx} 0)" pointer-events="none">${draw(slot, c.pick
+        ? `fill="${darker(a.color, 0.32)}" stroke="${CREAM}" stroke-width="3" stroke-dasharray="6 4"`
+        : `fill="${darker(a.color, 0.14)}"`)}</g>`;
+    }
+    const icon = commandIconAt(c.cmd, cx, crossY, crossW * (cross ? 0.6 : 0.78), ink);
     b += `<g opacity="${dim ? 0.35 : 1}" pointer-events="none">${icon || text(c.name, cx, crossY + 6, 15, ink)}</g>`;
     // A minor damage token covers the system: it only moves the rig (BRaFF p5).
     if (c.damaged) b += minorTokenAt(cx, crossY, crossW);
@@ -157,11 +173,7 @@ function steering(d: Drawing['steer'], a: RigBoardArt): string {
       : `<circle cx="${cx.toFixed(1)}" cy="${ty.toFixed(1)}" r="${(step * 0.34).toFixed(1)}" fill="#000" fill-opacity=".25" stroke="${CREAM}" stroke-opacity=".5" stroke-dasharray="3 3"/>`;
   }
   // Undo, on the plate at the board's foot (as on the Final Five's board).
-  const pb = boxOf(d.plate);
-  if (a.undo) {
-    b += `<g class="undoplate${a.undo === 'off' ? ' off' : ''}" data-undo="1"><title>Annulla l’ultima scelta (Ctrl+Z)</title>${draw(d.plate, `fill="${METAL}"`)}`
-      + text('ANNULLA', midX(pb), pb[3] - 4, 12, DARK, 'middle', 'font-style="italic"') + '</g>';
-  } else b += draw(d.plate, `fill="${METAL}"`) + text('STERZO', midX(pb), pb[3] - 4, 12, DARK, 'middle', 'font-style="italic"');
+  b += undoPlate(d.plate, a.undo, 'STERZO');
   return b;
 }
 

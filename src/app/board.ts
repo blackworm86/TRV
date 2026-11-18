@@ -17,14 +17,14 @@ scene.add(pickPlane);
 
 // The finish line: the piece that locks into the lead tile once the final tile is out. Which of
 // the four (data/trv/finish_lines.json) is the game's own; built the first time it is shown.
-const FINISH_ART = import.meta.glob<string>('/assets/base/traguardi/*.png', { eager: true, query: '?url', import: 'default' });
+const FINISH_ART = import.meta.glob<string>('/assets/base/traguardi/*.webp', { eager: true, query: '?url', import: 'default' });
 let finish: THREE.Group | null = null, finishShown = -1;
 /** Shows the game's finish line past the lead tile, or takes it off the table. */
 export function showFinish(on: boolean, index: number): void {
   if (finish && (!on || finishShown !== index)) { scene.remove(finish); finish = null; }
   if (!on || finish) return;
   const line = FINISH_LINES[index % FINISH_LINES.length];
-  const art = Object.entries(FINISH_ART).find(([path]) => path.endsWith(`/${line.id}.png`))?.[1];
+  const art = Object.entries(FINISH_ART).find(([path]) => path.endsWith(`/${line.id}.webp`))?.[1];
   finish = buildFinish(line, { width: TILE_W, depth: TILE_H, thickness: TILE_T, ...(art ? { art } : {}) });
   // Where a fourth tile would lie: its rows are the lead tile's rows going on.
   finish.position.set(BOARD_X0 + 3 * PITCH_W + (GRID.frameW / 2) * KX, 0, 0);

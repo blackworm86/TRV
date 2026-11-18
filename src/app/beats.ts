@@ -10,6 +10,7 @@ import { actionDone, actionShot, directBeat, directing, shotFor } from './direct
 import { filmBeat, filmDice } from './shots';
 import { burst, crash, explode, flash, impact, smokeOn, word, words } from './effects';
 import { wormEats } from './worm';
+import { salvo } from './salvo';
 import { drawBotCards } from './botcard';
 import { decision, g } from './game';
 import { drawHud, toastLine, turnOrder } from './hud';
@@ -44,6 +45,7 @@ export function beatLength(f: Frame): number {
     return JUMP.climb + jp.flight + JUMP.land + slow;
   }
   if (f.kind === 'elim' && f.by === 'sand_worm') return P.sandWorm.seconds;
+  if (f.kind === 'shot' && f.why === 'missiles') return P.salvo.seconds;
   if (f.kind !== 'log') return BEAT[f.kind] ?? 0.3;
   if (f.logKind === 'turn') return 0.6;
   return f.logKind === 'dice' || f.logKind === 'bad' || f.logKind === 'good' ? 0.45 : 0.1;
@@ -159,7 +161,8 @@ export function applyBeat(f: Frame, now: number): void {
       if (at) { impact(at, 0xff6a2a, 1.6); impact(at, 0xffffff, 0.8); word('SLAM!', at, '#ffb02a'); }
       break;
     case 'shot':
-      if (f.from && at) burst(world(f.from), at, f.vehicleId);
+      if (f.why === 'missiles' && f.from && f.spaces) salvo(f.vehicleId, world(f.from), f.spaces);
+      else if (f.from && at) burst(world(f.from), at, f.vehicleId);
       break;
     case 'damage':
       showDamage(f);

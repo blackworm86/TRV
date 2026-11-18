@@ -34,6 +34,18 @@ export function rigPartAt(spec: RigModelSpec, x: number): RigPart {
   return x < spec.pins[0] ? 'front' : x < spec.pins[1] ? 'mid' : 'rear';
 }
 
+/** Sets the bounding box and sphere of `geo` from the vertices its index uses (all, without one). */
+function fitBounds(geo: THREE.BufferGeometry): void {
+  const pos = geo.getAttribute('position');
+  if (!pos || !geo.index) return;
+  const box = new THREE.Box3(), p = new THREE.Vector3();
+  const idx = geo.index.array;
+  for (let i = 0; i < idx.length; i++) box.expandByPoint(p.fromBufferAttribute(pos, idx[i]));
+  if (box.isEmpty()) return;
+  geo.boundingBox = box;
+  geo.boundingSphere = box.getBoundingSphere(new THREE.Sphere());
+}
+
 /**
  * Cuts the one-piece Big Rig into its three sections: each a copy of the model keeping the triangles
  * whose middle lies on its side of the pins, with its wheels cut out to roll (`splitWheels`). Done
@@ -70,6 +82,9 @@ export function cutRig(model: THREE.Object3D, spec: RigModelSpec): Record<RigPar
       mesh.geometry = geo;
     });
     splitWheels(copy, spec.wheels[part]);
+    // The copy keeps every vertex of the whole truck: its boxes must come from the triangles it
+    // draws, or a section measures as the whole rig (its thumbnail came out tiny, 2026-11-18).
+    copy.traverse(o => { if ((o as THREE.Mesh).isMesh) fitBounds((o as THREE.Mesh).geometry); });
     out[part] = copy;
   }
   model.userData.rigCut = out;

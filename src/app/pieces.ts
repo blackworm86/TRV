@@ -13,6 +13,7 @@ import { cutRig, rigSectionLength, rigSectionMiddle } from '../view/rigmodel';
 import { DecalGeometry } from 'three/addons/geometries/DecalGeometry.js';
 import { effects } from './beats';
 import { HAZ_SIZE, carObjs, chopperObjs, hazardObjs, showFinish } from './board';
+import { STAND_IN_AFTER_MS } from './carthumbs';
 import { smokeOff, smokeOn, smokes } from './effects';
 import { g } from './game';
 import { drawHud } from './hud';
@@ -154,8 +155,26 @@ export function driveGun(o: THREE.Object3D, carYaw: number, dt: number): void {
   (gun.userData.piece as THREE.Object3D).position.x = (gun.userData.restX as number) + kick * GUN_KICK; // the barrel points to -x
 }
 
+/** Shows or hides a piece's stand-in (the flames of a burning car and its marking stay as they are). */
+function standIn(o: THREE.Group, on: boolean): void {
+  for (const c of o.children) if (c !== o.userData.flames && c !== o.userData.marking && c !== o.userData.model) c.visible = on;
+}
+/**
+ * Hides the stand-in (a flat block) while the model loads, so it is not seen while the models arrive
+ * (asked by the user, 2026-11-18); it comes back only if the model cannot load or is late beyond
+ * STAND_IN_AFTER_MS.
+ */
+function awaitModel(o: THREE.Group, load: Promise<THREE.Object3D | null>): void {
+  if (o.userData.model) return;
+  standIn(o, false);
+  const back = (): void => { if (!o.userData.model) standIn(o, true); };
+  const t = window.setTimeout(back, STAND_IN_AFTER_MS);
+  void load.then(m => { if (!m) { window.clearTimeout(t); back(); } }, () => { window.clearTimeout(t); back(); });
+}
+
 /** Swaps a stand-in piece for its model once loaded, at its table length. */
 export function useModel(o: THREE.Group, url: string, lengthMm: number, tint: Tint, id: string, dress?: (d: THREE.Object3D) => void): void {
+  awaitModel(o, models.load(url));
   void models.load(url).then(m => {
     if (!m) return;
     if (!m.userData.split) {
@@ -187,6 +206,7 @@ export function useModel(o: THREE.Group, url: string, lengthMm: number, tint: Ti
  * has its engine running; a trailer has none.
  */
 function useRigModel(o: THREE.Group, part: RigSection, tint: Tint, id: string): void {
+  awaitModel(o, models.load(MODEL.bigRig));
   void models.load(MODEL.bigRig).then(m => {
     if (!m) return;
     const piece = cutRig(m, BIG_RIG)[part];

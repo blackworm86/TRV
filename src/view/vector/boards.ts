@@ -114,10 +114,11 @@ interface StripBoard {
 export function pathPoints(d: string): [number, number][] {
   const out: [number, number][] = [];
   let x = 0, y = 0, sx = 0, sy = 0;
-  for (const m of d.matchAll(/([MLHVCZmlhvcz])([^MLHVCZmlhvcz]*)/g)) {
+  // Every command's end point counts (smooth curves and arcs too: the Big Rig board uses "s").
+  for (const m of d.matchAll(/([MLHVCSQTAZmlhvcsqtaz])([^MLHVCSQTAZmlhvcsqtaz]*)/g)) {
     const n = (m[2].match(/-?(?:\d+\.?\d*|\.\d+)(?:e-?\d+)?/g) ?? []).map(Number);
     const rel = m[1] === m[1].toLowerCase();
-    const step = { m: 2, l: 2, h: 1, v: 1, c: 6, z: 0 }[m[1].toLowerCase() as 'm']!;
+    const step = { m: 2, l: 2, h: 1, v: 1, c: 6, s: 4, q: 4, t: 2, a: 7, z: 0 }[m[1].toLowerCase() as 'm']!;
     if (!step) { x = sx; y = sy; out.push([x, y]); continue; }
     for (let i = 0; i + step <= n.length; i += step) {
       const k = m[1].toLowerCase();

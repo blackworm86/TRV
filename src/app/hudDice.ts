@@ -12,6 +12,7 @@ export const hudRenderer = new THREE.WebGLRenderer({ antialias: true, alpha: tru
 hudRenderer.setPixelRatio(Math.min(devicePixelRatio, 2));
 
 hudRenderer.toneMapping = THREE.NoToneMapping;
+hudRenderer.domElement.id = 'huddice';
 Object.assign(hudRenderer.domElement.style, { position: 'fixed', left: '0', top: '0', pointerEvents: 'none', zIndex: '7' });
 document.body.appendChild(hudRenderer.domElement);
 export const hudScene = new THREE.Scene();

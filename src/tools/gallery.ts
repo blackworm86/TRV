@@ -22,7 +22,7 @@ import { Pieces, TextureBank } from '../view/pieces3d';
 import { texturesReady } from '../view/texture';
 
 /** The finish lines cut from the official sheet (tools/asset-pipeline/finish_lines.py). */
-const FINISH_ART = import.meta.glob<string>('/assets/base/traguardi/*.png', { eager: true, query: '?url', import: 'default' });
+const FINISH_ART = import.meta.glob<string>('/assets/base/traguardi/*.webp', { eager: true, query: '?url', import: 'default' });
 
 const FACES = RULES.dice as unknown as DiceFaces;
 const CREWS = CATALOG.crews;
@@ -267,7 +267,7 @@ section('veicoli', 'Veicoli e altri pezzi', 'Auto in tre misure per crew, elicot
   })(),
   { title: 'Avatar dei giocatori', meta: 'Colore della crew e iniziale', flat: CREWS.map(cr => `<i class="icon">${avatarSvg(cr.color, cr.name)}</i>`) },
   { title: 'Traguardi', meta: `${mm('finish_line')} · quattro, dal foglio ufficiale, ritagliati sulla sua sagoma: The Cliff, The Wall, The Grid, The Dome`,
-    flat: FINISH_LINES.map(l => `<img class="finish" alt="${l.name}" title="${l.name}" src="${Object.entries(FINISH_ART).find(([path]) => path.endsWith(`/${l.id}.png`))?.[1] ?? ''}">`) },
+    flat: FINISH_LINES.map(l => `<img class="finish" alt="${l.name}" title="${l.name}" src="${Object.entries(FINISH_ART).find(([path]) => path.endsWith(`/${l.id}.webp`))?.[1] ?? ''}">`) },
 ]);
 
 // Navigation, viewer and thumbnails

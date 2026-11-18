@@ -240,6 +240,8 @@ export interface Frame {
   /** Elimination: the space the vehicle was entering (off the road, or impassable), and why. */
   into?: Pos;
   why?: string;
+  /** Shot: every space a salvo strikes (the Big Rig's Missile Launcher, `why` 'missiles'). */
+  spaces?: Pos[];
   /** Elimination: what took the vehicle, when it has a show of its own (the sand worm swallows it). */
   by?: 'sand_worm';
   /** Damage: the token drawn and turned over (null when the pile is empty). */
@@ -2271,9 +2273,10 @@ function* missileLauncher(g: Game, p: Player, front: Vehicle): Gen<void> {
   const x = neighbor(neighbor(front.pos, 'F'), 'F');
   const spaces = [x, ...ALL_DIRS.map(d => neighbor(x, d))].filter(onBoard);
   const hit = g.vehicles.filter(v => v.status !== 'elim' && v.owner !== p.id && spaces.some(q => samePos(q, v.pos)));
+  // The salvo first, on every space it strikes (asked by the user, 2026-11-18); then the die says who is hit.
+  beat(g, 'shot', { from: { ...front.pos }, at: { ...x }, vehicleId: front.id, why: 'missiles', spaces: spaces.map(q => ({ ...q })) });
   const f = rollFx(g, 'shooting', 'missile-launcher', x);
   say(g, `Missile Launcher: dado sparo ${f === 'ANY' ? 'qualsiasi' : f === 'SM' ? 'piccola/media' : SIZE_NAME[f as Size]}.`, 'dice');
-  beat(g, 'shot', { from: { ...front.pos }, at: { ...x }, vehicleId: front.id });
   for (const v of hit) {
     if (g.winner !== null) return;
     const ok = f === 'ANY' || f === v.size || (f === 'SM' && (v.size === 'S' || v.size === 'M'));

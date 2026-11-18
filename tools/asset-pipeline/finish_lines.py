@@ -57,8 +57,9 @@ def main():
         art.putalpha(big.resize(art.size, Image.LANCZOS))
         if side == 1:  # the right-hand ones are printed the other way round
             art = art.rotate(180)
-        path = os.path.join(out, name + '.png')
-        art.save(path, optimize=True)
+        # WebP with its see-through edge: a tenth of the PNG's size, the same look (2026-11-18).
+        path = os.path.join(out, name + '.webp')
+        art.save(path, 'WEBP', quality=90, method=6)
         print('%s: %d x %d px, %.1f x %.1f mm, %d KB' % (path, art.width, art.height, rect.width * MM_PER_PT, rect.height * MM_PER_PT, os.path.getsize(path) // 1024))
 
 

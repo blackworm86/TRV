@@ -136,5 +136,10 @@
   "burst": {
     "_module": "effects.ts: a gun's burst",
     "aim": 0.32, "rounds": 8, "gap": 0.085, "speed": 26, "spread": 0.22
+  },
+  "salvo": {
+    "_module": "salvo.ts: the Big Rig's Missile Launcher, a rocket salvo on the spaces it strikes (asked by the user, 2026-11-18)",
+    "_units": "seconds: the beat's length; per_space: rockets on each space; stagger: seconds between two launches; flight: seconds in the air; apex: height of the arc in road spaces; mark: seconds the struck spaces stay lit after the last hit",
+    "seconds": 3.2, "per_space": 2, "stagger": 0.09, "flight": 1.0, "apex": 2.4, "mark": 0.9
   }
 }
