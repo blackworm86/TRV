@@ -8,6 +8,7 @@
 import base from '../../../data/trv/game_base.json';
 import shoppe from '../../../data/trv/choppe_shoppe.json';
 import carnageData from '../../../data/trv/carnage.json';
+import finishData from '../../../data/trv/finish_lines.json';
 import {
   createRng, roll, shuffle, applyPermutation, type RngState,
 } from '../../core/rng/rng';
@@ -226,6 +227,11 @@ export interface Game {
   pile: TileRef[];
   tilesPlaced: number;
   finalTile: boolean;
+  /**
+   * Which finish line of data/trv/finish_lines.json this game ends at (an index). They differ in
+   * looks only; it comes from the seed's text, without taking a number from the game's dice.
+   */
+  finishLine: number;
   hazards: Map<string, HazardOnBoard>;
   hazardPile: HazardType[];
   hazardDiscard: HazardType[];
@@ -496,12 +502,19 @@ function* ask(d: Decision): Gen<number> {
 // ---------------------------------------------------------------- setup
 
 /** Builds the table (p. 4, steps 1-5). The first-player roll happens in `play`. */
+/** A number from a text (FNV-1a), the same everywhere. */
+function textHash(text: string): number {
+  let n = 2166136261;
+  for (let i = 0; i < text.length; i++) n = Math.imul(n ^ text.charCodeAt(i), 16777619);
+  return n >>> 0;
+}
+
 export function newGame(s: Setup): Game {
   const r = createRng(s.seed);
   if (!r.ok) throw new Error(r.error.message);
   if (s.players.length < 2 || s.players.length > 4) throw new Error('2-4 players');
   const g: Game = {
-    rng: r.value, draft: null, assign: null, players: [], vehicles: [], board: [], pile: [], tilesPlaced: 3, finalTile: false,
+    rng: r.value, draft: null, assign: null, players: [], vehicles: [], board: [], pile: [], tilesPlaced: 3, finalTile: false, finishLine: textHash(s.seed) % finishData.lines.length,
     hazards: new Map(), hazardPile: [], hazardDiscard: [], damagePile: [], round: 0, firstPlayer: 0,
     current: 0, roadDie: 0, winner: null, log: [], zTop: 0, activeCar: null, lastRoll: [], pendingDice: [], frames: [],
     tokenSupply: shoppe.command_tokens, dealLeaders: !!s.leaders, dealUpgrades: !!s.upgrades, fx: { bump: false, calledShot: false, slams: 0, flamethrower: false },

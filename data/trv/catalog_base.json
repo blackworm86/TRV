@@ -26,8 +26,8 @@
       "faces": { "a": "road_tiles/4a", "b": "road_tiles/4b" } },
     { "id": "road_tile_5", "kind": "road_tile", "count": 1, "tile": 5, "size_mm": [368, 280, 2], "measured": false,
       "faces": { "a": "road_tiles/5a", "b": "road_tiles/5b" } },
-    { "id": "finish_line", "kind": "finish_line", "count": 1, "size_mm": [60, 280, 2], "measured": false,
-      "faces": { "a": null, "b": null }, "missing_art": true },
+    { "id": "finish_line", "kind": "finish_line", "count": 4, "size_mm": [52.2, 270.2, 2], "measured": true,
+      "faces": { "a": null, "b": null }, "art": "assets/base/traguardi", "variants": ["the_cliff", "the_wall", "the_grid", "the_dome"] },
 
     { "id": "hazard_mud", "kind": "hazard_token", "count": 6, "rule": "mud", "size_mm": [38.1, 45.2, 2], "measured": false,
       "front": "hazards/mud", "back": "hazards/back" },

@@ -10,7 +10,7 @@ import { buildTile, hazardToken, GRID } from '../view/board3d';
 import { ModelBank, dressed, fitToLength, splitParts, splitWheels, type Tint } from '../view/models3d';
 import { MODEL, SHOW_LENGTH_MM, MODEL_YAW, CHOPPER_PARTS, WHEELS, GUNS, type GunSpec, crewTint, WRECK_TINT, wreckModel, wreckLength, phaseOf, CarRig } from '../view/models-config';
 import { effects } from './beats';
-import { HAZ_SIZE, carObjs, chopperObjs, finish, hazardObjs } from './board';
+import { HAZ_SIZE, carObjs, chopperObjs, hazardObjs, showFinish } from './board';
 import { smokeOff, smokeOn, smokes } from './effects';
 import { g } from './game';
 import { drawHud } from './hud';
@@ -196,7 +196,7 @@ export function drawTable(s: Snapshot): void {
   if (!g) return;
   S.lastSnap = s;
   showTiles(s);
-  finish.visible = s.finalTile;
+  showFinish(s.finalTile, g.finishLine);
   const hz = new Map(s.hazards);
 
   for (const [k, h] of hz) {

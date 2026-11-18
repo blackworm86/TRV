@@ -4,28 +4,33 @@
 import * as THREE from 'three';
 import { tileDef, TILE_COLS, type Snapshot } from '../game/trv/engine';
 import { BASE_CATALOG as CAT, sizeOf } from '../game/trv/catalog';
-import { buildTile, hazardToken, GRID } from '../view/board3d';
+import { buildFinish, buildTile, hazardToken, GRID } from '../view/board3d';
+import { FINISH_LINES } from '../view/terrain/finish3d';
 import { type Die3D } from '../view/dice3d';
 import type { Throw } from '../view/dice-throw';
-import { BOARD_X0, KX, KZ, MM, PITCH_W, TILE_H, TILE_T, scene } from './stage';
+import { BOARD_X0, KX, KZ, MM, PITCH_W, TILE_H, TILE_T, TILE_W, scene } from './stage';
 
 export const pickPlane = new THREE.Mesh(new THREE.PlaneGeometry(140, 80), new THREE.MeshBasicMaterial({ visible: false }));
 pickPlane.rotation.x = -Math.PI / 2;
 pickPlane.position.y = TILE_T;
 scene.add(pickPlane);
 
-// Finish line (no art in the licensed files): chequered strip past the lead tile.
-export const finishTex = (() => {
-  const c = document.createElement('canvas'); c.width = 64; c.height = 448;
-  const x2 = c.getContext('2d')!;
-  for (let y = 0; y < 28; y++) for (let x = 0; x < 4; x++) { x2.fillStyle = (x + y) % 2 ? '#111' : '#eee'; x2.fillRect(x * 16, y * 16, 16, 16); }
-  const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; return t;
-})();
-export const FIN = sizeOf(CAT, 'finish_line');
-export const finish = new THREE.Mesh(new THREE.PlaneGeometry(FIN[0] * MM, GRID.rows * GRID.rowPitch * KZ), new THREE.MeshStandardMaterial({ map: finishTex }));
-finish.rotation.x = -Math.PI / 2;
-finish.position.set(BOARD_X0 + 3 * PITCH_W + 0.6 * KX * GRID.pitch + FIN[0] * MM / 2, TILE_T, (GRID.y0 + 2.5 * GRID.rowPitch - GRID.frameH / 2) * KZ);
-scene.add(finish);
+// The finish line: the piece that locks into the lead tile once the final tile is out. Which of
+// the four (data/trv/finish_lines.json) is the game's own; built the first time it is shown.
+const FINISH_ART = import.meta.glob<string>('/assets/base/traguardi/*.png', { eager: true, query: '?url', import: 'default' });
+let finish: THREE.Group | null = null, finishShown = -1;
+/** Shows the game's finish line past the lead tile, or takes it off the table. */
+export function showFinish(on: boolean, index: number): void {
+  if (finish && (!on || finishShown !== index)) { scene.remove(finish); finish = null; }
+  if (!on || finish) return;
+  const line = FINISH_LINES[index % FINISH_LINES.length];
+  const art = Object.entries(FINISH_ART).find(([path]) => path.endsWith(`/${line.id}.png`))?.[1];
+  finish = buildFinish(line, { width: TILE_W, depth: TILE_H, thickness: TILE_T, ...(art ? { art } : {}) });
+  // Where a fourth tile would lie: its rows are the lead tile's rows going on.
+  finish.position.set(BOARD_X0 + 3 * PITCH_W + (GRID.frameW / 2) * KX, 0, 0);
+  finishShown = index;
+  scene.add(finish);
+}
 
 export const carObjs = new Map<string, THREE.Group>();
 export const chopperObjs = new Map<number, THREE.Group>();

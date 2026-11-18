@@ -167,7 +167,7 @@ function rim(s: number, r: () => number, seed: number, R: (a: number) => number)
 
 let maskMats: [THREE.Material, THREE.Material] | null = null;
 /** The two invisible materials of the opening: stencil mark, then depth reset where marked. */
-function maskMaterials(): [THREE.Material, THREE.Material] {
+export function maskMaterials(): [THREE.Material, THREE.Material] {
   if (maskMats) return maskMats;
   // All three steps go in the transparent pass (as the board's information layer, renderOrder 1),
   // after it: otherwise the printed marks of the space (a hazard space's red triangles) would be

@@ -3,6 +3,7 @@
 // quantità del regolamento (data/trv/game_base.json) e le misure del catalogo fisico
 // (data/trv/catalog_base.json). Nessuna immagine licenziata: la pagina si può pubblicare.
 
+import { FINISH_LINES } from '../view/terrain/finish3d';
 import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import RULES from '../../data/trv/game_base.json';
@@ -19,6 +20,9 @@ void useRampModel(MODEL.ramp, u => new ModelBank().load(u));
 import { makeDie, type DiceFaces } from '../view/dice3d';
 import { Pieces, TextureBank } from '../view/pieces3d';
 import { texturesReady } from '../view/texture';
+
+/** The finish lines cut from the official sheet (tools/asset-pipeline/finish_lines.py). */
+const FINISH_ART = import.meta.glob<string>('/assets/base/traguardi/*.png', { eager: true, query: '?url', import: 'default' });
 
 const FACES = RULES.dice as unknown as DiceFaces;
 const CREWS = CATALOG.crews;
@@ -262,7 +266,8 @@ section('veicoli', 'Veicoli e altri pezzi', 'Auto in tre misure per crew, elicot
     return { key: 'chopper', title: 'Elicottero', meta: `1 per crew · ${mm('chopper')}`, flat: CREWS.map(cr => `<i class="icon">${chopperSvg(cr.color)}</i>`) };
   })(),
   { title: 'Avatar dei giocatori', meta: 'Colore della crew e iniziale', flat: CREWS.map(cr => `<i class="icon">${avatarSvg(cr.color, cr.name)}</i>`) },
-  { title: 'Traguardo', meta: `${mm('finish_line')} · grafica assente nei file forniti: per ora strisce a scacchi`, flat: ['<i class="finish"></i>'] },
+  { title: 'Traguardi', meta: `${mm('finish_line')} · quattro, dal foglio ufficiale, ritagliati sulla sua sagoma: The Cliff, The Wall, The Grid, The Dome`,
+    flat: FINISH_LINES.map(l => `<img class="finish" alt="${l.name}" title="${l.name}" src="${Object.entries(FINISH_ART).find(([path]) => path.endsWith(`/${l.id}.png`))?.[1] ?? ''}">`) },
 ]);
 
 // Navigation, viewer and thumbnails

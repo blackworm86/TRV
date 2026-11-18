@@ -13,6 +13,7 @@ import { GRID, spaceCenterPx, spaceOutlinePx, type TileData } from './tile-grid'
 import { proceduralTerrain, normalMap, H_MIN, H_MAX } from './terrain/procedural';
 import { buildObstacles, type ObstacleBlocker, type ObstacleKind } from './terrain/obstacles';
 import { buildFireSpaces, buildRamps } from './terrain/carnage3d';
+import { FINISH_CUT, FINISH_TERRAIN, buildFinishFeature, finishGroundEnd, type FinishLine } from './terrain/finish3d';
 import LOOK from '../../data/trv/terrain_look.json';
 
 export { GRID, TILE_PITCH_PX, spaceCenterPx, spaceOutlinePx, type TileData } from './tile-grid';
@@ -146,13 +147,17 @@ const procCache = new Map<string, { textures: ReliefTextures; info: THREE.Textur
  * A face's terrain generated from its grid (src/view/terrain/procedural.ts), in relief, and its
  * information layer: a second surface following the same relief, unlit so its lines stay bright.
  */
-function proceduralRelief(tile: TileData, players: number | undefined, width: number, depth: number, top: number, amp: number): {
+function proceduralRelief(tile: TileData, players: number | undefined, width: number, depth: number, top: number, amp: number, keep?: { key: string; at: (px: number, py: number) => boolean }): {
   mesh: THREE.Mesh; info: THREE.Mesh; heightAt: (px: number, py: number) => number;
 } {
-  const key = `${tile.tile ?? ''}${tile.side ?? ''}|${tile.name}|${tile.terrain.join('')}|${players ?? ''}|${width}|${amp}`;
+  const key = `${tile.tile ?? ''}${tile.side ?? ''}|${tile.name}|${tile.terrain.join('')}|${players ?? ''}|${width}|${amp}|${keep?.key ?? ''}`;
   let hit = procCache.get(key);
   if (!hit) {
     const m = proceduralTerrain(tile, { players });
+    // Only a part of the face is kept (a finish line is a strip of one): the rest is cut away.
+    if (keep) for (let j = 0; j < m.h; j++) for (let i = 0; i < m.w; i++) {
+      if (!keep.at((i + 0.5) * GRID.frameW / m.w, (j + 0.5) * GRID.frameH / m.h)) m.mask[j * m.w + i] = 0;
+    }
     const range = H_MAX - H_MIN;
     const hb = new Uint8ClampedArray(m.w * m.h);
     for (let i = 0; i < hb.length; i++) hb[i] = (m.height[i] - H_MIN) / range * 255;
@@ -309,6 +314,57 @@ export function buildTile(tile: TileData, o: TileMeshOptions): THREE.Group {
  * `setFaceUp` flips it; `update(dt)` plays the flip (call it every frame).
  */
 // ------------------------------------------------------------------------------- revealed ground
+
+/**
+ * Builds a finish line (data/trv/finish_lines.json) in a tile's frame, centred as a tile is: set
+ * where the next tile would lie, its teeth lock into the lead tile's stepped front edge, because
+ * its rows are that tile's rows going on. Its ground is generated as a tile's and cut where the
+ * piece ends; on it stands what makes that finish line (terrain/finish3d.ts). `art`: the address of
+ * its picture cut from the official sheet, shown instead in the flat look.
+ */
+export function buildFinish(line: FinishLine, o: TileMeshOptions & { art?: string }): THREE.Group {
+  const kx = o.width / GRID.frameW, kz = o.depth / GRID.frameH;
+  const X = (px: number): number => (px - GRID.frameW / 2) * kx, Y = (py: number): number => -(py - GRID.frameH / 2) * kz;
+  const group = new THREE.Group();
+  group.name = `finish-line-${line.id}`;
+  const tile: TileData = { name: line.name, terrain: FINISH_TERRAIN.map(t => t.repeat(GRID.cols)), hazards: [] };
+  // The cardboard under it: each row from its chevron edge to where the ground ends.
+  const body: THREE.BufferGeometry[] = [];
+  for (let r = 0; r < GRID.rows; r++) {
+    const [cx, cy] = spaceCenterPx(r, 0), left = cx - GRID.pitch / 2, hh = GRID.rowPitch / 2;
+    const end = Math.min(...[-1, -0.5, 0, 0.5, 1].map(k => finishGroundEnd(line, cy + k * hh)));
+    const s = new THREE.Shape([[left, cy - hh], [end, cy - hh], [end, cy + hh], [left, cy + hh], [left + GRID.tip, cy]].map(([x, y]) => new THREE.Vector2(X(x), Y(y))));
+    body.push(new THREE.ExtrudeGeometry(s, { depth: o.thickness, bevelEnabled: false }));
+  }
+  const base = new THREE.Mesh(mergeGeometries(body), new THREE.MeshStandardMaterial({ color: 0x2b211a, roughness: 0.9 }));
+  base.rotation.x = -Math.PI / 2;
+  base.castShadow = true; base.receiveShadow = true;
+  group.add(base);
+
+  const look = o.terrain ?? DEFAULT_LOOK, amp = o.relief ?? o.thickness * 0.5;
+  if (look === 'flat') {
+    // The official picture, laid flat: its seven bands are the name strip's and the six rows'.
+    group.userData.heightAt = (): number => 0.002;
+    if (o.art) {
+      const tex = new THREE.TextureLoader().load(o.art);
+      tex.colorSpace = THREE.SRGBColorSpace;
+      const x0 = GRID.x0Even - GRID.pitch / 2, y0 = GRID.y0 - 1.5 * GRID.rowPitch, y1 = GRID.y0 + (GRID.rows - 0.5) * GRID.rowPitch;
+      const art = new THREE.Mesh(new THREE.PlaneGeometry((FINISH_CUT - x0) * kx, (y1 - y0) * kz), new THREE.MeshStandardMaterial({ map: tex, alphaTest: 0.5, roughness: 0.85 }));
+      art.rotation.x = -Math.PI / 2;
+      art.position.set(X((x0 + FINISH_CUT) / 2), o.thickness + 0.002, -Y((y0 + y1) / 2));
+      art.receiveShadow = true;
+      group.add(art);
+    }
+    return group;
+  }
+  const relief = proceduralRelief(tile, undefined, o.width, o.depth, o.thickness, amp, { key: `finish-${line.id}`, at: (px, py) => px < finishGroundEnd(line, py) });
+  group.add(relief.mesh);
+  group.userData.heightAt = relief.heightAt;
+  const feature = buildFinishFeature(line, { width: o.width, depth: o.depth, thickness: o.thickness, ground: relief.heightAt });
+  feature.position.y = o.thickness;
+  group.add(feature);
+  return group;
+}
 
 /** Token outline (art.ts CHEVRON, 120 x 100: a road space's shape). */
 const TOKEN_OUTLINE: [number, number][] = [[1.5, 1.5], [104.7, 1.5], [118.5, 50], [104.7, 98.5], [1.5, 98.5], [15.3, 50]];
