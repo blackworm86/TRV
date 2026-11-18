@@ -1,5 +1,5 @@
 {
-  "_note": "Look of the road tiles, not rules. obstacles: the kind of 3D obstacle standing on a face's impassable spaces (rocks, mesa, ruin, bunker, barricade), chosen after what the printed tile shows; 'default' is for faces not listed.",
+  "_note": "Look of the road tiles, not rules. obstacles: the kind of 3D obstacle standing on a face's impassable spaces (rocks, mesa, ruin, bunker, barricade), chosen after what the printed tile shows; 'default' is for faces not listed. formation: sizes of every formation of obstacles (design/gdd/terrain-generation.md), heights in spaces (1 = a space's width): base_h one space alone, grow more per further space of the group, max_h the cap, inset the margin kept from the outline of its own spaces. kinds: the profile of each kind: h scales the heights, edge how far in from the rim the side climbs (small = cliff and flat top, large = peak), power bends the side, noise and crest add lumps and a sharp ridge (shares of the height).",
   "obstacles": {
     "default": "rocks",
     "2a": "rocks",
@@ -8,5 +8,13 @@
     "4b": "mesa",
     "5a": "rocks",
     "5b": "mesa"
+  },
+  "formation": { "base_h": 0.45, "grow": 0.12, "max_h": 0.9, "inset": 0.06 },
+  "kinds": {
+    "rocks": { "h": 1, "edge": 0.17, "power": 0.55, "noise": 0.5, "crest": 0.6 },
+    "mesa": { "h": 1.05, "edge": 0.13, "power": 0.6, "noise": 0.05, "crest": 0 },
+    "bunker": { "h": 0.72, "edge": 0.1, "power": 1, "noise": 0, "crest": 0 },
+    "ruin": { "h": 0.3, "edge": 0.1, "power": 1, "noise": 0.2, "crest": 0 },
+    "barricade": { "h": 0.3, "edge": 0.2, "power": 1, "noise": 0.2, "crest": 0 }
   }
 }

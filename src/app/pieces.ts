@@ -8,7 +8,7 @@ import { flameCluster, useRampModel, rampPiece } from '../view/terrain/carnage3d
 import { pitPiece } from '../view/terrain/pit3d';
 import { buildTile, hazardToken, GRID } from '../view/board3d';
 import { ModelBank, dressed, fitToLength, splitParts, splitWheels, type Tint } from '../view/models3d';
-import { MODEL, SHOW_LENGTH_MM, MODEL_YAW, CHOPPER_PARTS, WHEELS, GUNS, type GunSpec, crewTint, WRECK_TINT, wreckModel, phaseOf, CarRig } from '../view/models-config';
+import { MODEL, SHOW_LENGTH_MM, MODEL_YAW, CHOPPER_PARTS, WHEELS, GUNS, type GunSpec, crewTint, WRECK_TINT, wreckModel, wreckLength, phaseOf, CarRig } from '../view/models-config';
 import { effects } from './beats';
 import { HAZ_SIZE, carObjs, chopperObjs, finish, hazardObjs } from './board';
 import { smokeOff, smokeOn, smokes } from './effects';
@@ -240,7 +240,7 @@ export function drawTable(s: Snapshot): void {
     if (!o) {
       const comp = v.isWreck ? ofKind(CAT, 'wreck')[0] : ofKind(CAT, 'car', { car_size: v.size })[0];
       o = pieces.car(comp.size_mm, v.owner === null ? '#222' : g.players[v.owner].color, v.isWreck);
-      if (v.isWreck) useModel(o, wreckModel(v.id), SHOW_LENGTH_MM.wreck, WRECK_TINT, v.id);
+      if (v.isWreck) useModel(o, wreckModel(v.id), wreckLength(v.id), WRECK_TINT, v.id);
       else useModel(o, MODEL.car[v.size], SHOW_LENGTH_MM[v.size], crewTint(g.players[v.owner!].color), v.id);
       carObjs.set(v.id, o);
       scene.add(o);

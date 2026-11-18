@@ -5,6 +5,7 @@ import { leaderOf, commandsOf, leaders, commandName, upgrades, type CommandSlot,
 import { ongoingCardSvg, ongoingCardText } from '../view/cards';
 import CARD_TEXT from '../../data/trv/cards_it.json';
 import { damageTokenSvg } from '../view/vector/art';
+import { tagCar } from './effects';
 import { g } from './game';
 import { dieHtml } from './hud';
 import { $, esc } from './util';
@@ -184,6 +185,8 @@ export function showDamage(f: Frame): void {
     + `<i class="tok">${f.token ? damageTokenSvg(f.token.type, true, f.token.dir as never) : damageTokenSvg(null, false)}</i>`
     + `<b>${esc(name)}</b><span>${esc(does)}</span>${card ? ongoingCardHtml(card) : ''}</div>`;
   el.classList.add('show');
+  // In the scene, a small label over the car says which damage it took; the panel (off the scene) has the details.
+  if (v) tagCar(v.id, `<i>${f.token ? damageTokenSvg(f.token.type, true, f.token.dir as never) : damageTokenSvg(null, false)}</i><span>${esc(card ? ONGOING_INFO[card]?.[0] ?? name : name)}</span>`, owner?.color ?? '#d42f30', card ? 8000 : 4500);
   clearTimeout(rollsTimer);
   rollsTimer = window.setTimeout(() => el.classList.remove('show'), card ? 8000 : 4500);
   damageUntil = performance.now() + (card ? 8000 : 4500);

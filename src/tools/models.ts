@@ -6,7 +6,7 @@ import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { BASE_CATALOG as CAT, sizeOf, ofKind } from '../game/trv/catalog';
 import { Pieces, TextureBank } from '../view/pieces3d';
 import { ModelBank, dressed, fitToLength, splitParts, splitWheels, type Tint } from '../view/models3d';
-import { MODEL, SHOW_LENGTH_MM, MODEL_YAW, CHOPPER_PARTS, ROTOR_SPEED, crewTint, WRECK_TINT, phaseOf, hover, CarRig, WHEELS } from '../view/models-config';
+import { MODEL, SHOW_LENGTH_MM, MODEL_YAW, CHOPPER_PARTS, ROTOR_SPEED, crewTint, WRECK_TINT, WRECK_LENGTH_MM, phaseOf, hover, CarRig, WHEELS } from '../view/models-config';
 
 const TILE_MM = sizeOf(CAT, 'road_tile');
 const MM = 13.14 / TILE_MM[0];
@@ -40,7 +40,7 @@ const ROWS: Row[] = [
   })),
   { label: 'elicottero', url: MODEL.chopper, show: SHOW_LENGTH_MM.chopper, kind: 'chopper', stand: () => pieces.chopper(sizeOf(CAT, 'chopper'), '#ec9230') },
   ...MODEL.wrecks.map((url, i) => ({
-    label: `relitto ${i + 1}`, url, show: SHOW_LENGTH_MM.wreck, kind: 'wreck' as const,
+    label: `relitto ${i + 1}`, url, show: WRECK_LENGTH_MM[i] ?? SHOW_LENGTH_MM.wreck, kind: 'wreck' as const,
     stand: () => pieces.car(ofKind(CAT, 'wreck')[0].size_mm, '#222', true),
   })),
 ];

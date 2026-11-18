@@ -11,7 +11,7 @@ import { PALETTE, hazardTokenSvg } from './vector/art';
 import { svgTexture, trackTexture } from './texture';
 import { GRID, spaceCenterPx, spaceOutlinePx, type TileData } from './tile-grid';
 import { proceduralTerrain, normalMap, H_MIN, H_MAX } from './terrain/procedural';
-import { buildObstacles, type ObstacleKind } from './terrain/obstacles';
+import { buildObstacles, type ObstacleBlocker, type ObstacleKind } from './terrain/obstacles';
 import { buildFireSpaces, buildRamps } from './terrain/carnage3d';
 import LOOK from '../../data/trv/terrain_look.json';
 
@@ -261,6 +261,8 @@ export function buildTile(tile: TileData, o: TileMeshOptions): THREE.Group {
   if (obstacles) {
     obstacles.position.y = o.thickness + amp * 1.2;
     group.add(obstacles);
+    // What each impassable space hides, for the camera director: in the tile's frame, `h` the top above the tile's base.
+    group.userData.blockers = (obstacles.userData.blockers as ObstacleBlocker[]).map(b => ({ ...b, h: b.h + obstacles.position.y }));
   }
   if (look !== 'flat') {
     // Terrain generated from the grid, and over it, apart, the information layer (grid lines, tape

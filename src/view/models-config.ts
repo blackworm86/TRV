@@ -64,12 +64,23 @@ export function crewTint(color: string, chopper = false): Tint {
 /** Wrecks keep their own burnt look. */
 export const WRECK_TINT: Tint = { color: '#000000', panels: 0, orange: 0, shade: 1 };
 
-/** The wreck model for a wreck id (stable: the same wreck always looks the same). */
-export function wreckModel(id: string): string {
+/**
+ * Length on the table of each wreck variant, in mm, in the order of `MODEL.wrecks`: what the wreck
+ * was decides it (a tank and a school bus are bigger than a car), so they stand right beside the cars
+ * (asked by the user, 2026-11-18). For the rules a wreck is still a small car. None is longer than a space.
+ */
+export const WRECK_LENGTH_MM = [30, 40, 30, 44, 34];
+
+/** Which wreck variant a wreck id takes (stable: the same wreck always looks the same). */
+function wreckIndex(id: string): number {
   let h = 0;
   for (const ch of id) h = (h * 31 + ch.charCodeAt(0)) >>> 0;
-  return MODEL.wrecks[h % MODEL.wrecks.length];
+  return h % MODEL.wrecks.length;
 }
+/** The wreck model for a wreck id. */
+export function wreckModel(id: string): string { return MODEL.wrecks[wreckIndex(id)]; }
+/** How long that wreck is drawn, in mm. */
+export function wreckLength(id: string): number { return WRECK_LENGTH_MM[wreckIndex(id)] ?? SHOW_LENGTH_MM.wreck; }
 
 /** A stable phase in [0, 2π) for an id, so pieces do not move in step. */
 export function phaseOf(id: string): number {

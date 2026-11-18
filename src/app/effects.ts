@@ -75,6 +75,33 @@ export function word(text: string, at: THREE.Vector3, color: string, big = false
   $('fx').appendChild(el);
   words.push({ el, at: at.clone(), t: 0, life: big ? 1.6 : 1.2 });
 }
+/** The label pinned over a car (one at a time), and until when (performance.now()). */
+let tag: { el: HTMLElement; car: string; until: number } | null = null;
+/**
+ * Pins a small label over a car for `ms` milliseconds: what just happened to it, in a few words, so
+ * the scene itself says it and nothing covers the car. `html` is trusted markup built by the caller.
+ */
+export function tagCar(carId: string, html: string, color: string, ms: number): void {
+  tag?.el.remove();
+  const el = document.createElement('div');
+  el.className = 'fxtag';
+  el.innerHTML = html;
+  el.style.setProperty('--c', color);
+  $('fx').appendChild(el);
+  tag = { el, car: carId, until: performance.now() + ms };
+}
+/** Each frame: the label follows its car, above it, inside the window. */
+export function updateTags(): void {
+  if (!tag) return;
+  const o = carObjs.get(tag.car);
+  if (!o || performance.now() > tag.until) { tag.el.remove(); tag = null; return; }
+  const rect = renderer.domElement.getBoundingClientRect();
+  const p = o.position.clone().setY(o.position.y + 0.85).project(camera);
+  const half = tag.el.offsetWidth / 2 + 8;
+  const x = rect.left + (p.x * 0.5 + 0.5) * rect.width, y = rect.top + (-p.y * 0.5 + 0.5) * rect.height;
+  tag.el.style.left = `${Math.max(half, Math.min(innerWidth - half, x))}px`;
+  tag.el.style.top = `${Math.max(tag.el.offsetHeight + 70, y)}px`;
+}
 export function updateWords(dt: number): void {
   const rect = renderer.domElement.getBoundingClientRect();
   for (let i = words.length - 1; i >= 0; i--) {

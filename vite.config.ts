@@ -6,10 +6,19 @@
 //                         (admin.html); tools/pages/finish.mjs adds the old addresses
 //                         (prototypes/trv-play-spike/) as redirects.
 // Vitest reads the test block; Playwright has its own config.
+import { execSync } from 'node:child_process';
 import { defineConfig } from 'vitest/config';
 import { viteSingleFile } from 'vite-plugin-singlefile';
 
+/** What the Menu shows as the version: the commit built and when, so a stale page can be told from a fresh one. */
+const BUILD = ((): string => {
+  let commit = 'locale';
+  try { commit = execSync('git rev-parse --short HEAD', { stdio: ['ignore', 'pipe', 'ignore'] }).toString().trim(); } catch { /* no git here */ }
+  return `${commit} · ${new Date().toISOString().slice(0, 16).replace('T', ' ')} UTC`;
+})();
+
 export default defineConfig(({ mode }) => ({
+  define: { __BUILD__: JSON.stringify(BUILD) },
   // Relative paths, so the build works from any folder, itch.io included.
   base: './',
   // Assets are imported in the code (new URL('../assets/x.png', import.meta.url)),

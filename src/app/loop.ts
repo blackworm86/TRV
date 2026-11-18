@@ -9,7 +9,7 @@ import { carTimeScale, drive } from './cars';
 import { chaseCamera, clearSight } from './chase';
 import { SHOT, actionSince, directorCamera } from './director';
 import { placeActions, placeDock } from './dock';
-import { updateSmoke, updateWords } from './effects';
+import { updateSmoke, updateTags, updateWords } from './effects';
 import { hudCam, hudRenderer, hudScene, syncHudDice } from './hudDice';
 import { moveCamera } from './keys';
 import { tiltView } from './mapView';
@@ -80,6 +80,7 @@ renderer.setAnimationLoop(t => {
     if (grp.userData.info) (grp.userData.info as THREE.Object3D).visible = settings.grid;
   }
   updateWords(dt);
+  updateTags();
   updateSmoke(dt, now);
   for (const [k, h] of hazardObjs) {
     h.obj.update(dt);

@@ -46,6 +46,9 @@ export function togglePop(pop: string, btn: string): void {
 }
 $('opts').addEventListener('click', e => { e.stopPropagation(); togglePop('optspop', 'opts'); });
 $('menu').addEventListener('click', e => { e.stopPropagation(); togglePop('menupop', 'menu'); });
+// The version built (vite.config.ts), at the foot of the Menu.
+declare const __BUILD__: string;
+$('buildtag').textContent = `Versione ${typeof __BUILD__ === 'string' ? __BUILD__ : 'locale'}`;
 for (const id of ['optspop', 'menupop']) $(id).addEventListener('pointerdown', e => e.stopPropagation());
 addEventListener('pointerdown', closePops);
 addEventListener('keydown', e => { if (e.key === 'Escape') closePops(); });

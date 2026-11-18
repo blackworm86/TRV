@@ -45,7 +45,7 @@ export const TERRAIN_STYLE: TerrainStyle = {
   warp: 22,
   asphalt: [[84, 85, 88], [124, 121, 120]], crack: [44, 43, 45],
   sand: [[251, 198, 138], [228, 166, 106]],
-  mud: [[46, 32, 33], [82, 54, 50]], mudGlint: [118, 92, 82],
+  mud: [[58, 40, 27], [104, 74, 46]], mudGlint: [146, 130, 108],
   rock: [[160, 86, 80], [190, 120, 96], [92, 55, 52]],
   goo: [[134, 214, 58], [74, 160, 40]], gooBubble: [206, 246, 140],
   glass: [[176, 222, 232], [118, 182, 206]], glassGlint: [244, 252, 255],
@@ -54,7 +54,7 @@ export const TERRAIN_STYLE: TerrainStyle = {
   oil: [16, 15, 18], sheen: [[90, 40, 140], [30, 120, 150], [150, 130, 40]],
   plant: [[112, 138, 118], [62, 84, 70]],
   line: [246, 196, 62], tape: [[246, 196, 62], [28, 24, 22]], hazard: [214, 22, 28],
-  rough: { R: 0.86, o: 0.97, M: 0.3, X: 0.82, G: 0.18, D: 0.08, P: 0.95, F: 0.9, S: 0.93, O: 0.86 },
+  rough: { R: 0.86, o: 0.97, M: 0.55, X: 0.82, G: 0.18, D: 0.08, P: 0.95, F: 0.9, S: 0.93, O: 0.86 },
   plants: 0.6,
 };
 
@@ -309,10 +309,22 @@ export function proceduralTerrain(tile: TileData, opt: ProceduralOptions = {}): 
       if (wG[p] > 0) hg += wG[p] / g * 0.12 * bubble(fx, fy, seed);
       if (wS[p] > 0) hg += wS[p] / g * 0.05 * saltRim(fx, fy, seed);
       if (wF[p] > 0) hg += wF[p] / g * (0.1 * fbm(fx / 30, fy / 30, seed + 70) - 0.08 * crack(fx, fy, seed + 71));
-      hg += wO[p] / g * (0.38 * fbm(fx / 150, fy / 150, seed + 3) + 0.14 * fbm(fx / 45, fy / 45, seed + 4)
-        + 0.025 * Math.sin((fx * 0.35 + fy * 0.94) / 5 + 5 * fbm(fx / 60, fy / 60, seed + 5)));
-      hg += wM[p] / g * 0.07 * fbm(fx / 40, fy / 40, seed + 6);
-      if (wR[p] > 0) hg += wR[p] / g * (0.012 * fbm(fx / 9, fy / 9, seed + 7, 2) - 0.07 * crack(fx, fy, seed));
+      if (wO[p] > 0) {
+        // Sand: dunes and ripples, flatter where the ground is dry and hard; stones stand on it, ruts cut it.
+        const hard = hardpan(fx, fy, seed);
+        hg += wO[p] / g * ((1 - 0.65 * hard) * (0.38 * fbm(fx / 150, fy / 150, seed + 3) + 0.14 * fbm(fx / 45, fy / 45, seed + 4)
+          + 0.025 * Math.sin((fx * 0.35 + fy * 0.94) / 5 + 5 * fbm(fx / 60, fy / 60, seed + 5)))
+          + 0.16 * pebble(fx, fy, seed) - 0.09 * sandRut(fx, fy, seed) - 0.05 * hard * saltRim(fx * 0.8, fy * 0.8, seed + 7));
+      }
+      if (wM[p] > 0) {
+        // Mud: churned in furrows along the road, with clods; the puddles lie flat and lower.
+        const wet = puddle(fx, fy, seed);
+        hg += wM[p] / g * ((1 - wet) * (0.09 * fbm(fx / 40, fy / 40, seed + 6) + 0.07 * mudFurrow(fx, fy, seed)) - 0.12 * wet);
+      }
+      if (wR[p] > 0) {
+        hg += wR[p] / g * (0.012 * fbm(fx / 9, fy / 9, seed + 7, 2) - 0.07 * crack(fx, fy, seed)
+          - 0.035 * wheelTracks(fx, fy, seed) - 0.22 * pothole(fx, fy, seed) + 0.02 * tarPatch(fx, fy, seed));
+      }
       let hx = 0;
       if (wX[p] > 0) {
         // Rocky ground only: the obstacle itself is a 3D model standing on it (src/view/terrain/obstacles.ts).
@@ -365,6 +377,16 @@ export function proceduralTerrain(tile: TileData, opt: ProceduralOptions = {}): 
         const oc = oilColor(fx, fy, seed, st);
         for (let q = 0; q < 3; q++) col[q] = mix(col[q], oc[q], slick);
       }
+      // Mud dries pale and cracks along its edge, and spatters the ground around it.
+      if (sM[p] > 0.04 && sM[p] / tot < 0.8) {
+        const edge = Math.sin(Math.PI * clamp01(sM[p] / tot / 0.8));
+        const dry = edge * (0.55 - 0.35 * saltRim(fx * 1.3, fy * 1.3, seed + 59));
+        for (let q = 0; q < 3; q++) col[q] = mix(col[q], st.mud[1][q] * 1.22, dry);
+      }
+      if (wM[p] > 0.015 && sM[p] / tot < 0.5) {
+        const spot = smooth(0.5, 0.62, vnoise(fx / 8, fy / 8, seed + 54)) * smooth(0.015, 0.3, wM[p]);
+        for (let q = 0; q < 3; q++) col[q] = mix(col[q], st.mud[0][q], spot * 0.75);
+      }
       // Sand blown over the edge of the asphalt.
       if (sR[p] > 0.05 && sO[p] > 0.05) {
         const dust = smooth(0.2, 0.7, sO[p] / tot + 0.35 * fbm(fx / 14, fy / 14, seed + 10, 2));
@@ -376,6 +398,8 @@ export function proceduralTerrain(tile: TileData, opt: ProceduralOptions = {}): 
       rough[p] = 255 * (sR[p] * st.rough.R + sO[p] * st.rough.o + sM[p] * st.rough.M + sX[p] * st.rough.X + sG[p] * st.rough.G
         + sD[p] * st.rough.D + sP[p] * st.rough.P + sF[p] * st.rough.F + sS[p] * st.rough.S + sOil[p] * st.rough.O) / tot;
       if (slick > 0) rough[p] = mix(rough[p], 18, slick); // the oil is glossy
+      if (sM[p] > 0.3) rough[p] = mix(rough[p], 14, puddle(fx, fy, seed) * smooth(0.3, 0.8, sM[p] / tot)); // standing water
+      if (sR[p] > 0.5) rough[p] = mix(rough[p], 150, 0.5 * wheelTracks(fx, fy, seed)); // tyres polish the asphalt
     }
   }
 
@@ -392,25 +416,125 @@ function crack(fx: number, fy: number, seed: number): number {
     0.6 * (1 - smooth(0.002, 0.009, b)) * smooth(0.1, 0.4, fbm(fx / 200, fy / 200, seed + 22)));
 }
 
+/** Offset of a frame point from the middle of its lane (a row of spaces), px, and the lane. */
+const laneOf = (fy: number): number => Math.round((fy - GRID.y0) / GRID.rowPitch);
+const laneOff = (fy: number): number => fy - (GRID.y0 + laneOf(fy) * GRID.rowPitch);
+/** A hash as 0..1. */
+const h01 = (i: number, j: number, s: number): number => (hash(i, j, s) + 1) / 2;
+
+/** The two wheel tracks of a lane, 0..1: where tyres run, the asphalt is rubbered and a little sunk. */
+function wheelTracks(fx: number, fy: number, seed: number): number {
+  const d = Math.abs(laneOff(fy)) - 46;
+  return Math.exp(-(d * d) / 320) * (0.4 + 0.6 * clamp01(0.5 + fbm(fx / 220, laneOf(fy) * 3.7, seed + 33, 2)));
+}
+
+/** Patches of newer tar, 0..1: rectangles laid along the road, a few per face. */
+function tarPatch(fx: number, fy: number, seed: number): number {
+  const i = Math.floor(fx / 190), j = Math.floor(fy / 72);
+  if (h01(i, j, seed + 34) < 0.93) return 0;
+  const u = fx / 190 - i, v = fy / 72 - j, mu = 0.06 + 0.2 * h01(i, j, seed + 35), mv = 0.08 + 0.15 * h01(j, i, seed + 35);
+  return smooth(mu, mu + 0.02, u) * smooth(mu, mu + 0.02, 1 - u) * smooth(mv, mv + 0.05, v) * smooth(mv, mv + 0.05, 1 - v);
+}
+
+/** Potholes, 0..1: rare, and only on the worn stretches of a face. */
+function pothole(fx: number, fy: number, seed: number): number {
+  return smooth(0.7, 0.8, vnoise(fx / 30, fy / 30, seed + 36)) * smooth(0, 0.3, fbm(fx / 320, fy / 320, seed + 37, 2));
+}
+
+/** Skid marks, 0..1: two dark streaks that start in a lane and swerve. */
+function skid(fx: number, fy: number, seed: number): number {
+  const lane = laneOf(fy), seg = Math.floor(fx / 560);
+  if (h01(seg, lane, seed + 38) < 0.62) return 0;
+  const u = fx / 560 - seg, start = 0.08 + 0.3 * h01(seg, lane, seed + 39), t = (u - start) / 0.45;
+  if (t < 0 || t > 1) return 0;
+  const off = laneOff(fy) - 22 * hash(seg, lane, seed + 40) - 55 * hash(seg, lane, seed + 41) * t * t;
+  const line = Math.max(Math.exp(-((off - 21) ** 2) / 14), Math.exp(-((off + 21) ** 2) / 14));
+  return line * smooth(0, 0.12, t) * (1 - smooth(0.7, 1, t)) * (0.6 + 0.4 * vnoise(fx / 6, fy / 6, seed + 42));
+}
+
 function asphaltColor(fx: number, fy: number, seed: number, st: TerrainStyle): Rgb {
   const t = clamp01(0.5 + 0.5 * fbm(fx / 50, fy / 50, seed + 30, 3));
   const grain = 7 * vnoise(fx / 1.7, fy / 1.7, seed + 31);
-  const k = 1 - smooth(0.25, 0.55, fbm(fx / 700, fy / 6, seed + 32, 2)) * 0.18; // tyre marks along the road
-  const cr = crack(fx, fy, seed);
-  return [0, 1, 2].map(q => mix((mix(st.asphalt[0][q], st.asphalt[1][q], t) + grain) * k, st.crack[q], cr)) as Rgb;
+  const streak = 1 - smooth(0.25, 0.55, fbm(fx / 700, fy / 6, seed + 32, 2)) * 0.14; // fine marks along the road
+  // Sun-bleached and darker stretches, the rubber of the wheel tracks, drips of oil in the middle of the lane.
+  const bleach = 1 + 0.1 * fbm(fx / 520, fy / 260, seed + 45, 2);
+  const tracks = wheelTracks(fx, fy, seed), patch = tarPatch(fx, fy, seed);
+  const off = laneOff(fy);
+  const drip = smooth(0.25, 0.6, fbm(fx / 42, fy / 42, seed + 43, 2)) * Math.exp(-(off * off) / 420) * 0.22;
+  const k = streak * bleach * (1 - 0.2 * tracks) * (1 - drip);
+  // Cracks, cracks sealed with tar, skid marks and the rubble of a pothole all go dark.
+  const seal = (1 - smooth(0.004, 0.028, Math.abs(fbm(fx / 150, fy / 150, seed + 44, 2)))) * smooth(0.15, 0.4, fbm(fx / 400, fy / 400, seed + 46));
+  const dark = Math.max(crack(fx, fy, seed), 0.6 * seal, 0.75 * skid(fx, fy, seed), pothole(fx, fy, seed));
+  return [0, 1, 2].map(q => {
+    const base = (mix(st.asphalt[0][q], st.asphalt[1][q], t) + grain) * k;
+    return mix(mix(base, st.asphalt[0][q] * 0.6, patch * (0.4 + 0.25 * vnoise(fx / 14, fy / 14, seed + 47))), st.crack[q], dark);
+  }) as Rgb;
+}
+
+/** Dry, hard ground among the sand, 0..1: flat and cracked. */
+function hardpan(fx: number, fy: number, seed: number): number {
+  return smooth(0.12, 0.38, fbm(fx / 340, fy / 340, seed + 56, 2));
+}
+
+/** A stone lying on the sand: 0 off it, up to 1 at its top. */
+function pebble(fx: number, fy: number, seed: number): number {
+  const S = 27, i = Math.floor(fx / S), j = Math.floor(fy / S);
+  if (h01(i, j, seed + 46) < 0.74) return 0;
+  const cx = (i + 0.5 + 0.3 * hash(i, j, seed + 47)) * S, cy = (j + 0.5 + 0.3 * hash(i, j, seed + 48)) * S;
+  const d = Math.hypot(fx - cx, (fy - cy) * 1.25) / (2.5 + 4.5 * h01(i, j, seed + 49));
+  return d < 1 ? 1 - d * d : 0;
+}
+
+/** Tyre ruts across the sand, 0..1: a pair of tracks wandering along some lanes. */
+function sandRut(fx: number, fy: number, seed: number): number {
+  const lane = laneOf(fy);
+  const here = smooth(0.05, 0.3, fbm(fx / 650, lane * 9.1, seed + 58, 2));
+  if (here <= 0) return 0;
+  const off = laneOff(fy) - 38 * fbm(fx / 380, lane * 5.3, seed + 57, 2);
+  return here * Math.max(Math.exp(-((off - 20) ** 2) / 22), Math.exp(-((off + 20) ** 2) / 22));
 }
 
 function sandColor(fx: number, fy: number, i: number, j: number, seed: number, st: TerrainStyle): Rgb {
   const t = clamp01(0.5 + 0.6 * fbm(fx / 70, fy / 70, seed + 40, 3));
-  const rip = 6 * Math.sin((fx * 0.35 + fy * 0.94) / 5 + 5 * fbm(fx / 60, fy / 60, seed + 5));
+  const hard = hardpan(fx, fy, seed);
+  const rip = 6 * (1 - 0.7 * hard) * Math.sin((fx * 0.35 + fy * 0.94) / 5 + 5 * fbm(fx / 60, fy / 60, seed + 5));
   const speck = hash(i, j, seed + 41) > 0.94 ? -28 : 0;
-  return [0, 1, 2].map(q => mix(st.sand[0][q], st.sand[1][q], t) + rip + speck) as Rgb;
+  // Stretches of redder and of paler sand; hard ground is pale, with dark cracks; ruts are darker; stones are grey.
+  const red = fbm(fx / 430, fy / 430, seed + 42, 2);
+  const cracks = hard * saltRim(fx * 0.8, fy * 0.8, seed + 7);
+  const shade = (1 - 0.3 * cracks) * (1 - 0.16 * sandRut(fx, fy, seed));
+  const stone = pebble(fx, fy, seed);
+  const tone: Rgb = [4 * red, -12 * red, -22 * red];
+  return [0, 1, 2].map(q => {
+    const sand = (mix(st.sand[0][q], st.sand[1][q], t) + tone[q] + rip + speck) * shade;
+    const ground = mix(sand, st.sand[0][q] * 0.93 + 14, hard * 0.55 * (1 - cracks));
+    return stone > 0 ? mix(ground * 0.6, [168, 150, 132][q], Math.sqrt(stone)) : ground;
+  }) as Rgb;
+}
+
+/** Standing water on the mud, 0..1: puddles in its hollows. */
+function puddle(fx: number, fy: number, seed: number): number {
+  return smooth(0.06, 0.2, fbm(fx / 85, fy / 85, seed + 52, 2));
+}
+
+/** Furrows the wheels leave in mud, -1..1: along the road, wavering. */
+function mudFurrow(fx: number, fy: number, seed: number): number {
+  // Deep where the wheels went, faint elsewhere, never ruler-straight.
+  const deep = smooth(-0.25, 0.35, fbm(fx / 140, fy / 60, seed + 60, 2));
+  return (0.25 + 0.75 * deep) * Math.sin(laneOff(fy) / 6.5 + 5 * fbm(fx / 95, fy / 95, seed + 53, 2) + 1.5 * vnoise(fx / 23, fy / 23, seed + 61));
 }
 
 function mudColor(fx: number, fy: number, seed: number, st: TerrainStyle): Rgb {
   const t = clamp01(0.5 + 0.6 * fbm(fx / 38, fy / 38, seed + 50, 3));
-  const glint = smooth(0.42, 0.62, fbm(fx / 11, fy / 11, seed + 51, 2));
-  return [0, 1, 2].map(q => mix(mix(st.mud[0][q], st.mud[1][q], t), st.mudGlint[q], glint * 0.7)) as Rgb;
+  const wet = puddle(fx, fy, seed);
+  // Churned mud: lit crests and dark troughs of the furrows, wet clods; puddles: brown water, paler where the sky shows.
+  const furrow = 1 + 0.16 * mudFurrow(fx, fy, seed);
+  const clod = smooth(0.42, 0.62, fbm(fx / 11, fy / 11, seed + 51, 2)) * 0.3;
+  const sky = 0.55 + 0.35 * fbm(fx / 60, fy / 60, seed + 55, 2);
+  return [0, 1, 2].map(q => {
+    const churned = mix(mix(st.mud[0][q], st.mud[1][q], t) * furrow, st.mudGlint[q], clod);
+    return mix(churned, mix(st.mud[0][q] * 0.75, st.mudGlint[q] * 0.8, sky * 0.55), wet);
+  }) as Rgb;
 }
 
 /** Bubbles on toxic goo: 0..1, round blobs of a few sizes. */

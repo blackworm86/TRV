@@ -583,10 +583,13 @@ function flame(cx: number, cy: number, s: number, outer: string, innerFill: stri
 type TracedFireDie = { bg: string; ink: string; faces: Record<string, string> };
 const tracedFire = Object.values(import.meta.glob<TracedFireDie>('/assets/carnage/vettoriale/fire_die.json', { eager: true, import: 'default' }))[0];
 
+/** The traced faces lie as they were scanned: degrees clockwise that stand each one upright (checked by the user, 2026-11-18). */
+const TRACED_FIRE_TURN: Record<FireFace, number> = { '+1': 180, '+2': 90, out: 0, eliminated: 180 };
+
 export function fireDieSvg(face: FireFace, extra = ''): string {
   if (tracedFire?.faces[face] && !openOnly) {
     return svg(100, 100, `<rect x="2" y="2" width="96" height="96" rx="16" fill="${tracedFire.bg}" stroke="rgba(0,0,0,.35)" stroke-width="2"/>`
-      + `<path d="${tracedFire.faces[face]}" fill="${tracedFire.ink}" fill-rule="evenodd"/>`, extra);
+      + `<path d="${tracedFire.faces[face]}" fill="${tracedFire.ink}" fill-rule="evenodd" transform="rotate(${TRACED_FIRE_TURN[face]} 50 50)"/>`, extra);
   }
   let b = `<rect x="3" y="3" width="94" height="94" rx="16" fill="${PALETTE.dieFire}" stroke="#8a6a00" stroke-width="3"/>`;
   b += flame(50, 46, 0.78, PALETTE.fireRed, PALETTE.fireOrange);

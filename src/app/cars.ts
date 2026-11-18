@@ -215,7 +215,8 @@ export function drive(o: THREE.Object3D, dt: number, k: number, now: number): vo
     const half = ((o.userData.modelSize as THREE.Vector3 | undefined)?.x ?? TILE_W / 8 * 0.6) / 2;
     const front = rampSurfaceAt(list, o.position.x + half, o.position.z), back = rampSurfaceAt(list, o.position.x - half, o.position.z);
     const mid = rampSurfaceAt(list, o.position.x, o.position.z);
-    if (front !== null || back !== null || mid !== null) {
+    // Only its tail still over the ramp: the car has left it (a long car landed one space on) and stands flat.
+    if (front !== null || mid !== null) {
       const base = tg?.y ?? TILE_T;
       const fy = Math.max(front ?? base, base), by = Math.max(back ?? base, base);
       rampY = Math.max(mid ?? base, (fy + by) / 2);

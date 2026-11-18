@@ -13,7 +13,8 @@ import { ACTION_BEATS, actionDone, directing, setShotFor, startShot } from './di
 import { g } from './game';
 import { P } from './presentation';
 import { settings } from './settings';
-import { TILE_T, TILE_W, camera, renderer, world } from './stage';
+import type { ObstacleBlocker } from '../view/terrain/obstacles';
+import { TILE_T, TILE_W, camera, renderer, tileSlots, world } from './stage';
 import { S } from './state';
 import { $, cssPx } from './util';
 
@@ -71,11 +72,21 @@ export function safeFrame(now: number, fresh = false): SafeFrame {
 /** What can hide the action: the rocks of the impassable spaces, the vehicles, the choppers. */
 function blockers(): Blocker[] {
   const out: Blocker[] = [], B = D.blocker;
+  // The formations on the tiles say how much each of their spaces hides (terrain/obstacles.ts).
+  const formed: Blocker[] = [];
+  for (const grp of tileSlots) {
+    for (const b of (grp?.userData.blockers as ObstacleBlocker[] | undefined) ?? []) {
+      const w = grp!.localToWorld(new THREE.Vector3(b.x, b.h, b.z));
+      formed.push({ x: w.x, z: w.z, r: b.r, h: w.y });
+    }
+  }
   if (g) {
     for (let r = 0; r < ROWS; r++) for (let c = 0; c < COLS; c++) {
       if (terrainAt(g, { r, c }) !== 'X' || g.hazards.get(key({ r, c }))?.type === 'pit_trap') continue;
       const w = world({ r, c });
-      out.push({ x: w.x, z: w.z, r: B.rockR * SP, h: TILE_T + B.rockH * SP, id: `rock:${r},${c}` });
+      // An impassable space with no formation on it (the flat look) hides as much as a rock of the data.
+      const own = formed.find(b => Math.hypot(b.x - w.x, b.z - w.z) < SP * 0.5);
+      out.push(own ? { ...own, id: `rock:${r},${c}` } : { x: w.x, z: w.z, r: B.rockR * SP, h: TILE_T + B.rockH * SP, id: `rock:${r},${c}` });
     }
   }
   for (const [id, o] of carObjs) if (o.visible) out.push({ x: o.position.x, z: o.position.z, r: B.carR * SP, h: o.position.y + B.carH * SP, id: `car:${id}` });
