@@ -33,6 +33,11 @@ export const S = {
   markers: [] as Marker[],
   net: null as Net | null,
   nextBeatAt: 0,
+  /**
+   * The last beat has played: until when (performance.now seconds) the table may still be coming to
+   * rest before the next choice or the end of the game; 0 while beats are still queued.
+   */
+  settleBy: 0,
   playing: false,
   replayAt: null as THREE.Vector3 | null,
   replayFrames: null as Frame[] | null,

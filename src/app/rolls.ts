@@ -186,11 +186,12 @@ export function showOrder(f: Frame, seconds: number): void {
 }
 
 /** Start of a round: every crew rolls its movement dice, the first player rolls the road die. */
-export function showRound(f: Frame): void {
+export function showRound(f: Frame, seconds: number): void {
   if (!g || !f.round) return;
   const r = f.round;
   const t0 = performance.now();
   document.getElementById('orderbox')?.classList.remove('show'); // the roll for the first player is over
+  $('rolls').classList.remove('show'); // a new round is a new phase: the last turn's dice and damage go
   const box = $('roundbox');
   box.innerHTML = `<h2 class="gothic">Round ${r.n}</h2>` + r.dice.map((d, k) => {
     const p = g!.players[d.player];
@@ -199,5 +200,7 @@ export function showRound(f: Frame): void {
       + (d.player === r.roller ? `<em>dado strada</em>${dieHtml('road', r.roadDie, undefined, 'road', `data-roll="${t0 + 500}"`)}` : '') + '</div>';
   }).join('');
   box.classList.add('show');
-  window.setTimeout(() => box.classList.remove('show'), 2500);
+  // Up for as long as its beat lasts at this speed: gone before the round's first turn starts.
+  window.clearTimeout(Number(box.dataset.timer ?? 0));
+  box.dataset.timer = String(window.setTimeout(() => box.classList.remove('show'), seconds * 1000));
 }

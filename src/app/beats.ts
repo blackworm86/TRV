@@ -4,11 +4,11 @@
 import * as THREE from 'three';
 import { type Frame } from '../game/trv/engine';
 import { rampSurfaceAt } from '../view/terrain/carnage3d';
-import { carObjs, fxSupply, markerGroup } from './board';
+import { carObjs, chopperObjs, fxSupply, markerGroup } from './board';
 import { JUMP, JUMP_BY_SPACES, JUMP_FLIP_LIFT, JUMP_WOBBLE, Jump, STUNT_SLOWMO, jumpSeconds, ramps } from './cars';
 import { actionDone, actionShot, directBeat, directing, shotFor } from './director';
 import { filmBeat, filmDice } from './shots';
-import { burst, crash, explode, flash, impact, smokeOn, word } from './effects';
+import { burst, crash, explode, flash, impact, smokeOn, word, words } from './effects';
 import { wormEats } from './worm';
 import { drawBotCards } from './botcard';
 import { decision, g } from './game';
@@ -19,13 +19,16 @@ import { P } from './presentation';
 import { endReplay, replaying } from './replay';
 import { rollOnTable, showOrder, showRound } from './rolls';
 import { SPEED_SCALE, settings } from './settings';
-import { TILE_W, world } from './stage';
+import { TILE_W, tileSlots, world } from './stage';
 import { S } from './state';
 import { JumpStunt, hash01, pickStunt } from './stunts';
 import { $ } from './util';
 
-/** Short-lived 3D effects (impacts, tracers, flashes): `step(u)` with u from 0 to 1. */
-export interface Effect { life: number; t: number; step: (u: number) => void }
+/**
+ * Short-lived 3D effects (impacts, tracers, flashes): `step(u)` with u from 0 to 1. `lingers`: a mark
+ * left on the table (a scorch) that fades on its own; nothing waits for it.
+ */
+export interface Effect { life: number; t: number; step: (u: number) => void; lingers?: boolean }
 export const effects: Effect[] = [];
 export const queue: Frame[] = [];
 
@@ -44,6 +47,31 @@ export function beatLength(f: Frame): number {
   if (f.kind !== 'log') return BEAT[f.kind] ?? 0.3;
   if (f.logKind === 'turn') return 0.6;
   return f.logKind === 'dice' || f.logKind === 'bad' || f.logKind === 'good' ? 0.45 : 0.1;
+}
+
+/** The longest the table may take to come to rest after the last beat (seconds of real time). */
+export const SETTLE_MAX = P.beats.settleMaxS;
+
+/**
+ * True when the table is at rest: every car parked on its space (no jump in the air), the FX dice
+ * landed, the choppers where they go, the road tiles in place, and no effect, floating word or worm
+ * still running. The next choice, the turn splash and the end of the game wait for it (asked by the
+ * user, 2026-11-18: each action's animations end before the next action, the end after the last one).
+ */
+export function settled(): boolean {
+  for (const o of carObjs.values()) {
+    const tg = o.userData.target as THREE.Vector3 | undefined;
+    // Along the table only: a car parked on a ramp rests on its surface, above its target's height.
+    if (o.userData.jump || (tg && Math.hypot(o.position.x - tg.x, o.position.z - tg.z) > 0.03)) return false;
+  }
+  for (const td of fxSupply.values()) if (td.t < 1) return false;
+  for (const o of chopperObjs.values()) {
+    const tg = o.userData.target as THREE.Vector3 | undefined;
+    if (tg && o.position.distanceTo(tg) > 0.05) return false;
+  }
+  for (const grp of tileSlots) if (grp && grp.userData.x !== undefined && Math.abs(grp.userData.x - grp.position.x) > 0.02) return false;
+  if (effects.some(e => !e.lingers) || words.length) return false;
+  return true;
 }
 
 /** Starts replaying the beats the last choice produced. */
@@ -91,6 +119,7 @@ export const FX_PENDING = new Set<string>([...FX_ASK, 'plow', 'rollCage', 'pickD
 
 export function finishBeats(): void {
   S.playing = false;
+  S.settleBy = 0;
   S.bubbleOrder = null;
   if (replaying) endReplay();
   // A question about the dice just rolled keeps the action camera close on them (it comes there
@@ -215,7 +244,7 @@ export function applyBeat(f: Frame, now: number): void {
       break;
     }
     case 'round':
-      showRound(f);
+      showRound(f, beatLength(f) / SPEED_SCALE[settings.speed]);
       // The new round's turn order: the bubbles slide into it.
       if (g && f.round) { S.bubbleOrder = turnOrder(f.round.roller, g.players.length); drawHud(); }
       break;

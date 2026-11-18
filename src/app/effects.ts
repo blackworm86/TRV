@@ -169,7 +169,7 @@ export function explode(at: THREE.Vector3, size = 1, now = performance.now() / 1
   scorch.position.copy(at).setY(Math.max(at.y, TILE_T) + 0.012);
   scorch.renderOrder = 2;
   scene.add(scorch);
-  effects.push({ life: 9, t: 0, step: u => { (scorch.material as THREE.MeshBasicMaterial).opacity = 0.85 * (1 - u * u); if (u >= 1) scene.remove(scorch); } });
+  effects.push({ life: 9, lingers: true, t: 0, step: u => { (scorch.material as THREE.MeshBasicMaterial).opacity = 0.85 * (1 - u * u); if (u >= 1) scene.remove(scorch); } });
   const puff = new THREE.Object3D();
   puff.position.copy(p0);
   smokeOn(`boom-${now}-${Math.random()}`, puff, now + 2.6, true);

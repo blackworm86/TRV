@@ -59,6 +59,8 @@ function onKey(e: KeyboardEvent): void {
 /** The splash for `p`, in the middle of the screen. */
 export function showTurnSplash(p: Player): void {
   document.getElementById('turnsplash')?.remove();
+  // A new turn is a new phase: what the last one showed (a damage token, the dice rolled) goes.
+  document.getElementById('rolls')?.classList.remove('show');
   const pic = p.leader ? PORTRAITS[p.leader] : undefined;
   const me = !!S.net && p.id === mySeat();
   const el = document.createElement('div');

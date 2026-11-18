@@ -4,7 +4,7 @@
 import { leaderOf, leaders, commandName, finalFive, bigRig, RIG_BOARD, type Player, type Decision, type LogEntry, type Frame, type Vehicle } from '../game/trv/engine';
 import { drawBotCards } from './botcard';
 import { bubbleHtml } from './bubbles';
-import { maybeTurnSplash } from './turnsplash';
+import { closeTurnSplash, maybeTurnSplash } from './turnsplash';
 import { ongoingIllustration, upgradeIllustration } from '../view/cards';
 import { damageTokenSvg, dieSvg, hazardTokenSvg, commandTokenSvg, dashboardSvg, commandBoardSvg, playerStripSvg, dataUrl } from '../view/vector/art';
 import { ffStripSvg } from '../view/vector/ffboards';
@@ -371,7 +371,9 @@ export function drawHud(): void {
   ($('replay') as HTMLButtonElement).disabled = !S.replayFrames?.length || S.playing;
   if (d?.kind === 'assign') drawMarkers();
 
-  if (g.winner !== null && !S.winShown) {
+  // The end of the game comes once the last move's animations are over (asked by the user, 2026-11-18).
+  if (g.winner !== null && !S.winShown && !S.playing) {
+    closeTurnSplash();
     S.winShown = true;
     $('wintext').textContent = `${g.players[g.winner].name} vince!`;
     $('win').style.display = 'grid';

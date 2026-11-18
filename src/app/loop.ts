@@ -3,7 +3,7 @@
 import * as THREE from 'three';
 import { tickFlames } from '../view/terrain/carnage3d';
 import { ROTOR_SPEED, hover } from '../view/models-config';
-import { applyBeat, beatLength, effects, finishBeats, queue } from './beats';
+import { SETTLE_MAX, applyBeat, beatLength, effects, finishBeats, queue, settled } from './beats';
 import { carObjs, chopperObjs, fxSupply, hazardObjs } from './board';
 import { carTimeScale, drive } from './cars';
 import { chaseCamera, clearSight } from './chase';
@@ -14,7 +14,7 @@ import { hudCam, hudRenderer, hudScene, syncHudDice } from './hudDice';
 import { moveCamera } from './keys';
 import { tiltView } from './mapView';
 import { placeBlockTips } from './markers';
-import { groundTick } from './pieces';
+import { groundTick, render } from './pieces';
 import { frameTimes } from './quality';
 import { timeScale } from './replay';
 import { fxGoHome } from './rolls';
@@ -62,7 +62,16 @@ renderer.setAnimationLoop(t => {
   if (S.playing && S.shot && now < actionSince + SHOT.wait) S.nextBeatAt = Math.max(S.nextBeatAt, now);
   while (S.playing && now >= S.nextBeatAt) {
     const f = queue.shift();
-    if (!f) { finishBeats(); break; }
+    if (!f) {
+      // The last beat is out: the table comes to rest before the next choice or the end of the game.
+      // First the table as the rules have it now (a piece eliminated goes): its last changes animate
+      // too, and are waited for.
+      if (!S.settleBy) { S.settleBy = now + SETTLE_MAX; render(); }
+      if (!settled() && now < S.settleBy) break;
+      finishBeats();
+      break;
+    }
+    S.settleBy = 0;
     applyBeat(f, now);
     S.nextBeatAt = Math.max(S.nextBeatAt, now - 0.5) + beatLength(f) / (timeScale * SPEED_SCALE[settings.speed]);
   }

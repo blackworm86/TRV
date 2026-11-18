@@ -127,6 +127,7 @@ export function startGame(s: Saved, opening = false): void {
   S.frameSeen = g.frames.length;
   queue.length = 0;
   S.playing = false;
+  S.settleBy = 0;
   persist();
   // A new game: what happened before the first question is played too, the roll for the first
   // player above all (asked by the user, 2026-11-18). A game resumed, taken back or joined later is not.

@@ -3,7 +3,9 @@
   "beats": {
     "_module": "beats.ts: how long each beat of the rules lasts before the next one",
     "seconds": { "order": 2.4, "move": 0.32, "roll": 1.15, "slam": 1.0, "shot": 1.7, "damage": 1.9, "elim": 1.5, "reveal": 0.8, "tile": 1.1, "round": 2.6, "chopper": 0.8, "jump": 1.4, "fire": 1.0 },
-    "speed_scale": { "full": 0.6, "fast": 1.15, "skip": 1 }
+    "speed_scale": { "full": 0.6, "fast": 1.15, "skip": 1 },
+    "_settle": "After the last beat the table must come to rest (cars parked, dice landed, effects and the worm over) before the next choice or the end of the game; settle_max_s: the longest wait, in seconds of real time, in case something never stops.",
+    "settle_max_s": 6
   },
   "drive": {
     "_module": "cars.ts: cars driving between spaces (world units per second, radians per second, radians)",

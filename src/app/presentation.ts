@@ -22,7 +22,7 @@ export function camelKeys(v: unknown): unknown {
 type Stunt = 'flat' | 'oneWheel' | 'barrel' | 'backflip';
 /** The presentation values, as the modules use them (see the data file for what each one means). */
 export interface Presentation {
-  beats: { seconds: Record<string, number>; speedScale: { full: number; fast: number; skip: number } };
+  beats: { seconds: Record<string, number>; speedScale: { full: number; fast: number; skip: number }; settleMaxS: number };
   drive: { speed: number; turnRate: number; parkTurnRate: number; maxYaw: number };
   jump: {
     climb: number; land: number; gravity: number; minAngle: number; maxAngle: number; short: number; minFlight: number; maxDive: number;
