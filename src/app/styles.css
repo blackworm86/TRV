@@ -293,6 +293,9 @@
   @keyframes tsslash { from { transform: rotate(-6deg) translateX(-100%); } }
   #cmddock .dice { display: flex; justify-content: center; gap: calc(var(--u, 1) * 3px); }
   #cmddock .dice:empty { display: none; }
+  /* The Final Five's drawer: two rows of three dice, larger (asked by the user, 2026-11-18). */
+  #cmddock.two .dice { display: grid; grid-template-columns: repeat(3, auto); justify-content: center; gap: calc(var(--u, 1) * 4px) calc(var(--u, 1) * 10px); }
+  #cmddock.two .mydie { width: calc(var(--u, 1) * 50px); height: calc(var(--u, 1) * 50px); }
   #cmddock .mydie { width: calc(var(--u, 1) * 32px); height: calc(var(--u, 1) * 32px); display: grid; place-items: center; border-radius: 50%; cursor: grab; touch-action: none; }
   #cmddock .mydie svg { width: 82%; height: 82%; }
   #cmddock .mydie.can { background: radial-gradient(circle, rgba(76,255,122,.6), rgba(76,255,122,0) 68%); }

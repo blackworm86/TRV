@@ -2239,12 +2239,13 @@ function* rigDrive(g: Game, p: Player, moves: number, traction: boolean, cow: bo
       }
       const t = onBoard(tg.to) ? terrainAt(g, tg.to) : 'R';
       ctx.left = Math.max(0, ctx.left - (t === 'M' ? 2 : 1));
-      // Like a train: each section takes the space of the one in front of it.
+      // Like a train: each section takes the space of the one in front of it. No beat of their own:
+      // the front's move beat carries the whole train, so the three sections move together, hitched
+      // (asked by the project owner, 2026-11-18).
       for (let k = parts.length - 1; k > 0; k--) {
         const ahead = parts[k - 1];
         parts[k].pos = ahead.pos ? { ...ahead.pos } : null;
         parts[k].inStart = ahead.inStart;
-        if (parts[k].pos) beat(g, 'move', { vehicleId: parts[k].id, at: { ...parts[k].pos! } });
       }
       if (yield* rigEnter(g, p, front, tg.to, ctx)) ctx.left = 0;
     }

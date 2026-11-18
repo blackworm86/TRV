@@ -2,7 +2,7 @@
 
 import * as THREE from 'three';
 import { rampSurfaceAt } from '../view/terrain/carnage3d';
-import { CarRig } from '../view/models-config';
+import { BIKE, CarRig } from '../view/models-config';
 import { carObjs } from './board';
 import { directing } from './director';
 import { impact } from './effects';
@@ -36,6 +36,35 @@ export const JUMP_LEAN = P.jump.lean, JUMP_WOBBLE = P.jump.wobble, JUMP_FLIP_LIF
  * (shares of the flight) the car's time runs at `speed`. Only while the director films.
  */
 export const STUNT_SLOWMO = P.jump.slowMotion;
+/** A trailer turns to its heading this much slower than a car steers: it follows, it is not driven. */
+const TRAILER_TURN = 0.4;
+/** Farther than this from its hitch (world units), a trailer coming in from the starting area slides onto it. */
+const HITCH_SNAP = 0.4;
+/** Rate at which a trailer slides onto its hitch from farther than HITCH_SNAP (per second). */
+const HITCH_RATE = 12;
+
+/**
+ * Keeps each Big Rig trailer on the rear hitch of the section ahead (pieces.ts sets `userData.hitch`
+ * when both are on the road): its front hitch goes where the one ahead has its rear hitch, at its own
+ * heading. Front to back, after every car has driven this frame.
+ */
+export function hitchTrains(objs: Iterable<THREE.Object3D>, dt: number): void {
+  type Hitch = { ahead: THREE.Object3D; half: number; order: number };
+  const list = [...objs].filter(o => o.userData.hitch).sort((a, b) => (a.userData.hitch as Hitch).order - (b.userData.hitch as Hitch).order);
+  for (const o of list) {
+    const h = o.userData.hitch as Hitch, a = h.ahead;
+    const ya = (a.userData.yaw ?? 0) as number, yo = (o.userData.yaw ?? 0) as number;
+    const x = a.position.x - h.half * (Math.cos(ya) + Math.cos(yo)), z = a.position.z + h.half * (Math.sin(ya) + Math.sin(yo));
+    const far = Math.hypot(x - o.position.x, z - o.position.z);
+    const k = far > HITCH_SNAP ? 1 - Math.exp(-dt * HITCH_RATE) : 1;
+    const mx = (x - o.position.x) * k, mz = (z - o.position.z) * k;
+    o.position.x += mx;
+    o.position.z += mz;
+    // How fast it was pulled: the next frame's drive turns it and spins its wheels with it.
+    o.userData.hitchSpeed = Math.hypot(mx, mz) / Math.max(dt, 1e-4);
+  }
+}
+
 /** The time factor now for the cars: slower while a stunt is in its slow-motion part. */
 export function carTimeScale(): number {
   if (!directing()) return 1;
@@ -183,24 +212,32 @@ export function drive(o: THREE.Object3D, dt: number, k: number, now: number): vo
   }
   const tg = o.userData.target as THREE.Vector3 | undefined;
   const before = o.position.clone();
-  if (tg) {
+  // A Big Rig trailer on its hitch does not drive itself: the section ahead pulls it (hitchTrains).
+  const hitched = !!o.userData.hitch;
+  if (tg && !hitched) {
     const dx = tg.x - o.position.x, dz = tg.z - o.position.z;
     const dist = Math.hypot(dx, dz);
     const step = Math.min(dist, DRIVE.speed * dt * Math.min(1, 0.35 + dist * 1.5));
     if (dist > 1e-4) { o.position.x += dx / dist * step; o.position.z += dz / dist * step; }
   }
   const vx = (o.position.x - before.x) / Math.max(dt, 1e-4), vz = (o.position.z - before.z) / Math.max(dt, 1e-4);
-  const speed = Math.hypot(vx, vz);
+  const speed = hitched ? (o.userData.hitchSpeed ?? 0) as number : Math.hypot(vx, vz);
   const yaw = (o.userData.yaw ?? 0) as number;
   // Heading: +x is along the road; yaw turns toward -z (three.js convention).
-  let want = 0, reverse = false;
-  if (speed > 0.4) {
+  // At rest a car stands along the road; a Big Rig section keeps the heading it came in with (pieces.ts).
+  let want = (o.userData.restYaw ?? 0) as number, reverse = false;
+  // A trailer turns to the heading its hitches give it as it is pulled along.
+  if (!hitched && speed > 0.4) {
     want = Math.atan2(-vz, vx);
     if (Math.abs(want) > Math.PI * 0.6) { want = want > 0 ? want - Math.PI : want + Math.PI; reverse = true; }
     // A lane change is a diagonal step: the car steers into it, it does not turn sideways.
-    want = Math.max(-DRIVE.maxYaw, Math.min(DRIVE.maxYaw, want));
+    // (A Big Rig section only goes forward or into the next lane: it follows its step as it is.)
+    // A motorcycle swings its rear out further than its path: it drifts into the lane (BIKE.drift).
+    const reach = DRIVE.maxYaw * (o.userData.bike ? BIKE.drift : 1);
+    if (o.userData.bike) want *= BIKE.drift;
+    if (o.userData.restYaw === undefined) want = Math.max(-reach, Math.min(reach, want));
   }
-  const rate = speed > 0.4 ? DRIVE.turnRate : DRIVE.parkTurnRate;
+  const rate = speed > 0.4 ? DRIVE.turnRate * (hitched ? TRAILER_TURN : 1) : DRIVE.parkTurnRate;
   const turn = want - yaw;
   const newYaw = yaw + turn * Math.min(1, dt * rate);
   o.userData.yaw = newYaw;
@@ -225,8 +262,17 @@ export function drive(o: THREE.Object3D, dt: number, k: number, now: number): vo
   }
   const pitchNow = (o.userData.pitch ?? 0) + (rampPitch - (o.userData.pitch ?? 0)) * Math.min(1, dt * 12);
   o.userData.pitch = pitchNow;
+  // A motorcycle leans into its turns, more the faster it goes (asked by the user, 2026-11-18).
+  let lean = 0;
+  if (o.userData.bike && f < 0.3) {
+    const yawRate = (newYaw - yaw) / Math.max(dt, 1e-4);
+    // Turning right (yaw falling, toward +z) tips its top toward +z: a positive roll about the nose.
+    const to = Math.max(-BIKE.maxLean, Math.min(BIKE.maxLean, -yawRate * Math.min(speed, BIKE.speedCap) * BIKE.lean));
+    lean = (o.userData.lean ?? 0) + (to - (o.userData.lean ?? 0)) * Math.min(1, dt * BIKE.leanRate);
+    o.userData.lean = lean;
+  }
   o.rotation.order = 'YXZ';
-  o.rotation.set(f * (o.userData.flipSide ?? 1) * Math.PI / 2, newYaw, pitchNow);
+  o.rotation.set(f * (o.userData.flipSide ?? 1) * Math.PI / 2 + lean, newYaw, pitchNow);
   const h = o.userData.height ?? 0.5;
   // On its side it rests on half its width; while tipping it hops.
   const halfW = ((o.userData.modelSize as THREE.Vector3 | undefined)?.z ?? h) / 2;
@@ -237,7 +283,7 @@ export function drive(o: THREE.Object3D, dt: number, k: number, now: number): vo
     const v = fwd / Math.max(dt, 1e-4);
     const accel = (v - (o.userData.lastV ?? 0)) / Math.max(dt, 1e-4);
     o.userData.lastV = v;
-    rig.update(dt, now, fwd, accel, turn, (newYaw - yaw) / Math.max(dt, 1e-4), !o.userData.wreck && f < 0.3);
+    rig.update(dt, now, fwd, accel, turn, (newYaw - yaw) / Math.max(dt, 1e-4), !o.userData.wreck && !o.userData.trailer && f < 0.3);
   }
   applyGlow(o, now);
 }

@@ -8,7 +8,9 @@ import { flameCluster, useRampModel, rampPiece } from '../view/terrain/carnage3d
 import { pitPiece } from '../view/terrain/pit3d';
 import { buildTile, hazardToken, GRID } from '../view/board3d';
 import { ModelBank, dressed, fitToLength, splitParts, splitWheels, type Tint } from '../view/models3d';
-import { MODEL, SHOW_LENGTH_MM, MODEL_YAW, CHOPPER_PARTS, WHEELS, GUNS, type GunSpec, crewTint, WRECK_TINT, wreckModel, wreckLength, phaseOf, CarRig } from '../view/models-config';
+import { MODEL, SHOW_LENGTH_MM, MODEL_YAW, CHOPPER_PARTS, WHEELS, GUNS, BIG_RIG, BIKE_BACK, type GunSpec, crewTint, WRECK_TINT, wreckModel, wreckLength, phaseOf, CarRig } from '../view/models-config';
+import { cutRig, rigSectionLength, rigSectionMiddle } from '../view/rigmodel';
+import { DecalGeometry } from 'three/addons/geometries/DecalGeometry.js';
 import { effects } from './beats';
 import { HAZ_SIZE, carObjs, chopperObjs, hazardObjs, showFinish } from './board';
 import { smokeOff, smokeOn, smokes } from './effects';
@@ -17,6 +19,7 @@ import { drawHud } from './hud';
 import { drawMarkers } from './markers';
 import { registerTextures } from './quality';
 import { drawMarking } from '../view/vector/markings';
+import { layRig } from '../view/rigchain';
 import { BOARD_X0, KX, MM, PITCH_W, TILE_H, TILE_T, TILE_W, pieces, scene, tileCache, tileSlots, world } from './stage';
 import { S } from './state';
 import { $ } from './util';
@@ -152,7 +155,7 @@ export function driveGun(o: THREE.Object3D, carYaw: number, dt: number): void {
 }
 
 /** Swaps a stand-in piece for its model once loaded, at its table length. */
-export function useModel(o: THREE.Group, url: string, lengthMm: number, tint: Tint, id: string): void {
+export function useModel(o: THREE.Group, url: string, lengthMm: number, tint: Tint, id: string, dress?: (d: THREE.Object3D) => void): void {
   void models.load(url).then(m => {
     if (!m) return;
     if (!m.userData.split) {
@@ -169,9 +172,40 @@ export function useModel(o: THREE.Group, url: string, lengthMm: number, tint: Ti
     for (const c of o.children) if (c !== o.userData.flames && c !== o.userData.marking) c.visible = false;
     o.add(d);
     if (GUNS[url]) mountGun(o, d, GUNS[url]);
+    dress?.(d);
     o.userData.modelHeight = size.y;
     o.userData.modelSize = size;
     o.userData.spin = (['rotorMain', 'rotorTail'] as const).map(n => d.getObjectByName(n)).filter(Boolean);
+    o.userData.model = d;
+    o.userData.phase = phaseOf(id);
+  });
+}
+
+/**
+ * Swaps a stand-in Big Rig section for its piece of the one-piece model (view/rigmodel.ts): one space
+ * long hitch to hitch, its middle on the stand-in's place, nose along +x, wheels that roll. The cab
+ * has its engine running; a trailer has none.
+ */
+function useRigModel(o: THREE.Group, part: RigSection, tint: Tint, id: string): void {
+  void models.load(MODEL.bigRig).then(m => {
+    if (!m) return;
+    const piece = cutRig(m, BIG_RIG)[part];
+    registerTextures(piece);
+    const d = dressed(piece, tint);
+    const s = 2 * rigHalf() / rigSectionLength(BIG_RIG);
+    const ground = new THREE.Box3().setFromObject(m).min.y;
+    d.rotation.set(0, MODEL_YAW, 0);
+    d.scale.setScalar(s);
+    // Turned half round, a point at x of the model lands at -x: the section's middle goes on the piece's place.
+    d.position.set(rigSectionMiddle(BIG_RIG, part) * s, -ground * s, 0);
+    const size = new THREE.Box3().setFromObject(d).getSize(new THREE.Vector3());
+    o.userData.rig = new CarRig(d, s, size.y, phaseOf(id));
+    o.userData.trailer = part !== 'front';
+    o.userData.mats = collectMaterials(d);
+    for (const c of o.children) if (c !== o.userData.flames && c !== o.userData.marking) c.visible = false;
+    o.add(d);
+    o.userData.modelHeight = size.y;
+    o.userData.modelSize = size;
     o.userData.model = d;
     o.userData.phase = phaseOf(id);
   });
@@ -189,28 +223,56 @@ export function startSpot(v: { owner: number | null; size: 'S' | 'M' | 'L'; bike
 
 /** The Big Rig's sections, front first, and how far apart they wait in the starting area (world units). */
 const RIG_TRAIN: RigSection[] = ['front', 'mid', 'rear'];
+
+type Spot = { r: number; c: number };
+/** Half the distance between two spaces one after the other in a lane: a section's hitches are this far from its middle. */
+const rigHalf = (): number => (world({ r: 0, c: 1 }).x - world({ r: 0, c: 0 }).x) / 2;
+
+/** The heading of one step from `from` to `to`: 0 straight on, oblique for a lane change, 0 if it is no step. */
+function stepYaw(from: Spot, to: Spot): number {
+  const dc = to.c - from.c, dr = to.r - from.r;
+  if (Math.abs(dr) > 1 || dc < 0 || dc > 1 || (dr === 0 && dc === 0)) return 0;
+  const a = world(from), b = world(to);
+  return Math.abs(b.z - a.z) < 1e-3 ? 0 : Math.atan2(-(b.z - a.z), b.x - a.x);
+}
 const RIG_GAP = 0.95;
 
 /** How far apart, across the road, the vehicles sharing a space with a motorcycle stand (world units). */
 const BESIDE = 0.3;
 
 /**
- * The marking of a Final Five motorcycle (BRaFF p7) floating over it, always facing the camera, so
- * the motorcycle a die moves is found at a glance.
+ * The marking of a Final Five motorcycle (BRaFF p7) printed on the back of its rider's jacket, as a
+ * decal that follows the jacket's shape (asked by the user, 2026-11-18: floating over the motorcycle it
+ * hid it). It rides on the body, so it leans and shakes with it. `d`: the fitted model, not yet on the table.
  */
-function markingSprite(k: number): THREE.Sprite {
+function printMarking(d: THREE.Object3D, k: number): void {
+  let body: THREE.Mesh | null = null;
+  d.traverse(o => { if ((o as THREE.Mesh).isMesh && o.userData.body && !body) body = o as THREE.Mesh; });
+  if (!body) d.traverse(o => { if ((o as THREE.Mesh).isMesh && !body) body = o as THREE.Mesh; });
+  const mesh = body as THREE.Mesh | null;
+  if (!mesh) return;
+  d.updateMatrixWorld(true);
+  const m = mesh.matrixWorld;
+  const at = new THREE.Vector3(...BIKE_BACK.at).applyMatrix4(m);
+  const out = new THREE.Vector3(...BIKE_BACK.normal).transformDirection(m);
+  const scale = new THREE.Vector3().setFromMatrixScale(m).x;
+  const hit = new THREE.Raycaster(at.clone().addScaledVector(out, scale), out.clone().negate()).intersectObject(mesh, false)[0];
+  if (!hit) return;
+  const aim = new THREE.Object3D();
+  aim.position.copy(hit.point);
+  aim.lookAt(hit.point.clone().add(out));
+  const size = BIKE_BACK.size * scale;
+  const geo = new DecalGeometry(mesh, hit.point, aim.rotation, new THREE.Vector3(size, size, size));
+  geo.applyMatrix4(m.clone().invert());
   const c = document.createElement('canvas');
   c.width = c.height = 128;
   const ctx = c.getContext('2d');
   if (ctx) drawMarking(ctx, k, 128, '#f3e9d2');
   const tex = new THREE.CanvasTexture(c);
   tex.colorSpace = THREE.SRGBColorSpace;
-  const sp = new THREE.Sprite(new THREE.SpriteMaterial({ map: tex, depthTest: false, transparent: true }));
-  const size = SHOW_LENGTH_MM.bike * MM * 0.55;
-  sp.scale.set(size, size, 1);
-  sp.position.y = SHOW_LENGTH_MM.bike * MM * 0.9;
-  sp.renderOrder = 5;
-  return sp;
+  const print = new THREE.Mesh(geo, new THREE.MeshLambertMaterial({ map: tex, transparent: true, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -4 }));
+  print.name = 'marking';
+  mesh.add(print);
 }
 
 /** The off-road patches the Big Rig left, by space. */
@@ -302,10 +364,10 @@ export function drawTable(s: Snapshot): void {
       o = pieces.car(comp.size_mm, v.owner === null ? '#222' : g.players[v.owner].color, v.isWreck);
       if (v.isWreck) useModel(o, wreckModel(v.id), wreckLength(v.id), WRECK_TINT, v.id);
       else if (v.bike !== undefined) {
-        useModel(o, MODEL.motorcycle, SHOW_LENGTH_MM.bike, crewTint(g.players[v.owner!].color), v.id);
-        o.userData.marking = markingSprite(v.bike);
-        o.add(o.userData.marking as THREE.Sprite);
-      } else if (v.rig) useModel(o, MODEL.bigRig[v.rig], SHOW_LENGTH_MM.bigRig, crewTint(g.players[v.owner!].color), v.id);
+        const k = v.bike;
+        useModel(o, MODEL.motorcycle, SHOW_LENGTH_MM.bike, crewTint(g.players[v.owner!].color), v.id, d => printMarking(d, k));
+        o.userData.bike = true;
+      } else if (v.rig) useRigModel(o, v.rig, crewTint(g.players[v.owner!].color), v.id);
       else useModel(o, MODEL.car[v.size], SHOW_LENGTH_MM[v.size], crewTint(g.players[v.owner!].color), v.id);
       carObjs.set(v.id, o);
       scene.add(o);
@@ -332,6 +394,7 @@ export function drawTable(s: Snapshot): void {
         : world(v.pos).add(new THREE.Vector3(n * 0.12, (hz.has(k) ? HAZ_SIZE.thickness : 0) + n * 0.55, n * 0.08));
     } else target = startSpot(v);
     o.userData.target = target;
+    if (v.rig) { o.userData.restYaw = 0; delete o.userData.hitch; }
     // Inoperable: on one side (the game picks which, each time), smoking. A repair puts it back on its wheels.
     const inop = v.status === 'inop' && !v.isWreck;
     if (inop && !o.userData.flip) o.userData.flipSide = Math.random() < 0.5 ? -1 : 1;
@@ -340,6 +403,28 @@ export function drawTable(s: Snapshot): void {
     if (inop) smokeOn(v.id, o, Infinity, false); else if (smokes.get(v.id)?.until === Infinity) smokeOff(v.id);
     o.userData.active = v.id === s.activeCar;
     o.userData.ownerColor = v.owner === null ? null : g.players[v.owner].color;
+  }
+  // The Big Rig lies as a hitched chain (src/view/rigchain.ts; asked by the project owner, 2026-11-18):
+  // the front cab at the heading of its last step (the space it came from is the one the mid section
+  // holds now: the rig moves like a train), the trailers turned as the hitches need, the whole chain
+  // nearest the spaces its sections stand on. While it moves the trailers are pulled on their hitches
+  // (cars.ts, hitchTrains). A section still waiting off the road is not in the chain.
+  for (const front of s.vehicles) {
+    if (front.rig !== 'front' || front.status === 'elim' || !front.pos) continue;
+    const train = [{ v: front, o: carObjs.get(front.id)! }];
+    for (const sec of RIG_TRAIN.slice(1)) {
+      const v = s.vehicles.find(x => x.owner === front.owner && x.rig === sec && x.status !== 'elim');
+      if (!v?.pos) break;
+      train.push({ v, o: carObjs.get(v.id)! });
+    }
+    const half = rigHalf();
+    const laid = layRig(train.map(t => { const p = t.o.userData.target as THREE.Vector3; return { x: p.x, z: p.z }; }),
+      train.length > 1 ? stepYaw(train[1].v.pos!, front.pos) : 0, half);
+    train.forEach((t, i) => {
+      (t.o.userData.target as THREE.Vector3).setX(laid[i].x).setZ(laid[i].z);
+      t.o.userData.restYaw = laid[i].yaw;
+      if (i > 0) t.o.userData.hitch = { ahead: train[i - 1].o, half, order: i };
+    });
   }
   // Eliminated pieces (cars and wrecks alike) leave the game: a puff of dark smoke, then they shrink away.
   for (const [id, o] of carObjs) if (!seen.has(id)) {

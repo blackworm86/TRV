@@ -100,6 +100,63 @@ object, flat base.
 Per i rimorchi sostituisci la parte centrale con la descrizione del pezzo (piazzola e assale motore,
 oppure scivolo con barili e radar).
 
+### 1.4 Modello unico da tagliare ai giunti (richiesto il 2026-11-18)
+
+I tre pezzi fatti separatamente escono con proporzioni diverse: il rimorchio centrale è più largo,
+e i ganci non cadono tutti alla stessa distanza dal centro. La soluzione è **un solo modello** del
+camion intero, con i tre moduli già proporzionati, che poi taglio io in tre file nei punti di giunzione.
+
+Come lo uso nel gioco (`src/view/rigchain.ts`):
+- la **motrice** sta sempre al **centro della casella di destinazione**, dritta o obliqua;
+- ogni **rimorchio** è agganciato al pezzo davanti e ruota attorno al **perno del gancio**.
+
+Per questo il modello deve avere:
+- **tre moduli della stessa lunghezza**, ognuno lungo **una casella** da perno a perno (circa 46 mm);
+  il camion intero è quindi lungo circa **tre caselle**;
+- **stessa larghezza** per i tre moduli, circa **metà della lunghezza** di un modulo, e stessa altezza
+  del piano di carico;
+- tra un modulo e l'altro un **giunto stretto e ben visibile**: una sola barra di traino corta con un
+  **perno verticale al centro**, senza parti che si sovrappongono tra un modulo e l'altro (altrimenti il
+  taglio si vede quando il camion curva);
+- il camion **dritto**, ruote sullo stesso piano, nessuna parte che sporge di lato oltre la larghezza.
+
+Concept (Gemini), da allegare poi a Meshy Image to 3D:
+```
+Concept art on a plain white background: a heavily armoured post-apocalyptic road train for a Mad
+Max style desert racing board game, one single straight vehicle made of three modules of exactly
+the same length and the same width: the tractor cab at the front, then a middle trailer, then a
+rear trailer. Each module is about twice as long as it is wide. Between the modules there is a
+short, narrow, clearly visible tow bar with a vertical pivot pin in its middle, and a small gap,
+so the modules do not overlap. All three modules share the same deck height and the same width,
+nothing sticks out sideways. Body panels in pale neutral off-white grey, frame, wheels and weapons
+in dark rusty iron. Tractor cab: a rocket launcher pod on the roof and a huge spiked cow catcher
+plow on the front. Middle trailer: a small flat helipad with a painted circle on its deck and an
+extra heavy drive axle with oversized wheels. Rear trailer: a dumping chute at the back with oil
+drums and spiked caltrops, and a radar dish with antennas. Stylized, chunky, slightly exaggerated
+shapes, bold hand-painted texture, like a premium board game miniature. Three-quarter view from
+the front-left. No people, no ground, no text, no logos.
+```
+
+Meshy (Text to 3D, oppure come testo insieme all'immagine):
+```
+Low poly game-ready armoured post-apocalyptic road train, one straight vehicle made of three
+modules of identical length and identical width, each module about twice as long as wide: tractor
+cab, middle trailer, rear trailer. Short narrow tow bars with a vertical pivot pin between the
+modules and a small gap, modules not overlapping. Same deck height for all modules, nothing
+sticking out sideways. Pale off-white grey body panels, dark rusty iron frame and wheels. Cab:
+rocket launcher pod on the roof, big spiked cow catcher plow at the front. Middle trailer: flat
+helipad on the deck, extra heavy drive axle with oversized wheels. Rear trailer: dumping chute
+with oil drums at the back, radar dish with antennas. Stylized hand-painted look, chunky shapes,
+single object, flat base under the wheels.
+```
+
+Impostazioni Meshy: Topology **Triangle**, circa **12.000 triangoli** in tutto (circa 4.000 per
+modulo), texture PBR **2048** (una sola texture per tre moduli), Symmetry **On**.
+
+Mandami il `.glb` intero e dimmi da che parte guarda il muso. Lo taglio io in `big_rig_front.glb`,
+`big_rig_mid.glb` e `big_rig_rear.glb`, con l'origine di ogni pezzo nel suo centro e i perni a mezza
+casella davanti e dietro.
+
 ## 2. Moto delle Final Five
 
 Una moto da combattimento con il **pilota in sella** (senza pilota sembrerebbe parcheggiata). Sul

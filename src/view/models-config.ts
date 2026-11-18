@@ -4,6 +4,7 @@
 
 import * as THREE from 'three';
 import type { SpinPart, Tint, WheelSpec } from './models3d';
+import type { RigModelSpec } from './rigmodel';
 import type { WormSpec } from './worm';
 
 // Imported through the bundler, so a build (GitHub Pages) ships the files and gets their real address.
@@ -22,15 +23,32 @@ export const MODEL = {
   worm: file('sand_worm.glb'),
   /** The Big Rig and the Final Five (made by the project owner, 2026-11-18, design/art/big-rig-prompts.md): nose toward -x. */
   motorcycle: file('motorcycle.glb'),
-  bigRig: { front: file('big_rig_front.glb'), mid: file('big_rig_mid.glb'), rear: file('big_rig_rear.glb') },
+  /** The Big Rig in one piece (2026-11-18, design/art/big-rig-prompts.md 1.4), cut at its hitches by view/rigmodel.ts. */
+  bigRig: file('big_rig.glb'),
+};
+
+/**
+ * The one-piece Big Rig, measured off the model (nose at -x, y up): the hitch pins where the tow bars
+ * narrow between the sections, and the wheels where their tyres touch the ground (radius from their
+ * height, tyre band across the truck). A model that changes needs these again.
+ */
+export const BIG_RIG: RigModelSpec = {
+  pins: [-0.165, 0.13],
+  wheels: {
+    front: [{ x: -0.378, r: 0.036, zIn: 0.045, zOut: 0.076, steer: true }, { x: -0.232, r: 0.035, zIn: 0.045, zOut: 0.076, steer: false }],
+    mid: [{ x: -0.087, r: 0.036, zIn: 0.045, zOut: 0.076, steer: false }, { x: 0.058, r: 0.036, zIn: 0.045, zOut: 0.076, steer: false }],
+    rear: [{ x: 0.19, r: 0.036, zIn: 0.045, zOut: 0.076, steer: false }, { x: 0.311, r: 0.033, zIn: 0.045, zOut: 0.076, steer: false },
+      { x: 0.372, r: 0.033, zIn: 0.045, zOut: 0.076, steer: false }],
+  },
 };
 
 /**
  * Length on the table, in mm. Not the miniatures' measures: the sizes are drawn so they read at
  * a glance (asked by the user, 2026-11-15): the large car twice the small one, the medium halfway.
- * The large one fills a road space (about 46 mm). Wrecks count as small cars.
+ * The large one fills a road space (about 46 mm). Wrecks count as small cars. The Big Rig is not
+ * here: each of its sections is one space long hitch to hitch (src/app/pieces.ts, useRigModel).
  */
-export const SHOW_LENGTH_MM = { S: 22, M: 33, L: 44, chopper: 50, wreck: 22, bike: 24, bigRig: 44 };
+export const SHOW_LENGTH_MM = { S: 22, M: 33, L: 44, chopper: 50, wreck: 22, bike: 24 };
 
 /**
  * The sand worm model, measured off its side view (model coordinates, y up, mouth toward +z): the
@@ -123,7 +141,26 @@ export const WHEELS: Record<string, WheelSpec[]> = {
     { x: 0.12, r: 0.077, zIn: 0.085, zOut: 0.167, steer: false },
     { x: 0.262, r: 0.077, zIn: 0.085, zOut: 0.167, steer: false },
   ],
+  // The Final Five's motorcycle: one tyre on each axle, on the middle line (read off its side view, 2026-11-18).
+  [MODEL.motorcycle]: [
+    { x: -0.344, r: 0.11, zIn: 0, zOut: 0.06, steer: true },
+    { x: 0.345, r: 0.133, zIn: 0, zOut: 0.06, steer: false },
+  ],
 };
+
+/**
+ * The rider's back on the motorcycle model (nose at -x, y up; read off its side view): a point near the
+ * middle of the jacket's back, the way the back faces, and how wide the marking printed there is. The
+ * marking of each motorcycle goes on the jacket as a decal (asked by the user, 2026-11-18).
+ */
+export const BIKE_BACK = { at: [0.16, 0.16, 0] as [number, number, number], normal: [0.81, 0.58, 0] as [number, number, number], size: 0.15 };
+
+/**
+ * How a motorcycle rides (asked by the user, 2026-11-18): `lean` radians of lean per radian per second
+ * of turning per unit of speed (up to `speedCap`), at most `maxLean`, reached at `leanRate` per second;
+ * `drift`: how much further than its path its heading swings when it changes lane.
+ */
+export const BIKE = { lean: 0.055, maxLean: 0.6, speedCap: 6, leanRate: 7, drift: 1.35 };
 
 /** Engine and suspension feel. Angles in radians, lengths as a fraction of the car's height. */
 export const RIG = {

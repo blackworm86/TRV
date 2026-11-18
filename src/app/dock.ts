@@ -91,6 +91,13 @@ export function drawDock(d: Decision | null, mine: boolean, me?: Player): void {
     }
   }
   if (!asking) skipConfirm = false;
+  // The Final Five put two dice each turn, on two motorcycles, or once a round one on a command
+  // (BRaFF p7): there is no "no command" to press, so the drawer says where the next die goes.
+  if (d && mine && d.kind === 'assign' && me?.team === 'final_five') {
+    const cmd = d.options.some(o => o.command);
+    q.textContent = /secondo/.test(d.prompt) ? `Ora il secondo dado: su un'altra moto${cmd ? ' o su un comando' : ''}`
+      : `Due dadi su due moto${cmd ? ', oppure uno su un comando' : ''}`;
+  }
   // End Turn (asked by the user, 2026-11-18): on the tab, once everything of the turn is done.
   const ending = !!d && mine && d.kind === 'endTurn';
   const end = $('endturn');
@@ -125,6 +132,8 @@ export function placeDock(): void {
     // A strip with a drawer of its own (the Final Five's) says where it is: top edge, middle, width.
     const own = root.dataset.drawer?.split(',').map(Number);
     const D = own?.length === 3 ? { edge: own[0], mid: own[1], w: own[2] } : DRAWER;
+    // There the six dice go in two rows of three, larger (asked by the user, 2026-11-18).
+    dock.classList.toggle('two', own?.length === 3);
     const edge = svg.top + (D.edge - vb.y) * u;
     const width = `${Math.round(D.w * u)}px`;
     if (dock.style.width !== width) dock.style.width = width;

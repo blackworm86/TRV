@@ -5,7 +5,7 @@ import { tickFlames } from '../view/terrain/carnage3d';
 import { ROTOR_SPEED, hover } from '../view/models-config';
 import { SETTLE_MAX, applyBeat, beatLength, effects, finishBeats, queue, settled } from './beats';
 import { carObjs, chopperObjs, fxSupply, hazardObjs } from './board';
-import { carTimeScale, drive } from './cars';
+import { carTimeScale, drive, hitchTrains } from './cars';
 import { chaseCamera, clearSight } from './chase';
 import { SHOT, actionSince, directorCamera } from './director';
 import { placeActions, placeDock } from './dock';
@@ -38,6 +38,7 @@ renderer.setAnimationLoop(t => {
   const now = performance.now() / 1000;
   const carDt = dt * carTimeScale();
   for (const o of carObjs.values()) drive(o, carDt, 1 - Math.exp(-carDt * 10), now);
+  hitchTrains(carObjs.values(), carDt);
   moveCamera(rawDt);
   for (const o of chopperObjs.values()) {
     const tg = o.userData.target as THREE.Vector3 | undefined;
