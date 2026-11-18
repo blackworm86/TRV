@@ -29,6 +29,24 @@ describe('the sand worm, posed', () => {
     expect(col.count).toBe(rest.length);
     for (let i = 0; i < col.count; i++) expect(Number.isFinite(col.getX(i) + col.getY(i) + col.getZ(i))).toBe(true);
   });
+  it('wears the model’s own material when it has one, with no seam of light where the texture splits it', () => {
+    // Arrange: the tube's texture seam leaves two vertices at each place along it.
+    const skin = new THREE.MeshStandardMaterial({ color: 0x123456 });
+    const w = new Worm(tube(), SPEC, skin);
+    // Act
+    w.pose({ bend: 0.7, dir: 0.4, gape: 0.3 });
+    // Assert: its own material (a copy), and twin vertices share one normal.
+    expect((w.mesh.material as THREE.MeshStandardMaterial).color.getHex()).toBe(0x123456);
+    expect(w.mesh.material).not.toBe(skin);
+    const pos = w.mesh.geometry.getAttribute('position'), nor = w.mesh.geometry.getAttribute('normal');
+    let twins = 0;
+    for (let i = 0; i < pos.count; i++) for (let j = i + 1; j < pos.count; j++) {
+      if (new THREE.Vector3().fromBufferAttribute(pos, i).distanceTo(new THREE.Vector3().fromBufferAttribute(pos, j)) > 1e-7) continue;
+      twins++;
+      expect(new THREE.Vector3().fromBufferAttribute(nor, i).distanceTo(new THREE.Vector3().fromBufferAttribute(nor, j))).toBeLessThan(1e-6);
+    }
+    expect(twins).toBeGreaterThan(10);
+  });
   it('bends above its root only, leaning the way it is told', () => {
     const w = new Worm(tube(), SPEC);
     const rest = posed(w, REST).map(q => q.clone()), bent = posed(w, { bend: 0.8, dir: 0, gape: 0 });

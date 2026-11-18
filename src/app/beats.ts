@@ -132,7 +132,7 @@ export function applyBeat(f: Frame, now: number): void {
       if (at) { impact(at, 0xff2a2a, 1.1); word('DANNO!', at, '#ff4a3a'); }
       break;
     case 'elim':
-      // The sand worm swallows its car; when its model is not there yet, the car blows up as any other.
+      // The sand worm swallows its car: eaten, not blown up (even before its model has loaded).
       if (f.vehicleId && f.by === 'sand_worm' && wormEats(f.vehicleId)) break;
       if (f.vehicleId) crash(f.vehicleId, f.into ? world(f.into) : null, f.why ?? '');
       else if (at) explode(at);

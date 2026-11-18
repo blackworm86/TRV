@@ -25,6 +25,9 @@
   #botcards figure.on img { filter: drop-shadow(0 0 8px var(--c)) drop-shadow(0 4px 10px rgba(0,0,0,.5)); }
   #botcards figcaption { font: 600 10px system-ui, sans-serif; text-align: center; color: var(--c); margin-top: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; text-shadow: 0 1px 2px #000; }
   #players { flex: 1; display: flex; gap: 12px; justify-content: center; flex-wrap: nowrap; min-width: 0; }
+  /* A director's shot: the bubbles and the TRV9000 cards fade out, the scene stays in full view (app/director.ts, veil). */
+  #players, #botcards { transition: opacity .45s ease; }
+  body.directing #players, body.directing #botcards { opacity: 0; pointer-events: none; }
   /* The players' bubbles (redrawn 2026-11-18): avatar, name and tokens, dice, then the three cars with their pieces. */
   .pl { --c: #888; position: relative; display: grid; grid-template-columns: 58px 1fr; grid-template-rows: auto auto auto; gap: 2px 10px; width: 292px; box-sizing: border-box;
     padding: 8px 10px 8px 8px; transition: box-shadow .3s, transform .3s; }

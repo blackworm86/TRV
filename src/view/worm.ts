@@ -1,7 +1,7 @@
-// The sand worm (Carnage at Devil's Run): the model comes as bare geometry, with no colours and
-// no skeleton, so both are made here. Colours are painted on its vertices from where each one
-// sits (hide in rings, pale belly, bone spines, red maw, teeth); the "rig" bends the body along
-// its height and opens or shuts the jaws around the throat, by moving the vertices themselves.
+// The sand worm (Carnage at Devil's Run): the model comes with no skeleton, so its "rig" is made
+// here: it bends the body along its height and opens or shuts the jaws around the throat, by moving
+// the vertices themselves. The model's own texture dresses it (2026-11-18); a model without one is
+// painted on its vertices from where each one sits (hide in rings, pale belly, bone spines, red maw).
 // Presentation only: three.js maths and one mesh, no scene and no DOM.
 
 import * as THREE from 'three';
@@ -43,8 +43,14 @@ export class Worm {
   private readonly hinge: THREE.Vector3;
   private readonly axis: THREE.Vector3;
   private readonly rootY: number;
+  /** Vertices at the same place (split where the texture has a seam), in pairs: their normals are shared. */
+  private readonly twins: Int32Array;
 
-  constructor(source: THREE.BufferGeometry, private readonly spec: WormSpec) {
+  /**
+   * `skin`: the model's own material (with its texture), worn as it is; without it the vertices
+   * are painted with `spec.colors`.
+   */
+  constructor(source: THREE.BufferGeometry, private readonly spec: WormSpec, skin?: THREE.Material) {
     const geo = source.clone();
     geo.computeBoundingBox();
     const box = geo.boundingBox!;
@@ -60,11 +66,25 @@ export class Worm {
     this.axis = new THREE.Vector3(...spec.axis).normalize();
     this.rootY = this.height * spec.root;
     this.rest = Float32Array.from(pos.array as ArrayLike<number>);
+    this.twins = twinsOf(this.rest);
     geo.computeVertexNormals();
+    this.weld(geo);
     this.width = paint(geo, this.rest, this.hinge, this.axis, spec, this.height);
-    const mat = new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.62, metalness: 0.02 });
+    const mat = skin ? skin.clone() : new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.62, metalness: 0.02 });
     this.mesh = new THREE.Mesh(geo, mat);
     this.mesh.castShadow = true;
+  }
+
+  /** Twin vertices take the mean of their normals: no hard edge of light along the texture's seams. */
+  private weld(geo: THREE.BufferGeometry): void {
+    const nor = geo.getAttribute('normal') as THREE.BufferAttribute, a = nor.array as Float32Array, t = this.twins;
+    for (let k = 0; k < t.length; k += 2) {
+      const i = t[k] * 3, j = t[k + 1] * 3;
+      for (let c = 0; c < 3; c++) { const m = (a[i + c] + a[j + c]) / 2; a[i + c] = m; a[j + c] = m; }
+    }
+    // A vertex with more than one twin: once more, so the mean reaches all of them.
+    for (let k = 0; k < t.length; k += 2) { const i = t[k] * 3, j = t[k + 1] * 3; for (let c = 0; c < 3; c++) a[j + c] = a[i + c]; }
+    nor.needsUpdate = true;
   }
 
   /** Moves the vertices to the pose. */
@@ -79,6 +99,7 @@ export class Worm {
     }
     pos.needsUpdate = true;
     this.mesh.geometry.computeVertexNormals();
+    this.weld(this.mesh.geometry);
   }
 
   /** The middle of the open mouth in that pose, and the way it points (both in the mesh's own space). */
@@ -117,6 +138,17 @@ export class Worm {
     v.x += (along - u) * dxn; v.z += (along - u) * dzn; v.y = this.rootY + up;
     return v;
   }
+}
+
+/** The pairs of vertices that sit at the same place: each later one with the first one there. */
+function twinsOf(rest: Float32Array): Int32Array {
+  const first = new Map<string, number>(), out: number[] = [];
+  for (let i = 0; i < rest.length / 3; i++) {
+    const key = `${Math.round(rest[i * 3] * 1e5)},${Math.round(rest[i * 3 + 1] * 1e5)},${Math.round(rest[i * 3 + 2] * 1e5)}`;
+    const f = first.get(key);
+    if (f === undefined) first.set(key, i); else out.push(f, i);
+  }
+  return Int32Array.from(out);
 }
 
 /** Paints the vertices from where they sit; returns the body's greatest width. */

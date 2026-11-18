@@ -102,9 +102,20 @@
     "speed": 0.45, "before": 8, "after": 2, "camera": [-2.4, 4.4, 5.4]
   },
   "sand_worm": {
-    "_module": "app/worm.ts: the sand worm swallowing a car. seconds: the whole show; width: the body's width in road spaces; up: the lean (radians) that turns its mouth to the sky under the car; gape, shut: how far the jaws open and close (radians); sway: how far it leans about after swallowing (radians); shares of the show: quake (the ground shakes), rise (it is out), gulp (the jaws shut), dive (it starts to go down).",
-    "seconds": 3.4, "width": 0.85, "up": -0.95, "gape": 0.6, "shut": -0.5, "sway": 0.5,
-    "quake": 0.14, "rise": 0.3, "gulp": 0.46, "dive": 0.78
+    "_module": "app/worm.ts: the sand worm swallowing a car. seconds: the whole show; width: the body's width in road spaces; up: the lean (radians) that turns its mouth to the sky under the car; gape, shut: how far the jaws open and close (radians); sway: how far it leans about after swallowing (radians); mound: how high the ground swells under the car before it bursts (road spaces); launch: how high the car flies over the open mouth (road spaces); dust: grains of dust in the burst (half on low quality); shares of the show: quake (the ground swells, then bursts), rise (the worm is out), gulp (the car falls into the jaws and they shut), dive (it starts to go down).",
+    "seconds": 4.8,
+    "width": 0.85,
+    "up": -0.95,
+    "gape": 0.6,
+    "shut": -0.5,
+    "sway": 0.5,
+    "mound": 0.55,
+    "launch": 1.6,
+    "dust": 260,
+    "quake": 0.22,
+    "rise": 0.36,
+    "gulp": 0.58,
+    "dive": 0.8
   },
   "turn_splash": {
     "_module": "app/turnsplash.ts: the \"Tocca a...\" band at the start of a person's turn; seconds before it goes by itself (a click or a key closes it sooner).",

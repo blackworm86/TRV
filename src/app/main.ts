@@ -90,7 +90,7 @@ Object.assign(window, { __fx: {
     const a = carObjs.get(fromId), b = carObjs.get(toId);
     if (a && b) burst(a.position.clone(), b.position.clone(), toId);
   },
-  worm: (id: string) => { wormReady(); return wormEats(id); },
+  worm: (id: string) => wormReady().then(() => wormEats(id)), // waits for the model, then shows the worm
   word: (t: string, x: number, z: number) => word(t, new THREE.Vector3(x, TILE_T, z), '#ffb02a'),
   blocked: (carId: string, because = 'stealth_technology') => { const v = g?.vehicles.find(x => x.id === carId); if (v?.pos) markBlocked({ carId, pos: v.pos, because }); },
   chase: (carId: string | null) => setChase(carId),

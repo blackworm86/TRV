@@ -18,7 +18,7 @@ export const MODEL = {
   wrecks: [file('wreck_1.glb'), file('wreck_2.glb'), file('wreck_3.glb'), file('wreck_4.glb'), file('wreck_5.glb')],
   /** Carnage at Devil's Run: the launch ramp (Meshy, from design/art/carnage-ramp-prompts.md). */
   ramp: file('Ramp.glb'),
-  /** Carnage at Devil's Run: the sand worm (Meshy, bare geometry: view/worm.ts paints and poses it). */
+  /** Carnage at Devil's Run: the sand worm (Meshy, "Mawstone Mimic" with its texture, 2026-11-18: view/worm.ts poses it). */
   worm: file('sand_worm.glb'),
 };
 
