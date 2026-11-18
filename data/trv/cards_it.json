@@ -28,7 +28,9 @@
     "boost_switch": "Questa auto guadagna +1 movimento.",
     "assault_bumper": "Quando questa auto sposta un’altra auto in uno slam, sposta quell’auto di una casella in più nella stessa direzione.",
     "stealth_technology": "I veicoli non possono sparare a questa auto se c’è un altro veicolo a cui potrebbero sparare.",
-    "mine_dispenser": "Dopo il movimento, puoi mettere una mina in una qualsiasi casella vuota adiacente alla tua auto.\n(Massimo 3 volte per partita.)"
+    "mine_dispenser": "Dopo il movimento, puoi mettere una mina in una qualsiasi casella vuota adiacente alla tua auto.\n(Massimo 3 volte per partita.)",
+    "full_froth_injector": "Puoi ritirare il dado acrobazia quando lo tiri per muovere questa auto.",
+    "spotters_tower": "Quando fai drift con questa auto, non rivelare i segnalini pericolo coperti nelle caselle in cui entra in questo turno. Se finisci il movimento su un pericolo coperto, rivelalo."
   },
   "ongoing": {
     "bald_tires": ["Gomme lisce", "Ogni volta che il dado direzione sposta questa auto, spostala di una casella in più nella stessa direzione."],

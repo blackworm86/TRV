@@ -432,9 +432,15 @@ export function drawTable(s: Snapshot): void {
   for (const front of s.vehicles) {
     if (front.rig !== 'front' || front.status === 'elim' || !front.pos) continue;
     const train = [{ v: front, o: carObjs.get(front.id)! }];
+    // Sections still in the starting area (the first steps: the rules move the rig like a train, so
+    // they come onto the road one step after the other) trail straight behind, hitched, and are
+    // pulled in with the rest: left waiting, the cab drove off alone (seen by the user, 2026-11-18).
+    const waiting: { o: THREE.Object3D }[] = [];
     for (const sec of RIG_TRAIN.slice(1)) {
       const v = s.vehicles.find(x => x.owner === front.owner && x.rig === sec && x.status !== 'elim');
-      if (!v?.pos) break;
+      if (!v) break;
+      if (!v.pos) { if (v.inStart) waiting.push({ o: carObjs.get(v.id)! }); continue; }
+      if (waiting.length) break;
       train.push({ v, o: carObjs.get(v.id)! });
     }
     const half = rigHalf();
@@ -444,6 +450,16 @@ export function drawTable(s: Snapshot): void {
       (t.o.userData.target as THREE.Vector3).setX(laid[i].x).setZ(laid[i].z);
       t.o.userData.restYaw = laid[i].yaw;
       if (i > 0) t.o.userData.hitch = { ahead: train[i - 1].o, half, order: i };
+    });
+    let last = laid[laid.length - 1], ahead: THREE.Object3D = train[train.length - 1].o;
+    waiting.forEach((w, k) => {
+      // Straight along the road behind the last section: its rear hitch, then half a section more.
+      const x = last.x - half * (Math.cos(last.yaw) + 1), z = last.z + half * Math.sin(last.yaw);
+      (w.o.userData.target as THREE.Vector3).setX(x).setZ(z);
+      w.o.userData.restYaw = 0;
+      w.o.userData.hitch = { ahead, half, order: train.length + k };
+      last = { x, z, yaw: 0 };
+      ahead = w.o;
     });
   }
   // Eliminated pieces (cars and wrecks alike) leave the game: a puff of dark smoke, then they shrink away.

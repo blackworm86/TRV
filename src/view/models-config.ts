@@ -33,12 +33,13 @@ export const MODEL = {
  * height, tyre band across the truck). A model that changes needs these again.
  */
 export const BIG_RIG: RigModelSpec = {
-  pins: [-0.165, 0.13],
+  // Measured again on the owner's second version of the model (2026-11-18).
+  pins: [-0.166, 0.128],
   wheels: {
-    front: [{ x: -0.378, r: 0.036, zIn: 0.045, zOut: 0.076, steer: true }, { x: -0.232, r: 0.035, zIn: 0.045, zOut: 0.076, steer: false }],
-    mid: [{ x: -0.087, r: 0.036, zIn: 0.045, zOut: 0.076, steer: false }, { x: 0.058, r: 0.036, zIn: 0.045, zOut: 0.076, steer: false }],
-    rear: [{ x: 0.19, r: 0.036, zIn: 0.045, zOut: 0.076, steer: false }, { x: 0.311, r: 0.033, zIn: 0.045, zOut: 0.076, steer: false },
-      { x: 0.372, r: 0.033, zIn: 0.045, zOut: 0.076, steer: false }],
+    front: [{ x: -0.374, r: 0.036, zIn: 0.045, zOut: 0.074, steer: true }, { x: -0.221, r: 0.036, zIn: 0.045, zOut: 0.074, steer: false }],
+    mid: [{ x: -0.086, r: 0.036, zIn: 0.045, zOut: 0.074, steer: false }, { x: 0.058, r: 0.036, zIn: 0.045, zOut: 0.074, steer: false }],
+    rear: [{ x: 0.186, r: 0.036, zIn: 0.045, zOut: 0.074, steer: false }, { x: 0.308, r: 0.036, zIn: 0.045, zOut: 0.074, steer: false },
+      { x: 0.372, r: 0.036, zIn: 0.045, zOut: 0.074, steer: false }],
   },
 };
 

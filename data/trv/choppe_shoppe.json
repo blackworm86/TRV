@@ -6,7 +6,7 @@
   "redline": { "from": 6, "to": 7 },
   "upgrades_dealt": 4,
   "upgrades_kept": 3,
-  "_upgrades_note": "The 27 upgrade cards. \"n\" is the card's own number: extra moves (ghost_mode, boost_switch), range in spaces (rail_gun, punt_gun), uses per game (oil_dispenser, mine_dispenser), extra damage tokens (heavy_frame), road die value (spoiler), highest assigned die (tank_treads).",
+  "_upgrades_note": "The 29 upgrade cards (the 27 of the expansion, and Full-Froth Injector and Spotter’s Tower, cards the user added on 2026-11-18). \"n\" is the card's own number: extra moves (ghost_mode, boost_switch), range in spaces (rail_gun, punt_gun), uses per game (oil_dispenser, mine_dispenser), extra damage tokens (heavy_frame), road die value (spoiler), highest assigned die (tank_treads).",
   "upgrades": [
     { "id": "grappling_hook", "name": "Grappling Hook" },
     { "id": "snowplow", "name": "Snowplow" },
@@ -34,7 +34,9 @@
     { "id": "boost_switch", "name": "Boost Switch", "n": 1 },
     { "id": "assault_bumper", "name": "Assault Bumper" },
     { "id": "stealth_technology", "name": "Stealth Technology" },
-    { "id": "mine_dispenser", "name": "Mine Dispenser", "n": 3 }
+    { "id": "mine_dispenser", "name": "Mine Dispenser", "n": 3 },
+    { "id": "full_froth_injector", "name": "Full-Froth Injector" },
+    { "id": "spotters_tower", "name": "Spotter’s Tower" }
   ],
   "leaders": [
     { "id": "betty", "name": "Ms. Betty", "title": "The Tinkerer", "tokens": 2, "power": "bring_the_bling", "needs": ["upgrades"],

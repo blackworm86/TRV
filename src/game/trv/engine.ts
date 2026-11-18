@@ -190,7 +190,7 @@ export interface Decision {
   /** Shoot: vehicles in range that an ability keeps from being targets (Smoke Screen, Stealth Technology). */
   blocked?: Blocked[];
   kind: 'assign' | 'command' | 'airstrike' | 'repair' | 'step' | 'roadDie' | 'slamReroll' | 'shoot'
-    | 'leader' | 'token' | 'shootReroll' | 'dirReroll' | 'peek' | 'peekResult' | 'transfer'
+    | 'leader' | 'token' | 'shootReroll' | 'dirReroll' | 'stuntReroll' | 'peek' | 'peekResult' | 'transfer'
     | 'draft' | 'upgradeAssign' | 'swap' | 'plow' | 'rollCage' | 'pickDamage' | 'redButton' | 'dispense' | 'radar'
     | 'tinker' | 'showTime' | 'endTurn'
     /** Final Five: which motorcycle moves first, and which of two motorcycles a slam moves. */
@@ -557,6 +557,26 @@ function rollFx<K extends 'road' | 'stunt' | 'slam' | 'shooting' | 'direction'>(
   g.pendingDice.push(rolled);
   beat(g, 'roll', { die: rolled, ...(at ? { at: { ...at } } : {}) });
   return v;
+}
+
+/**
+ * Rolls the stunt die to move `v` (a ramp, Dazed, Blastoff). Full-Froth Injector (upgrade card, added
+ * by the user on 2026-11-18): "You may reroll the stunt die when you roll it to move this car."
+ */
+function* stuntRoll(g: Game, v: Vehicle, cause: string, at?: Pos | null): Gen<number> {
+  let n = rollFx(g, 'stunt', cause, at);
+  if (up(v, 'full_froth_injector') && v.owner !== null) {
+    const i = yield* ask(g, {
+      kind: 'stuntReroll', player: v.owner,
+      prompt: `${g.players[v.owner].name}: dado acrobazia ${n} per ${carName(g, v)}. Ritirarlo?`,
+      options: [{ label: 'Tieni il risultato' }, { label: 'Ritira il dado acrobazia' }],
+    });
+    if (i === 1) {
+      n = rollFx(g, 'stunt', `${cause}-reroll`, at);
+      say(g, `Full-Froth Injector: nuovo dado acrobazia ${n}.`, 'dice');
+    }
+  }
+  return n;
 }
 
 function shuffled<T>(g: Game, items: T[], pileId: string): T[] {
@@ -944,7 +964,7 @@ function* enter(g: Game, v: Vehicle, to: Pos, ctx: MoveCtx | null, dir?: Dir): G
     // Only from the space directly behind (taken as moving forward onto it: ramps face the
     // lead tile, provisional until the tiles are known), else the vehicle is eliminated.
     if (dir !== 'F') { eliminate(g, v, 'è entrata nella rampa di traverso', to); return true; }
-    const n = rollFx(g, 'stunt', 'ramp', to);
+    const n = yield* stuntRoll(g, v, 'ramp', to);
     say(g, `Rampa! Dado acrobazia ${n}: salta ${n} caselle in avanti.`, 'dice');
     let land = to;
     for (let i = 0; i < n; i++) land = neighbor(land, 'F');
@@ -1223,7 +1243,7 @@ function* damageEffect(g: Game, v: Vehicle, t: DamageToken): Gen<void> {
       return;
     }
     case 'dazed': {
-      const n = rollFx(g, 'stunt', 'dazed', v.pos);
+      const n = yield* stuntRoll(g, v, 'dazed', v.pos);
       say(g, `Stordito: dado acrobazia ${n}.`, 'dice');
       const ctx: MoveCtx = { left: n, drift: false, driftUsed: false };
       while (ctx.left > 0 && v.pos && v.status !== 'elim' && g.winner === null) {
@@ -1247,7 +1267,7 @@ function* damageEffect(g: Game, v: Vehicle, t: DamageToken): Gen<void> {
       return;
     case 'blastoff': {
       const d = rollFx(g, 'direction', 'blastoff', v.pos);
-      const n = rollFx(g, 'stunt', 'blastoff', v.pos);
+      const n = yield* stuntRoll(g, v, 'blastoff', v.pos);
       say(g, `Decollo: ${n} caselle verso ${DIR_NAME[d]}.`, 'dice');
       let p = v.pos;
       for (let i = 0; i < n; i++) p = neighbor(p, d);
@@ -1596,7 +1616,10 @@ function repairable(g: Game, p: Player): Vehicle[] {
  */
 function* moveCar(g: Game, car: Vehicle, moves: number, drift: boolean, coast: boolean, die: number, fixed = false, mustMoveAll = false): Gen<void> {
   // Tank Treads: with an assigned die of 3 or less, face-down hazards on the way are not revealed.
-  const ctx: MoveCtx = { left: moves, drift, driftUsed: false, quiet: up(car, 'tank_treads') && die <= upN('tank_treads') };
+  // Spotter's Tower (upgrade card, added by the user on 2026-11-18): the same when the car drifts
+  // ("When you drift with this car, do not reveal face-down hazard tokens on spaces it enters this turn").
+  const ctx: MoveCtx = { left: moves, drift, driftUsed: false,
+    quiet: (up(car, 'tank_treads') && die <= upN('tank_treads')) || (up(car, 'spotters_tower') && drift) };
   // Road die (p. 9): the car must start and move only on road. Leaving the starting area counts
   // as starting on road (decided with the rules owner, 2026-11-15).
   let onlyRoad = car.inStart || (!!car.pos && groundFor(g, car, car.pos) === 'R');
@@ -1656,7 +1679,7 @@ function* moveCar(g: Game, car: Vehicle, moves: number, drift: boolean, coast: b
     if (i === 0) break;
     ctx.left = roadDie;
   }
-  // Tank Treads: the face-down hazard the car ends its move on is revealed.
+  // Tank Treads, Spotter's Tower: the face-down hazard the car ends its move on is revealed.
   const under = car.pos ? g.hazards.get(key(car.pos)) : undefined;
   if (ctx.quiet && car.pos && car.status === 'ok' && under && !under.faceUp && g.winner === null) {
     ctx.quiet = false;

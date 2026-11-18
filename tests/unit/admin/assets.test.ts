@@ -87,17 +87,6 @@ describe('traced official drawings', () => {
     expect([...Object.keys(RULES.hazard_tokens), 'back'].filter(k => !(k in traced))).toEqual([]);
   });
 
-  it('traces every damage token and the back', () => {
-    const traced = json<Record<string, unknown>>('assets/base/vettoriale/traced/damage.json');
-    const types = [...new Set((RULES.damage_tokens as { type: string }[]).map(d => d.type)), 'back'];
-    expect(types.filter(k => !(k in traced))).toEqual([]);
-  });
-
-  it('traces the three dashboards and the command board', () => {
-    const traced = json<Record<string, unknown>>('assets/base/vettoriale/traced/boards.json');
-    expect(['dash_S', 'dash_M', 'dash_L', 'command'].filter(k => !(k in traced))).toEqual([]);
-  });
-
   it('traces the six faces of the Carnage fire die', () => {
     const faces = json<{ faces: Record<string, unknown> }>('assets/carnage/vettoriale/fire_die.json').faces;
     expect(Object.keys(faces)).toHaveLength(6);

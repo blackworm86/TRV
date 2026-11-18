@@ -111,7 +111,7 @@ export function skipBeats(): void {
 }
 
 /** Questions about the FX dice just rolled: asked beside them, with the view close on them. */
-export const FX_ASK = new Set<string>(['slamReroll', 'shootReroll', 'dirReroll']);
+export const FX_ASK = new Set<string>(['slamReroll', 'shootReroll', 'dirReroll', 'stuntReroll']);
 /**
  * Questions asked while the effect the dice were rolled for is still going (a reroll, an ability
  * answering the slam or the damage): the dice stay where they fell until it is over, so the

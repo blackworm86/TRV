@@ -88,6 +88,8 @@ export const UPGRADE_INFO: Record<string, string> = {
   assault_bumper: 'L’auto che sposta in uno slam va una casella più in là.',
   stealth_technology: 'Non le si può sparare se c’è un altro veicolo a cui sparare.',
   mine_dispenser: 'Dopo il movimento può posare una mina in una casella vuota adiacente. Tre volte a partita.',
+  full_froth_injector: 'Quando tiri il dado acrobazia per muoverla, puoi ritirarlo.',
+  spotters_tower: 'Quando fa Drift non rivela i pericoli coperti che attraversa: solo quello su cui si ferma.',
 };
 export const upgradeName = (id: string): string => upgrades().find(u => u.id === id)?.name ?? id;
 

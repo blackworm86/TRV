@@ -432,14 +432,18 @@ export function hazardToken(type: string, size: { length: number; depth: number;
   // Token outline (art.ts CHEVRON, 120 x 100: a road space's shape), centred, in shape x / y = world x / -z.
   const outline: [number, number][] = [[1.5, 1.5], [104.7, 1.5], [118.5, 50], [104.7, 98.5], [1.5, 98.5], [15.3, 50]];
   const shape = new THREE.Shape(outline.map(([x, y]) => new THREE.Vector2((x - 60) * kx, -(y - 50) * kz)));
-  const card = new THREE.Mesh(new THREE.ExtrudeGeometry(shape, { depth: size.thickness * 0.96, bevelEnabled: false }),
+  // The card stops a tenth of the thickness short of each printed face: closer, a far camera could not
+  // tell them apart and the dark card flickered through the face (seen by the user, 2026-11-18).
+  const card = new THREE.Mesh(new THREE.ExtrudeGeometry(shape, { depth: size.thickness * 0.8, bevelEnabled: false }),
     new THREE.MeshStandardMaterial({ color: 0x2a2622, roughness: 0.9 }));
   card.rotation.x = -Math.PI / 2;
-  card.position.y = -size.thickness / 2;
+  card.position.y = -size.thickness * 0.4;
   card.castShadow = true;
   const face = (svgText: string, up: boolean): THREE.Mesh => {
     const m = new THREE.Mesh(new THREE.PlaneGeometry(size.length, size.depth),
-      new THREE.MeshStandardMaterial({ map: svgTexture(svgText, 512), alphaTest: 0.5, roughness: 0.7 }));
+      // Drawn a little nearer than its depth says, so the card under it never wins the depth test.
+      new THREE.MeshStandardMaterial({ map: svgTexture(svgText, 512), alphaTest: 0.5, roughness: 0.7,
+        polygonOffset: true, polygonOffsetFactor: -1, polygonOffsetUnits: -2 }));
     // Top face reads normally from above; the bottom face is mirrored so it reads when flipped.
     m.rotation.set(up ? -Math.PI / 2 : Math.PI / 2, 0, 0);
     m.position.y = (up ? 1 : -1) * (size.thickness / 2 + 0.001);

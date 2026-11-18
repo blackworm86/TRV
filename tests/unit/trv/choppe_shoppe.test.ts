@@ -37,8 +37,8 @@ function run(seed: number, setup: { leaders?: boolean; fixed?: (string | undefin
     x = (x * 1103515245 + 12345) & 0x7fffffff;
     const safe = r.value.options.map((o, i) => ({ o, i })).filter(e => !e.o.danger);
     const pool = safe.length ? safe : r.value.options.map((o, i) => ({ o, i }));
-    // The two rare yes/no upgrades are always taken, so that they are seen.
-    const choice = r.value.kind === 'swap' || r.value.kind === 'redButton' ? 1 : pool[x % pool.length].i;
+    // The three rare yes/no upgrades are always taken, so that they are seen.
+    const choice = ['swap', 'redButton', 'stuntReroll'].includes(r.value.kind) ? 1 : pool[x % pool.length].i;
     see({ d: r.value, choice, g });
     r = it.next(choice);
   }
@@ -348,6 +348,24 @@ describe('upgrade cards', () => {
     });
     expect(quiet).toBeGreaterThan(0);
   });
+  it('Spotter’s Tower: only that car, drifting, can sit on a face-down hazard while it moves', () => {
+    // Arrange: player 0's three cars have the upgrade.
+    let quiet = 0;
+    // Act
+    each('spotters_tower', ({ g }) => {
+      for (const v of g.vehicles) {
+        if (!v.pos || v.isWreck) continue;
+        const h = g.hazards.get(`${v.pos.r},${v.pos.c}`);
+        if (!h || h.faceUp) continue;
+        // Assert: the car on it is player 0's, the one moving, and it moves with Drift.
+        expect(v.owner).toBe(0);
+        expect(v.id).toBe(g.activeCar);
+        expect(g.frames.some(f => f.kind === 'log' && /Drift/.test(String(f.text ?? '')))).toBe(true);
+        quiet++;
+      }
+    });
+    expect(quiet).toBeGreaterThan(0);
+  });
   it('Oil and Mine Dispenser: at most three times per game, in an empty adjacent space', () => {
     for (const id of ['oil_dispenser', 'mine_dispenser']) {
       const games = each(id, ({ d, g }) => {
@@ -439,6 +457,20 @@ describe('upgrade cards', () => {
       expect(d.player).toBe(0);
     });
     expect(slams).toBeGreaterThan(0);
+  });
+  it('Full-Froth Injector: the owner is asked to reroll the stunt die that moves the car, and a reroll rolls it again', () => {
+    // Arrange: player 0's three cars have the upgrade.
+    let asked = 0;
+    // Act
+    const games = each('full_froth_injector', ({ d, g }) => {
+      if (d.kind !== 'stuntReroll') return;
+      asked++;
+      // Assert: only the car's owner, just after a stunt die roll.
+      expect(d.player).toBe(0);
+      expect(g.lastRoll.at(-1)?.die).toBe('stunt');
+    });
+    expect(asked).toBeGreaterThan(0);
+    expect(said(games, /^Full-Froth Injector: nuovo dado acrobazia \d/)).toBeGreaterThan(0);
   });
   it('a slam reroll question shows which car the current result moves, one space away from the slam', () => {
     let asked = 0;

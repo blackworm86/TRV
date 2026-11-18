@@ -149,7 +149,7 @@ export function drawHud(): void {
     assign: 'assegna un dado', command: 'comando?', airstrike: 'piazza l’elicottero', repair: 'quale auto ripari?',
     roadDie: `dado strada: +${g.roadDie}?`, slamReroll: 'slam: ritiri i dadi?', shoot: 'scegli il bersaglio',
     leader: 'scegli il caposquadra', token: 'segnalino comando?', shootReroll: 'ritiri il dado sparo?', dirReroll: 'ritiri il dado direzione?',
-    peek: 'guarda un pericolo coperto', endTurn: 'premi Fine turno quando hai finito',
+    stuntReroll: 'ritiri il dado acrobazia?', peek: 'guarda un pericolo coperto', endTurn: 'premi Fine turno quando hai finito',
   };
   if (d && SHORT[d.kind]) $('prompt').innerHTML = `<b style="color:${g.players[d.player].color}">${esc(name)}</b>${esc(SHORT[d.kind]!)}`;
   if (d && !S.net && performance.now() < passUntil) $('prompt').insertAdjacentHTML('afterbegin', '<span class="passing">Passa il dispositivo ·</span>');
@@ -176,7 +176,7 @@ export function drawHud(): void {
     else if (d.kind === 'shoot') btn(0, 'Non sparare', 'quiet'); // the targets are lit on the table
     else if (d.kind === 'roadDie') { btn(1, `+${g.roadDie} movimenti`, 'road'); btn(0, 'Fermati', 'quiet'); }
     else if (d.kind === 'slamReroll') { btn(0, 'Tieni', 'quiet'); btn(1, 'Ritira i dadi'); }
-    else if (d.kind === 'shootReroll' || d.kind === 'dirReroll') { btn(0, 'Tieni', 'quiet'); btn(1, 'Ritira il dado'); }
+    else if (d.kind === 'shootReroll' || d.kind === 'dirReroll' || d.kind === 'stuntReroll') { btn(0, 'Tieni', 'quiet'); btn(1, 'Ritira il dado'); }
     // Choices on the table with a way out: the spaces are lit, the button says no.
     else if (['plow', 'rollCage', 'dispense', 'radar'].includes(d.kind)) btn(0, d.options[0].label, d.options[0].danger ? 'danger' : 'quiet');
     // Skull Shift Knob: the one step choice that is not a space.
@@ -253,6 +253,7 @@ export function drawHud(): void {
     command: 'Un dado su un comando?', roadDie: `Dado strada: +${g.roadDie}?`, slamReroll: 'Slam: ritiri i dadi?', shoot: 'Scegli il bersaglio',
     step: left ? `${left} moviment${left === '1' ? 'o' : 'i'}` : 'Muovi', airstrike: 'Scegli una casella vuota', repair: 'Scegli l’auto da riparare',
     token: `Segnalino comando? (${d ? g.players[d.player].tokens : 0})`, shootReroll: 'Mancato: ritiri il dado sparo?', dirReroll: 'Slam: ritiri la direzione?',
+    stuntReroll: 'Full-Froth Injector: ritiri il dado acrobazia?',
     peek: 'Third Eye: scegli un pericolo coperto', transfer: d?.prompt.replace(/^[^:]+: /, '') ?? '',
     cowCatcher: 'Cow Catcher: dove mandi il veicolo?',
     rigDamage: 'Scegli il sistema da coprire con il danno minore',
