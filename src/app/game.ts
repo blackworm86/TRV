@@ -103,7 +103,8 @@ export function planAssign(card: string, car: string): void {
   render();
 }
 
-export function startGame(s: Saved): void {
+/** Starts (or resumes) a game; `opening`: a game just created, whose first beats are played (the roll for the first player). */
+export function startGame(s: Saved, opening = false): void {
   S.replayFrames = null; // a replay belongs to the game it was seen in
   S.saved = s;
   S.draftSent = -1;
@@ -127,7 +128,10 @@ export function startGame(s: Saved): void {
   queue.length = 0;
   S.playing = false;
   persist();
-  render();
+  // A new game: what happened before the first question is played too, the roll for the first
+  // player above all (asked by the user, 2026-11-18). A game resumed, taken back or joined later is not.
+  if (opening && !s.choices.length && g.frames.length) playBeats(g.frames.slice());
+  else render();
 }
 
 /**
@@ -259,6 +263,11 @@ export function zoneOption(zone: string, dieIdx: number): number {
   const [kind, id] = zone.split(':');
   return decision.options.findIndex(o => {
     if (o.dieValue !== v) return false;
+    // The Big Rig: the steering slot, and a die on a command of a section (BRaFF p4).
+    if (decision!.kind === 'steer') return zone === 'steer';
+    if (decision!.kind === 'assign' && o.rig) return zone === `rig:${o.rig}`;
+    // The Final Five assign their command die among the motorcycles' dice (BRaFF p7).
+    if (decision!.kind === 'assign' && o.command) return kind === 'cmd' && o.command === id;
     if (decision!.kind === 'assign') return o.carId === id && !!o.coast === (kind === 'coast');
     if (decision!.kind === 'command') return kind === 'cmd' && o.command === id;
     return false;
@@ -266,7 +275,7 @@ export function zoneOption(zone: string, dieIdx: number): number {
 }
 
 export function placing(): boolean {
-  return !!decision && (decision.kind === 'assign' || decision.kind === 'command');
+  return !!decision && (decision.kind === 'assign' || decision.kind === 'command' || decision.kind === 'steer');
 }
 
 /** Zones that accept the selected die (or any free die when none is selected). */
@@ -277,8 +286,10 @@ export function hotZones(): Set<string> {
   const dice = S.selDie !== null ? [S.selDie] : p.dice.map((_, i) => i).filter(i => !p.used[i]);
   for (const o of decision.options) {
     if (!dice.some(i => p.dice[i] === o.dieValue)) continue;
+    if (decision.kind === 'steer') out.add('steer');
+    if (decision.kind === 'assign' && o.rig) out.add(`rig:${o.rig}`);
     if (decision.kind === 'assign' && o.carId) out.add(`${o.coast ? 'coast' : 'move'}:${o.carId}`);
-    if (decision.kind === 'command' && o.command) out.add(`cmd:${o.command}`);
+    if ((decision.kind === 'command' || decision.kind === 'assign') && o.command) out.add(`cmd:${o.command}`);
   }
   return out;
 }

@@ -10,6 +10,7 @@ import shoppe from '../../../data/trv/choppe_shoppe.json';
 import carnageData from '../../../data/trv/carnage.json';
 import finishData from '../../../data/trv/finish_lines.json';
 import trv9000 from '../../../data/trv/trv9000.json';
+import brff from '../../../data/trv/big_rig_final_five.json';
 import {
   createRng, roll, shuffle, applyPermutation, type RngState,
 } from '../../core/rng/rng';
@@ -25,7 +26,13 @@ export type Terrain = 'R' | 'o' | 'M' | 'X' | 'G' | 'D' | 'P' | 'F' | 'S';
 export type HazardType = 'mud' | 'road' | 'oil' | 'mine' | 'wreck'
   | 'quake' | 'sand_worm' | 'desert_glass' | 'ramp' | 'fire' | 'pit_trap';
 /** Base damage, then the two of Carnage at Devil's Run (CDR p4). */
-export type DamageType = 'shrapnel' | 'dazed' | 'dent' | 'skid' | 'blastoff' | 'on_fire' | 'ongoing_effect';
+export type DamageType = 'shrapnel' | 'dazed' | 'dent' | 'skid' | 'blastoff' | 'on_fire' | 'ongoing_effect'
+  /** The Big Rig and the Final Five (BRaFF p3): fills a damage slot and does nothing else. */
+  | 'minor';
+/** A crew that is not three cars (The Big Rig and the Final Five, BRaFF p3). */
+export type Team = 'final_five' | 'big_rig';
+/** The three sections of the Big Rig (BRaFF p4): the front cab and two trailers. */
+export type RigSection = 'front' | 'mid' | 'rear';
 /** The faces of the fire die (CDR p3). */
 export type FireFace = '+1' | '+2' | 'out' | 'eliminated';
 /** The hazards that Carnage at Devil's Run adds to the pile. */
@@ -93,6 +100,10 @@ export interface Vehicle {
   uses: number;
   /** Carries an ON FIRE! token (Carnage at Devil's Run, CDR p3); not damage. */
   onFire?: boolean;
+  /** A Final Five motorcycle (BRaFF p7): the index of its marking in big_rig_final_five.json. */
+  bike?: number;
+  /** A section of the Big Rig (BRaFF p4): one large road vehicle for slams and shots, moved as a train. */
+  rig?: RigSection;
 }
 
 /** An upgrade card (Choppe Shoppe). `n` is the card's own number (see choppe_shoppe.json). */
@@ -117,6 +128,10 @@ export interface Player {
   tokens: number;
   /** Commands holding a die or a command token this round. */
   slots: Partial<Record<CommandId, 'die' | 'token'>>;
+  /** The crew is not three cars: the Final Five's motorcycles or the Big Rig (BRaFF p3). */
+  team?: Team;
+  /** The Big Rig's boards (BRaFF p4-6); absent for any other crew. */
+  rig?: RigState;
   /**
    * A TRV9000 team (design/gdd/trv9000-bots.md), played by the activation cards: the Basic
    * Protocol level, its team card (Choppe Shoppe), this round's card and the next line to play, the
@@ -124,6 +139,13 @@ export interface Player {
    */
   bot?: BotState;
 }
+
+/**
+ * The Big Rig's boards (BRaFF p4-6): this round's Hydraulic Steering (lane changes left; null until
+ * the die is placed), the sections given a die this round and the die on each command
+ * (`section:command`), and the commands covered by a minor damage token.
+ */
+export interface RigState { steer: number | null; used: RigSection[]; placed: Record<string, number>; damaged: string[] }
 
 /** What a TRV9000 team keeps between its turns (see Player.bot). */
 export interface BotState {
@@ -157,6 +179,8 @@ export interface Option {
   token?: DamageToken;
   /** Third Eye: the hazard type of the token peeked at, for the player to see it. */
   hazard?: string;
+  /** The Big Rig: the command (`section:command`) a die goes on, or a shot or a minor damage token hits. */
+  rig?: string;
 }
 
 /** A vehicle in range that cannot be chosen because of an ability (an upgrade id), for the UI to explain. */
@@ -168,7 +192,11 @@ export interface Decision {
   kind: 'assign' | 'command' | 'airstrike' | 'repair' | 'step' | 'roadDie' | 'slamReroll' | 'shoot'
     | 'leader' | 'token' | 'shootReroll' | 'dirReroll' | 'peek' | 'peekResult' | 'transfer'
     | 'draft' | 'upgradeAssign' | 'swap' | 'plow' | 'rollCage' | 'pickDamage' | 'redButton' | 'dispense' | 'radar'
-    | 'tinker' | 'showTime' | 'endTurn';
+    | 'tinker' | 'showTime' | 'endTurn'
+    /** Final Five: which motorcycle moves first, and which of two motorcycles a slam moves. */
+    | 'first' | 'bikeSlam'
+    /** The Big Rig: the steering die, the command a shot aims at, where a minor damage goes, the cow catcher's push. */
+    | 'steer' | 'rigTarget' | 'rigDamage' | 'cowCatcher';
   player: number;
   prompt: string;
   options: Option[];
@@ -185,7 +213,9 @@ export interface LogEntry { text: string; kind: 'info' | 'dice' | 'bad' | 'good'
 export interface Snapshot {
   board: TileRef[];
   finalTile: boolean;
-  vehicles: Pick<Vehicle, 'id' | 'owner' | 'size' | 'isWreck' | 'pos' | 'inStart' | 'status' | 'z' | 'onFire'>[];
+  vehicles: Pick<Vehicle, 'id' | 'owner' | 'size' | 'isWreck' | 'pos' | 'inStart' | 'status' | 'z' | 'onFire' | 'bike' | 'rig'>[];
+  /** Spaces turned off-road by the Big Rig (BRaFF p5), as board keys. */
+  offroad?: string[];
   hazards: [string, HazardOnBoard][];
   choppers: (Pos | null)[];
   activeCar: string | null;
@@ -201,7 +231,7 @@ export interface Snapshot {
  */
 export interface Frame {
   /** jump: a ramp jump from `from` to `at`; fire: `vehicleId` catches fire (`why` 'on') or the fire goes out ('out') (CDR p3). */
-  kind: 'log' | 'move' | 'roll' | 'slam' | 'shot' | 'damage' | 'elim' | 'reveal' | 'tile' | 'round' | 'chopper' | 'jump' | 'fire';
+  kind: 'log' | 'move' | 'roll' | 'slam' | 'shot' | 'damage' | 'elim' | 'reveal' | 'tile' | 'round' | 'chopper' | 'jump' | 'fire' | 'order';
   text?: string;
   logKind?: LogEntry['kind'];
   vehicleId?: string;
@@ -219,6 +249,8 @@ export interface Frame {
   die?: RolledDie;
   /** Round start: each player's movement dice, the road die and who rolled it. */
   round?: { n: number; dice: { player: number; values: number[] }[]; roadDie: number; roller: number };
+  /** The roll for the first player (setup step 6): each player's dice, and who goes first (null: a tie for lowest, everyone rolls again). */
+  order?: { rolls: { player: number; values: number[] }[]; first: number | null };
   snap: Snapshot;
 }
 
@@ -274,7 +306,10 @@ export interface Game {
   /** Upgrade cards are drafted and assigned at the start of `play`. */
   dealUpgrades: boolean;
   /** Effects that last for the current turn. */
-  fx: { bump: boolean; calledShot: boolean; slams: number; /** Flamethrower (Emberco): this turn a hit also sets the target on fire. */ flamethrower: boolean };
+  fx: { bump: boolean; calledShot: boolean; slams: number; /** Flamethrower (Emberco): this turn a hit also sets the target on fire. */ flamethrower: boolean;
+    /** Targeting Computer (Big Rig): this turn the shooting die may be rerolled. */ targeting?: boolean };
+  /** Spaces the Big Rig turned off-road (BRaFF p5): they count as off-road for everyone. */
+  offroad: Set<string>;
   /** Upgrade cards not dealt, and those discarded (Tinker draws from the first). */
   upgradeDeck: string[];
   upgradeDiscard: string[];
@@ -289,7 +324,8 @@ export interface Setup {
   /** `leader` fixes a player's crew leader without dealing. */
   /** `upgrades` fixes the upgrade of the small, medium and large car without drafting. */
   /** `bot` makes the seat a TRV9000 team at that Basic Protocol level (1-4); at least one seat is a person. */
-  players: { name: string; color: string; crew?: string; leader?: string; upgrades?: (string | null)[]; bot?: { protocol: number } }[];
+  /** `team` makes the seat the Final Five or the Big Rig instead of three cars (one seat each, never a bot). */
+  players: { name: string; color: string; crew?: string; leader?: string; upgrades?: (string | null)[]; bot?: { protocol: number }; team?: Team }[];
   startSide: 'a' | 'b';
   /** Choppe Shoppe: deal two crew leaders to each player, who keeps one. */
   leaders?: boolean;
@@ -315,6 +351,42 @@ const DICE = base.dice as unknown as {
 };
 const BASE_BOARD: CommandSlot[] = Object.entries(base.commands).map(([id, values]) => ({ id: id as CommandId, values }));
 const LEADERS = shoppe.leaders as Leader[];
+/** The Final Five (BRaFF p3, p7): dice, command board, coasting, damage and markings. */
+const FF = brff.final_five as unknown as {
+  motorcycles: number; markings: string[]; marking_names: string[]; damage_to_inoperable: number;
+  dice: { count: number; faces: number[] };
+  command_board: { id: string; slot: 'any' | number[] }[];
+  turn: { dice_per_turn: number; coast_max: number };
+};
+const FF_BOARD: CommandSlot[] = FF.command_board.map(c => ({ id: c.id as CommandId, values: c.slot === 'any' ? [...FF.dice.faces] : c.slot }));
+/** The Big Rig (BRaFF p3-6): dice, the section board and when the rig is out. */
+const BR = brff.big_rig as unknown as {
+  dice: { count: number; faces: number[] };
+  sections: Record<RigSection, { id: string; slot: 'any' | number[]; when: string; targetable: boolean }[]>;
+  damage: { eliminated_at: number };
+  /** Short lines for the board, per command. */
+  command_text: Record<string, string[]>;
+};
+/** The sections as the board shows them (rear, mid, front) and as the train runs (front first). */
+export const RIG_BOARD: RigSection[] = ['rear', 'mid', 'front'];
+const TRAIN: RigSection[] = ['front', 'mid', 'rear'];
+const SECTION_NAME: Record<RigSection, string> = { front: 'motrice', mid: 'rimorchio centrale', rear: 'rimorchio posteriore' };
+const RIG_CMD_NAME: Record<string, string> = {
+  hazard_dispenser: 'Hazard Dispenser', repair: 'Riparazione', targeting_computer: 'Targeting Computer',
+  traction_drive: 'Traction Drive', airstrike: 'Attacco aereo', missile_launcher: 'Missile Launcher', cow_catcher: 'Cow Catcher',
+};
+/** The Big Rig's numbers and names, for the interface. */
+export const bigRig = (): typeof BR & { sectionName: typeof SECTION_NAME; commandName: typeof RIG_CMD_NAME } =>
+  ({ ...BR, sectionName: SECTION_NAME, commandName: RIG_CMD_NAME });
+/** A section of the Big Rig. */
+const isRig = (v: Vehicle): boolean => v.rig !== undefined;
+/** The name of a command of the section board (`section:command`). */
+const rigCmdName = (k: string): string => { const [sec, id] = k.split(':'); return `${RIG_CMD_NAME[id] ?? id} (${SECTION_NAME[sec as RigSection]})`; };
+
+/** The Final Five's numbers (data/trv/big_rig_final_five.json), for the interface. */
+export const finalFive = (): typeof FF => FF;
+/** A Final Five motorcycle (a wreck never is one). */
+const isBike = (v: Vehicle): boolean => v.bike !== undefined && !v.isWreck;
 
 /** Every crew leader in the data, including those that cannot be dealt yet. */
 export const leaders = (): Leader[] => LEADERS;
@@ -326,6 +398,7 @@ export function leaderOf(p: Player): Leader | null {
 
 /** The commands on a player's command board. */
 export function commandsOf(p: Player): CommandSlot[] {
+  if (p.team === 'final_five') return FF_BOARD;
   return leaderOf(p)?.commands ?? BASE_BOARD;
 }
 
@@ -341,7 +414,7 @@ const up = (v: Vehicle | null | undefined, id: string): boolean => !!v && !v.isW
 const upN = (id: string): number => UPGRADES.find(u => u.id === id)?.n ?? 0;
 const upName = (id: string): string => UPGRADES.find(u => u.id === id)?.name ?? id;
 /** Damage tokens that make a car inoperable (Heavy Frame: one more). */
-const limit = (v: Vehicle): number => base.damage_to_inoperable + (v.upgrade === 'heavy_frame' || v.upgrade2 === 'heavy_frame' ? upN('heavy_frame') : 0);
+const limit = (v: Vehicle): number => v.bike !== undefined ? FF.damage_to_inoperable : base.damage_to_inoperable + (v.upgrade === 'heavy_frame' || v.upgrade2 === 'heavy_frame' ? upN('heavy_frame') : 0);
 const SIZE_RANK: Record<Size, number> = { S: 0, M: 1, L: 2 };
 export const DIR_NAME: Record<Dir, string> = {
   F: 'avanti', FL: 'avanti-sinistra', FR: 'avanti-destra',
@@ -354,7 +427,7 @@ const HAZARD_NAME: Record<HazardType, string> = {
 };
 const DAMAGE_NAME: Record<DamageType, string> = {
   shrapnel: 'Schegge', dazed: 'Stordito', dent: 'Ammaccatura', skid: 'Sbandata', blastoff: 'Decollo',
-  on_fire: 'In fiamme', ongoing_effect: 'Effetto continuo',
+  on_fire: 'In fiamme', ongoing_effect: 'Effetto continuo', minor: 'Danno minore',
 };
 const TERRAIN_NAME: Partial<Record<Terrain, string>> = {
   G: 'melma tossica', D: 'vetro del deserto', P: 'rampa', F: 'fuoco', S: 'saline',
@@ -404,6 +477,8 @@ export const onBoard = (p: Pos): boolean => p.r >= 0 && p.r < ROWS && p.c >= 0 &
 
 /** Printed terrain, changed by face-up Road, Mud and Oil Slick tokens. */
 export function terrainAt(g: Game, p: Pos): Terrain {
+  // A space the Big Rig turned off-road (BRaFF p5) stays off-road whatever was printed there.
+  if (g.offroad.has(key(p))) return 'o';
   const h = g.hazards.get(key(p));
   if (h && h.faceUp) {
     if (h.type === 'road' || h.type === 'oil') return 'R';
@@ -452,6 +527,8 @@ export function isEmpty(g: Game, p: Pos): boolean {
 
 export function carName(g: Game, v: Vehicle): string {
   if (v.isWreck) return 'il relitto';
+  if (v.bike !== undefined) return `la moto ${FF.marking_names[v.bike]} di ${g.players[v.owner!].name}`;
+  if (v.rig) return `il Big Rig di ${g.players[v.owner!].name} (${SECTION_NAME[v.rig]})`;
   return `l'auto ${SIZE_NAME[v.size]} di ${g.players[v.owner!].name}`;
 }
 
@@ -500,7 +577,8 @@ export function snapshot(g: Game): Snapshot {
   return {
     board: g.board.map(t => ({ ...t })),
     finalTile: g.finalTile,
-    vehicles: g.vehicles.map(v => ({ id: v.id, owner: v.owner, size: v.size, isWreck: v.isWreck, pos: v.pos ? { ...v.pos } : null, inStart: v.inStart, status: v.status, z: v.z, ...(v.onFire ? { onFire: true } : {}) })),
+    vehicles: g.vehicles.map(v => ({ id: v.id, owner: v.owner, size: v.size, isWreck: v.isWreck, pos: v.pos ? { ...v.pos } : null, inStart: v.inStart, status: v.status, z: v.z, ...(v.onFire ? { onFire: true } : {}), ...(v.bike !== undefined ? { bike: v.bike } : {}), ...(v.rig ? { rig: v.rig } : {}) })),
+    ...(g.offroad.size ? { offroad: [...g.offroad] } : {}),
     hazards: [...g.hazards].map(([k, h]) => [k, { ...h }]),
     choppers: g.players.map(p => (p.chopper ? { ...p.chopper } : null)),
     activeCar: g.activeCar,
@@ -536,12 +614,15 @@ export function newGame(s: Setup): Game {
   if (!r.ok) throw new Error(r.error.message);
   if (s.players.length < 2 || s.players.length > 4) throw new Error('2-4 players');
   if (s.players.every(p => p.bot)) throw new Error('a game of TRV9000 teams only cannot be made');
+  // BRaFF p3: one player at most has the Big Rig, one the Final Five (confirmed by the user, 2026-11-18).
+  for (const t of ['final_five', 'big_rig'] as Team[]) if (s.players.filter(p => p.team === t).length > 1) throw new Error(`only one ${t} per game`);
+  if (s.players.some(p => p.team && p.bot)) throw new Error('a TRV9000 team plays cars only');
   const g: Game = {
     rng: r.value, draft: null, assign: null, players: [], vehicles: [], board: [], pile: [], tilesPlaced: 3, finalTile: false, finishLine: textHash(s.seed) % finishData.lines.length,
     hazards: new Map(), hazardPile: [], hazardDiscard: [], damagePile: [], round: 0, firstPlayer: 0,
     current: 0, roadDie: 0, winner: null, log: [], zTop: 0, activeCar: null, lastRoll: [], pendingDice: [], frames: [],
     tokenSupply: shoppe.command_tokens, dealLeaders: !!s.leaders, dealUpgrades: !!s.upgrades, fx: { bump: false, calledShot: false, slams: 0, flamethrower: false },
-    carnage: null, upgradeDeck: [], upgradeDiscard: [], trv9000: null,
+    carnage: null, upgradeDeck: [], upgradeDiscard: [], trv9000: null, offroad: new Set(),
   };
   if (s.carnage) {
     if (s.carnage === true && !carnageTilesReady()) throw new Error("Carnage at Devil's Run: missing data in carnage.json: tiles");
@@ -550,9 +631,24 @@ export function newGame(s: Setup): Game {
   }
   s.players.forEach((p, i) => {
     g.players.push({ id: i, name: p.name, color: p.color, dice: [], used: [], commandUsed: false, command: null, out: false, chopper: null,
-      leader: null, tokens: 0, slots: {}, ...(p.crew ? { crew: p.crew } : {}),
+      leader: null, tokens: 0, slots: {}, ...(p.crew ? { crew: p.crew } : {}), ...(p.team ? { team: p.team } : {}),
       ...(p.bot ? { bot: { protocol: p.bot.protocol, team: null, card: null, line: 0, drift: false, aim: null, active: null } } : {}) });
-    if (p.leader) takeLeader(g, g.players[i], p.leader);
+    // BRaFF p3: the Final Five and the Big Rig use no crew leader and no upgrade.
+    if (p.leader && !p.team) takeLeader(g, g.players[i], p.leader);
+    if (p.team === 'big_rig') {
+      // BRaFF p3: the three sections, assembled, in the starting area; the rig's boards empty.
+      g.players[i].rig = { steer: null, used: [], placed: {}, damaged: [] };
+      TRAIN.forEach((sec, k) => g.vehicles.push({ id: `p${i}r${k}`, owner: i, size: 'L', isWreck: false, pos: null, inStart: true,
+        status: 'ok', damage: [], moved: false, coasts: 0, placed: [], z: 0, upgrade: null, uses: 0, rig: sec }));
+      return;
+    }
+    if (p.team === 'final_five') {
+      for (let k = 0; k < FF.motorcycles; k++) {
+        g.vehicles.push({ id: `p${i}b${k}`, owner: i, size: 'S', isWreck: false, pos: null, inStart: true,
+          status: 'ok', damage: [], moved: false, coasts: 0, placed: [], z: 0, upgrade: null, uses: 0, bike: k });
+      }
+      return;
+    }
     for (const size of ['S', 'M', 'L'] as Size[]) {
       g.vehicles.push({ id: `p${i}${size}`, owner: i, size, isWreck: false, pos: null, inStart: true,
         status: 'ok', damage: [], moved: false, coasts: 0, placed: [], z: 0,
@@ -631,6 +727,8 @@ function activePlayers(g: Game): Player[] {
 
 function eliminate(g: Game, v: Vehicle, why: string, into?: Pos, by?: Frame['by']): void {
   if (v.status === 'elim') return;
+  // BRaFF p5: the Big Rig is eliminated only by six minor damage tokens or dumped off the rear tile.
+  if (isRig(v)) { say(g, `${capital(carName(g, v))} non può essere eliminato così.`, 'info'); return; }
   beat(g, 'elim', { vehicleId: v.id, why, ...(v.pos ? { at: { ...v.pos } } : {}), ...(into ? { into: { ...into } } : {}), ...(by ? { by } : {}) });
   say(g, `${capital(carName(g, v))} è eliminata: ${why}.`, 'bad');
   if (v.isWreck) {
@@ -642,7 +740,8 @@ function eliminate(g: Game, v: Vehicle, why: string, into?: Pos, by?: Frame['by'
   v.inStart = false;
   if (v.onFire) putOut(g, v);
   for (const t of v.damage) discardCard(g, t);
-  g.damagePile.push(...v.damage);
+  // Minor damage tokens are not part of the damage pile (BRaFF p3).
+  g.damagePile.push(...v.damage.filter(t => t.type !== 'minor'));
   v.damage = [];
   checkPlayers(g);
 }
@@ -675,8 +774,15 @@ function checkPlayers(g: Game): void {
 function advanceBoard(g: Game): void {
   say(g, 'Una nuova tessera strada entra in gioco.', 'info');
   for (const v of [...g.vehicles]) {
-    if (v.status === 'elim') continue;
+    if (v.status === 'elim' || isRig(v)) continue;
     if (v.inStart || (v.pos && v.pos.c < TILE_COLS)) eliminate(g, v, 'era sulla tessera posteriore rimossa');
+  }
+  // BRaFF p5: the Big Rig is dumped only when all its sections are on the rear tile; otherwise the
+  // sections behind hang off the back of the table and follow the front one when it moves.
+  for (const p of g.players) {
+    if (!p.rig || p.out) continue;
+    const parts = g.vehicles.filter(v => v.owner === p.id && isRig(v));
+    if (parts.every(v => v.inStart || (v.pos && v.pos.c < TILE_COLS))) rigOut(g, p, 'scaricato dalla tessera posteriore');
   }
   for (const [k, h] of [...g.hazards]) {
     if (Number(k.split(',')[1]) < TILE_COLS) { g.hazards.delete(k); g.hazardDiscard.push(h.type); }
@@ -691,6 +797,7 @@ function advanceBoard(g: Game): void {
     const [r, c] = k.split(',').map(Number);
     return [key({ r, c: c - TILE_COLS }), h];
   }));
+  g.offroad = new Set([...g.offroad].map(k => k.split(',').map(Number)).filter(([, c]) => c >= TILE_COLS).map(([r, c]) => key({ r, c: c - TILE_COLS })));
   g.board.push(g.pile.shift()!);
   g.tilesPlaced++;
   placeHazards(g, 2, null);
@@ -725,6 +832,8 @@ const spaceOption = (q: Pos): Option => ({ label: `Casella ${q.r + 1}-${q.c + 1}
  */
 function* enter(g: Game, v: Vehicle, to: Pos, ctx: MoveCtx | null, dir?: Dir): Gen<boolean> {
   if (g.winner !== null) return true;
+  // Sturdy (BRaFF p5): nothing moves the Big Rig but its own move (rigDrive).
+  if (isRig(v)) return true;
   if (to.c >= COLS && to.r >= 0 && to.r < ROWS) {
     if (v.isWreck) { eliminate(g, v, 'è uscito dal fronte'); return true; }
     // Dead Alternator (ongoing effect): when another car drives off the lead tile, the damaged car is eliminated.
@@ -867,6 +976,12 @@ function* enter(g: Game, v: Vehicle, to: Pos, ctx: MoveCtx | null, dir?: Dir): G
       }
     }
   }
+  // Final Five (BRaFF p7): while it has moves left a motorcycle drifts through every other road
+  // vehicle, also when an effect moves it (FAQ); a slam only where its move ends.
+  if (isBike(v) && ctx && ctx.left > 0 && vehiclesAt(g, to).length > 1) {
+    say(g, `${capital(carName(g, v))} passa in drift senza slam.`, 'info');
+    return false;
+  }
   if (vehiclesAt(g, to).length > 1) {
     // Basic Protocol 4 (TRV9000): a bot's car passes through a space with only bots' cars, without a slam.
     if (ctx?.bot && ctx.left > 0 && protocolOf(g, v.owner) >= 4 && vehiclesAt(g, to).every(x => x === v || (!x.isWreck && isBot(g, x.owner)))) {
@@ -901,21 +1016,35 @@ function* slam(g: Game, at: Pos): Gen<void> {
     if (leaking.length) { for (const x of leaking) eliminate(g, x, 'Nitro Leak: coinvolta in uno slam'); continue; }
     beat(g, 'slam', { at: { ...at }, vehicleId: top.id });
     say(g, `SLAM! ${capital(carName(g, top))} contro ${carName(g, bottom)}.`, 'bad');
+    // Final Five (BRaFF p7): with a motorcycle only the direction die is rolled, the motorcycle always
+    // moves and nobody may reroll; between two of the player's motorcycles the player chooses.
+    // The Big Rig (BRaFF p5): only the direction die, the OTHER vehicle always moves, no rerolls.
+    const rigSec = [top, bottom].find(isRig);
+    const bikes = rigSec ? [] : [top, bottom].filter(isBike);
+    let biker: Vehicle | null = rigSec ? (rigSec === top ? bottom : top) : bikes[0] ?? null;
+    if (bikes.length === 2) {
+      const i = yield* ask(g, {
+        kind: 'bikeSlam', player: bikes[0].owner!, prompt: `${g.players[bikes[0].owner!].name}: quale moto si sposta nello slam?`,
+        options: bikes.map(b => ({ label: capital(carName(g, b)), carId: b.id, pos: { ...at } })),
+      });
+      biker = bikes[i];
+    }
     // Bump! (Bumpo): the first time the player slams this turn, only the direction die, and the other car moves.
     const mine = top.owner === g.current && !top.isWreck;
-    const bump = mine && g.fx.bump && g.fx.slams === 0;
+    const bump = !biker && mine && g.fx.bump && g.fx.slams === 0;
     if (mine) g.fx.slams++;
     // Bent Frame (ongoing effect): the slammed car moves, without rolling the slam die.
-    const bent = !bump && top !== bottom && hasOngoing(bottom, 'bent_frame');
+    const bent = !biker && !bump && top !== bottom && hasOngoing(bottom, 'bent_frame');
     if (bent) say(g, 'Bent Frame: si muove l\'auto urtata, senza dado slam.', 'info');
-    let which: 'top' | 'bottom' = bump || bent ? 'bottom' : rollFx(g, 'slam', 'slam', at);
+    let which: 'top' | 'bottom' = biker ? (biker === top ? 'top' : 'bottom') : bump || bent ? 'bottom' : rollFx(g, 'slam', 'slam', at);
     let d = rollFx(g, 'direction', 'slam', at);
-    if (bump) say(g, `Bump! Si muove ${carName(g, bottom)}; direzione ${DIR_NAME[d]}.`, 'dice');
+    if (biker) say(g, `${rigSec ? 'Big Rig' : 'Moto'}: si muove ${carName(g, biker)}; direzione ${DIR_NAME[d]}.`, 'dice');
+    else if (bump) say(g, `Bump! Si muove ${carName(g, bottom)}; direzione ${DIR_NAME[d]}.`, 'dice');
     else say(g, `Dado slam: si muove il veicolo ${which === 'top' ? 'sopra' : 'sotto'}; direzione ${DIR_NAME[d]}.`, 'dice');
     const big = SIZE_RANK[top.size] > SIZE_RANK[bottom.size] ? top : SIZE_RANK[bottom.size] > SIZE_RANK[top.size] ? bottom : null;
     // Sandbags: the opponents of a car with sandbags may not reroll the slam die or the direction die.
     const barred = (owner: number | null): boolean => [top, bottom].some(x => up(x, 'sandbags') && x.owner !== owner);
-    if (!bump && big && big.owner !== null && !barred(big.owner)) {
+    if (!biker && !bump && big && big.owner !== null && !barred(big.owner)) {
       const moving = which === 'top' ? top : bottom;
       const i = yield* ask(g, {
         kind: 'slamReroll', player: big.owner,
@@ -932,7 +1061,7 @@ function* slam(g: Game, at: Pos): Gen<void> {
     const affected = which === 'top' ? top : bottom;
     // Junk in the Trunk (Bumpo): if your car would move in a slam, you may reroll the direction die.
     // Stability Control: the same, for the car that has the upgrade.
-    if ((hasPower(g, affected.owner, 'junk_in_the_trunk') || up(affected, 'stability_control')) && !affected.isWreck && !barred(affected.owner)) {
+    if (!biker && (hasPower(g, affected.owner, 'junk_in_the_trunk') || up(affected, 'stability_control')) && !affected.isWreck && !barred(affected.owner)) {
       const i = yield* ask(g, {
         kind: 'dirReroll', player: affected.owner!,
         prompt: `${g.players[affected.owner!].name}: ${carName(g, affected)} si muoverebbe verso ${DIR_NAME[d]}. Ritirare il dado direzione?`,
@@ -982,8 +1111,18 @@ function* slam(g: Game, at: Pos): Gen<void> {
 /** Taking damage (pp. 6, 12). */
 function* damage(g: Game, v: Vehicle): Gen<void> {
   if (g.winner !== null || v.status === 'elim') return;
+  if (isRig(v)) { yield* rigHit(g, g.players[v.owner!], 'danno'); return; }
   if (v.isWreck) { eliminate(g, v, 'ha subito danno'); return; }
   if (v.status === 'inop') { say(g, `${capital(carName(g, v))} è già fuori uso: il danno è ignorato.`); return; }
+  // Final Five (BRaFF p7): a motorcycle takes a minor damage token, never drawn, and is inoperable.
+  if (isBike(v)) {
+    const minor: DamageToken = { type: 'minor' };
+    beat(g, 'damage', { vehicleId: v.id, token: { ...minor }, ...(v.pos ? { at: { ...v.pos } } : {}) });
+    say(g, `${capital(carName(g, v))} subisce danno: un danno minore.`, 'bad');
+    v.damage.push(minor);
+    if (v.damage.length >= limit(v)) yield* breakDown(g, v);
+    return;
+  }
   const draw = (): DamageToken | null => {
     if (!g.damagePile.length) return null;
     const [i] = rollDice(g, [{ id: 'damage-draw', n: g.damagePile.length }], 'damage-draw');
@@ -1200,7 +1339,8 @@ function rollFire(g: Game): FireFace {
  * once) or a wreck takes none.
  */
 function catchFire(g: Game, v: Vehicle): void {
-  if (!g.carnage || v.onFire || v.status !== 'ok' || v.isWreck) return;
+  // BRaFF p5: the Big Rig never catches fire.
+  if (!g.carnage || v.onFire || v.status !== 'ok' || v.isWreck || isRig(v)) return;
   v.onFire = true;
   beat(g, 'fire', { vehicleId: v.id, why: 'on', ...(v.pos ? { at: { ...v.pos } } : {}) });
   say(g, `${capital(carName(g, v))} prende fuoco!`, 'bad');
@@ -1250,6 +1390,7 @@ function* quake(g: Game): Gen<void> {
   say(g, `Terremoto! Tutti i veicoli si spostano di una casella ${DIR_NAME[d]}.`, 'dice');
   const landed: Vehicle[] = [], ahead: Vehicle[] = [];
   for (const v of onRoad(g)) {
+    if (isRig(v)) continue;
     const to = neighbor(v.pos!, d);
     if (to.c >= COLS && to.r >= 0 && to.r < ROWS) { ahead.push(v); continue; }
     if (!onBoard(to)) { eliminate(g, v, 'è uscita dalla strada nel terremoto', to); continue; }
@@ -1265,6 +1406,12 @@ function* quake(g: Game): Gen<void> {
     yield* enter(g, v, v.pos, null, d);
     yield* baldTires(g, v, d);
   }
+  // Sturdy (BRaFF FAQ): the quake does not move the Big Rig; one minor damage, no off-road space.
+  for (const p of g.players) {
+    if (!p.rig || p.out || g.winner !== null || !onRoad(g).some(v => v.owner === p.id && isRig(v))) continue;
+    say(g, `Il Big Rig di ${p.name} è Robusto: il terremoto non lo sposta.`, 'info');
+    yield* rigHit(g, p, 'terremoto');
+  }
 }
 
 /**
@@ -1277,6 +1424,7 @@ function sandWorm(g: Game): void {
   if (!road.length) return;
   const last = Math.min(...road.map(back));
   say(g, 'Verme delle sabbie!', 'bad');
+  if (road.some(v => isRig(v) && back(v) === last)) { say(g, 'Il Big Rig è il più arretrato: il verme non elimina nessuno.', 'info'); return; }
   for (const v of road.filter(x => back(x) === last)) eliminate(g, v, 'è stata inghiottita dal verme delle sabbie', undefined, 'sand_worm');
 }
 
@@ -1294,6 +1442,15 @@ export const __test = {
   botMove: (g: Game, v: Vehicle, n: number, dir: Dir, drift = false): Gen<boolean> =>
     botMove(g, v, n, dir, { left: 0, drift, driftUsed: false, bot: true, ignoreOnce: protocolOf(g, v.owner) >= 2 }),
   chopperCheck,
+  turn,
+  damage,
+  rigHit,
+  rigDrive,
+  /** Player `player` shoots with vehicle `v` from its space, at its front arc. */
+  shoot: (g: Game, player: number, v: Vehicle): Gen<Vehicle | null> => shootFrom(g, player, v.pos!, 'test', v),
+  quake,
+  sandWorm,
+  advanceBoard,
 };
 
 // ---------------------------------------------------------------- shooting
@@ -1306,12 +1463,13 @@ function frontArc(p: Pos): Pos[] {
  * Shoot step (p. 10): any road vehicle in the front arc, chosen or skipped. Returns the vehicle shot
  * at, hit or not; `exclude`: vehicles that cannot be chosen (Rapid Reload's second shot).
  */
-function* shootFrom(g: Game, player: number, from: Pos, who: string, shooter: Vehicle | null = null, exclude: string[] = []): Gen<Vehicle | null> {
+function* shootFrom(g: Game, player: number, from: Pos, who: string, shooter: Vehicle | null = null, exclude: string[] = [], arcs?: Pos[]): Gen<Vehicle | null> {
   if (g.winner !== null) return null;
   let targets: Vehicle[] = [];
   const blocked: Blocked[] = [];
   // Long Arm of the Law (Wong): also the spaces two away, straight on from the front arc.
-  const spaces = hasPower(g, player, 'long_arm_of_the_law') ? longArc(from, shoppe.long_arm_range) : frontArc(from);
+  // `arcs`: the spaces to shoot at instead of the front arc (the Big Rig: front or rear arc).
+  const spaces = arcs ? [...arcs] : hasPower(g, player, 'long_arm_of_the_law') ? longArc(from, shoppe.long_arm_range) : frontArc(from);
   // Punt Gun: two spaces away. Rail Gun: three spaces straight ahead. Rear Guns: any adjacent space.
   if (up(shooter, 'punt_gun')) spaces.push(...longArc(from, upN('punt_gun')));
   if (up(shooter, 'rail_gun')) { let q = from; for (let n = 0; n < upN('rail_gun'); n++) { q = neighbor(q, 'F'); spaces.push(q); } }
@@ -1322,7 +1480,8 @@ function* shootFrom(g: Game, player: number, from: Pos, who: string, shooter: Ve
     const t = st[st.length - 1];
     // Smoke Screen: not from the space directly behind the car.
     if (t && up(t, 'smoke_screen') && samePos(from, neighbor(p, 'B'))) blocked.push({ carId: t.id, pos: { ...p }, because: 'smoke_screen' });
-    else if (t && !exclude.includes(t.id)) targets.push(t);
+    // A section of the Big Rig is a target only with a targetable command not yet damaged (BRaFF p5).
+    else if (t && !exclude.includes(t.id) && (!isRig(t) || rigAims(g, t).length)) targets.push(t);
   }
   // Stealth Technology: not a target while there is another vehicle to shoot.
   const seen = targets.filter(t => !up(t, 'stealth_technology'));
@@ -1330,13 +1489,23 @@ function* shootFrom(g: Game, player: number, from: Pos, who: string, shooter: Ve
     for (const t of targets) if (!seen.includes(t)) blocked.push({ carId: t.id, pos: { ...t.pos! }, because: 'stealth_technology' });
     targets = seen;
   }
-  if (!targets.length) { say(g, `${who}: nessun bersaglio nell'arco frontale, niente sparo.`, 'info'); return null; }
+  if (!targets.length) { say(g, `${who}: nessun bersaglio ${arcs ? 'negli archi frontale e posteriore' : "nell'arco frontale"}, niente sparo.`, 'info'); return null; }
   const i = yield* ask(g, {
     kind: 'shoot', player, prompt: `${g.players[player].name}: sparare con ${who}?`, ...(blocked.length ? { blocked } : {}),
-    options: [{ label: 'Non sparare' }, ...targets.map(t => ({ label: `Spara ${carName(g, t).replace(/^l'/, "all'").replace(/^il /, 'al ')}`, carId: t.id, pos: t.pos! }))],
+    options: [{ label: 'Non sparare' }, ...targets.map(t => ({ label: `Spara ${carName(g, t).replace(/^l'/, "all'").replace(/^il /, 'al ').replace(/^la /, 'alla ')}`, carId: t.id, pos: t.pos! }))],
   });
   if (i === 0) return null;
   const t = targets[i - 1];
+  // BRaFF p5: shooting the Big Rig, the shooter picks the command to hit before rolling.
+  let aim: string | null = null;
+  if (isRig(t)) {
+    const aims = rigAims(g, t);
+    const a = yield* ask(g, {
+      kind: 'rigTarget', player, prompt: `${g.players[player].name}: quale comando del Big Rig colpire?`,
+      options: aims.map(k => ({ label: rigCmdName(k), rig: k, carId: t.id, pos: t.pos! })),
+    });
+    aim = aims[a];
+  }
   beat(g, 'shot', { from: { ...from }, at: { ...t.pos! }, vehicleId: t.id });
   // Spotter (Abigail): another of your operable cars next to the target. Called Shot (Boudreaux).
   const spotter = hasPower(g, player, 'spotter') && g.vehicles.some(v => v.owner === player && v.status === 'ok'
@@ -1359,7 +1528,7 @@ function* shootFrom(g: Game, player: number, from: Pos, who: string, shooter: Ve
     // Heavy Machine Gun: the same, when shooting with the car that has it.
     // Exposed Hardware (ongoing effect on the target): another player shooting it may reroll too.
     // Dual Guns (TRV9000 Trigger Happy): a miss against another car is rerolled.
-    if (!hit && (hasPower(g, player, 'objection') || up(shooter, 'heavy_machine_gun') || (up(shooter, 'dual_guns') && !t.isWreck) || (hasOngoing(t, 'exposed_hardware') && t.owner !== player))) {
+    if (!hit && ((g.fx.targeting && player === g.current) || hasPower(g, player, 'objection') || up(shooter, 'heavy_machine_gun') || (up(shooter, 'dual_guns') && !t.isWreck) || (hasOngoing(t, 'exposed_hardware') && t.owner !== player))) {
       const r = yield* ask(g, {
         kind: 'shootReroll', player, prompt: `${g.players[player].name}: mancato. Ritirare il dado sparo?`,
         options: [{ label: 'Tieni il risultato' }, { label: 'Ritira il dado sparo' }],
@@ -1368,12 +1537,13 @@ function* shootFrom(g: Game, player: number, from: Pos, who: string, shooter: Ve
     }
   }
   if (!hit) return t;
+  if (aim) { yield* rigHit(g, g.players[t.owner!], 'colpo', aim); return t; }
   yield* damage(g, t);
   // Flamethrower (Emberco): the target hit this turn also catches fire. The TRV9000 Bomb Squad's
   // Flamethrower card: the same, for a car hit by the car that has it.
   if (((g.fx.flamethrower && player === g.current) || (up(shooter, 'flamethrower') && !t.isWreck)) && t.status === 'ok') catchFire(g, t);
   // Grappling Hook: after resolving the damage, the car may swap spaces with the car it hit.
-  if (g.winner === null && up(shooter, 'grappling_hook') && shooter!.pos && !t.isWreck && t.status !== 'elim' && t.pos && !samePos(t.pos, shooter!.pos)) {
+  if (g.winner === null && up(shooter, 'grappling_hook') && shooter!.pos && !t.isWreck && !isRig(t) && t.status !== 'elim' && t.pos && !samePos(t.pos, shooter!.pos)) {
     const s = yield* ask(g, {
       kind: 'swap', player, prompt: `${g.players[player].name}: Grappling Hook, scambiare di posto con ${carName(g, t)}?`,
       options: [{ label: 'No' }, { label: 'Scambia di posto', carId: t.id, pos: t.pos }],
@@ -1513,6 +1683,8 @@ function stepOption(g: Game, car: Vehicle, to: Pos, left: number, name: string, 
 }
 
 function* turn(g: Game, p: Player): Gen<void> {
+  if (p.team === 'final_five') { yield* bikesTurn(g, p); return; }
+  if (p.team === 'big_rig') { yield* rigTurn(g, p); return; }
   g.current = p.id;
   g.lastRoll = [];
   g.fx = { bump: false, calledShot: false, slams: 0, flamethrower: false };
@@ -1594,6 +1766,21 @@ function* turn(g: Game, p: Player): Gen<void> {
       }
     }
   }
+  yield* drive(g, p, car, a.coast, p.dice[a.die], mv);
+  // The player ends the turn with the End Turn button, so the next player does not start while
+  // they still look at what happened (asked by the user, 2026-11-18). A bot is never asked.
+  if (g.winner === null && !p.out) {
+    yield* ask(g, { kind: 'endTurn', player: p.id, prompt: `${p.name}: fine del turno?`, options: [{ label: 'Fine turno' }] });
+  }
+}
+
+/**
+ * Steps 3-4 of a turn for one vehicle (pp. 9-10): what happens before it moves, the move (or the
+ * coast), the dispensers, the shot and the chopper check. `die` is the value of the die assigned.
+ */
+function* drive(g: Game, p: Player, car: Vehicle, coast: boolean, die: number, mv: { moves: number; drift: boolean }): Gen<void> {
+  g.activeCar = car.id;
+  const a = { coast };
   // Boost Switch: the car gains +1 move.
   if (up(car, 'boost_switch')) { mv.moves += upN('boost_switch'); say(g, `Boost Switch: +${upN('boost_switch')} movimento.`, 'good'); }
   // Loose Wiring (ongoing effect): before the car moves, the direction die moves it one space.
@@ -1608,7 +1795,7 @@ function* turn(g: Game, p: Player): Gen<void> {
 
   if (g.winner === null && car.status === 'ok') {
     say(g, `${p.name} muove ${carName(g, car)} di ${moves}${a.coast ? ' (inerzia)' : ''}.`, 'info');
-    yield* moveCar(g, car, moves, drift, a.coast, p.dice[a.die], fixed, mustMoveAll);
+    yield* moveCar(g, car, moves, drift, a.coast, die, fixed, mustMoveAll);
   }
   if (a.coast) car.coasts++; else car.moved = true;
   // Oil Dispenser, Mine Dispenser: after the move, a hazard in an adjacent empty space (three times per game).
@@ -1631,8 +1818,92 @@ function* turn(g: Game, p: Player): Gen<void> {
   else if (g.winner === null && car.status === 'ok' && car.pos) yield* shootFrom(g, p.id, car.pos, carName(g, car), car);
   yield* chopperCheck(g);
   g.activeCar = null;
-  // The player ends the turn with the End Turn button, so the next player does not start while
-  // they still look at what happened (asked by the user, 2026-11-18). A bot is never asked.
+}
+
+/**
+ * The Final Five's turn (BRaFF p7): two unused dice on two motorcycles, or once per round one on a
+ * motorcycle and one on a command (Step 2 as with a car, never when coasting). With no motorcycle
+ * left to move, a die coasts one of them (four times a round at most, twice in one turn if the
+ * player likes: each coast is a turn of its own, FAQ). Then the motorcycles move and shoot one
+ * after the other, in the order the player chooses.
+ */
+function* bikesTurn(g: Game, p: Player): Gen<void> {
+  g.current = p.id;
+  g.lastRoll = [];
+  g.fx = { bump: false, calledShot: false, slams: 0, flamethrower: false };
+  const ok = (): Vehicle[] => g.vehicles.filter(v => v.owner === p.id && v.status === 'ok');
+  const freeDice = (): number[] => {
+    const all = p.dice.map((_, i) => i).filter(i => !p.used[i]);
+    return all.filter(i => all.find(j => p.dice[j] === p.dice[i]) === i);
+  };
+  type Pick = { die: number; car: Vehicle; coast: boolean };
+  const picks: Pick[] = [];
+  let cmd: { die: number; cmd: CommandId } | null = null;
+  for (let n = 0; n < FF.turn.dice_per_turn && g.winner === null; n++) {
+    const fresh = ok().filter(v => !v.moved && !picks.some(x => x.car === v));
+    const assign: Pick[] = [];
+    if (fresh.length) for (const d of freeDice()) for (const car of fresh) assign.push({ die: d, car, coast: false });
+    else if (!cmd) {
+      for (const d of freeDice()) for (const car of ok()) {
+        if (car.coasts + picks.filter(x => x.car === car && x.coast).length < FF.turn.coast_max) assign.push({ die: d, car, coast: true });
+      }
+    }
+    // The command die goes with a motorcycle that moves, so only next to (or before) a move.
+    const cmds: { die: number; cmd: CommandId }[] = [];
+    if (!p.commandUsed && !cmd && (n === 0 ? fresh.length > 0 : picks.length === 1 && !picks[0].coast)) {
+      for (const d of freeDice()) for (const slot of commandsOf(p)) {
+        if (!p.slots[slot.id] && slot.values.includes(p.dice[d]) && canActivate(g, p, slot.id)) cmds.push({ die: d, cmd: slot.id });
+      }
+    }
+    if (!assign.length && !cmds.length) break;
+    if (n === 0) say(g, `— Turno di ${p.name} (round ${g.round}) —`, 'turn');
+    const i = yield* ask(g, {
+      kind: 'assign', player: p.id,
+      prompt: n === 0 ? `${p.name}: assegna un dado a una moto (${FF.turn.dice_per_turn} dadi per turno).` : `${p.name}: assegna il secondo dado.`,
+      options: [
+        ...assign.map(a => ({
+          label: `${a.coast ? 'Inerzia' : `Dado ${p.dice[a.die]}`} → ${vehicleLabel(a.car)}`,
+          die: a.die, carId: a.car.id, coast: a.coast, dieValue: p.dice[a.die], ...(a.car.pos ? { pos: a.car.pos } : {}),
+        })),
+        ...cmds.map(c => ({ label: `${COMMAND_NAME[c.cmd]} con il dado ${p.dice[c.die]}`, die: c.die, command: c.cmd, dieValue: p.dice[c.die] })),
+      ],
+    });
+    if (i < assign.length) {
+      const a = assign[i];
+      p.used[a.die] = true;
+      a.car.placed.push({ value: p.dice[a.die], coast: a.coast });
+      picks.push(a);
+    } else {
+      cmd = cmds[i - assign.length];
+      p.used[cmd.die] = true;
+      p.command = { cmd: cmd.cmd, value: p.dice[cmd.die] };
+      p.commandUsed = true;
+      p.slots[cmd.cmd] = 'die';
+    }
+  }
+  if (!picks.length) { say(g, `${p.name} non ha mosse disponibili e salta il turno.`, 'turn'); return; }
+  const mvs = picks.map(a => ({ moves: a.coast ? 1 : p.dice[a.die], drift: false }));
+  if (cmd && g.winner === null) {
+    say(g, `${p.name} attiva ${COMMAND_NAME[cmd.cmd]}.`, 'info');
+    g.activeCar = picks[0].car.id;
+    // Nitro: the motorcycle with the other die gains the moves.
+    yield* activate(g, p, cmd.cmd, p.dice[cmd.die], mvs[0]);
+  }
+  let order = picks.map((_, k) => k);
+  if (picks.length === 2 && picks[0].car !== picks[1].car && g.winner === null) {
+    const f = yield* ask(g, {
+      kind: 'first', player: p.id, prompt: `${p.name}: quale moto muove e spara per prima?`,
+      options: picks.map(a => ({ label: `Prima ${vehicleLabel(a.car)}`, carId: a.car.id, ...(a.car.pos ? { pos: a.car.pos } : {}) })),
+    });
+    order = [f, 1 - f];
+  }
+  for (const k of order) {
+    const a = picks[k];
+    if (g.winner !== null || p.out) break;
+    // A motorcycle put out of action before its move: the die is spent (FAQ, coasting).
+    if (a.car.status !== 'ok') { say(g, `${capital(carName(g, a.car))} non è più operativa: il dado è perso.`, 'info'); continue; }
+    yield* drive(g, p, a.car, a.coast, p.dice[a.die], mvs[k]);
+  }
   if (g.winner === null && !p.out) {
     yield* ask(g, { kind: 'endTurn', player: p.id, prompt: `${p.name}: fine del turno?`, options: [{ label: 'Fine turno' }] });
   }
@@ -1647,6 +1918,13 @@ function* chopperCheck(g: Game): Gen<void> {
     if (!pl.chopper) continue;
     for (const v of vehiclesAt(g, pl.chopper)) {
       if (!pl.chopper) break;
+      // Solid (BRaFF p5): one minor damage, and the chopper goes back to its owner.
+      if (isRig(v)) {
+        pl.chopper = null;
+        say(g, `Il Big Rig è Solido: l'elicottero di ${pl.name} torna al suo proprietario.`, 'info');
+        yield* rigHit(g, g.players[v.owner!], 'elicottero');
+        break;
+      }
       if (v.owner === pl.id && protocolOf(g, v.owner) >= 3) {
         pl.chopper = null;
         say(g, `Basic Protocol: l'elicottero di ${pl.name} lascia la strada a ${carName(g, v)}.`, 'info');
@@ -1728,17 +2006,20 @@ function* painTransfer(g: Game, p: Player): Gen<void> {
   }
 }
 
+/** A vehicle as an option label names it: its size for a car, its marking for a motorcycle. */
+const vehicleLabel = (v: Vehicle): string => (v.bike !== undefined ? `Moto ${FF.marking_names[v.bike]}` : `Auto ${SIZE_NAME[v.size]}`);
+
 function* repair(g: Game, p: Player): Gen<void> {
   const cars = repairable(g, p);
   if (!cars.length) return;
   const i = yield* ask(g, {
     kind: 'repair', player: p.id, prompt: `${p.name}: quale auto riparare?`,
-    options: cars.map(c => ({ label: `Auto ${SIZE_NAME[c.size]} (${c.damage.length} danni)`, carId: c.id, ...(c.pos ? { pos: c.pos } : {}) })),
+    options: cars.map(c => ({ label: `${vehicleLabel(c)} (${c.damage.length} danni)`, carId: c.id, ...(c.pos ? { pos: c.pos } : {}) })),
   });
   const c = cars[i];
   const fixedToken = c.damage.pop()!;
   discardCard(g, fixedToken); // CDR p4: its ongoing effect card goes to the discard pile too
-  g.damagePile.push(fixedToken);
+  if (fixedToken.type !== 'minor') g.damagePile.push(fixedToken);
   if (c.status === 'inop' && c.damage.length < limit(c)) { c.status = 'ok'; say(g, `${capital(carName(g, c))} torna operativa!`, 'good'); }
   else say(g, `${capital(carName(g, c))} è riparata.`, 'good');
 }
@@ -1753,6 +2034,361 @@ function* airstrike(g: Game, p: Player): Gen<void> {
   p.chopper = spaces[i];
   beat(g, 'chopper', { at: { ...p.chopper } });
   if (g.round > 1) yield* shootFrom(g, p.id, p.chopper, 'l\'elicottero');
+}
+
+// ---------------------------------------------------------------- the Big Rig
+
+// The Big Rig (The Big Rig and the Final Five, BRaFF p4-6; design/gdd/big-rig-final-five.md §3-8):
+// one road vehicle of three large sections that follow each other like a train. Its minor damage
+// tokens lie on the commands of its section board; six of them, or being dumped off the rear tile,
+// put it out, and the finish line comes at once.
+
+/** The Big Rig's sections of player `p`, front first. */
+function rigParts(g: Game, p: Player): Vehicle[] {
+  return TRAIN.map(sec => g.vehicles.find(v => v.owner === p.id && v.rig === sec)!);
+}
+
+/** The commands of section `v` a shot may aim at: targetable and not damaged yet (BRaFF p5), board order. */
+function rigAims(g: Game, v: Vehicle): string[] {
+  const p = g.players[v.owner!];
+  return BR.sections[v.rig!].filter(c => c.targetable).map(c => `${v.rig}:${c.id}`).filter(k => !p.rig!.damaged.includes(k));
+}
+
+/**
+ * One minor damage token on the Big Rig (BRaFF p5): on command `aim` (a shot), or on the command its
+ * player chooses. Six of them and the rig is out.
+ */
+function* rigHit(g: Game, p: Player, cause: string, aim?: string): Gen<void> {
+  const r = p.rig;
+  if (!r || p.out || g.winner !== null) return;
+  let k = aim;
+  if (!k) {
+    const free = RIG_BOARD.flatMap(sec => BR.sections[sec].map(c => `${sec}:${c.id}`)).filter(x => !r.damaged.includes(x));
+    if (!free.length) return;
+    const i = yield* ask(g, {
+      kind: 'rigDamage', player: p.id, prompt: `${p.name}: il Big Rig prende un danno minore (${cause}). Su quale comando?`,
+      options: free.map(x => ({ label: rigCmdName(x), rig: x })),
+    });
+    k = free[i];
+  }
+  r.damaged.push(k);
+  const part = rigParts(g, p).find(v => v.rig === k!.split(':')[0])!;
+  beat(g, 'damage', { vehicleId: part.id, token: { type: 'minor' }, ...(part.pos ? { at: { ...part.pos } } : {}) });
+  say(g, `Il Big Rig di ${p.name} prende un danno minore su ${rigCmdName(k)} (${r.damaged.length} di ${BR.damage.eliminated_at}).`, 'bad');
+  if (r.damaged.length >= BR.damage.eliminated_at) rigOut(g, p, `${BR.damage.eliminated_at} danni minori`);
+}
+
+/** The Big Rig is out (BRaFF p5): its player leaves the game and the lead tile becomes the final one. */
+function rigOut(g: Game, p: Player, why: string): void {
+  for (const v of rigParts(g, p)) {
+    beat(g, 'elim', { vehicleId: v.id, why, ...(v.pos ? { at: { ...v.pos } } : {}) });
+    v.status = 'elim';
+    v.pos = null;
+    v.inStart = false;
+  }
+  say(g, `Il Big Rig di ${p.name} è eliminato: ${why}.`, 'bad');
+  if (!g.finalTile) { g.finalTile = true; say(g, 'La tessera di testa diventa la tessera finale: arriva il traguardo!', 'info'); }
+  checkPlayers(g);
+}
+
+/**
+ * Sturdy, Dependable and fire (BRaFF p5): instead of being moved, stopped, eliminated or set on fire,
+ * the Big Rig takes one minor damage; the token on the space goes and the space is off-road from now on.
+ */
+function* rigShrug(g: Game, p: Player, at: Pos, why: string): Gen<void> {
+  const k = key(at), h = g.hazards.get(k);
+  if (h) { g.hazards.delete(k); g.hazardDiscard.push(h.type); }
+  g.offroad.add(k);
+  beat(g, 'reveal', { at: { ...at } });
+  say(g, `${why}: la casella diventa fuoristrada.`, 'info');
+  yield* rigHit(g, p, why.toLowerCase());
+}
+
+/**
+ * The front section enters `to` (BRaFF p5, Massive: only the spaces the front enters count). Returns
+ * true when the rig loses its remaining moves (a slam, the finish).
+ */
+function* rigEnter(g: Game, p: Player, front: Vehicle, to: Pos, ctx: { left: number; cow: boolean }): Gen<boolean> {
+  if (g.winner !== null) return true;
+  if (to.c >= COLS && to.r >= 0 && to.r < ROWS) {
+    if (g.finalTile) {
+      front.pos = { ...to };
+      g.winner = p.id;
+      say(g, `Il Big Rig di ${p.name} taglia il traguardo! ${p.name} VINCE!`, 'good');
+      return true;
+    }
+    advanceBoard(g);
+    if (p.out) return true;
+    to = { r: to.r, c: to.c - TILE_COLS };
+  }
+  front.pos = { ...to };
+  front.inStart = false;
+  front.z = ++g.zTop;
+  beat(g, 'move', { vehicleId: front.id, at: { ...to } });
+  const k = key(to);
+  const h = g.hazards.get(k);
+  if (h && !h.faceUp) {
+    h.faceUp = true;
+    beat(g, 'reveal', { at: { ...to } });
+    say(g, `Pericolo scoperto: ${HAZARD_NAME[h.type]}!`, 'info');
+    if (h.type === 'mud' && ctx.left > 0) { ctx.left--; say(g, 'Il Big Rig affonda nel fango: un movimento in più.', 'info'); }
+  }
+  if (h) {
+    switch (h.type) {
+      case 'wreck': {
+        g.hazards.delete(k); g.hazardDiscard.push('wreck');
+        g.vehicles.push({ id: `w${g.zTop}`, owner: null, size: 'S', isWreck: true, pos: { ...to }, inStart: false,
+          status: 'inop', damage: [], moved: false, coasts: 0, placed: [], z: front.z, upgrade: null, uses: 0 });
+        front.z = ++g.zTop;
+        break;
+      }
+      case 'mine':
+        // The mine's damage: one minor damage token; Sturdy keeps it moving (BRaFF p5).
+        g.hazards.delete(k); g.hazardDiscard.push('mine');
+        yield* rigHit(g, p, 'mina');
+        break;
+      case 'quake':
+        g.hazards.delete(k); g.hazardDiscard.push('quake');
+        yield* quake(g);
+        break;
+      case 'sand_worm':
+        g.hazards.delete(k); g.hazardDiscard.push('sand_worm');
+        sandWorm(g);
+        break;
+      case 'oil': yield* rigShrug(g, p, to, 'Olio, il Big Rig è Robusto'); break;
+      case 'desert_glass': yield* rigShrug(g, p, to, 'Vetro del deserto, il Big Rig è Robusto'); break;
+      case 'ramp': yield* rigShrug(g, p, to, 'Rampa, il Big Rig è Robusto'); break;
+      case 'fire': yield* rigShrug(g, p, to, 'Fuoco, il Big Rig non brucia'); break;
+      case 'pit_trap': yield* rigShrug(g, p, to, 'Trappola, il Big Rig è Affidabile'); break;
+      default: break;
+    }
+    if (p.out || g.winner !== null) return true;
+  }
+  // The printed ground, as the space is now.
+  const ground = terrainAt(g, to);
+  if (ground === 'X') yield* rigShrug(g, p, to, 'Invalicabile, il Big Rig è Affidabile');
+  else if (ground === 'G' || ground === 'D' || ground === 'P') yield* rigShrug(g, p, to, `${capital(TERRAIN_NAME[ground] ?? 'terreno')}, il Big Rig è Robusto`);
+  else if (ground === 'F') yield* rigShrug(g, p, to, 'Fuoco, il Big Rig non brucia');
+  if (p.out || g.winner !== null) return true;
+  const others = vehiclesAt(g, to).filter(v => v !== front);
+  if (!others.length) return false;
+  // Cow Catcher (BRaFF p6): the first time this turn, the vehicle goes front left or front right,
+  // chosen by its controller (a wreck: by the Big Rig's player).
+  if (ctx.cow) {
+    ctx.cow = false;
+    const o = others[others.length - 1];
+    const who = o.owner ?? p.id;
+    const sides = (['FL', 'FR'] as Dir[]).map(d => ({ d, q: neighbor(to, d) }));
+    const i = yield* ask(g, {
+      kind: 'cowCatcher', player: who, prompt: `${g.players[who].name}: Cow Catcher, dove va ${carName(g, o)}?`,
+      options: sides.map(x => ({ label: `${x.d === 'FL' ? 'Avanti-sinistra' : 'Avanti-destra'}${!onBoard(x.q) ? ' (fuori strada: eliminata)' : terrainAt(g, x.q) === 'X' ? ' (invalicabile: eliminata)' : ''}`,
+        pos: x.q, carId: o.id })),
+    });
+    say(g, `Cow Catcher: ${carName(g, o)} è spinta di lato.`, 'info');
+    yield* enter(g, o, sides[i].q, null, sides[i].d);
+    if (g.winner !== null) return true;
+    if (vehiclesAt(g, to).length < 2) return false;
+  }
+  // A slam: the other vehicle moves (see slam), the rig loses its remaining moves and takes no damage.
+  yield* slam(g, to);
+  return true;
+}
+
+/** A step option of the rig's front section, described like a car's. */
+function rigStep(g: Game, to: Pos, left: number, name: string): Option {
+  if (to.c >= COLS) return { label: `${name}: ${g.finalTile ? 'TRAGUARDO!' : 'nuova tessera'}`, pos: to };
+  const t = terrainAt(g, to);
+  const parts = [t === 'R' ? 'strada' : t === 'M' ? (left === 1 ? 'fango (ultimo movimento)' : 'fango, costa 2') : t === 'X' ? 'invalicabile (danno minore)' : TERRAIN_NAME[t] ?? 'fuoristrada'];
+  const h = g.hazards.get(key(to));
+  if (h) parts.push(h.faceUp ? HAZARD_NAME[h.type] : 'pericolo coperto');
+  if (vehiclesAt(g, to).length) parts.push('SLAM');
+  return { label: `${name}: ${parts.join(', ')}`, pos: to };
+}
+
+/**
+ * The Big Rig's move (BRaFF p4): `moves` spaces like a train, straight on unless the steering is
+ * spent on a lane change (one move each, FAQ). The road die only with Traction Drive.
+ */
+function* rigDrive(g: Game, p: Player, moves: number, traction: boolean, cow: boolean): Gen<void> {
+  const r = p.rig!;
+  const ctx = { left: moves, cow };
+  let roadUsed = !traction;
+  for (;;) {
+    while (ctx.left > 0 && !p.out && g.winner === null) {
+      const parts = rigParts(g, p), front = parts[0];
+      const start = front.inStart || !front.pos;
+      const targets: { to: Pos; dir: Dir; name: string }[] = start
+        ? Array.from({ length: ROWS }, (_, row) => ({ to: { r: row, c: 0 }, dir: 'F' as Dir, name: `Corsia ${row + 1}` }))
+        : [{ to: neighbor(front.pos!, 'F'), dir: 'F', name: 'Avanti' }];
+      if (!start && (r.steer ?? 0) > 0) {
+        for (const [d, name] of [['FL', 'Avanti-sinistra (sterzo)'], ['FR', 'Avanti-destra (sterzo)']] as [Dir, string][]) {
+          const q = neighbor(front.pos!, d);
+          // A lane change off the side of the road is never offered: only two things put the rig out.
+          if (q.r >= 0 && q.r < ROWS && q.c >= 0) targets.push({ to: q, dir: d, name });
+        }
+      }
+      const i = yield* ask(g, {
+        kind: 'step', player: p.id,
+        prompt: `${p.name}: muovi il Big Rig — ${ctx.left} ${ctx.left === 1 ? 'movimento' : 'movimenti'} rimasti${r.steer ? `, sterzo ${r.steer}` : ''}.`,
+        options: targets.map(t => rigStep(g, t.to, ctx.left, t.name)),
+      });
+      const tg = targets[i];
+      if (tg.dir !== 'F') {
+        r.steer = (r.steer ?? 0) - 1;
+        say(g, r.steer > 0 ? `Sterzo idraulico: cambio di corsia (ne restano ${r.steer}).` : 'Sterzo idraulico: ultimo cambio di corsia del round, il dado si toglie.', 'info');
+      }
+      const t = onBoard(tg.to) ? terrainAt(g, tg.to) : 'R';
+      ctx.left = Math.max(0, ctx.left - (t === 'M' ? 2 : 1));
+      // Like a train: each section takes the space of the one in front of it.
+      for (let k = parts.length - 1; k > 0; k--) {
+        const ahead = parts[k - 1];
+        parts[k].pos = ahead.pos ? { ...ahead.pos } : null;
+        parts[k].inStart = ahead.inStart;
+        if (parts[k].pos) beat(g, 'move', { vehicleId: parts[k].id, at: { ...parts[k].pos! } });
+      }
+      if (yield* rigEnter(g, p, front, tg.to, ctx)) ctx.left = 0;
+    }
+    if (roadUsed || p.out || g.winner !== null) break;
+    roadUsed = true;
+    // Traction Drive (BRaFF p6): the road die, whatever spaces the rig moved on.
+    const i = yield* ask(g, {
+      kind: 'roadDie', player: p.id, prompt: `Traction Drive! Usare il dado strada (+${g.roadDie})? Se lo usi devi muovere tutto.`,
+      options: [{ label: 'No, fermati qui' }, { label: `Sì, altri ${g.roadDie} movimenti`, dieValue: g.roadDie }],
+    });
+    if (i === 0) break;
+    ctx.left = g.roadDie;
+  }
+}
+
+/** The rear arc (BRaFF p4): the three spaces behind the rear section. */
+const rearArc = (q: Pos): Pos[] => [neighbor(q, 'BL'), neighbor(q, 'B'), neighbor(q, 'BR')];
+
+/** Missile Launcher (BRaFF p6): one shooting die against every vehicle on or around the space two ahead. */
+function* missileLauncher(g: Game, p: Player, front: Vehicle): Gen<void> {
+  if (!front.pos) return;
+  const x = neighbor(neighbor(front.pos, 'F'), 'F');
+  const spaces = [x, ...ALL_DIRS.map(d => neighbor(x, d))].filter(onBoard);
+  const hit = g.vehicles.filter(v => v.status !== 'elim' && v.owner !== p.id && spaces.some(q => samePos(q, v.pos)));
+  const f = rollFx(g, 'shooting', 'missile-launcher', x);
+  say(g, `Missile Launcher: dado sparo ${f === 'ANY' ? 'qualsiasi' : f === 'SM' ? 'piccola/media' : SIZE_NAME[f as Size]}.`, 'dice');
+  beat(g, 'shot', { from: { ...front.pos }, at: { ...x }, vehicleId: front.id });
+  for (const v of hit) {
+    if (g.winner !== null) return;
+    const ok = f === 'ANY' || f === v.size || (f === 'SM' && (v.size === 'S' || v.size === 'M'));
+    if (!ok) continue;
+    // BRaFF p3: a car hit places a minor damage token, not a damage token drawn.
+    if (v.isWreck || isBike(v) || isRig(v) || v.status !== 'ok') { yield* damage(g, v); continue; }
+    v.damage.push({ type: 'minor' });
+    beat(g, 'damage', { vehicleId: v.id, token: { type: 'minor' }, ...(v.pos ? { at: { ...v.pos } } : {}) });
+    say(g, `${capital(carName(g, v))} prende un danno minore dal Missile Launcher.`, 'bad');
+    if (v.damage.length >= limit(v)) yield* breakDown(g, v);
+  }
+}
+
+/** Repair (BRaFF p6): one minor damage token off this section, before moving. */
+function* rigRepair(g: Game, p: Player, sec: RigSection): Gen<void> {
+  const r = p.rig!;
+  const here = r.damaged.filter(k => k.startsWith(`${sec}:`));
+  if (!here.length) { say(g, `Riparazione: la ${SECTION_NAME[sec]} non ha danni.`, 'info'); return; }
+  let i = 0;
+  if (here.length > 1) {
+    i = yield* ask(g, { kind: 'repair', player: p.id, prompt: `${p.name}: quale danno togliere dalla ${SECTION_NAME[sec]}?`, options: here.map(k => ({ label: rigCmdName(k), rig: k })) });
+  }
+  r.damaged.splice(r.damaged.indexOf(here[i]), 1);
+  say(g, `Riparazione: tolto il danno da ${rigCmdName(here[i])}.`, 'good');
+}
+
+/**
+ * The Big Rig's turn (BRaFF p4): on the round's first turn a die on Hydraulic Steering; then a die on a
+ * command of a section not used yet this round; the command (if not damaged); the move; Missile
+ * Launcher and Hazard Dispenser; the shot from the front or the rear arc.
+ */
+function* rigTurn(g: Game, p: Player): Gen<void> {
+  g.current = p.id;
+  g.lastRoll = [];
+  g.fx = { bump: false, calledShot: false, slams: 0, flamethrower: false };
+  const r = p.rig!;
+  // One option per distinct value: dice of the same value are the same choice.
+  const freeDice = (): number[] => {
+    const all = p.dice.map((_, i) => i).filter(i => !p.used[i]);
+    return all.filter(i => all.find(j => p.dice[j] === p.dice[i]) === i);
+  };
+  g.activeCar = rigParts(g, p)[0].id;
+  say(g, `— Turno di ${p.name} (round ${g.round}) —`, 'turn');
+  if (r.steer === null && freeDice().length) {
+    const dice = freeDice();
+    const i = yield* ask(g, {
+      kind: 'steer', player: p.id, prompt: `${p.name}: un dado sullo sterzo idraulico (cambi di corsia del round).`,
+      options: dice.map(d => ({ label: `Sterzo idraulico: ${p.dice[d]}`, die: d, dieValue: p.dice[d] })),
+    });
+    p.used[dice[i]] = true;
+    r.steer = p.dice[dice[i]];
+    say(g, `${p.name} mette ${r.steer} sullo sterzo idraulico.`, 'info');
+  }
+  const assign: { die: number; key: string; sec: RigSection; id: string }[] = [];
+  for (const d of freeDice()) for (const sec of RIG_BOARD) {
+    if (r.used.includes(sec)) continue;
+    for (const c of BR.sections[sec]) if (c.slot === 'any' || c.slot.includes(p.dice[d])) assign.push({ die: d, key: `${sec}:${c.id}`, sec, id: c.id });
+  }
+  if (!assign.length) { say(g, `${p.name} non ha mosse disponibili e salta il turno.`, 'turn'); g.activeCar = null; return; }
+  const ai = yield* ask(g, {
+    kind: 'assign', player: p.id, prompt: `${p.name}: un dado su un comando di una sezione.`,
+    options: assign.map(a => ({ label: `Dado ${p.dice[a.die]} → ${rigCmdName(a.key)}${r.damaged.includes(a.key) ? ' (danneggiato: solo movimento)' : ''}`, die: a.die, dieValue: p.dice[a.die], rig: a.key })),
+  });
+  const a = assign[ai];
+  const value = p.dice[a.die];
+  p.used[a.die] = true;
+  r.used.push(a.sec);
+  r.placed[a.key] = value;
+  const live = !r.damaged.includes(a.key);
+  let traction = false, cow = false;
+  if (!live) say(g, `${rigCmdName(a.key)} è danneggiato: il Big Rig si muove soltanto.`, 'info');
+  else {
+    say(g, `${p.name} attiva ${rigCmdName(a.key)}.`, 'info');
+    if (a.id === 'repair') yield* rigRepair(g, p, a.sec);
+    else if (a.id === 'airstrike') yield* airstrike(g, p);
+    else if (a.id === 'traction_drive') traction = true;
+    else if (a.id === 'cow_catcher') cow = true;
+    else if (a.id === 'targeting_computer') g.fx.targeting = true;
+  }
+  if (g.winner === null && !p.out) {
+    say(g, `${p.name} muove il Big Rig di ${value}.`, 'info');
+    yield* rigDrive(g, p, value, traction, cow);
+  }
+  const [front, , rear] = rigParts(g, p);
+  if (live && a.id === 'missile_launcher' && g.winner === null && !p.out) {
+    // FAQ: nothing that uses the shooting die in the first round.
+    if (g.round === 1) say(g, 'Primo round: il Missile Launcher non si può usare.', 'info');
+    else yield* missileLauncher(g, p, front);
+  }
+  if (live && a.id === 'hazard_dispenser' && g.winner === null && !p.out && rear.pos) {
+    const free = rearArc(rear.pos).filter(q => onBoard(q) && isEmpty(g, q));
+    if (free.length && (g.hazardPile.length || g.hazardDiscard.length)) {
+      const i = yield* ask(g, {
+        kind: 'dispense', player: p.id, prompt: `${p.name}: Hazard Dispenser, lasciare un pericolo coperto dietro il Big Rig?`,
+        options: [{ label: 'Non lasciare' }, ...free.map(spaceOption)],
+      });
+      const type = i > 0 ? drawHazard(g) : null;
+      if (type) {
+        g.hazards.set(key(free[i - 1]), { type, faceUp: false });
+        beat(g, 'reveal', { at: { ...free[i - 1] } });
+        say(g, `Hazard Dispenser: un pericolo coperto in ${free[i - 1].r + 1}-${free[i - 1].c + 1}.`, 'info');
+      }
+    }
+  }
+  // Step 4 (BRaFF p5): one shot, at a target in the front arc or in the rear arc.
+  if (g.winner === null && !p.out) {
+    if (g.round === 1) say(g, 'Primo round: le armi non sono ancora attive, niente sparo.', 'info');
+    else if (front.pos) {
+      const arcs = [...frontArc(front.pos), ...(rear.pos ? rearArc(rear.pos) : [])];
+      yield* shootFrom(g, p.id, front.pos, 'il Big Rig', front, [], arcs);
+    }
+  }
+  yield* chopperCheck(g);
+  g.activeCar = null;
+  if (g.winner === null && !p.out) {
+    yield* ask(g, { kind: 'endTurn', player: p.id, prompt: `${p.name}: fine del turno?`, options: [{ label: 'Fine turno' }] });
+  }
 }
 
 // ---------------------------------------------------------------- TRV9000 (bots)
@@ -2029,10 +2665,13 @@ function* botTurn(g: Game, p: Player): Gen<void> {
 
 // ---------------------------------------------------------------- rounds
 
+/** A player's movement dice: the base game's four, or the dice of the player's crew (BRaFF p3). */
 function rollMovement(g: Game, p: Player, cause: string): void {
-  const n = base.movement_dice_per_player;
-  p.dice = rollDice(g, Array.from({ length: n }, () => ({ id: `move-${p.id}`, n: DICE.movement.length })), cause)
-    .map(f => DICE.movement[f]);
+  const own = p.team === 'final_five' ? FF.dice : p.team === 'big_rig' ? BR.dice : null;
+  const n = own ? own.count : base.movement_dice_per_player;
+  const faces = own ? own.faces : DICE.movement;
+  p.dice = rollDice(g, Array.from({ length: n }, () => ({ id: `move-${p.id}`, n: faces.length })), cause)
+    .map(f => faces[f]);
   p.used = p.dice.map(() => false);
 }
 
@@ -2050,11 +2689,14 @@ export function* play(g: Game): Gen<void> {
   if (g.dealUpgrades) yield* draftUpgrades(g);
   // Setup step 6: lowest total goes first; a tie for lowest rerolls everyone.
   for (;;) {
+    // Every crew rolls its own dice, the Final Five and the Big Rig too (decided by the user, 2026-11-18).
     for (const p of g.players) rollMovement(g, p, 'setup:first-player');
     const totals = g.players.map(p => p.dice.reduce((a, b) => a + b, 0));
     const low = Math.min(...totals);
+    const tie = totals.filter(t => t === low).length > 1;
+    beat(g, 'order', { order: { rolls: g.players.map(p => ({ player: p.id, values: [...p.dice] })), first: tie ? null : totals.indexOf(low) } });
     say(g, `Tiro iniziale: ${g.players.map((p, i) => `${p.name} ${totals[i]}`).join(', ')}.`, 'dice');
-    if (totals.filter(t => t === low).length === 1) { g.firstPlayer = totals.indexOf(low); break; }
+    if (!tie) { g.firstPlayer = totals.indexOf(low); break; }
     say(g, 'Pareggio per il totale più basso: tutti ritirano.');
   }
   // TRV9000: the bot's dice only decide who goes first (design/gdd/trv9000-bots.md, 1).
@@ -2067,6 +2709,7 @@ export function* play(g: Game): Gen<void> {
       // End of round: assigned command tokens go back to the supply.
       g.tokenSupply += Object.values(p.slots).filter(x => x === 'token').length;
       p.slots = {};
+      if (p.rig) Object.assign(p.rig, { steer: null, used: [], placed: {} });
       if (g.round > 1 && !p.out && !p.bot) rollMovement(g, p, `round-${g.round}`);
       // TRV9000: the round's card goes to the discards (design 2).
       if (p.bot) {
@@ -2102,7 +2745,7 @@ function* chooseLeaders(g: Game): Gen<void> {
   const ready = (need: string): boolean => (need === 'upgrades' ? g.dealUpgrades : need === 'carnage' ? !!g.carnage : false);
   const deck = shuffled(g, LEADERS.filter(l => (l.needs ?? []).every(ready)), 'crew-leaders');
   for (const p of g.players) {
-    if (p.leader || p.bot) continue;
+    if (p.leader || p.bot || p.team) continue;
     const hand = deck.splice(0, shoppe.leaders_dealt);
     if (!hand.length) break;
     const i = yield* ask(g, {
@@ -2155,7 +2798,7 @@ function* draftUpgrades(g: Game): Gen<void> {
   const kept: string[][] = g.players.map(() => []);
   // Bring the Bling (Ms. Betty): she keeps one card more than the others (the last one of her hand).
   // A TRV9000 team keeps none: its team card gives its upgrades (its hand still goes round the table).
-  const keeps = (p: Player): number => (p.bot ? 0 : shoppe.upgrades_kept + (hasPower(g, p.id, 'bring_the_bling') ? 1 : 0));
+  const keeps = (p: Player): number => (p.bot || p.team ? 0 : shoppe.upgrades_kept + (hasPower(g, p.id, 'bring_the_bling') ? 1 : 0));
   const rounds = Math.max(...g.players.map(keeps));
   for (let r = 0; r < rounds; r++) {
     g.draft = { round: r, hands, picks: g.players.map(p => r < keeps(p) && hands[p.id].length > 0) };
@@ -2176,7 +2819,7 @@ function* draftUpgrades(g: Game): Gen<void> {
   // (the interface lets the card be dragged onto the car). The last card goes on the last car.
   // Bring the Bling: the large car takes a second card (it appears twice among the places).
   const places = g.players.map(p => {
-    const own = g.vehicles.filter(v => v.owner === p.id);
+    const own = p.team ? [] : g.vehicles.filter(v => v.owner === p.id);
     return hasPower(g, p.id, 'bring_the_bling') ? [...own, ...own.filter(v => v.size === 'L')] : own;
   });
   const lefts = g.players.map(p => [...kept[p.id]]);
@@ -2201,7 +2844,7 @@ function* draftUpgrades(g: Game): Gen<void> {
   }
   g.assign = null;
   g.upgradeDeck = [...deck, ...hands.flat()];
-  for (const p of g.players) {
+  for (const p of g.players.filter(x => !x.team)) {
     say(g, `${p.name}: ${g.vehicles.filter(v => v.owner === p.id).map(v => `${SIZE_NAME[v.size]} ${upName(v.upgrade ?? '')}${v.upgrade2 ? ` + ${upName(v.upgrade2)}` : ''}`).join(', ')}.`, 'info');
   }
 }

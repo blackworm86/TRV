@@ -2,7 +2,7 @@
   "_comment": "How the game client presents the table: timings, camera shots, jumps, dice. Look and feel only: the rules never read this file. Lengths are in road spaces unless named otherwise, times in seconds at normal speed, angles in radians unless named otherwise. Each block names the module of src/app/ that reads it.",
   "beats": {
     "_module": "beats.ts: how long each beat of the rules lasts before the next one",
-    "seconds": { "move": 0.32, "roll": 1.15, "slam": 1.0, "shot": 1.7, "damage": 1.9, "elim": 1.5, "reveal": 0.8, "tile": 1.1, "round": 2.6, "chopper": 0.8, "jump": 1.4, "fire": 1.0 },
+    "seconds": { "order": 2.4, "move": 0.32, "roll": 1.15, "slam": 1.0, "shot": 1.7, "damage": 1.9, "elim": 1.5, "reveal": 0.8, "tile": 1.1, "round": 2.6, "chopper": 0.8, "jump": 1.4, "fire": 1.0 },
     "speed_scale": { "full": 0.6, "fast": 1.15, "skip": 1 }
   },
   "drive": {
@@ -122,6 +122,10 @@
     "rise": 0.36,
     "gulp": 0.58,
     "dive": 0.8
+  },
+  "bubbles": {
+    "_module": "hud.ts: the players' bubbles in turn order; seconds a bubble takes to slide to its new place when the order changes (the roll for the first player, a new round).",
+    "slide_s": 0.7
   },
   "turn_splash": {
     "_module": "app/turnsplash.ts: the \"Tocca a...\" band at the start of a person's turn; seconds before it goes by itself (a click or a key closes it sooner).",

@@ -102,6 +102,29 @@ describe('lobby', () => {
   });
 });
 
+describe('Final Five and Big Rig seats', () => {
+  it('starts a match with the team of each seat in the setup, one of each per match', async () => {
+    // Arrange: host (red) picks the Big Rig, the guest (blue) the Big Rig too.
+    const [host, guest] = await seated(2);
+    await host.write(roomPath(CODE, 'seats', 'u0', 'team'), 'big_rig');
+    await guest.write(roomPath(CODE, 'seats', 'u1', 'team'), 'big_rig');
+    expect(startProblem(await room(host))).toBe('teams');
+    // Act: the guest takes the Final Five instead, and the host starts.
+    await guest.write(roomPath(CODE, 'seats', 'u1', 'team'), 'final_five');
+    expect(startProblem(await room(host))).toBe(null);
+    await startMatch(host, CODE, await room(host), SEED, COLOR);
+    // Assert
+    const r = await room(host);
+    expect(r.setup!.players.map(p => p.team)).toEqual(['big_rig', 'final_five']);
+  });
+  it('ignores an unknown team and a team on a TRV9000 seat', () => {
+    const r = readRoom({ host: 'u0', seats: {
+      u0: { name: 'A', crew: 'red', joinedAt: 1, team: 'tank' }, 'trv9000-1': { name: 'TRV9000 1', crew: 'blue', joinedAt: 2, bot: true, team: 'big_rig' },
+      u1: { name: 'B', crew: 'green', joinedAt: 3, team: 'big_rig' } } })!;
+    expect(startProblem(r)).toBe(null);
+  });
+});
+
 describe('TRV9000 seats', () => {
   it('lets the host seat a team on a free crew, take it off, and not past four seats', async () => {
     // Arrange: host (red) and one guest (blue).

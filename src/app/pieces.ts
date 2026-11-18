@@ -2,7 +2,7 @@
 // GLB models of cars, choppers and wrecks, guns, glows, hazards.
 
 import * as THREE from 'three';
-import { snapshot, tileDef, TILE_COLS, type Snapshot } from '../game/trv/engine';
+import { snapshot, tileDef, TILE_COLS, type RigSection, type Snapshot } from '../game/trv/engine';
 import { BASE_CATALOG as CAT, sizeOf, ofKind } from '../game/trv/catalog';
 import { flameCluster, useRampModel, rampPiece } from '../view/terrain/carnage3d';
 import { pitPiece } from '../view/terrain/pit3d';
@@ -16,6 +16,7 @@ import { g } from './game';
 import { drawHud } from './hud';
 import { drawMarkers } from './markers';
 import { registerTextures } from './quality';
+import { drawMarking } from '../view/vector/markings';
 import { BOARD_X0, KX, MM, PITCH_W, TILE_H, TILE_T, TILE_W, pieces, scene, tileCache, tileSlots, world } from './stage';
 import { S } from './state';
 import { $ } from './util';
@@ -165,7 +166,7 @@ export function useModel(o: THREE.Group, url: string, lengthMm: number, tint: Ti
     if (WHEELS[url]) o.userData.rig = new CarRig(d, d.scale.x, size.y, phaseOf(id));
     o.userData.mats = collectMaterials(d);
     // Hides the placeholder only: the flames of a burning car (added before the model arrived) stay.
-    for (const c of o.children) if (c !== o.userData.flames) c.visible = false;
+    for (const c of o.children) if (c !== o.userData.flames && c !== o.userData.marking) c.visible = false;
     o.add(d);
     if (GUNS[url]) mountGun(o, d, GUNS[url]);
     o.userData.modelHeight = size.y;
@@ -176,11 +177,53 @@ export function useModel(o: THREE.Group, url: string, lengthMm: number, tint: Ti
   });
 }
 
-export function startSpot(v:{ owner: number | null; size: 'S' | 'M' | 'L' }): THREE.Vector3 {
-  const sizeIdx = { S: 0, M: 1, L: 2 }[v.size];
+export function startSpot(v: { owner: number | null; size: 'S' | 'M' | 'L'; bike?: number; rig?: RigSection }): THREE.Vector3 {
   const n = g!.players.length;
-  const z = ((v.owner ?? 0) - (n - 1) / 2) * 2.3 + (sizeIdx - 1) * 0.74;
+  // The Big Rig waits assembled, front first, in its crew's lane of the starting area (BRaFF p3).
+  if (v.rig) return new THREE.Vector3(BOARD_X0 - 0.7 - RIG_TRAIN.indexOf(v.rig) * RIG_GAP, TILE_T, ((v.owner ?? 0) - (n - 1) / 2) * 2.3);
+  // The Final Five's five motorcycles stand closer together than the three cars.
+  const lane = v.bike !== undefined ? (v.bike - 2) * 0.42 : ({ S: 0, M: 1, L: 2 }[v.size] - 1) * 0.74;
+  const z = ((v.owner ?? 0) - (n - 1) / 2) * 2.3 + lane;
   return new THREE.Vector3(BOARD_X0 - 1.0, TILE_T, z);
+}
+
+/** The Big Rig's sections, front first, and how far apart they wait in the starting area (world units). */
+const RIG_TRAIN: RigSection[] = ['front', 'mid', 'rear'];
+const RIG_GAP = 0.95;
+
+/** How far apart, across the road, the vehicles sharing a space with a motorcycle stand (world units). */
+const BESIDE = 0.3;
+
+/**
+ * The marking of a Final Five motorcycle (BRaFF p7) floating over it, always facing the camera, so
+ * the motorcycle a die moves is found at a glance.
+ */
+function markingSprite(k: number): THREE.Sprite {
+  const c = document.createElement('canvas');
+  c.width = c.height = 128;
+  const ctx = c.getContext('2d');
+  if (ctx) drawMarking(ctx, k, 128, '#f3e9d2');
+  const tex = new THREE.CanvasTexture(c);
+  tex.colorSpace = THREE.SRGBColorSpace;
+  const sp = new THREE.Sprite(new THREE.SpriteMaterial({ map: tex, depthTest: false, transparent: true }));
+  const size = SHOW_LENGTH_MM.bike * MM * 0.55;
+  sp.scale.set(size, size, 1);
+  sp.position.y = SHOW_LENGTH_MM.bike * MM * 0.9;
+  sp.renderOrder = 5;
+  return sp;
+}
+
+/** The off-road patches the Big Rig left, by space. */
+const offroadObjs = new Map<string, THREE.Mesh>();
+/** A patch of churned dirt the size of a space, slightly different on each space. */
+function offroadPatch(k: string): THREE.Mesh {
+  const r = GRID.pitch * KX * 0.5;
+  const geo = new THREE.CircleGeometry(r, 6);
+  geo.rotateX(-Math.PI / 2);
+  geo.rotateY(Math.PI / 6 + (k.length % 3) * 0.05);
+  const m = new THREE.Mesh(geo, new THREE.MeshStandardMaterial({ color: 0x5a4330, roughness: 1, transparent: true, opacity: 0.82 }));
+  m.renderOrder = 1;
+  return m;
 }
 
 /** Everything: the table as the rules have it now, the highlights and the interface. */
@@ -225,6 +268,17 @@ export function drawTable(s: Snapshot): void {
       }
     } else if (rec.ground) { rec.ground = undefined; rec.obj.setGround(null); }
   }
+  // Spaces the Big Rig churned into off-road (BRaFF p5): a patch of broken ground over the printed space.
+  const rough = new Set(s.offroad ?? []);
+  for (const [k, m] of offroadObjs) if (!rough.has(k)) { scene.remove(m); offroadObjs.delete(k); }
+  for (const k of rough) {
+    let m = offroadObjs.get(k);
+    if (!m) { m = offroadPatch(k); offroadObjs.set(k, m); scene.add(m); }
+    const [r, c] = k.split(',').map(Number);
+    m.position.copy(world({ r, c }));
+    m.position.x += GRID.tip / 2 * KX;
+    m.position.y += 0.002;
+  }
   // A hazard discarded after resolving (mine, wreck) stays face up for a moment, then goes.
   for (const [k, rec] of hazardObjs) if (!hz.has(k) && rec.gone === undefined) {
     rec.obj.setFaceUp(true);
@@ -233,6 +287,12 @@ export function drawTable(s: Snapshot): void {
 
   const seen = new Set<string>();
   const stackCount = new Map<string, number>();
+  // A motorcycle and the vehicles in its space stand side by side, not stacked (BRaFF p7).
+  const shared = new Map<string, { n: number; bike: boolean }>();
+  for (const v of s.vehicles) if (v.status !== 'elim' && v.pos) {
+    const k = `${v.pos.r},${v.pos.c}`, e = shared.get(k) ?? { n: 0, bike: false };
+    shared.set(k, { n: e.n + 1, bike: e.bike || (v.bike !== undefined && !v.isWreck) });
+  }
   const now = performance.now() / 1000;
   for (const v of [...s.vehicles].filter(x => x.status !== 'elim').sort((a, b) => a.z - b.z)) {
     seen.add(v.id);
@@ -241,6 +301,11 @@ export function drawTable(s: Snapshot): void {
       const comp = v.isWreck ? ofKind(CAT, 'wreck')[0] : ofKind(CAT, 'car', { car_size: v.size })[0];
       o = pieces.car(comp.size_mm, v.owner === null ? '#222' : g.players[v.owner].color, v.isWreck);
       if (v.isWreck) useModel(o, wreckModel(v.id), wreckLength(v.id), WRECK_TINT, v.id);
+      else if (v.bike !== undefined) {
+        useModel(o, MODEL.motorcycle, SHOW_LENGTH_MM.bike, crewTint(g.players[v.owner!].color), v.id);
+        o.userData.marking = markingSprite(v.bike);
+        o.add(o.userData.marking as THREE.Sprite);
+      } else if (v.rig) useModel(o, MODEL.bigRig[v.rig], SHOW_LENGTH_MM.bigRig, crewTint(g.players[v.owner!].color), v.id);
       else useModel(o, MODEL.car[v.size], SHOW_LENGTH_MM[v.size], crewTint(g.players[v.owner!].color), v.id);
       carObjs.set(v.id, o);
       scene.add(o);
@@ -261,7 +326,10 @@ export function drawTable(s: Snapshot): void {
       const k = `${v.pos.r},${v.pos.c}`;
       const n = stackCount.get(k) ?? 0;
       stackCount.set(k, n + 1);
-      target = world(v.pos).add(new THREE.Vector3(n * 0.12, (hz.has(k) ? HAZ_SIZE.thickness : 0) + n * 0.55, n * 0.08));
+      const here = shared.get(k)!;
+      target = here.bike
+        ? world(v.pos).add(new THREE.Vector3(0, hz.has(k) ? HAZ_SIZE.thickness : 0, (n - (here.n - 1) / 2) * BESIDE))
+        : world(v.pos).add(new THREE.Vector3(n * 0.12, (hz.has(k) ? HAZ_SIZE.thickness : 0) + n * 0.55, n * 0.08));
     } else target = startSpot(v);
     o.userData.target = target;
     // Inoperable: on one side (the game picks which, each time), smoking. A repair puts it back on its wheels.

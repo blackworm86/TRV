@@ -12,6 +12,14 @@ import { Level, settings } from './settings';
  * owns it). One object, so any module can change a field: an imported `let` is read-only.
  */
 export const S = {
+  /**
+   * The players' bubbles in turn order (asked by the user, 2026-11-18): while beats play, the order
+   * the table had before them, until the roll for the first player or a new round reorders them;
+   * null: the order of the round now (see hud.ts turnOrder).
+   */
+  bubbleOrder: null as number[] | null,
+  /** The order the bubbles were last drawn in (seat ids). */
+  shownOrder: [] as number[],
   camHome: null as { target: THREE.Vector3; dist: number } | null,
   focusDist: null as number | null,
   focusGoal: null as THREE.Vector3 | null,

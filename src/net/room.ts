@@ -14,7 +14,7 @@
  * information. It is meant for games among people who trust each other.
  */
 
-import type { Setup } from '../game/trv/engine';
+import type { Setup, Team } from '../game/trv/engine';
 
 /** A tree of JSON values addressed by slash-separated paths, with change notifications. */
 export interface RoomStore {
@@ -33,7 +33,16 @@ export interface RoomStore {
  * seat too, added by the host under a made-up key ({@link BOT_PREFIX}): nobody sits behind it, the
  * rules play it on every table alike, so it never sends intents.
  */
-export interface Seat { name: string; crew: string; joinedAt: number; bot?: true }
+export interface Seat {
+  name: string; crew: string; joinedAt: number; bot?: true;
+  /** The Final Five or the Big Rig instead of three cars (BRaFF p3); a person's seat only, one of each per match. */
+  team?: Team;
+}
+
+/** The crews that are not three cars, as a seat may pick them. */
+export const TEAMS: Team[] = ['final_five', 'big_rig'];
+/** The team a seat really plays: a known one, never on a TRV9000 seat. */
+const teamOf = (s: Seat): Team | undefined => (!s.bot && s.team && TEAMS.includes(s.team) ? s.team : undefined);
 
 /** What the host chooses before the start. */
 export interface RoomOptions {
@@ -200,12 +209,14 @@ export async function removeBot(store: RoomStore, code: string, id: string): Pro
 }
 
 /** Why the host cannot start yet, or null when it can. A match needs at least one person. */
-export function startProblem(room: Room): 'few' | 'many' | 'crews' | 'bots' | null {
+export function startProblem(room: Room): 'few' | 'many' | 'crews' | 'bots' | 'teams' | null {
   const seats = Object.values(room.seats);
   if (seats.length < MIN_PLAYERS) return 'few';
   if (seats.length > MAX_PLAYERS) return 'many';
   if (new Set(seats.map(s => s.crew)).size !== seats.length) return 'crews';
   if (seats.every(s => s.bot)) return 'bots';
+  // One Final Five and one Big Rig per match (confirmed by the user, 2026-11-18).
+  if (TEAMS.some(t => seats.filter(s => teamOf(s) === t).length > 1)) return 'teams';
   return null;
 }
 
@@ -220,7 +231,8 @@ export async function startMatch(store: RoomStore, code: string, room: Room, see
   const setup: Setup = {
     seed,
     players: order.map(uid => ({ name: room.seats[uid].name, color: color(room.seats[uid].crew), crew: room.seats[uid].crew,
-      ...(isBotSeat(room, uid) ? { bot: { protocol: room.options.botLevel ?? 1 } } : {}) })),
+      ...(isBotSeat(room, uid) ? { bot: { protocol: room.options.botLevel ?? 1 } } : {}),
+      ...(teamOf(room.seats[uid]) ? { team: teamOf(room.seats[uid]) } : {}) })),
     startSide: room.options.startSide,
     ...(room.options.leaders ? { leaders: true } : {}),
     ...(room.options.upgrades ? { upgrades: true } : {}),

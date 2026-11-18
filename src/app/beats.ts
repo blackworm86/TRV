@@ -12,13 +12,13 @@ import { burst, crash, explode, flash, impact, smokeOn, word } from './effects';
 import { wormEats } from './worm';
 import { drawBotCards } from './botcard';
 import { decision, g } from './game';
-import { drawHud, toastLine } from './hud';
+import { drawHud, toastLine, turnOrder } from './hud';
 import { damageUntil, showDamage, showRoll } from './info';
 import { drawTable, render } from './pieces';
 import { P } from './presentation';
 import { endReplay, replaying } from './replay';
-import { rollOnTable, showRound } from './rolls';
-import { settings } from './settings';
+import { rollOnTable, showOrder, showRound } from './rolls';
+import { SPEED_SCALE, settings } from './settings';
 import { TILE_W, world } from './stage';
 import { S } from './state';
 import { JumpStunt, hash01, pickStunt } from './stunts';
@@ -49,6 +49,10 @@ export function beatLength(f: Frame): number {
 /** Starts replaying the beats the last choice produced. */
 export function playBeats(frames: Frame[]): void {
   if (!frames.length) { render(); return; }
+  // The bubbles keep the order they had until the roll for the first player or the new round's
+  // beat comes up (then they slide into the new turn order, see applyBeat).
+  if (g && frames.some(f => f.kind === 'order')) S.bubbleOrder = g.players.map(p => p.id);
+  else if (frames.some(f => f.kind === 'round') && S.shownOrder.length && !S.bubbleOrder) S.bubbleOrder = [...S.shownOrder];
   queue.push(...frames);
   S.playing = true;
   S.nextBeatAt = 0;
@@ -72,6 +76,7 @@ export function skipBeats(): void {
   for (const td of fxSupply.values()) { td.t = 1; td.d.mesh.position.copy(td.to); td.d.mesh.quaternion.copy(td.q1); }
   queue.length = 0;
   $('roundbox').classList.remove('show');
+  document.getElementById('orderbox')?.classList.remove('show');
   finishBeats();
 }
 
@@ -86,6 +91,7 @@ export const FX_PENDING = new Set<string>([...FX_ASK, 'plow', 'rollCage', 'pickD
 
 export function finishBeats(): void {
   S.playing = false;
+  S.bubbleOrder = null;
   if (replaying) endReplay();
   // A question about the dice just rolled keeps the action camera close on them (it comes there
   // when the beats were skipped); any other moment brings the view back. Not a slam's: its dice lie
@@ -196,8 +202,22 @@ export function applyBeat(f: Frame, now: number): void {
     case 'chopper':
       if (at) impact(at, 0x9fd3ff, 1.2);
       break;
+    case 'order': {
+      // Shown for as long as the beat lasts at this speed; once the first player is known the
+      // bubbles slide into turn order while the panel is still up.
+      const len = beatLength(f) / SPEED_SCALE[settings.speed];
+      showOrder(f, len);
+      const first = f.order?.first;
+      if (g && first !== null && first !== undefined) {
+        const n = g.players.length;
+        window.setTimeout(() => { if (S.playing) { S.bubbleOrder = turnOrder(first, n); drawHud(); } }, len * 1000 * 0.6);
+      }
+      break;
+    }
     case 'round':
       showRound(f);
+      // The new round's turn order: the bubbles slide into it.
+      if (g && f.round) { S.bubbleOrder = turnOrder(f.round.roller, g.players.length); drawHud(); }
       break;
     default:
       break;

@@ -2,7 +2,7 @@
 // screen with their avatar in a circle over it (asked by the user, 2026-11-18, mock-up 2B without
 // the chopper). It goes by itself after a few seconds, or at a click or a key.
 
-import { type Decision, type Player } from '../game/trv/engine';
+import { finalFive, type Decision, type Player } from '../game/trv/engine';
 import { avatarSvg, inkOn } from '../view/vector/art';
 import { g, mySeat } from './game';
 import { PORTRAITS } from './info';
@@ -18,15 +18,22 @@ let timer = 0;
 /** Which of their turns of the round this is for `p` (1-3): the cars already moved or coasted, plus one. */
 function turnOfRound(p: Player): number {
   const cars = g!.vehicles.filter(v => v.owner === p.id);
-  return cars.filter(v => v.moved).length + cars.reduce((n, v) => n + v.coasts, 0) + 1;
+  const dice = cars.filter(v => v.moved).length + cars.reduce((n, v) => n + v.coasts, 0);
+  // The Final Five place two dice a turn (BRaFF p7), one of them maybe on a command.
+  // The Big Rig places one die a turn on a section not used yet this round (BRaFF p4).
+  if (p.rig) return p.rig.used.length + 1;
+  if (p.team === 'final_five') return Math.floor((dice + (p.commandUsed ? 1 : 0)) / finalFive().turn.dice_per_turn) + 1;
+  return dice + 1;
 }
 
 /** Shows the splash when `d` is the first question of a person's turn (never for a bot, never in a replay). */
 export function maybeTurnSplash(d: Decision | null): void {
-  if (!g || !d || replaying || d.kind !== 'assign' || d.player !== g.current || g.round < 1) return;
+  // While beats play (the roll for the first player, the round's dice) the splash waits for them.
+  if (!g || !d || replaying || S.playing || d.kind !== 'assign' || d.player !== g.current || g.round < 1) return;
   const p = g.players[d.player];
   if (p.bot) return;
-  const key = `${g.log.filter(l => l.kind === 'turn').length}:${g.current}`;
+  // The game's seed too: a new game whose first turn looks like the last one still gets its splash.
+  const key = `${S.saved?.setup.seed ?? ''}:${g.log.filter(l => l.kind === 'turn').length}:${g.current}`;
   if (key === shownFor) return;
   shownFor = key;
   showTurnSplash(p);

@@ -20,6 +20,9 @@ export const MODEL = {
   ramp: file('Ramp.glb'),
   /** Carnage at Devil's Run: the sand worm (Meshy, "Mawstone Mimic" with its texture, 2026-11-18: view/worm.ts poses it). */
   worm: file('sand_worm.glb'),
+  /** The Big Rig and the Final Five (made by the project owner, 2026-11-18, design/art/big-rig-prompts.md): nose toward -x. */
+  motorcycle: file('motorcycle.glb'),
+  bigRig: { front: file('big_rig_front.glb'), mid: file('big_rig_mid.glb'), rear: file('big_rig_rear.glb') },
 };
 
 /**
@@ -27,7 +30,7 @@ export const MODEL = {
  * a glance (asked by the user, 2026-11-15): the large car twice the small one, the medium halfway.
  * The large one fills a road space (about 46 mm). Wrecks count as small cars.
  */
-export const SHOW_LENGTH_MM = { S: 22, M: 33, L: 44, chopper: 50, wreck: 22 };
+export const SHOW_LENGTH_MM = { S: 22, M: 33, L: 44, chopper: 50, wreck: 22, bike: 24, bigRig: 44 };
 
 /**
  * The sand worm model, measured off its side view (model coordinates, y up, mouth toward +z): the

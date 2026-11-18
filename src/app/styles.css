@@ -46,6 +46,13 @@
   .pl .dice svg.used { opacity: .22; }
   .pl .botbadge { font: 700 10px system-ui, sans-serif; letter-spacing: 1.5px; color: #f3e6d0; background: color-mix(in srgb, var(--c) 45%, #000); border-radius: 5px; padding: 2px 7px; }
   .pl .cars { grid-column: 1 / -1; display: grid; grid-template-columns: repeat(3, 1fr); gap: 5px; margin-top: 6px; }
+  /* The Final Five's five motorcycles: narrower slots, the marking where a car has its size. */
+  /* The Big Rig's minor damage count, out of six (BRaFF p5). */
+  .pl .rigdmg { margin-left: auto; align-self: center; font: 700 12px system-ui, sans-serif; color: #f3e6d0; background: #1d2433; border: 1px solid #e0402f; border-radius: 8px; padding: 0 6px; }
+  .pl .cars.five { grid-template-columns: repeat(5, 1fr); gap: 3px; }
+  .pl .cars.five .car { width: 48px; height: 34px; }
+  .pl .cars.five .slot { grid-template-rows: 34px 22px; padding: 2px; }
+  .pl .sz .marking { display: block; }
   .pl .slot { position: relative; display: grid; grid-template-rows: 42px 26px; justify-items: center; gap: 2px; padding: 3px; border-radius: 9px; background: rgba(255,255,255,.05); }
   .pl .sz { position: absolute; left: 5px; top: 3px; font: 400 15px/1 'League Gothic', Impact, sans-serif; font-style: normal; color: #f3e6d0; opacity: .7; }
   .pl .car { position: relative; width: 75px; height: 42px; padding: 0; border: 0; background: none; cursor: pointer; }
@@ -398,6 +405,23 @@
 
   /* Dice are drawn in 3D by an overlay; their SVG stays for layout and clicks. */
   [data-die3d] { opacity: 0; }
+  /* The roll for the first player: in the middle of the screen, then the bubbles slide into turn order. */
+  #orderbox { position: fixed; left: 50%; top: 46%; transform: translate(-50%, -46%) scale(.94); opacity: 0; pointer-events: none; z-index: 40;
+    min-width: 560px; padding: 16px 22px 14px; border-radius: 16px; background: rgba(20,17,14,.94); border: 2px solid var(--acc); box-shadow: 0 18px 50px rgba(0,0,0,.6);
+    transition: opacity .3s ease, transform .3s ease; color: #f3e6d0; }
+  #orderbox.show { opacity: 1; transform: translate(-50%, -46%); }
+  #orderbox h2 { margin: 0; font-size: 34px; font-weight: 400; color: var(--acc); text-align: center; }
+  #orderbox p { margin: 2px 0 10px; text-align: center; font-size: 14px; opacity: .8; }
+  #orderbox p.again { margin: 10px 0 0; color: #ffb347; opacity: 1; font-weight: 600; }
+  #orderbox .row { display: grid; grid-template-columns: 34px 110px 1fr 44px 140px; align-items: center; gap: 10px; padding: 6px 8px; border-radius: 10px; }
+  #orderbox .row .av { width: 34px; height: 34px; }
+  #orderbox .row .name { font-size: 24px; color: var(--c); }
+  #orderbox .row .dice { display: flex; gap: 4px; flex-wrap: nowrap; min-width: 200px; }
+  #orderbox .row .dice svg { width: 30px; height: 30px; }
+  #orderbox .row .tot { font-size: 30px; text-align: right; }
+  #orderbox .row em { font-style: normal; font-size: 18px; color: var(--acc); }
+  #orderbox .row.first { background: color-mix(in srgb, var(--c) 28%, transparent); outline: 2px solid var(--c); }
+  #orderbox .row.tied em { color: #ffb347; }
   #roundbox { position: fixed; right: 12px; bottom: calc(var(--bottom) + 6px); transform: translate(12px, 0) scale(.96); opacity: 0; pointer-events: none;
     background: rgba(20,14,10,.94); border: 2px solid var(--acc); border-radius: 14px; padding: 10px 18px 14px; z-index: 6; transition: opacity .25s, transform .25s; }
   #roundbox.show { opacity: 1; transform: none; }

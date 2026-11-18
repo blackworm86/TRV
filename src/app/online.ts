@@ -4,7 +4,7 @@
 // replays the room's log of choices on its own copy of the rules; a guest's click becomes an
 // intent that the host checks and appends. The room stays open until the host closes it.
 
-import { leaders, upgrades } from '../game/trv/engine';
+import { leaders, upgrades, type Team } from '../game/trv/engine';
 import { BASE_CATALOG as CAT } from '../game/trv/catalog';
 import { newSeed } from '../platform/entropy';
 import { acceptable, addBot, isBotSeat, removeBot, BOT_LEVELS, undoable, backToLobby, cleanCode, closeRoom, createRoom, freeCrew, joinRoom, leaveRoom, readRoom, roomPath, startMatch, startProblem, MAX_PLAYERS, NAME_MAX, type Room, type RoomStore } from '../net/room';
@@ -96,7 +96,7 @@ export function onRoom(room: Room | null): void {
       // A match starts (or this device comes back to one): replay the whole log, without the show.
       clearTable();
       S.net.lobbyOpen = false;
-      startGame({ setup: room.setup, choices: room.log.slice() });
+      startGame({ setup: room.setup, choices: room.log.slice() }, room.log.length === 0);
     } else if (!S.net.host && room.log.length < S.saved.choices.length) {
       // The host took a choice back (Undo): the match is played again up to the shorter log. Not on
       // the host, who shortens the log itself and may read it before its own last write lands.
@@ -157,13 +157,21 @@ export function drawLobby(): void {
     const crew = mayPick
       ? `<select class="lcrew" data-seat="${esc(id)}">${CAT.crews.map(c => `<option value="${c.id}" ${c.id === s.crew ? 'selected' : ''} ${taken.has(c.id) ? 'disabled' : ''}>${esc(c.name)}</option>`).join('')}</select>`
       : `<small>${esc(CAT.crews.find(c => c.id === s.crew)?.name ?? s.crew)}</small>`;
+    // The crew is three cars, the Final Five or the Big Rig (BRaFF p3): one of each per match.
+    const others = new Set(ids.filter(x => x !== id).map(x => r.seats[x].team));
+    const team = bot ? '' : mine && !inGame
+      ? `<select class="lteam" data-seat="${esc(id)}">${[['', 'Auto'], ['final_five', 'Final Five (moto)'], ['big_rig', 'Big Rig']].map(([v, l]) => `<option value="${v}" ${(s.team ?? '') === v ? 'selected' : ''} ${v && others.has(v as Team) ? 'disabled' : ''}>${l}</option>`).join('')}</select>`
+      : s.team ? `<small>${s.team === 'big_rig' ? 'Big Rig' : 'Final Five'}</small>` : '';
     const tag = bot ? `<small class="bottag">TRV9000 · livello ${r.options.botLevel ?? 1}</small>` : '';
     const drop = bot && n.host && !inGame ? `<button class="ldrop" data-seat="${esc(id)}" title="Togli questa squadra TRV9000">✕</button>` : '';
-    return `<div class="seat ${bot ? 'bot' : ''}" style="--c:${crewColor(s.crew)}" data-i="${i}"><i></i><b>${esc(s.name)}</b>${id === r.host ? '<small>host</small>' : ''}${mine ? '<small>tu</small>' : ''}${tag}${crew}${drop}</div>`;
+    return `<div class="seat ${bot ? 'bot' : ''}" style="--c:${crewColor(s.crew)}" data-i="${i}"><i></i><b>${esc(s.name)}</b>${id === r.host ? '<small>host</small>' : ''}${mine ? '<small>tu</small>' : ''}${tag}${crew}${team}${drop}</div>`;
   }).join('') + (inGame ? '' : Array.from({ length: Math.max(0, MAX_PLAYERS - ids.length) }, () =>
     `<div class="seat empty"><i></i><b>posto libero</b>${n.host ? '<button class="laddbot" title="Una squadra giocata dalle carte TRV9000">+ TRV9000</button>' : ''}</div>`).join(''));
   for (const sel of $('lseats').querySelectorAll<HTMLSelectElement>('select.lcrew')) {
     sel.onchange = () => { void n.store.write(roomPath(n.code, 'seats', sel.dataset.seat!, 'crew'), sel.value).catch(netError); };
+  }
+  for (const sel of $('lseats').querySelectorAll<HTMLSelectElement>('select.lteam')) {
+    sel.onchange = () => { void n.store.write(roomPath(n.code, 'seats', sel.dataset.seat!, 'team'), sel.value || null).catch(netError); };
   }
   for (const b of $('lseats').querySelectorAll<HTMLButtonElement>('button.ldrop')) b.onclick = () => { void removeBot(n.store, n.code, b.dataset.seat!).catch(netError); };
   for (const b of $('lseats').querySelectorAll<HTMLButtonElement>('button.laddbot')) b.onclick = () => { void addBot(n.store, n.code, r, CREW_IDS, Date.now()).catch(netError); };
@@ -192,7 +200,7 @@ export function drawLobby(): void {
   $('lstate').textContent = inGame ? 'Partita in corso.'
     : !n.host ? 'In attesa che l’host inizi la partita…'
     : problem === 'few' ? 'Servono almeno due giocatori (anche un TRV9000).' : problem === 'crews' ? 'Due giocatori hanno lo stesso colore.' : problem === 'many' ? 'Troppi giocatori: massimo quattro.'
-    : problem === 'bots' ? 'Serve almeno una persona.' : 'Tutto pronto.';
+    : problem === 'bots' ? 'Serve almeno una persona.' : problem === 'teams' ? 'Final Five e Big Rig: uno solo per partita.' : 'Tutto pronto.';
   const show = (id: string, on: boolean): void => { $(id).style.display = on ? '' : 'none'; };
   show('lstart', n.host && !inGame);
   ($('lstart') as HTMLButtonElement).disabled = !!problem;

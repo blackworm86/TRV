@@ -190,6 +190,9 @@ Il modulo non ha formule numeriche proprie: tutti i numeri sono sulle carte. Le 
 - Choppe Shoppe: i poteri delle carte squadra riusano gli stessi effetti dei potenziamenti con lo
   stesso nome dove esistono.
 - Carnage at Devil's Run: terreni e fuoco.
+- The Big Rig and the Final Five (#33, `big-rig-final-five.md`): i bot non giocano quelle squadre ma
+  ci giocano contro; quando sparano al Big Rig colpiscono il primo comando bersagliabile non
+  danneggiato, nell'ordine della plancia (deciso dall'utente il 2026-11-18).
 - Creazione partita (#24) e server online (#27): scegliere i bot e la difficoltà, e muoverli dal
   server.
 - Questo documento dipende da `rules-core.md`; quel documento dovrà citare questo modulo.

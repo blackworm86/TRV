@@ -158,11 +158,39 @@ function onSpace(z: THREE.Vector3, p: THREE.Vector3): boolean {
   return Math.abs(p.x - z.x) < GRID.pitch * KX / 2 + die && Math.abs(p.z - z.z) < GRID.rowPitch * KZ / 2 + die;
 }
 
+/**
+ * The roll for the first player (setup step 6), in the middle of the screen (asked by the user,
+ * 2026-11-18): each crew's dice and total, the lowest marked as the first player, or the tie that
+ * makes everyone roll again. The bubbles then slide into turn order (hud.ts).
+ */
+export function showOrder(f: Frame, seconds: number): void {
+  if (!g || !f.order) return;
+  const o = f.order;
+  let box = document.getElementById('orderbox');
+  if (!box) { box = document.createElement('div'); box.id = 'orderbox'; document.body.appendChild(box); }
+  const t0 = performance.now();
+  const totals = o.rolls.map(r => r.values.reduce((a, b) => a + b, 0));
+  const low = Math.min(...totals);
+  box.innerHTML = `<h2 class="gothic">Tiro per l’ordine di turno</h2><p>Parte per primo chi fa il totale più basso</p>`
+    + o.rolls.map((r, k) => {
+      const p = g!.players[r.player];
+      const first = o.first === r.player, tied = o.first === null && totals[k] === low;
+      return `<div class="row${first ? ' first' : ''}${tied ? ' tied' : ''}" style="--c:${p.color}"><div class="av">${avatarSvg(p.color, p.name)}</div><span class="gothic name">${esc(p.name)}</span>`
+        + `<span class="dice">${r.values.map((v, j) => dieHtml('movement', v, p.color, '', `data-roll="${t0 + k * 160 + j * 50}"`)).join('')}</span>`
+        + `<b class="gothic tot">${totals[k]}</b>${first ? '<em class="gothic">PARTE PER PRIMO</em>' : tied ? '<em class="gothic">PAREGGIO</em>' : '<em></em>'}</div>`;
+    }).join('')
+    + (o.first === null ? '<p class="again">Pareggio per il totale più basso: si ritira.</p>' : '');
+  box.classList.add('show');
+  window.clearTimeout(Number(box.dataset.timer ?? 0));
+  box.dataset.timer = String(window.setTimeout(() => box!.classList.remove('show'), seconds * 1000));
+}
+
 /** Start of a round: every crew rolls its movement dice, the first player rolls the road die. */
 export function showRound(f: Frame): void {
   if (!g || !f.round) return;
   const r = f.round;
   const t0 = performance.now();
+  document.getElementById('orderbox')?.classList.remove('show'); // the roll for the first player is over
   const box = $('roundbox');
   box.innerHTML = `<h2 class="gothic">Round ${r.n}</h2>` + r.dice.map((d, k) => {
     const p = g!.players[d.player];

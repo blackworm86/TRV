@@ -4,7 +4,9 @@
 // Pointing at a piece shows it large, under it and centred on the pointer, like the commands'
 // pop-up; pointing at the avatar shows the leader's power; a click on a car takes the view to it.
 
-import { botTeams, leaderOf, upgrades, type Player, type Vehicle } from '../game/trv/engine';
+import { RIG_BOARD, bigRig, botTeams, finalFive, leaderOf, upgrades, type Player, type Vehicle } from '../game/trv/engine';
+import { minorTokenSvg } from '../view/vector/ffboards';
+import { markingSvg } from '../view/vector/markings';
 import { ongoingCardSvg, ongoingCardText } from '../view/cards';
 import { avatarSvg, carSvg, commandTokenSvg, damageTokenSvg, dieSvg, onFireTokenSvg } from '../view/vector/art';
 import { carObjs } from './board';
@@ -16,6 +18,8 @@ import { focusOn } from './keys';
 import { $, esc } from './util';
 
 const SIZE: Record<string, string> = { S: 'piccola', M: 'media', L: 'grande' };
+/** The Big Rig's sections in a bubble: rear trailer, middle trailer, front cab. */
+const RIG_TAG: Record<string, string> = { rear: 'POS', mid: 'CEN', front: 'MOT' };
 /** An upgrade with a card of its own (Choppe Shoppe); a TRV9000 team's others are its team card's powers. */
 const hasCard = (id: string): boolean => upgrades().some(u => u.id === id);
 /** Onboard Computer: the car's damage tokens stay face down, without effect. */
@@ -35,14 +39,23 @@ function carSlot(p: Player, v: Vehicle, redraw: () => void): string {
         : `<span class="pc team" data-tip="team" data-vid="${v.id}" data-up="${u}">★</span>`;
     }
     v.damage.forEach((t, i) => {
+      // A motorcycle's minor damage token (BRaFF p3, p7).
+      if (t.type === 'minor') { pcs += `<span class="pc dmg" data-tip="dmg" data-vid="${v.id}" data-i="${i}">${minorTokenSvg()}</span>`; return; }
       pcs += t.card && !faceDown(v)
         ? `<span class="pc og" data-tip="og" data-vid="${v.id}" data-i="${i}">${ongoingCardSvg({ id: t.card, name: ongoingCardText(t.card)[0], text: '', key: `b${v.id}${i}` })}</span>`
         : `<span class="pc dmg" data-tip="dmg" data-vid="${v.id}" data-i="${i}">${damageTokenSvg(faceDown(v) ? null : t.type, !faceDown(v), t.dir)}</span>`;
     });
+    // The Big Rig's minor damage tokens lie on its section board, on the commands of each section (BRaFF p5).
+    if (v.rig) for (const k of p.rig?.damaged.filter(x => x.startsWith(`${v.rig}:`)) ?? []) {
+      pcs += `<span class="pc dmg" title="${esc(`Danno minore su ${bigRig().commandName[k.split(':')[1]] ?? k}`)}">${minorTokenSvg()}</span>`;
+    }
     if (v.onFire) pcs += `<span class="pc fire" data-tip="fire" data-vid="${v.id}">${onFireTokenSvg()}</span>`;
   }
-  return `<div class="slot ${st}"><i class="sz">${v.size}</i>`
-    + `<button class="car" data-vid="${v.id}" ${gone ? 'disabled' : ''}>${pic ? `<img src="${pic}" alt="Auto ${SIZE[v.size]}">` : carSvg(v.size, p.color)}${gone ? '<em class="x">✕</em>' : ''}</button>`
+  // A Final Five motorcycle shows its marking where a car shows its size.
+  const tag = v.bike !== undefined ? markingSvg(v.bike, 15) : v.rig ? RIG_TAG[v.rig] : v.size;
+  const alt = v.bike !== undefined ? `Moto ${finalFive().marking_names[v.bike]}` : v.rig ? `Big Rig: ${bigRig().sectionName[v.rig]}` : `Auto ${SIZE[v.size]}`;
+  return `<div class="slot ${st}"><i class="sz">${tag}</i>`
+    + `<button class="car" data-vid="${v.id}" ${gone ? 'disabled' : ''}>${pic ? `<img src="${pic}" alt="${alt}">` : carSvg(v.size, p.color)}${gone ? '<em class="x">✕</em>' : ''}</button>`
     + `<div class="pcs">${pcs}</div></div>`;
 }
 
@@ -57,12 +70,15 @@ export function bubbleHtml(p: Player, cls: string, redraw: () => void): string {
   const dice = p.bot
     ? `<span class="botbadge">TRV9000 · LIVELLO ${p.bot.protocol}</span>`
     : p.dice.map((v, i) => dieSvg({ kind: 'movement', value: v, color: p.color, forward: 'right', number: true, ui: true }, `class="${p.used[i] ? 'used' : ''}"`)).join('');
-  const cars = g!.vehicles.filter(v => v.owner === p.id).sort((a, b) => 'SML'.indexOf(a.size) - 'SML'.indexOf(b.size)).map(v => carSlot(p, v, redraw)).join('');
+  const order = (v: Vehicle): number => (v.rig ? RIG_BOARD.indexOf(v.rig) : 'SML'.indexOf(v.size));
+  const cars = g!.vehicles.filter(v => v.owner === p.id).sort((a, b) => order(a) - order(b)).map(v => carSlot(p, v, redraw)).join('');
+  // The Big Rig is out at six minor damage tokens (BRaFF p5): the count beside the name.
+  const rigCount = p.rig ? `<span class="rigdmg" title="Danni minori del Big Rig">${p.rig.damaged.length}/${bigRig().damage.eliminated_at}</span>` : '';
   const tip = l || p.bot ? `data-tip="av" data-p="${p.id}"` : '';
-  return `<div class="bubble pl ${cls}" style="--c:${p.color}">`
+  return `<div class="bubble pl ${cls}" data-p="${p.id}" style="--c:${p.color}">`
     + `<div class="av" ${tip}>${pic ? `<img src="${pic}" alt="${esc(l!.name)}">` : avatarSvg(p.color, p.name)}</div>`
-    + `<div class="hd"><b class="gothic">${esc(p.name)}</b>${toks}</div>`
-    + `<div class="dice">${dice}</div><div class="cars">${cars}</div></div>`;
+    + `<div class="hd"><b class="gothic">${esc(p.name)}</b>${rigCount}${toks}</div>`
+    + `<div class="dice">${dice}</div><div class="cars${p.team === 'final_five' ? ' five' : ''}">${cars}</div></div>`;
 }
 
 // ---------------------------------------------------------------- the pop-ups
@@ -87,7 +103,7 @@ function tipFor(el: HTMLElement): { html: string; card: boolean } | null {
   const v = g.vehicles.find(x => x.id === el.dataset.vid);
   if (!v) return null;
   const owner = v.owner !== null ? g.players[v.owner] : null;
-  const whose = `auto ${SIZE[v.size]}${owner ? ` di ${esc(owner.name)}` : ''}`;
+  const whose = `${v.bike !== undefined ? `moto ${finalFive().marking_names[v.bike]}` : `auto ${SIZE[v.size]}`}${owner ? ` di ${esc(owner.name)}` : ''}`;
   if (kind === 'up') return { card: true, html: `${cardHtml(el.dataset.up!, owner?.color ?? '#888')}<div class="cap">${v.status === 'ok' ? '' : 'Non attiva: '}${whose}</div>` };
   if (kind === 'team') {
     const team = owner?.bot ? botTeams().find(t => t.id === owner.bot!.team) as unknown as (Record<string, { text: string }> & { name: string }) | undefined : undefined;
@@ -97,6 +113,7 @@ function tipFor(el: HTMLElement): { html: string; card: boolean } | null {
   if (kind === 'og' || kind === 'dmg') {
     const t = v.damage[Number(el.dataset.i)];
     if (!t) return null;
+    if (t.type === 'minor') return { card: false, html: `<div class="tokbig">${minorTokenSvg()}</div><b>Danno minore</b><small>Danno · ${whose}</small><p>Occupa uno spazio danno e non fa altro. Una moto danneggiata è fuori uso finché non viene riparata.</p>` };
     if (kind === 'og' && t.card) {
       const [name, text] = ongoingCardText(t.card);
       return { card: true, html: `<div class="ogbig">${ongoingCardSvg({ id: t.card, name, text, key: 'tipbig' })}</div><div class="cap">Effetto continuo · ${whose}</div>` };

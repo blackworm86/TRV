@@ -1,10 +1,11 @@
 // Popups that explain: rolled dice, damage tokens and their cards, leader portraits, upgrade
 // and ongoing card texts, the command board lines.
 
-import { leaderOf, commandsOf, leaders, commandName, upgrades, type CommandSlot, type Player, type Frame } from '../game/trv/engine';
+import { leaderOf, commandsOf, leaders, commandName, upgrades, finalFive, bigRig, type CommandSlot, type Player, type Frame } from '../game/trv/engine';
 import { ongoingCardSvg, ongoingCardText } from '../view/cards';
 import CARD_TEXT from '../../data/trv/cards_it.json';
 import { damageTokenSvg } from '../view/vector/art';
+import { minorTokenSvg } from '../view/vector/ffboards';
 import { tagCar } from './effects';
 import { g } from './game';
 import { dieHtml } from './hud';
@@ -126,7 +127,7 @@ export function slotText(s: CommandSlot): string {
 }
 /** A crew leader's commands as the command board draws them. */
 export function boardCommands(p: Player): { cmd: string; name: string; slot: string; lines: string[] }[] | undefined {
-  if (!leaderOf(p)) return undefined;
+  if (!leaderOf(p) && !p.team) return undefined;
   return commandsOf(p).map(s => ({ cmd: s.id, name: commandName(s.id).toUpperCase(), slot: slotText(s), lines: CMD_LINES[s.id] ?? [] }));
 }
 
@@ -176,17 +177,23 @@ export function showDamage(f: Frame): void {
   }
   const v = g.vehicles.find(x => x.id === f.vehicleId);
   const owner = v && v.owner !== null ? g.players[v.owner] : null;
-  const who = v ? `Auto ${{ S: 'piccola', M: 'media', L: 'grande' }[v.size]}${owner ? ` di ${owner.name}` : ''}` : '';
-  const [name, does] = f.token ? DAMAGE_INFO[f.token.type] ?? [f.token.type, ''] : ['Danno', 'Nessun segnalino rimasto nella pila.'];
+  const what = v?.bike !== undefined ? `Moto ${finalFive().marking_names[v.bike]}` : v?.rig ? `Big Rig (${bigRig().sectionName[v.rig]})` : v ? `Auto ${{ S: 'piccola', M: 'media', L: 'grande' }[v.size]}` : '';
+  const who = v ? `${what}${owner ? ` di ${owner.name}` : ''}` : '';
+  // The Big Rig and the Final Five take minor damage tokens (BRaFF p3): no effect but a full slot.
+  const minor = f.token?.type === 'minor';
+  const [name, does] = minor && v?.rig ? ['Danno minore', `Copre un comando del Big Rig: da ora quel comando fa solo muovere. A ${bigRig().damage.eliminated_at} danni il Big Rig è eliminato.`]
+    : minor ? ['Danno minore', 'Nessun effetto: occupa uno spazio danno. Una moto è fuori uso finché non viene riparata.']
+    : f.token ? DAMAGE_INFO[f.token.type] ?? [f.token.type, ''] : ['Danno', 'Nessun segnalino rimasto nella pila.'];
+  const tok = minor ? minorTokenSvg() : f.token ? damageTokenSvg(f.token.type, true, f.token.dir as never) : damageTokenSvg(null, false);
   const el = $('rolls');
   // CDR p4: an ongoing effect token comes with its card; the card is what the player must read.
   const card = f.token?.card as string | undefined;
   el.innerHTML = `<div class="roll dmg${card ? ' withcard' : ''}" style="--c:${owner?.color ?? '#d42f30'}"><small>${esc(who)} · danno</small>`
-    + `<i class="tok">${f.token ? damageTokenSvg(f.token.type, true, f.token.dir as never) : damageTokenSvg(null, false)}</i>`
+    + `<i class="tok">${tok}</i>`
     + `<b>${esc(name)}</b><span>${esc(does)}</span>${card ? ongoingCardHtml(card) : ''}</div>`;
   el.classList.add('show');
   // In the scene, a small label over the car says which damage it took; the panel (off the scene) has the details.
-  if (v) tagCar(v.id, `<i>${f.token ? damageTokenSvg(f.token.type, true, f.token.dir as never) : damageTokenSvg(null, false)}</i><span>${esc(card ? ONGOING_INFO[card]?.[0] ?? name : name)}</span>`, owner?.color ?? '#d42f30', card ? 8000 : 4500);
+  if (v) tagCar(v.id, `<i>${tok}</i><span>${esc(card ? ONGOING_INFO[card]?.[0] ?? name : name)}</span>`, owner?.color ?? '#d42f30', card ? 8000 : 4500);
   clearTimeout(rollsTimer);
   rollsTimer = window.setTimeout(() => el.classList.remove('show'), card ? 8000 : 4500);
   damageUntil = performance.now() + (card ? 8000 : 4500);

@@ -1,6 +1,6 @@
 // The first screen and the hot seat setup (players, crews, expansions), and starting a game.
 
-import { leaders, upgrades } from '../game/trv/engine';
+import { leaders, upgrades, type Team } from '../game/trv/engine';
 import { BASE_CATALOG as CAT } from '../game/trv/catalog';
 import { newSeed } from '../platform/entropy';
 import { skipBeats } from './beats';
@@ -27,7 +27,8 @@ for (let i = 0; i < 4; i++) {
   name.value = CAT.crews[i].name;
   name.after(sel);
   const kind = document.createElement('select');
-  kind.innerHTML = '<option value="person">Persona</option><option value="bot">TRV9000</option>';
+  // The Big Rig and the Final Five (BRaFF p3): a person plays them instead of three cars, one row each.
+  kind.innerHTML = '<option value="person">Persona</option><option value="final_five">Persona: Final Five (moto)</option><option value="big_rig">Persona: Big Rig</option><option value="bot">TRV9000</option>';
   kind.title = 'Chi gioca questa squadra';
   kind.onchange = syncNames;
   kindSelects.push(kind);
@@ -52,6 +53,9 @@ export function syncNames(): void {
   for (let i = 0; i < 4; i++) {
     const taken = new Set(crewSelects.slice(0, n).filter((_, j) => j !== i).map(x => x.value));
     for (const o of crewSelects[i].options) o.disabled = taken.has(o.value);
+    // One Final Five and one Big Rig per game (confirmed by the user, 2026-11-18).
+    const teams = new Set(kindSelects.slice(0, n).filter((_, j) => j !== i).map(k => k.value));
+    for (const o of kindSelects[i].options) if (o.value !== 'person' && o.value !== 'bot') o.disabled = teams.has(o.value);
   }
 }
 /** Gives row `i` crew `id`; a name still equal to the old colour's name follows the new colour. */
@@ -141,11 +145,13 @@ $('start').onclick = () => {
   if (!seed.ok) { alert('Il browser non fornisce numeri casuali sicuri: impossibile iniziare.'); return; }
   const players = crews.map((crew, i) => {
     const c = CAT.crews.find(x => x.id === crew)!;
-    return { name: ($(`n${i}`) as HTMLInputElement).value.trim() || c.name, color: c.color, crew, ...(bots[i] ? { bot: { protocol } } : {}) };
+    const k = kindSelects[i].value;
+    const team = k === 'final_five' || k === 'big_rig' ? { team: k as Team } : {};
+    return { name: ($(`n${i}`) as HTMLInputElement).value.trim() || c.name, color: c.color, crew, ...(bots[i] ? { bot: { protocol } } : {}), ...team };
   });
   clearTable();
   $('setup').style.display = 'none';
   const leaders = ($('leaders') as HTMLInputElement).checked, cards = ($('upgrades') as HTMLInputElement).checked;
   const carnage = ($('carnage') as HTMLInputElement).checked;
-  startGame({ setup: { seed: seed.value, players, startSide: ($('side') as HTMLSelectElement).value as 'a' | 'b', ...(leaders ? { leaders } : {}), ...(cards ? { upgrades: cards } : {}), ...(carnage ? { carnage } : {}) }, choices: [] });
+  startGame({ setup: { seed: seed.value, players, startSide: ($('side') as HTMLSelectElement).value as 'a' | 'b', ...(leaders ? { leaders } : {}), ...(cards ? { upgrades: cards } : {}), ...(carnage ? { carnage } : {}) }, choices: [] }, true);
 };

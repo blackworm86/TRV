@@ -1,12 +1,14 @@
 // The 2D interface: the players' bubbles, the prompt, the toasts and the log drawer, the
 // player's strip with command board and dashboards, the winner's card.
 
-import { leaderOf, leaders, commandName, type Decision, type LogEntry, type Frame, type Vehicle } from '../game/trv/engine';
+import { leaderOf, leaders, commandName, finalFive, bigRig, RIG_BOARD, type Player, type Decision, type LogEntry, type Frame, type Vehicle } from '../game/trv/engine';
 import { drawBotCards } from './botcard';
 import { bubbleHtml } from './bubbles';
 import { maybeTurnSplash } from './turnsplash';
 import { ongoingIllustration, upgradeIllustration } from '../view/cards';
 import { damageTokenSvg, dieSvg, hazardTokenSvg, commandTokenSvg, dashboardSvg, commandBoardSvg, playerStripSvg, dataUrl } from '../view/vector/art';
+import { ffStripSvg } from '../view/vector/ffboards';
+import { rigStripSvg, type RigBoardArt } from '../view/vector/rigboard';
 import { FX_ASK } from './beats';
 import { carObjs } from './board';
 import { chase, chaseButtons } from './chase';
@@ -18,6 +20,7 @@ import { focusOn } from './keys';
 import { fit } from './mapView';
 import { drawMarkers } from './markers';
 import { syncFxSupply } from './rolls';
+import { P } from './presentation';
 import { S } from './state';
 import { syncTableDice } from './tableDice';
 import { $, esc } from './util';
@@ -118,10 +121,17 @@ export function drawHud(): void {
   $('roundinfo').innerHTML = `<small>ROUND</small><b class="gothic">${g.round}</b><span>${g.finalTile ? 'ultima tessera' : `tessera ${g.tilesPlaced}`}</span>`;
   // A bubble per player in seating order (the one on turn glows): avatar and name; under them the
   // dice (available and used); under those the cars with their state. Pointing at a car shows it.
-  $('players').innerHTML = g.players.map(p => {
+  // In turn order, from the round's first player (asked by the user, 2026-11-18); when the order
+  // changes (the roll for the first player, a new round) the bubbles slide to their new places.
+  const order = S.bubbleOrder ?? turnOrder(g.firstPlayer, g.players.length);
+  const box = $('players');
+  const before = new Map([...box.querySelectorAll<HTMLElement>('.bubble[data-p]')].map(el => [el.dataset.p!, el.getBoundingClientRect().left]));
+  box.innerHTML = order.map(i => g!.players[i]).map(p => {
     const turn = p.id === g!.current && g!.winner === null, decides = !!d && d.player === p.id;
     return bubbleHtml(p, `${turn ? 'turn' : ''} ${decides ? 'decides' : ''} ${p.out ? 'out' : ''}`, drawHud);
   }).join('');
+  if (order.join() !== S.shownOrder.join() && S.shownOrder.length) slideBubbles(box, before);
+  S.shownOrder = order;
   // During a replay the beats keep the bots' cards in step with the table.
   if (!S.playing) drawBotCards();
   $('roaddie').innerHTML = g.roadDie ? dieHtml('road', g.roadDie, undefined) : '';
@@ -303,7 +313,12 @@ export function drawHud(): void {
   drawHand(d);
   // One drawing, laid out as in the rulebook; without the owner's drawing, the boards side by side.
   const strip = $('strip');
-  strip.innerHTML = playerStripSvg(cmdArt, dashArt) ?? `<div class="loose">${commandBoardSvg(cmdArt)}${dashArt.map(a => dashboardSvg(a)).join('')}</div>`;
+  // The Final Five: stand-in boards until the project owner draws them (design/gdd/big-rig-final-five.md §1.5).
+  const bikeOf = (id: string): number | undefined => g!.vehicles.find(v => v.id === id)?.bike;
+  strip.innerHTML = me.rig ? rigStripSvg(rigArt(me, hot))
+    : me.team === 'final_five'
+    ? ffStripSvg(cmdArt, dashArt.map(a => ({ ...a, marking: bikeOf(a.carId) ?? 0, coastMax: finalFive().turn.coast_max })))
+    : playerStripSvg(cmdArt, dashArt) ?? `<div class="loose">${commandBoardSvg(cmdArt)}${dashArt.map(a => dashboardSvg(a)).join('')}</div>`;
   // The second strip drawing: the dice are both in the drawer behind the board and on the table
   // (either can be played, asked by the user, 2026-11-17); the leader's tab comes out on a click;
   // Undo is a plate on the board.
@@ -363,6 +378,34 @@ export function drawHud(): void {
   }
 }
 
+/** The seats in turn order, from the first player: `first`, then clockwise (rulebook p8). */
+export function turnOrder(first: number, n: number): number[] {
+  return Array.from({ length: n }, (_, k) => (first + k) % n);
+}
+
+/** Bubble motion when the turn order changes: seconds, from the presentation data. */
+const SLIDE_S = P.bubbles.slideS;
+
+/**
+ * Slides the bubbles from where they were (`before`: left edge by seat) to where they are now: each
+ * starts drawn at its old place and glides to the new one, the one moving to the front on top.
+ */
+function slideBubbles(box: HTMLElement, before: Map<string, number>): void {
+  for (const el of box.querySelectorAll<HTMLElement>('.bubble[data-p]')) {
+    const was = before.get(el.dataset.p!);
+    if (was === undefined) continue;
+    const dx = was - el.getBoundingClientRect().left;
+    if (Math.abs(dx) < 1) continue;
+    el.style.transition = 'none';
+    el.style.transform = `translateX(${dx}px)`;
+    el.style.zIndex = dx > 0 ? '2' : '1';
+    void el.offsetWidth;
+    el.style.transition = `transform ${SLIDE_S}s cubic-bezier(.3,.7,.3,1)`;
+    el.style.transform = '';
+    window.setTimeout(() => { el.style.zIndex = ''; el.style.transition = ''; }, SLIDE_S * 1000 + 50);
+  }
+}
+
 export function drawDrawer(): void {
   if (!g) return;
   const el = $('drawer');
@@ -374,3 +417,26 @@ $('ticker').onclick = () => {
   el.style.display = el.style.display === 'block' ? 'none' : 'block';
   if (el.style.display === 'block') drawDrawer();
 };
+
+/**
+ * The Big Rig's stand-in board (design/gdd/big-rig-final-five.md §1.5): the three sections, rear first,
+ * with the die on each command this round, the minor damage tokens and the steering.
+ */
+function rigArt(p: Player, hot: Set<string>): RigBoardArt {
+  const br = bigRig(), r = p.rig!;
+  return {
+    color: p.color,
+    sections: RIG_BOARD.map(sec => ({
+      sec, name: br.sectionName[sec], used: r.used.includes(sec),
+      commands: br.sections[sec].map(c => {
+        const key = `${sec}:${c.id}`;
+        return {
+          key, name: br.commandName[c.id] ?? c.id, slot: c.slot === 'any' ? '1-3' : c.slot.join(' '), lines: br.command_text[c.id] ?? [],
+          hot: hot.has(`rig:${key}`), damaged: r.damaged.includes(key), ...(r.placed[key] !== undefined ? { die: r.placed[key] } : {}),
+        };
+      }),
+    })),
+    steer: { die: r.steer ? r.steer : null, left: r.steer, hot: hot.has('steer') },
+    damage: r.damaged.length, max: br.damage.eliminated_at,
+  };
+}
