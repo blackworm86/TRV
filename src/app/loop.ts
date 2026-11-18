@@ -9,7 +9,7 @@ import { carTimeScale, drive } from './cars';
 import { chaseCamera, clearSight } from './chase';
 import { SHOT, actionSince, directorCamera } from './director';
 import { placeActions, placeDock } from './dock';
-import { updateSmoke, updateTags, updateWords } from './effects';
+import { impact, updateSmoke, updateTags, updateWords } from './effects';
 import { hudCam, hudRenderer, hudScene, syncHudDice } from './hudDice';
 import { moveCamera } from './keys';
 import { tiltView } from './mapView';
@@ -91,6 +91,12 @@ renderer.setAnimationLoop(t => {
     if (td.t >= 1) continue;
     td.t = Math.min(1, td.t + dt / td.dur);
     const u = Math.max(0, td.t), e = 1 - Math.pow(1 - u, 3);
+    if (td.throw) {
+      // A thrown die follows its planned throw; a puff where it strikes a piece.
+      td.throw.at(u, td.d.mesh.position, td.d.mesh.quaternion);
+      if (!td.struck && td.throw.hit && td.throw.hitAt !== null && u >= td.throw.hitAt) { td.struck = true; impact(td.throw.hit, 0xd9b48a, 0.22); }
+      continue;
+    }
     td.d.mesh.position.lerpVectors(td.from, td.to, e);
     // A throw lands bouncing; the way home is one low arc.
     const rise = td.hop > 1.5 ? Math.abs(Math.cos(u * Math.PI * 1.5)) * (1 - u) * td.hop : Math.sin(u * Math.PI) * td.hop;

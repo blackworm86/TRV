@@ -6,11 +6,14 @@ import { neighbor, type Dir, type Frame, type Pos } from '../game/trv/engine';
 import { GRID } from '../view/board3d';
 import { avatarSvg } from '../view/vector/art';
 import { makeDie } from '../view/dice3d';
+import { planThrow, type Bumper } from '../view/dice-throw';
+import type { ObstacleBlocker } from '../view/terrain/obstacles';
 import { AWAY, DIE_W, FORWARD, FX_ORDER, FX_SCALE, TRAY_SCALE, TRAY_Z, TableDie, fxSupply } from './board';
 import { g } from './game';
+import { P } from './presentation';
 import { dieHtml } from './hud';
 import type { Round } from './spots';
-import { BOARD_X0, KX, KZ, PITCH_W, TILE_H, TILE_W, scene, world } from './stage';
+import { BOARD_X0, KX, KZ, PITCH_W, TILE_H, TILE_W, scene, tileSlots, world } from './stage';
 import { S } from './state';
 import { $, FACES, esc } from './util';
 
@@ -54,7 +57,7 @@ export function fxGoHome(): void {
     td.to = fxRestSpot(td.kind);
     td.q0 = td.d.mesh.quaternion.clone();
     td.q1 = td.q0.clone();
-    td.t = 0; td.dur = 0.6; td.hop = 0.9;
+    td.t = 0; td.dur = 0.6; td.hop = 0.9; td.throw = null;
   }
   S.trayDice = [];
 }
@@ -84,9 +87,21 @@ export function rollOnTable(f: Frame): void {
   if (!S.trayDice.includes(td)) S.trayDice.push(td);
   td.from = td.d.mesh.position.clone();
   td.to = to;
-  td.q0 = new THREE.Quaternion().setFromEuler(new THREE.Euler(Math.random() * 6, Math.random() * 6, Math.random() * 6));
   td.q1 = td.d.orientation(f.die.face, f.die.die === 'direction' ? FORWARD : AWAY); // all square to the road: a tidy row
-  td.t = 0; td.dur = 0.75; td.hop = 2.2;
+  td.q0 = td.d.mesh.quaternion.clone();
+  // The throw: the die flies, bounces, glances off a vehicle or a rock by its way, and tumbles to a stop
+  // on the spot chosen above, showing its face (view/dice-throw.ts). Where it lands is not the throw's to choose.
+  const space = GRID.pitch * KX;
+  const bumpers: Bumper[] = f.snap.vehicles.filter(v => v.pos && v.status !== 'elim').map(v => { const w = world(v.pos!); return { x: w.x, z: w.z, r: P.diceThrow.carR * space }; });
+  for (const grp of tileSlots) {
+    for (const b of (grp?.userData.blockers as ObstacleBlocker[] | undefined) ?? []) {
+      const w = grp!.localToWorld(new THREE.Vector3(b.x, 0, b.z));
+      bumpers.push({ x: w.x, z: w.z, r: P.diceThrow.rockR * space });
+    }
+  }
+  td.throw = planThrow(td.from, td.to, td.q1, DIE_W * FX_SCALE, bumpers, Math.random, P.diceThrow);
+  td.struck = false;
+  td.t = 0; td.dur = P.diceThrow.seconds; td.hop = 0;
 }
 
 /**

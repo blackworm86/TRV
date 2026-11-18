@@ -6,6 +6,7 @@ import { tileDef, TILE_COLS, type Snapshot } from '../game/trv/engine';
 import { BASE_CATALOG as CAT, sizeOf } from '../game/trv/catalog';
 import { buildTile, hazardToken, GRID } from '../view/board3d';
 import { type Die3D } from '../view/dice3d';
+import type { Throw } from '../view/dice-throw';
 import { BOARD_X0, KX, KZ, MM, PITCH_W, TILE_H, TILE_T, scene } from './stage';
 
 export const pickPlane = new THREE.Mesh(new THREE.PlaneGeometry(140, 80), new THREE.MeshBasicMaterial({ visible: false }));
@@ -43,7 +44,7 @@ export const TRAY_SCALE = 2;
 export const FX_SCALE = 1.6;
 export const TRAY_Z = TILE_H / 2 + 0.9;
 /** One FX die on the table and its current flight: from `from` to `to`, turning from q0 to q1, `t` from 0 to 1 over `dur` seconds, rising `hop` on the way. */
-export interface TableDie { kind: string; d: Die3D; from: THREE.Vector3; to: THREE.Vector3; q0: THREE.Quaternion; q1: THREE.Quaternion; t: number; dur: number; hop: number }
+export interface TableDie { kind: string; d: Die3D; from: THREE.Vector3; to: THREE.Vector3; q0: THREE.Quaternion; q1: THREE.Quaternion; t: number; dur: number; hop: number; throw?: Throw | null; struck?: boolean }
 /**
  * The FX dice: one copy of each, as in the box (asked by the user, 2026-11-16). They rest in a row
  * off the board, beside the player's own dice; a roll throws the die to the action, and once the

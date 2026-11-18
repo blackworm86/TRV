@@ -27,6 +27,11 @@
     "lean": 0.17, "wobble": 0.05, "flip_lift": 0.2,
     "slow_motion": { "from": 0.3, "to": 0.7, "speed": 0.45 }
   },
+  "dice_throw": {
+    "_module": "rolls.ts, view/dice-throw.ts: how an FX die is thrown. Lengths in dice (1 = the die's width). seconds: how long the throw lasts; peak: height of the first flight; bounce: heights of the bounces; roll_quarters: quarter turns tumbled on the ground at the end, at most; spin: turning in the air, times the rolling rate; wobble: extra turns off axis at the start; ease: how much it slows down; reach: how far from the landing spot a piece may be struck; detour: how much longer the way by that piece may be; hit_height: how high it strikes; toss_turns: turns when thrown again where it lies; car_r, rock_r: radius of the pieces it bounces off, in road spaces.",
+    "seconds": 1.05, "peak": 1.6, "bounce": [0.45, 0.16], "roll_quarters": 2, "spin": 1.5, "wobble": 0.6, "ease": 1.8,
+    "reach": 5, "detour": 3, "hit_height": 0.6, "toss_turns": 2, "car_r": 0.36, "rock_r": 0.42
+  },
   "director": {
     "_module": "director.ts: the action camera's shots",
     "dice_dist": 0.4,

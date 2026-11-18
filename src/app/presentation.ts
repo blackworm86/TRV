@@ -3,6 +3,7 @@
 // project; here they become camelCase once, so the code reads them as it always has.
 
 import RAW from '../../data/trv/presentation_base.json';
+import type { ThrowKnobs } from '../view/dice-throw';
 
 /** snake_case -> camelCase. */
 const camel = (k: string): string => k.replace(/_([a-z0-9])/g, (_, c: string) => c.toUpperCase());
@@ -30,6 +31,8 @@ export interface Presentation {
     lean: number; wobble: number; flipLift: number;
     slowMotion: { from: number; to: number; speed: number };
   };
+  /** How an FX die is thrown (view/dice-throw.ts), how long it takes, and how wide the pieces it bounces off are (road spaces). */
+  diceThrow: ThrowKnobs & { seconds: number; carR: number; rockR: number };
   director: {
     diceDist: number; shot: { blendIn: number; blendOut: number; wait: number; follow: number }; lift: number;
     /** The new director (shots.ts): see the data file. */
