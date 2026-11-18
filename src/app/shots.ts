@@ -43,8 +43,8 @@ export const takeNow = (): { kind: string; spec: string; hide: number[] } | null
 
 let safeAt = -Infinity, safeNow: SafeFrame = { x0: -1, x1: 1, y0: -1, y1: 1 };
 /**
- * The free part of the screen, as a rectangle of the picture: under the bar and the players'
- * bubbles, over the player's strip, the drawer and the cards in hand, beside the panel of the
+ * The free part of the screen, as a rectangle of the picture: under the bar (the players' bubbles
+ * fade out during a shot, so their band is free: director.ts, veil), over the player's strip, the drawer and the cards in hand, beside the panel of the
  * damage and the dice when it is up. Looked at again every `refresh` seconds.
  */
 export function safeFrame(now: number, fresh = false): SafeFrame {
@@ -52,9 +52,9 @@ export function safeFrame(now: number, fresh = false): SafeFrame {
   safeAt = now;
   const W = innerWidth, H = innerHeight;
   const rect = (id: string): DOMRect | null => { const r = document.getElementById(id)?.getBoundingClientRect(); return r && r.width > 0 && r.height > 0 ? r : null; };
-  const players = rect('players'), strip = rect('strip');
+  const strip = rect('strip');
   const fixed: Rect[] = [
-    { left: 0, top: 0, right: W, bottom: Math.max(cssPx('--top'), players ? players.bottom : 0) },
+    { left: 0, top: 0, right: W, bottom: cssPx('--top') },
     { left: 0, top: strip ? strip.top : H - cssPx('--bottom'), right: W, bottom: H },
   ];
   const loose: Rect[] = [];
@@ -126,7 +126,9 @@ function subjectsOf(f: Frame): { subjects: Live[]; axis: THREE.Vector3 } | null 
       const from = f.from ? world(f.from) : at;
       return { subjects: [point(from, R.car), point(at, R.car), who(R.car, 2)], axis: at.clone().sub(from) };
     }
-    case 'elim': return { subjects: [who(R.close, 2), ...(f.into ? [point(world(f.into), R.car * 0.7)] : [])], axis: ROAD };
+    // The sand worm: the whole show, the worm out of the ground and the car thrown over its mouth (2026-11-18).
+    case 'elim': if (f.by === 'sand_worm') return { subjects: [point(at, R.worm, 2, R.wormUp)], axis: ROAD };
+      return { subjects: [who(R.close, 2), ...(f.into ? [point(world(f.into), R.car * 0.7)] : [])], axis: ROAD };
     case 'chopper': return { subjects: [point(at, R.chopper, 2), point(at, R.car, 1, R.chopperUp)], axis: ROAD };
     case 'damage': case 'fire': return { subjects: [who(R.close)], axis: ROAD };
     default: return null;
@@ -165,6 +167,8 @@ export function filmBeat(f: Frame): void {
   if (!made) return;
   setShotFor(f.kind);
   const now = performance.now() / 1000;
+  // The sand worm has a shot of its own, never merged into another.
+  if (f.kind === 'elim' && f.by === 'sand_worm') { begin('worm', made.subjects, made.axis, now); return; }
   // Events one right after the other stay in one shot, which widens to hold them: no flurry of cuts.
   if (take && S.shot && now - take.t0 < D.hold) {
     for (const s of made.subjects) if (!take.subjects.some(x => x.key === s.key)) take.subjects.push(s);

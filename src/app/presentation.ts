@@ -37,7 +37,7 @@ export interface Presentation {
     diceDist: number; shot: { blendIn: number; blendOut: number; wait: number; follow: number }; lift: number;
     /** The new director (shots.ts): see the data file. */
     hold: number; refresh: number; floor: number;
-    subject: { car: number; close: number; slam: number; chopper: number; chopperUp: number; die: number };
+    subject: { car: number; close: number; slam: number; chopper: number; chopperUp: number; die: number; worm: number; wormUp: number };
     blocker: { rockR: number; rockH: number; carR: number; carH: number; chopperR: number };
     shots: Record<string, { id: string; yaw: number; elev: number; fill: number; near?: number; orbit?: number }[]>;
   };
