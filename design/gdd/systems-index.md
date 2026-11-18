@@ -204,6 +204,7 @@ moduli di #4 (Tier 4).
 | 29 | Reconnection & Resilience (inferred) | Network | Alpha | Not Started | — | #1, #27 |
 | 30 | Save & Resume Match (inferred) | Persistence | MVP (autosave + resume last match); full save Alpha | Not Started | — | #1, #4, #24 |
 | 31 | In-game Rules Reference (inferred) | Meta | Full Vision | Not Started | — | #17, #24 |
+| 32 | TRV9000 Bots (fan-made, card-driven) | Gameplay | Alpha | In Review | [trv9000-bots.md](trv9000-bots.md) | #1, #2, #8, #10, #13, #14, #15 |
 
 *#6 Match Session Flow non esiste più: assorbito da #24 (decisione dell'utente); i
 parametri di partita sono dati di #7. Numerazione lasciata stabile.*

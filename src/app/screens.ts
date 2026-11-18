@@ -16,6 +16,8 @@ import { S } from './state';
 import { $, esc, menuOpen } from './util';
 
 export const crewSelects: HTMLSelectElement[] = [];
+/** Per row: a person, or a TRV9000 team played by the cards (design/gdd/trv9000-bots.md). */
+export const kindSelects: HTMLSelectElement[] = [];
 for (let i = 0; i < 4; i++) {
   const sel = document.createElement('select');
   sel.innerHTML = CAT.crews.map(c => `<option value="${c.id}">${esc(c.name)}</option>`).join('');
@@ -24,6 +26,12 @@ for (let i = 0; i < 4; i++) {
   const name = $(`n${i}`) as HTMLInputElement;
   name.value = CAT.crews[i].name;
   name.after(sel);
+  const kind = document.createElement('select');
+  kind.innerHTML = '<option value="person">Persona</option><option value="bot">TRV9000</option>';
+  kind.title = 'Chi gioca questa squadra';
+  kind.onchange = syncNames;
+  kindSelects.push(kind);
+  sel.after(kind);
 }
 /**
  * Shows the rows for the number of players and keeps every colour to one player: a colour taken
@@ -34,7 +42,9 @@ export function syncNames(): void {
   for (let i = 0; i < 4; i++) {
     ($(`n${i}`) as HTMLInputElement).style.display = i < n ? '' : 'none';
     crewSelects[i].style.display = i < n ? '' : 'none';
+    kindSelects[i].style.display = i < n ? '' : 'none';
   }
+  $('botrow').style.display = kindSelects.slice(0, n).some(k => k.value === 'bot') ? '' : 'none';
   for (let i = 0; i < n; i++) {
     const before = crewSelects.slice(0, i).map(x => x.value);
     if (before.includes(crewSelects[i].value)) setCrew(i, CAT.crews.find(c => !before.includes(c.id) && !crewSelects.slice(i + 1, n).some(x => x.value === c.id))!.id);
@@ -124,11 +134,14 @@ $('start').onclick = () => {
   const n = Number(($('np') as HTMLSelectElement).value);
   const crews = crewSelects.slice(0, n).map(s => s.value);
   if (new Set(crews).size !== crews.length) { alert('Ogni giocatore deve avere un colore diverso.'); return; }
+  const bots = kindSelects.slice(0, n).map(k => k.value === 'bot');
+  if (bots.every(b => b)) { alert('Serve almeno una persona: una partita di soli TRV9000 non si può creare.'); return; }
+  const protocol = Number(($('botlevel') as HTMLSelectElement).value);
   const seed = newSeed();
   if (!seed.ok) { alert('Il browser non fornisce numeri casuali sicuri: impossibile iniziare.'); return; }
   const players = crews.map((crew, i) => {
     const c = CAT.crews.find(x => x.id === crew)!;
-    return { name: ($(`n${i}`) as HTMLInputElement).value.trim() || c.name, color: c.color, crew };
+    return { name: ($(`n${i}`) as HTMLInputElement).value.trim() || c.name, color: c.color, crew, ...(bots[i] ? { bot: { protocol } } : {}) };
   });
   clearTable();
   $('setup').style.display = 'none';

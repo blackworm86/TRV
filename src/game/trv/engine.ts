@@ -9,6 +9,7 @@ import base from '../../../data/trv/game_base.json';
 import shoppe from '../../../data/trv/choppe_shoppe.json';
 import carnageData from '../../../data/trv/carnage.json';
 import finishData from '../../../data/trv/finish_lines.json';
+import trv9000 from '../../../data/trv/trv9000.json';
 import {
   createRng, roll, shuffle, applyPermutation, type RngState,
 } from '../../core/rng/rng';
@@ -116,6 +117,19 @@ export interface Player {
   tokens: number;
   /** Commands holding a die or a command token this round. */
   slots: Partial<Record<CommandId, 'die' | 'token'>>;
+  /**
+   * A TRV9000 team (design/gdd/trv9000-bots.md), played by the activation cards: the Basic
+   * Protocol level, its team card (Choppe Shoppe), this round's card and the next line to play, the
+   * round's Drift command, and the vehicle its airstrike aims at.
+   */
+  bot?: BotState;
+}
+
+/** What a TRV9000 team keeps between its turns (see Player.bot). */
+export interface BotState {
+  protocol: number; team: string | null; card: number | null; line: number; drift: boolean; aim: string | null;
+  /** The line of the card being played now (its car moves or coasts), for the interface; null between turns. */
+  active: number | null;
 }
 
 export interface TileRef { tile: number; side: 'a' | 'b' }
@@ -175,6 +189,8 @@ export interface Snapshot {
   hazards: [string, HazardOnBoard][];
   choppers: (Pos | null)[];
   activeCar: string | null;
+  /** TRV9000: per seat, the bot's activation card this round and the line being played (null for a person). */
+  bots?: ({ card: number | null; active: number | null; drift: boolean } | null)[];
 }
 
 /**
@@ -264,13 +280,16 @@ export interface Game {
   upgradeDiscard: string[];
   /** Carnage at Devil's Run, when in play: its numbers and the ongoing effect deck (ON FIRE! tokens are unlimited). */
   carnage: { n: CarnageNumbers; deck: string[]; discard: string[] } | null;
+  /** The TRV9000 activation deck, one for every bot (design/gdd/trv9000-bots.md, D1); null without bots. */
+  trv9000: { deck: number[]; discard: number[] } | null;
 }
 
 export interface Setup {
   seed: string;
   /** `leader` fixes a player's crew leader without dealing. */
   /** `upgrades` fixes the upgrade of the small, medium and large car without drafting. */
-  players: { name: string; color: string; crew?: string; leader?: string; upgrades?: (string | null)[] }[];
+  /** `bot` makes the seat a TRV9000 team at that Basic Protocol level (1-4); at least one seat is a person. */
+  players: { name: string; color: string; crew?: string; leader?: string; upgrades?: (string | null)[]; bot?: { protocol: number } }[];
   startSide: 'a' | 'b';
   /** Choppe Shoppe: deal two crew leaders to each player, who keeps one. */
   leaders?: boolean;
@@ -485,6 +504,7 @@ export function snapshot(g: Game): Snapshot {
     hazards: [...g.hazards].map(([k, h]) => [k, { ...h }]),
     choppers: g.players.map(p => (p.chopper ? { ...p.chopper } : null)),
     activeCar: g.activeCar,
+    ...(g.trv9000 ? { bots: g.players.map(p => (p.bot ? { card: p.bot.card, active: p.bot.active, drift: p.bot.drift } : null)) } : {}),
   };
 }
 
@@ -492,8 +512,10 @@ function beat(g: Game, kind: Frame['kind'], extra: Omit<Frame, 'kind' | 'snap'> 
   g.frames.push({ kind, ...extra, snap: snapshot(g) });
 }
 
-function* ask(d: Decision): Gen<number> {
+function* ask(g: Game, d: Decision): Gen<number> {
   if (d.options.length === 0) throw new Error(`decision ${d.kind} without options`);
+  // A TRV9000 team is never asked: the rules of the module choose for it.
+  if (g.players[d.player]?.bot) return botChoice(g, d);
   const i = yield d;
   if (!Number.isInteger(i) || i < 0 || i >= d.options.length) throw new Error(`bad choice ${i} for ${d.kind}`);
   return i;
@@ -513,12 +535,13 @@ export function newGame(s: Setup): Game {
   const r = createRng(s.seed);
   if (!r.ok) throw new Error(r.error.message);
   if (s.players.length < 2 || s.players.length > 4) throw new Error('2-4 players');
+  if (s.players.every(p => p.bot)) throw new Error('a game of TRV9000 teams only cannot be made');
   const g: Game = {
     rng: r.value, draft: null, assign: null, players: [], vehicles: [], board: [], pile: [], tilesPlaced: 3, finalTile: false, finishLine: textHash(s.seed) % finishData.lines.length,
     hazards: new Map(), hazardPile: [], hazardDiscard: [], damagePile: [], round: 0, firstPlayer: 0,
     current: 0, roadDie: 0, winner: null, log: [], zTop: 0, activeCar: null, lastRoll: [], pendingDice: [], frames: [],
     tokenSupply: shoppe.command_tokens, dealLeaders: !!s.leaders, dealUpgrades: !!s.upgrades, fx: { bump: false, calledShot: false, slams: 0, flamethrower: false },
-    carnage: null, upgradeDeck: [], upgradeDiscard: [],
+    carnage: null, upgradeDeck: [], upgradeDiscard: [], trv9000: null,
   };
   if (s.carnage) {
     if (s.carnage === true && !carnageTilesReady()) throw new Error("Carnage at Devil's Run: missing data in carnage.json: tiles");
@@ -527,7 +550,8 @@ export function newGame(s: Setup): Game {
   }
   s.players.forEach((p, i) => {
     g.players.push({ id: i, name: p.name, color: p.color, dice: [], used: [], commandUsed: false, command: null, out: false, chopper: null,
-      leader: null, tokens: 0, slots: {}, ...(p.crew ? { crew: p.crew } : {}) });
+      leader: null, tokens: 0, slots: {}, ...(p.crew ? { crew: p.crew } : {}),
+      ...(p.bot ? { bot: { protocol: p.bot.protocol, team: null, card: null, line: 0, drift: false, aim: null, active: null } } : {}) });
     if (p.leader) takeLeader(g, g.players[i], p.leader);
     for (const size of ['S', 'M', 'L'] as Size[]) {
       g.vehicles.push({ id: `p${i}${size}`, owner: i, size, isWreck: false, pos: null, inStart: true,
@@ -556,6 +580,19 @@ export function newGame(s: Setup): Game {
   }
   if (g.carnage) for (const [t, n] of Object.entries(g.carnage.n.damage)) for (let i = 0; i < n; i++) g.damagePile.push({ type: t as DamageType });
   for (let t = 0; t < 3; t++) placeHazards(g, t, t === 0 ? s.players.length : null);
+  // TRV9000 (design/gdd/trv9000-bots.md, 1): the activation deck, and with Choppe Shoppe's upgrades
+  // a team card for each bot, at random and without repeats. Last, so a game without bots rolls the same.
+  if (g.players.some(p => p.bot)) {
+    g.trv9000 = { deck: shuffled(g, BOT_CARDS.map(c => c.id), 'trv9000-cards'), discard: [] };
+    const teams = s.upgrades ? shuffled(g, BOT_TEAMS.map(t => t.id), 'trv9000-teams') : [];
+    for (const p of g.players) {
+      if (!p.bot || !teams.length) continue;
+      const id = teams.shift();
+      const team = BOT_TEAMS.find(t => t.id === id)!;
+      p.bot.team = team.id;
+      if (!s.players[p.id].upgrades) for (const v of g.vehicles) if (v.owner === p.id) v.upgrade = team.upgrades[SIZE_RANK[v.size]];
+    }
+  }
   return g;
 }
 
@@ -668,6 +705,8 @@ interface MoveCtx {
   left: number; drift: boolean; driftUsed: boolean;
   /** Tank Treads: face-down hazards are not revealed. */ quiet?: boolean;
   /** Salt flats entered: the road die is allowed this turn whatever the ground (CDR p3). */ salt?: boolean;
+  /** A TRV9000 car moving by its card. */ bot?: boolean;
+  /** Basic Protocol 2: the first face-down hazard crossed is ignored. */ ignoreOnce?: boolean;
 }
 
 /** The terrain as a car feels it: mud counts as road with Deep Treads. */
@@ -706,7 +745,15 @@ function* enter(g: Game, v: Vehicle, to: Pos, ctx: MoveCtx | null, dir?: Dir): G
   v.z = ++g.zTop;
   beat(g, 'move', { vehicleId: v.id, at: { ...to } });
   const k = key(to);
-  const h = g.hazards.get(k);
+  let h = g.hazards.get(k);
+  // Basic Protocol 2 (TRV9000): the first face-down hazard crossed is ignored, and stays face down.
+  if (h && !h.faceUp && ctx?.ignoreOnce) {
+    ctx.ignoreOnce = false;
+    say(g, `Basic Protocol: ${carName(g, v)} ignora il pericolo coperto.`, 'info');
+    h = undefined;
+  }
+  // Basic Protocol 1 (TRV9000): mud, toxic goo and salt flats are road to a bot's cars.
+  const botRoad = isBot(g, v.owner);
   // Tank Treads: a face-down hazard is passed over; moveCar reveals the one the car stops on.
   if (h && !(ctx?.quiet && !h.faceUp)) {
     // Faulty Airbag (ongoing effect): onto a face-down hazard, the car is eliminated; the token stays face down.
@@ -722,7 +769,7 @@ function* enter(g: Game, v: Vehicle, to: Pos, ctx: MoveCtx | null, dir?: Dir): G
       // Mud revealed while moving: the space is muddy now, and entering it costs 2 (p. 7). The
       // step was paid as the space was before (1): the car spends one more move, and with none
       // left it stops there (ruling of the rules owner, 2026-11-17). Deep Treads: mud is road.
-      if (h.type === 'mud' && ctx && groundFor(g, v, to) === 'M') {
+      if (h.type === 'mud' && ctx && !botRoad && groundFor(g, v, to) === 'M') {
         if (ctx.left > 0) { ctx.left--; say(g, `${capital(carName(g, v))} affonda nel fango: un movimento in più.`, 'info'); }
         else say(g, `${capital(carName(g, v))} affonda nel fango e si ferma.`, 'info');
       }
@@ -769,7 +816,7 @@ function* enter(g: Game, v: Vehicle, to: Pos, ctx: MoveCtx | null, dir?: Dir): G
   }
   // Carnage at Devil's Run terrain (CDR p3), as the space is now (a revealed hazard may have changed it).
   const ground = terrainAt(g, to);
-  if (ground === 'G') {
+  if (ground === 'G' && !botRoad) {
     // First the car stops, then any slam (ruling of the rules owner, 2026-11-16): the moves are
     // lost even if the slam pushes it off the goo.
     say(g, `${capital(carName(g, v))} finisce nella melma tossica: si ferma.`, 'info');
@@ -795,13 +842,20 @@ function* enter(g: Game, v: Vehicle, to: Pos, ctx: MoveCtx | null, dir?: Dir): G
     return true;
   }
   if (ground === 'F') catchFire(g, v);
-  if (ground === 'S' && ctx) { ctx.salt = true; say(g, 'Saline: il dado strada si può usare in questo turno.', 'info'); }
-  // Snowplow: a wreck or an inoperable vehicle in the way is pushed aside, and the car goes on.
+  if (ground === 'S' && ctx && !botRoad) { ctx.salt = true; say(g, 'Saline: il dado strada si può usare in questo turno.', 'info'); }
   const others = vehiclesAt(g, to).filter(x => x !== v);
-  if (ctx && up(v, 'snowplow') && others.length === 1 && (others[0].isWreck || others[0].status === 'inop')) {
+  // Snowplow as the TRV9000 team card reads it (All For Speed): the car entered goes one space forward.
+  if (ctx?.bot && up(v, 'snowplow') && others.length) {
+    const o = others[others.length - 1];
+    say(g, `Snowplow: ${carName(g, v)} spinge avanti ${carName(g, o)}.`, 'info');
+    yield* enter(g, o, neighbor(to, 'F'), null, 'F');
+    if (vehiclesAt(g, to).length === 1 || g.winner !== null) return false;
+  }
+  // Snowplow: a wreck or an inoperable vehicle in the way is pushed aside, and the car goes on.
+  if (ctx && !ctx.bot && up(v, 'snowplow') && others.length === 1 && (others[0].isWreck || others[0].status === 'inop')) {
     const free = freeAround(g, to);
     if (free.length) {
-      const i = yield* ask({
+      const i = yield* ask(g, {
         kind: 'plow', player: v.owner!, prompt: `${g.players[v.owner!].name}: Snowplow, dove spostare ${carName(g, others[0])}?`,
         options: [{ label: 'Non spostare (slam)' }, ...free.map(spaceOption)],
       });
@@ -814,7 +868,13 @@ function* enter(g: Game, v: Vehicle, to: Pos, ctx: MoveCtx | null, dir?: Dir): G
     }
   }
   if (vehiclesAt(g, to).length > 1) {
-    if (ctx && ctx.drift && !ctx.driftUsed) {
+    // Basic Protocol 4 (TRV9000): a bot's car passes through a space with only bots' cars, without a slam.
+    if (ctx?.bot && ctx.left > 0 && protocolOf(g, v.owner) >= 4 && vehiclesAt(g, to).every(x => x === v || (!x.isWreck && isBot(g, x.owner)))) {
+      say(g, `Basic Protocol: ${carName(g, v)} passa senza slam.`, 'info');
+      return false;
+    }
+    // A bot keeps its Drift for a car it passes through, not for the one it stops on.
+    if (ctx && ctx.drift && !ctx.driftUsed && !(ctx.bot && ctx.left === 0)) {
       ctx.driftUsed = true;
       say(g, 'Drift: passa attraverso il veicolo senza slam.', 'info');
       if (up(v, 'ghost_mode')) {
@@ -857,7 +917,7 @@ function* slam(g: Game, at: Pos): Gen<void> {
     const barred = (owner: number | null): boolean => [top, bottom].some(x => up(x, 'sandbags') && x.owner !== owner);
     if (!bump && big && big.owner !== null && !barred(big.owner)) {
       const moving = which === 'top' ? top : bottom;
-      const i = yield* ask({
+      const i = yield* ask(g, {
         kind: 'slamReroll', player: big.owner,
         prompt: `${g.players[big.owner].name}: si muove ${carName(g, moving)} verso ${DIR_NAME[d]}. Ritirare entrambi i dadi?`,
         options: [{ label: 'Tieni il risultato' }, { label: 'Ritira i due dadi' }],
@@ -873,7 +933,7 @@ function* slam(g: Game, at: Pos): Gen<void> {
     // Junk in the Trunk (Bumpo): if your car would move in a slam, you may reroll the direction die.
     // Stability Control: the same, for the car that has the upgrade.
     if ((hasPower(g, affected.owner, 'junk_in_the_trunk') || up(affected, 'stability_control')) && !affected.isWreck && !barred(affected.owner)) {
-      const i = yield* ask({
+      const i = yield* ask(g, {
         kind: 'dirReroll', player: affected.owner!,
         prompt: `${g.players[affected.owner!].name}: ${carName(g, affected)} si muoverebbe verso ${DIR_NAME[d]}. Ritirare il dado direzione?`,
         options: [{ label: 'Tieni il risultato' }, { label: 'Ritira il dado direzione' }],
@@ -889,7 +949,7 @@ function* slam(g: Game, at: Pos): Gen<void> {
     if (up(affected, 'roll_cage') && onBoard(dest) && vehiclesAt(g, dest).length) {
       const free = freeAround(g, at);
       if (free.length) {
-        const i = yield* ask({
+        const i = yield* ask(g, {
           kind: 'rollCage', player: affected.owner!, prompt: `${g.players[affected.owner!].name}: Roll Cage, evitare lo slam contro un'altra auto?`,
           options: [{ label: 'No, subisci lo slam' }, ...free.map(spaceOption)],
         });
@@ -903,7 +963,13 @@ function* slam(g: Game, at: Pos): Gen<void> {
       }
     }
     const other = affected === top ? bottom : top;
+    const wasEmpty = onBoard(dest) && isEmpty(g, dest);
     yield* enter(g, affected, dest, null, d);
+    // Tire Spikes (TRV9000 Bomb Squad): the car it moved in a slam takes damage when it went to an empty space.
+    if (wasEmpty && up(other, 'tire_spikes') && !affected.isWreck && affected.status !== 'elim' && samePos(affected.pos, dest) && g.winner === null) {
+      say(g, 'Tire Spikes: l\'auto spostata subisce danno.', 'bad');
+      yield* damage(g, affected);
+    }
     if (samePos(affected.pos, dest)) yield* baldTires(g, affected, d);
     // Assault Bumper: the car it moved in a slam goes one extra space in the same direction.
     if (up(other, 'assault_bumper') && !affected.isWreck && affected.status !== 'elim' && samePos(affected.pos, dest) && g.winner === null) {
@@ -929,7 +995,7 @@ function* damage(g: Game, v: Vehicle): Gen<void> {
   // Crumple Zones: draw two damage tokens, pick one and discard the other.
   if (token && !hidden && up(v, 'crumple_zones') && g.damagePile.length) {
     const pair = [token, draw()!];
-    const i = yield* ask({
+    const i = yield* ask(g, {
       kind: 'pickDamage', player: v.owner!, prompt: `${g.players[v.owner!].name}: Crumple Zones, quale danno prende ${carName(g, v)}?`,
       options: pair.map(t => ({ label: DAMAGE_NAME[t.type], token: { ...t }, carId: v.id })),
     });
@@ -958,7 +1024,7 @@ function* breakDown(g: Game, v: Vehicle): Gen<void> {
   if (v.onFire) putOut(g, v); // CDR p3: an inoperable vehicle loses its ON FIRE! token
   say(g, `${capital(carName(g, v))} è fuori uso (girata all'indietro).`, 'bad');
   if (button && v.pos && g.winner === null) {
-    const i = yield* ask({
+    const i = yield* ask(g, {
       kind: 'redButton', player: v.owner!, prompt: `${g.players[v.owner!].name}: Big Red Button, eliminare ${carName(g, v)} con tutto ciò che ha accanto?`,
       options: [{ label: 'No, resta fuori uso' }, { label: 'Premi il bottone', danger: true, pos: v.pos, carId: v.id }],
     });
@@ -967,7 +1033,10 @@ function* breakDown(g: Game, v: Vehicle): Gen<void> {
       say(g, 'Big Red Button: BOOM!', 'bad');
       eliminate(g, v, 'ha premuto il Big Red Button');
       for (const q of around) {
-        for (const x of vehiclesAt(g, q)) if (!x.isWreck) eliminate(g, x, 'era accanto al Big Red Button');
+        // TRV9000 (Bomb Squad): a bot's button takes only the adjacent opponents' cars.
+        const bot = isBot(g, v.owner);
+        for (const x of vehiclesAt(g, q)) if (!x.isWreck && !(bot && x.owner === v.owner)) eliminate(g, x, 'era accanto al Big Red Button');
+        if (bot) continue;
         for (const pl of g.players) {
           if (samePos(pl.chopper, q)) { pl.chopper = null; say(g, `L'elicottero di ${pl.name} è eliminato dal Big Red Button.`, 'bad'); }
         }
@@ -1221,6 +1290,10 @@ export const __test = {
   beforeMove,
   repair,
   slam,
+  /** TRV9000: one micro-move of a bot's car, with the context its turn would give it. */
+  botMove: (g: Game, v: Vehicle, n: number, dir: Dir, drift = false): Gen<boolean> =>
+    botMove(g, v, n, dir, { left: 0, drift, driftUsed: false, bot: true, ignoreOnce: protocolOf(g, v.owner) >= 2 }),
+  chopperCheck,
 };
 
 // ---------------------------------------------------------------- shooting
@@ -1229,9 +1302,12 @@ function frontArc(p: Pos): Pos[] {
   return [neighbor(p, 'FL'), neighbor(p, 'F'), neighbor(p, 'FR')];
 }
 
-/** Shoot step (p. 10): any road vehicle in the front arc, chosen or skipped. */
-function* shootFrom(g: Game, player: number, from: Pos, who: string, shooter: Vehicle | null = null): Gen<void> {
-  if (g.winner !== null) return;
+/**
+ * Shoot step (p. 10): any road vehicle in the front arc, chosen or skipped. Returns the vehicle shot
+ * at, hit or not; `exclude`: vehicles that cannot be chosen (Rapid Reload's second shot).
+ */
+function* shootFrom(g: Game, player: number, from: Pos, who: string, shooter: Vehicle | null = null, exclude: string[] = []): Gen<Vehicle | null> {
+  if (g.winner !== null) return null;
   let targets: Vehicle[] = [];
   const blocked: Blocked[] = [];
   // Long Arm of the Law (Wong): also the spaces two away, straight on from the front arc.
@@ -1246,7 +1322,7 @@ function* shootFrom(g: Game, player: number, from: Pos, who: string, shooter: Ve
     const t = st[st.length - 1];
     // Smoke Screen: not from the space directly behind the car.
     if (t && up(t, 'smoke_screen') && samePos(from, neighbor(p, 'B'))) blocked.push({ carId: t.id, pos: { ...p }, because: 'smoke_screen' });
-    else if (t) targets.push(t);
+    else if (t && !exclude.includes(t.id)) targets.push(t);
   }
   // Stealth Technology: not a target while there is another vehicle to shoot.
   const seen = targets.filter(t => !up(t, 'stealth_technology'));
@@ -1254,12 +1330,12 @@ function* shootFrom(g: Game, player: number, from: Pos, who: string, shooter: Ve
     for (const t of targets) if (!seen.includes(t)) blocked.push({ carId: t.id, pos: { ...t.pos! }, because: 'stealth_technology' });
     targets = seen;
   }
-  if (!targets.length) { say(g, `${who}: nessun bersaglio nell'arco frontale, niente sparo.`, 'info'); return; }
-  const i = yield* ask({
+  if (!targets.length) { say(g, `${who}: nessun bersaglio nell'arco frontale, niente sparo.`, 'info'); return null; }
+  const i = yield* ask(g, {
     kind: 'shoot', player, prompt: `${g.players[player].name}: sparare con ${who}?`, ...(blocked.length ? { blocked } : {}),
     options: [{ label: 'Non sparare' }, ...targets.map(t => ({ label: `Spara ${carName(g, t).replace(/^l'/, "all'").replace(/^il /, 'al ')}`, carId: t.id, pos: t.pos! }))],
   });
-  if (i === 0) return;
+  if (i === 0) return null;
   const t = targets[i - 1];
   beat(g, 'shot', { from: { ...from }, at: { ...t.pos! }, vehicleId: t.id });
   // Spotter (Abigail): another of your operable cars next to the target. Called Shot (Boudreaux).
@@ -1282,21 +1358,23 @@ function* shootFrom(g: Game, player: number, from: Pos, who: string, shooter: Ve
     // Objection! (Machine Gun Joe): you may reroll the shooting die.
     // Heavy Machine Gun: the same, when shooting with the car that has it.
     // Exposed Hardware (ongoing effect on the target): another player shooting it may reroll too.
-    if (!hit && (hasPower(g, player, 'objection') || up(shooter, 'heavy_machine_gun') || (hasOngoing(t, 'exposed_hardware') && t.owner !== player))) {
-      const r = yield* ask({
+    // Dual Guns (TRV9000 Trigger Happy): a miss against another car is rerolled.
+    if (!hit && (hasPower(g, player, 'objection') || up(shooter, 'heavy_machine_gun') || (up(shooter, 'dual_guns') && !t.isWreck) || (hasOngoing(t, 'exposed_hardware') && t.owner !== player))) {
+      const r = yield* ask(g, {
         kind: 'shootReroll', player, prompt: `${g.players[player].name}: mancato. Ritirare il dado sparo?`,
         options: [{ label: 'Tieni il risultato' }, { label: 'Ritira il dado sparo' }],
       });
       if (r === 1) hit = shot('objection');
     }
   }
-  if (!hit) return;
+  if (!hit) return t;
   yield* damage(g, t);
-  // Flamethrower (Emberco): the target hit this turn also catches fire.
-  if (g.fx.flamethrower && player === g.current && t.status === 'ok') catchFire(g, t);
+  // Flamethrower (Emberco): the target hit this turn also catches fire. The TRV9000 Bomb Squad's
+  // Flamethrower card: the same, for a car hit by the car that has it.
+  if (((g.fx.flamethrower && player === g.current) || (up(shooter, 'flamethrower') && !t.isWreck)) && t.status === 'ok') catchFire(g, t);
   // Grappling Hook: after resolving the damage, the car may swap spaces with the car it hit.
   if (g.winner === null && up(shooter, 'grappling_hook') && shooter!.pos && !t.isWreck && t.status !== 'elim' && t.pos && !samePos(t.pos, shooter!.pos)) {
-    const s = yield* ask({
+    const s = yield* ask(g, {
       kind: 'swap', player, prompt: `${g.players[player].name}: Grappling Hook, scambiare di posto con ${carName(g, t)}?`,
       options: [{ label: 'No' }, { label: 'Scambia di posto', carId: t.id, pos: t.pos }],
     });
@@ -1313,6 +1391,7 @@ function* shootFrom(g: Game, player: number, from: Pos, who: string, shooter: Ve
     say(g, 'Soul Siphon: un danno in meno su una propria auto.', 'good');
     yield* repair(g, p);
   }
+  return t;
 }
 
 const ALL_DIRS: Dir[] = ['F', 'FL', 'FR', 'B', 'BL', 'BR'];
@@ -1367,7 +1446,7 @@ function* moveCar(g: Game, car: Vehicle, moves: number, drift: boolean, coast: b
         start ? `Corsia ${to.r + 1}` : ['Avanti-sinistra', 'Avanti', 'Avanti-destra'][k], dirs[k])));
       // Skull Shift Knob: the car does not have to use all of its moves (unless the fire die says so).
       if (!start && up(car, 'skull_shift_knob') && !mustMoveAll) opts.push({ label: 'Fermati qui' });
-      const i = yield* ask({
+      const i = yield* ask(g, {
         kind: 'step', player: car.owner!,
         prompt: `${g.players[car.owner!].name}: muovi ${carName(g, car)} — ${ctx.left} ${ctx.left === 1 ? 'movimento' : 'movimenti'} rimasti.`,
         options: opts,
@@ -1396,7 +1475,7 @@ function* moveCar(g: Game, car: Vehicle, moves: number, drift: boolean, coast: b
     if (stopped || bonusUsed || car.status !== 'ok' || !onlyRoad || g.winner !== null) break;
     bonusUsed = true;
     if (fixed) { say(g, 'Transmission Failure: niente dado strada, l’auto non può guadagnare movimenti.', 'info'); break; }
-    const i = yield* ask({
+    const i = yield* ask(g, {
       kind: 'roadDie', player: car.owner!,
       prompt: `${anywhere ? 'Off-Road Suspension' : 'Sempre su strada'}! Usare il dado strada (+${roadDie})? Se lo usi devi muovere tutto.`,
       options: [{ label: 'No, fermati qui' }, { label: `Sì, altri ${roadDie} movimenti`, dieValue: roadDie }],
@@ -1449,7 +1528,7 @@ function* turn(g: Game, p: Player): Gen<void> {
   else for (const d of free) for (const car of mine) if (car.coasts < base.max_coasts_per_round) assign.push({ die: d, car, coast: true });
   if (!assign.length) { say(g, `${p.name} non ha mosse disponibili e salta il turno.`, 'turn'); return; }
   say(g, `— Turno di ${p.name} (round ${g.round}) —`, 'turn');
-  const ai = yield* ask({
+  const ai = yield* ask(g, {
     kind: 'assign', player: p.id, prompt: `${p.name}: assegna un dado movimento a un'auto.`,
     options: assign.map(a => ({
       label: `${a.coast ? 'Inerzia' : `Dado ${p.dice[a.die]}`} → auto ${SIZE_NAME[a.car.size]}`,
@@ -1482,7 +1561,7 @@ function* turn(g: Game, p: Player): Gen<void> {
       }
     }
     if (cmds.length) {
-      const ci = yield* ask({
+      const ci = yield* ask(g, {
         kind: 'command', player: p.id, prompt: `${p.name}: attivare un comando (una volta per round)?`,
         options: [{ label: 'Nessun comando' }, ...cmds.map(c => ({ label: `${COMMAND_NAME[c.cmd]} con il dado ${p.dice[c.die]}`, die: c.die, command: c.cmd, dieValue: p.dice[c.die] }))],
       });
@@ -1501,7 +1580,7 @@ function* turn(g: Game, p: Player): Gen<void> {
   if (!a.coast && p.tokens > 0 && g.winner === null) {
     const free = board.filter(s => !p.slots[s.id] && canActivate(g, p, s.id));
     if (free.length) {
-      const ti = yield* ask({
+      const ti = yield* ask(g, {
         kind: 'token', player: p.id, prompt: `${p.name}: usare un segnalino comando (${p.tokens} rimasti)?`,
         options: [{ label: 'Nessun segnalino' }, ...free.map(s => ({ label: `${COMMAND_NAME[s.id]} con un segnalino`, command: s.id }))],
       });
@@ -1537,7 +1616,7 @@ function* turn(g: Game, p: Player): Gen<void> {
     if (g.winner !== null || !up(car, id) || !car.pos || car.uses >= upN(id)) continue;
     const free = freeAround(g, car.pos);
     if (!free.length) continue;
-    const i = yield* ask({
+    const i = yield* ask(g, {
       kind: 'dispense', player: p.id, prompt: `${p.name}: ${upName(id)}, posare ${type === 'oil' ? 'una chiazza d’olio' : 'una mina'}? (${upN(id) - car.uses} rimaste)`,
       options: [{ label: 'Non posare' }, ...free.map(spaceOption)],
     });
@@ -1550,14 +1629,28 @@ function* turn(g: Game, p: Player): Gen<void> {
   // Step 4, shoot (p. 10): skipped in the first round, "your guns are not online".
   if (g.winner === null && g.round === 1) say(g, 'Primo round: le armi non sono ancora attive, niente sparo.', 'info');
   else if (g.winner === null && car.status === 'ok' && car.pos) yield* shootFrom(g, p.id, car.pos, carName(g, car), car);
-  // End of turn: road vehicles in a chopper's space are eliminated (p. 11).
+  yield* chopperCheck(g);
+  g.activeCar = null;
+}
+
+/**
+ * End of turn: road vehicles in a chopper's space are eliminated (p. 11). Basic Protocol 3
+ * (TRV9000): a bot's car on its own chopper's space removes the chopper instead.
+ */
+function* chopperCheck(g: Game): Gen<void> {
   for (const pl of g.players) {
     if (!pl.chopper) continue;
     for (const v of vehiclesAt(g, pl.chopper)) {
+      if (!pl.chopper) break;
+      if (v.owner === pl.id && protocolOf(g, v.owner) >= 3) {
+        pl.chopper = null;
+        say(g, `Basic Protocol: l'elicottero di ${pl.name} lascia la strada a ${carName(g, v)}.`, 'info');
+        break;
+      }
       // Anti-Aircraft Radar: the car may move to an adjacent empty space instead.
       const free = up(v, 'anti_aircraft_radar') && g.winner === null ? freeAround(g, pl.chopper) : [];
       if (free.length) {
-        const i = yield* ask({
+        const i = yield* ask(g, {
           kind: 'radar', player: v.owner!, prompt: `${g.players[v.owner!].name}: Anti-Aircraft Radar, dove spostare ${carName(g, v)}?`,
           options: [{ label: 'Resta (eliminata)', danger: true }, ...free.map(spaceOption)],
         });
@@ -1571,7 +1664,6 @@ function* turn(g: Game, p: Player): Gen<void> {
       eliminate(g, v, `è nella casella dell'elicottero di ${pl.name}`);
     }
   }
-  g.activeCar = null;
 }
 
 /** Whether a command would do anything now; commands of unimplemented content never do. */
@@ -1616,10 +1708,10 @@ function* painTransfer(g: Game, p: Player): Gen<void> {
   const cars = g.vehicles.filter(v => v.owner === p.id && v.status !== 'elim');
   const opt = (c: Vehicle): Option => ({ label: `Auto ${SIZE_NAME[c.size]} (${c.damage.length} danni)`, carId: c.id, ...(c.pos ? { pos: c.pos } : {}) });
   const from = cars.filter(a => a.damage.length > 0 && cars.some(b => b !== a && b.damage.length < limit(b)));
-  const fi = yield* ask({ kind: 'transfer', player: p.id, prompt: `${p.name}: da quale auto togliere un danno?`, options: from.map(opt) });
+  const fi = yield* ask(g, { kind: 'transfer', player: p.id, prompt: `${p.name}: da quale auto togliere un danno?`, options: from.map(opt) });
   const src = from[fi];
   const to = cars.filter(b => b !== src && b.damage.length < limit(b));
-  const ti = yield* ask({ kind: 'transfer', player: p.id, prompt: `${p.name}: a quale auto dare il danno?`, options: to.map(opt) });
+  const ti = yield* ask(g, { kind: 'transfer', player: p.id, prompt: `${p.name}: a quale auto dare il danno?`, options: to.map(opt) });
   const dst = to[ti];
   dst.damage.push(src.damage.pop()!);
   say(g, `Pain Transfer: un danno passa da ${carName(g, src)} a ${carName(g, dst)}.`, 'info');
@@ -1634,7 +1726,7 @@ function* painTransfer(g: Game, p: Player): Gen<void> {
 function* repair(g: Game, p: Player): Gen<void> {
   const cars = repairable(g, p);
   if (!cars.length) return;
-  const i = yield* ask({
+  const i = yield* ask(g, {
     kind: 'repair', player: p.id, prompt: `${p.name}: quale auto riparare?`,
     options: cars.map(c => ({ label: `Auto ${SIZE_NAME[c.size]} (${c.damage.length} danni)`, carId: c.id, ...(c.pos ? { pos: c.pos } : {}) })),
   });
@@ -1649,13 +1741,285 @@ function* repair(g: Game, p: Player): Gen<void> {
 function* airstrike(g: Game, p: Player): Gen<void> {
   const spaces = chopperSpaces(g);
   if (!spaces.length) { say(g, 'Nessuna casella vuota per l\'elicottero.'); return; }
-  const i = yield* ask({
+  const i = yield* ask(g, {
     kind: 'airstrike', player: p.id, prompt: `${p.name}: clicca la casella vuota dove piazzare l'elicottero.`,
     options: spaces.map(s => ({ label: `Casella ${s.r + 1}-${s.c + 1}`, pos: s })),
   });
   p.chopper = spaces[i];
   beat(g, 'chopper', { at: { ...p.chopper } });
   if (g.round > 1) yield* shootFrom(g, p.id, p.chopper, 'l\'elicottero');
+}
+
+// ---------------------------------------------------------------- TRV9000 (bots)
+
+// The TRV9000 (fan-made expansion, design/gdd/trv9000-bots.md): teams played by a deck of
+// activation cards (data/trv/trv9000.json). A bot is a player whose choices the rules make: its
+// turns follow the card, and every decision it would be asked is answered by `botChoice`.
+
+/** A step of a card line: `n` spaces at most in direction `d`, or a fire die result. */
+type BotStep = { n: number; d: 'L' | 'F' | 'R' } | { fire: FireFace };
+interface BotCard { id: number; command: 'airstrike' | 'drift' | 'repair'; priority: ('L' | 'F' | 'R')[]; chopper?: ('L' | 'F' | 'R')[]; lines: { car: Size; steps: string[] }[] }
+interface BotTeam { id: string; name: string; level: number; upgrades: string[] }
+const BOT_CARDS = trv9000.cards as BotCard[];
+const BOT_TEAMS = trv9000.teams as BotTeam[];
+/** The direction die face that puts a bot's car on each row in the first round (design/gdd/trv9000-bots.md, 3). */
+const BOT_START_ROW: Record<Dir, number> = { BL: 0, FL: 1, B: 2, F: 3, BR: 4, FR: 5 };
+const ARC: Record<'L' | 'F' | 'R', Dir> = { L: 'FL', F: 'F', R: 'FR' };
+const BEHIND: Record<'L' | 'F' | 'R', Dir> = { L: 'BL', F: 'B', R: 'BR' };
+const BOT_COMMAND_NAME: Record<BotCard['command'], string> = { airstrike: 'Attacco aereo', drift: 'Drift', repair: 'Riparazione' };
+
+/** Every TRV9000 activation card. */
+export const botCards = (): BotCard[] => BOT_CARDS;
+/** Every TRV9000 team card. */
+export const botTeams = (): BotTeam[] => BOT_TEAMS;
+
+/** A card step as the log writes it: "3 avanti-sinistra", "fuoco: teschio". */
+const FIRE_TEXT: Record<FireFace, string> = { eliminated: 'teschio', out: 'si spegne', '+1': '+1', '+2': '+2' };
+function stepText(s: string): string {
+  const b = botStep(s);
+  return 'fire' in b ? `fuoco: ${FIRE_TEXT[b.fire]}` : `${b.n} ${DIR_NAME[ARC[b.d]]}`;
+}
+
+function botStep(s: string): BotStep {
+  if (s.startsWith('fire:')) return { fire: s.slice(5) as FireFace };
+  return { n: Number(s.slice(0, -1)), d: s.slice(-1) as 'L' | 'F' | 'R' };
+}
+
+const isBot = (g: Game, owner: number | null): boolean => owner !== null && !!g.players[owner]?.bot;
+const protocolOf = (g: Game, owner: number | null): number => (owner !== null ? g.players[owner]?.bot?.protocol ?? 0 : 0);
+
+/**
+ * The answer of a bot to a decision (design/gdd/trv9000-bots.md): it shoots by the priority of its
+ * card, always rerolls a slam that moves its own car, always takes what a team card gives.
+ */
+function botChoice(g: Game, d: Decision): number {
+  const p = g.players[d.player];
+  const pick = (test: (o: Option) => boolean): number => Math.max(0, d.options.findIndex(test));
+  switch (d.kind) {
+    case 'shoot': {
+      // Opponents only, never a wreck; the airstrike's target first, then the card's priority.
+      const ok = (o: Option): boolean => {
+        const v = o.carId ? g.vehicles.find(x => x.id === o.carId) : undefined;
+        return !!v && !v.isWreck && v.owner !== p.id;
+      };
+      const aim = p.bot!.aim;
+      if (aim) { const i = d.options.findIndex(o => o.carId === aim && ok(o)); if (i > 0) return i; }
+      const car = g.vehicles.find(v => v.id === g.activeCar);
+      const card = BOT_CARDS.find(c => c.id === p.bot!.card);
+      if (car?.pos && card) {
+        for (const s of card.priority) {
+          const q = neighbor(car.pos, ARC[s]);
+          const i = d.options.findIndex(o => ok(o) && samePos(o.pos ?? null, q));
+          if (i > 0) return i;
+        }
+      }
+      return pick(ok);
+    }
+    case 'shootReroll': return 1;
+    case 'slamReroll': return d.preview && g.vehicles.find(v => v.id === d.preview!.carId)?.owner === p.id ? 1 : 0;
+    case 'dirReroll': {
+      // Stability Control: only when the slam would send the car onto an impassable space or off the board.
+      const to = d.preview?.to;
+      return to && (!onBoard(to) || terrainAt(g, to) === 'X') ? 1 : 0;
+    }
+    case 'swap': case 'redButton': return 1;
+    case 'rollCage': return d.options.length > 1 ? 1 : 0;
+    default: return 0;
+  }
+}
+
+/**
+ * Why a bot's car must not enter `to` going `dir` (a change of direction, design 4), or null when
+ * it may: the reason goes in the log.
+ */
+function botBlocked(g: Game, car: Vehicle, to: Pos, dir: Dir, last: boolean, ctx: MoveCtx): string | null {
+  if (to.c >= COLS && to.r >= 0 && to.r < ROWS) return null; // off the front: a new tile, or the finish
+  if (!onBoard(to)) return 'il bordo della strada';
+  const t = terrainAt(g, to);
+  if (t === 'X') return 'una casella invalicabile';
+  if (t === 'D') return 'il vetro del deserto';
+  if (t === 'P' && dir !== 'F') return 'una rampa di traverso';
+  const h = g.hazards.get(key(to));
+  if (h?.faceUp && h.type === 'mine') return 'una mina scoperta';
+  const level = protocolOf(g, car.owner);
+  // A chopper's space is safe to cross, not to stop on (level 3: its own one is).
+  if (last && g.players.some(pl => samePos(pl.chopper, to) && (pl.id !== car.owner || level < 3))) return 'un elicottero';
+  const mates = vehiclesAt(g, to).filter(v => v !== car && !v.isWreck && v.owner === car.owner);
+  if (mates.length) {
+    if (last) return "un'auto della sua squadra";
+    if (ctx.drift && !ctx.driftUsed) return null;
+    return level < 4 ? "un'auto della sua squadra" : null;
+  }
+  return null;
+}
+
+/** One micro-move of a bot's car: up to `n` spaces in `dir`. Returns true when the movement phase ends. */
+function* botMove(g: Game, car: Vehicle, n: number, dir: Dir, ctx: MoveCtx): Gen<boolean> {
+  let moved = 0;
+  for (let j = 1; j <= n; j++) {
+    if (car.status !== 'ok' || !car.pos || g.winner !== null) return true;
+    const to = neighbor(car.pos, dir);
+    const why = botBlocked(g, car, to, dir, j === n, ctx);
+    if (why) {
+      const done = moved ? `si ferma dopo ${moved} ${moved === 1 ? 'casella' : 'caselle'} ${DIR_NAME[dir]}` : `non si muove ${DIR_NAME[dir]}`;
+      say(g, `${capital(carName(g, car))}: davanti c'è ${why}, ${done} e passa al simbolo dopo.`, 'info');
+      return false;
+    }
+    ctx.left = n - j;
+    if (yield* enter(g, car, to, ctx, dir)) return true;
+    moved++;
+  }
+  return false;
+}
+
+/** The cars of a bot, by size. */
+const botCar = (g: Game, p: Player, size: Size): Vehicle | undefined => g.vehicles.find(v => v.owner === p.id && v.size === size && !v.isWreck);
+
+/** The opponent road vehicles, furthest forward first; a tie goes to the most damaged, then at random (design, Formulas). */
+function botTargets(g: Game, p: Player): Vehicle[] {
+  const back = (v: Vehicle): number => v.pos!.c + (v.pos!.r % 2 ? 0.5 : 0);
+  const opp = onRoad(g).filter(v => !v.isWreck && v.owner !== p.id);
+  const luck = new Map(opp.map(v => [v.id, 0]));
+  const ties = (v: Vehicle): Vehicle[] => opp.filter(o => back(o) === back(v) && o.damage.length === v.damage.length);
+  if (opp.some(v => ties(v).length > 1)) {
+    const draw = rollDice(g, opp.map(() => ({ id: 'trv9000-tie', n: 1000 })), 'trv9000:airstrike-tie');
+    opp.forEach((v, i) => luck.set(v.id, draw[i]));
+  }
+  return opp.sort((a, b) => back(b) - back(a) || b.damage.length - a.damage.length || luck.get(b.id)! - luck.get(a.id)!);
+}
+
+/** The command at the top of a bot's card (design 2), once per round. */
+function* botCommand(g: Game, p: Player, card: BotCard): Gen<void> {
+  say(g, `${p.name} — comando: ${BOT_COMMAND_NAME[card.command]}.`, 'info');
+  if (card.command === 'drift') { p.bot!.drift = true; return; }
+  if (card.command === 'repair') {
+    for (const v of g.vehicles.filter(x => x.owner === p.id && x.status !== 'elim' && x.damage.length)) {
+      const t = v.damage.pop()!;
+      discardCard(g, t);
+      g.damagePile.push(t);
+      if (v.status === 'inop' && v.damage.length < limit(v)) { v.status = 'ok'; say(g, `${capital(carName(g, v))} torna operativa!`, 'good'); }
+      else say(g, `${capital(carName(g, v))} è riparata.`, 'good');
+    }
+    return;
+  }
+  // Airstrike: behind the opponent furthest forward, on the first free space the small arrow
+  // shows; none free, behind the next one; then it shoots the vehicle it stands behind.
+  const free = chopperSpaces(g);
+  for (const t of botTargets(g, p)) {
+    const at = (card.chopper ?? ['L', 'F', 'R']).map(s => neighbor(t.pos!, BEHIND[s])).find(q => free.some(f => samePos(f, q)));
+    if (!at) continue;
+    p.chopper = at;
+    beat(g, 'chopper', { at: { ...at } });
+    say(g, `L'elicottero di ${p.name} si mette dietro ${carName(g, t)}.`, 'info');
+    if (g.round > 1) {
+      p.bot!.aim = t.id;
+      yield* shootFrom(g, p.id, at, 'l\'elicottero');
+      p.bot!.aim = null;
+    }
+    return;
+  }
+  say(g, 'Attacco aereo: nessun bersaglio, l\'elicottero resta dov\'è.', 'info');
+}
+
+/** First round: the direction die puts the car on the first space of a row (design 3). */
+function* botEnter(g: Game, car: Vehicle): Gen<void> {
+  const free = (r: number): boolean => {
+    const q = { r, c: 0 }, h = g.hazards.get(key(q));
+    return terrainAt(g, q) !== 'X' && !vehiclesAt(g, q).length && !h?.faceUp;
+  };
+  if (![0, 1, 2, 3, 4, 5].some(free)) { say(g, `${capital(carName(g, car))} non trova una casella libera: resta in partenza.`, 'info'); return; }
+  for (;;) {
+    const d = rollFx(g, 'direction', 'trv9000:start');
+    const r = BOT_START_ROW[d];
+    if (free(r)) {
+      say(g, `Dado direzione ${DIR_NAME[d]}: ${carName(g, car)} parte dalla corsia ${r + 1}.`, 'dice');
+      yield* enter(g, car, { r, c: 0 }, null, 'F');
+      return;
+    }
+    say(g, `Dado direzione ${DIR_NAME[d]}: corsia ${r + 1} occupata, si ritira.`, 'dice');
+  }
+}
+
+/** A bot's turn (design 2): its card, then the car of the next line moves and shoots. */
+function* botTurn(g: Game, p: Player): Gen<void> {
+  g.current = p.id;
+  g.lastRoll = [];
+  g.fx = { bump: false, calledShot: false, slams: 0, flamethrower: false };
+  const bot = p.bot!;
+  if (bot.card === null) {
+    const deck = g.trv9000!;
+    if (!deck.deck.length) { deck.deck = shuffled(g, deck.discard, 'trv9000-cards'); deck.discard = []; }
+    bot.card = deck.deck.shift()!;
+    bot.line = 0;
+    say(g, `— Turno di ${p.name} (round ${g.round}): carta ${bot.card} —`, 'turn');
+    yield* botCommand(g, p, BOT_CARDS.find(c => c.id === bot.card)!);
+  } else say(g, `— Turno di ${p.name} (round ${g.round}) —`, 'turn');
+  if (g.winner !== null) return;
+  const card = BOT_CARDS.find(c => c.id === bot.card)!;
+  // The next line whose car can move; none left, the highest operable car on the card coasts.
+  let line = -1;
+  for (let i = bot.line; i < card.lines.length; i++) {
+    const v = botCar(g, p, card.lines[i].car);
+    if (v && v.status === 'ok' && !v.moved) { line = i; break; }
+  }
+  const coast = line < 0;
+  const car = coast
+    ? card.lines.map(l => botCar(g, p, l.car)).find(v => v && v.status === 'ok')
+    : botCar(g, p, card.lines[line].car);
+  if (!car) { say(g, `${p.name} non ha auto operative e salta il turno.`, 'turn'); return; }
+  if (!coast) bot.line = line + 1;
+  bot.active = coast ? card.lines.findIndex(l => botCar(g, p, l.car) === car) : line;
+  g.activeCar = car.id;
+  if (car.inStart) yield* botEnter(g, car);
+  // Double Barrel (Trigger Happy): it shoots before moving too.
+  if (up(car, 'double_barrel') && g.round > 1 && car.pos && g.winner === null) yield* shootFrom(g, p.id, car.pos, carName(g, car), car);
+  const ctx: MoveCtx = { left: 0, drift: bot.drift, driftUsed: false, bot: true, ignoreOnce: bot.protocol >= 2 };
+  if (car.pos && car.status === 'ok' && g.winner === null) {
+    if (coast) {
+      // Coasting (design 5): one space, in the order of the card's priority.
+      say(g, `${capital(carName(g, car))}: inerzia di una casella.`, 'info');
+      const dir = card.priority.map(s => ARC[s]).find(d => !botBlocked(g, car, neighbor(car.pos!, d), d, true, ctx));
+      if (dir) yield* botMove(g, car, 1, dir, ctx);
+    } else {
+      say(g, `${p.name} muove ${carName(g, car)}: ${card.lines[line].steps.map(stepText).join(' · ')}.`, 'info');
+      let ended = false;
+      for (const s of card.lines[line].steps.map(botStep)) {
+        if (ended || car.status !== 'ok' || g.winner !== null) break;
+        if ('fire' in s) {
+          // A fire symbol counts only when the car is on fire, without rolling the fire die.
+          if (!car.onFire) continue;
+          if (s.fire === 'eliminated') { say(g, 'Fuoco: teschio!', 'bad'); eliminate(g, car, 'è bruciata'); break; }
+          if (s.fire === 'out') { putOut(g, car); say(g, 'Fuoco: le fiamme si spengono.', 'info'); continue; }
+          say(g, `Fuoco ${s.fire}: movimento in più, dritto in avanti.`, 'info');
+          ended = yield* botMove(g, car, Number(s.fire), 'F', ctx);
+          continue;
+        }
+        ended = yield* botMove(g, car, s.n, ARC[s.d], ctx);
+      }
+      // Boost Switch (All For Speed): one more space forward at the end of the movement phase.
+      if (!ended && up(car, 'boost_switch') && car.pos && g.winner === null) {
+        say(g, 'Boost Switch: una casella in più in avanti.', 'good');
+        ended = yield* botMove(g, car, 1, 'F', ctx);
+      }
+    }
+    if (car.status === 'ok' && car.pos && vehiclesAt(g, car.pos).length > 1 && g.winner === null) yield* slam(g, car.pos);
+    if (car.status === 'ok' && car.pos && onBoard(car.pos) && terrainAt(g, car.pos) === 'X' && g.winner === null) {
+      eliminate(g, car, 'ha finito il movimento su una casella invalicabile', car.pos);
+    }
+  }
+  if (coast) car.coasts++; else car.moved = true;
+  if (g.winner === null && g.round === 1) say(g, 'Primo round: le armi non sono ancora attive, niente sparo.', 'info');
+  else if (g.winner === null && car.status === 'ok' && car.pos) {
+    const shot = yield* shootFrom(g, p.id, car.pos, carName(g, car), car);
+    // Rapid Reload (Trigger Happy): a second shot, at another target.
+    if (shot && up(car, 'rapid_reload') && car.status === 'ok' && car.pos && g.winner === null) {
+      say(g, 'Rapid Reload: secondo sparo.', 'info');
+      yield* shootFrom(g, p.id, car.pos, carName(g, car), car, [shot.id]);
+    }
+  }
+  yield* chopperCheck(g);
+  g.activeCar = null;
+  bot.active = null;
 }
 
 // ---------------------------------------------------------------- rounds
@@ -1688,6 +2052,8 @@ export function* play(g: Game): Gen<void> {
     if (totals.filter(t => t === low).length === 1) { g.firstPlayer = totals.indexOf(low); break; }
     say(g, 'Pareggio per il totale più basso: tutti ritirano.');
   }
+  // TRV9000: the bot's dice only decide who goes first (design/gdd/trv9000-bots.md, 1).
+  for (const p of g.players) if (p.bot) { p.dice = []; p.used = []; }
   say(g, `Inizia ${g.players[g.firstPlayer].name}.`, 'turn');
   for (g.round = 1; g.winner === null; g.round++) {
     for (const p of g.players) {
@@ -1696,13 +2062,18 @@ export function* play(g: Game): Gen<void> {
       // End of round: assigned command tokens go back to the supply.
       g.tokenSupply += Object.values(p.slots).filter(x => x === 'token').length;
       p.slots = {};
-      if (g.round > 1 && !p.out) rollMovement(g, p, `round-${g.round}`);
+      if (g.round > 1 && !p.out && !p.bot) rollMovement(g, p, `round-${g.round}`);
+      // TRV9000: the round's card goes to the discards (design 2).
+      if (p.bot) {
+        if (p.bot.card !== null) g.trv9000!.discard.push(p.bot.card);
+        Object.assign(p.bot, { card: null, line: 0, drift: false, aim: null, active: null });
+      }
     }
     for (const v of g.vehicles) { v.moved = false; v.coasts = 0; v.placed = []; }
     g.roadDie = rollFx(g, 'road', 'road-die');
     beat(g, 'round', { round: {
       n: g.round, roadDie: g.roadDie, roller: g.firstPlayer,
-      dice: g.players.filter(p => !p.out).map(p => ({ player: p.id, values: [...p.dice] })),
+      dice: g.players.filter(p => !p.out && !p.bot).map(p => ({ player: p.id, values: [...p.dice] })),
     } });
     say(g, `Round ${g.round}: ${g.players[g.firstPlayer].name} tira il dado strada: ${g.roadDie}.`, 'dice');
     for (const p of g.players) if (!p.out && hasPower(g, p.id, 'third_eye')) yield* thirdEye(g, p);
@@ -1710,7 +2081,7 @@ export function* play(g: Game): Gen<void> {
       let i = g.firstPlayer;
       for (let k = 0; k < g.players.length && g.winner === null; k++) {
         const p = g.players[i];
-        if (!p.out) yield* turn(g, p);
+        if (!p.out) yield* (p.bot ? botTurn(g, p) : turn(g, p));
         i = (i + 1) % g.players.length;
       }
     }
@@ -1726,10 +2097,10 @@ function* chooseLeaders(g: Game): Gen<void> {
   const ready = (need: string): boolean => (need === 'upgrades' ? g.dealUpgrades : need === 'carnage' ? !!g.carnage : false);
   const deck = shuffled(g, LEADERS.filter(l => (l.needs ?? []).every(ready)), 'crew-leaders');
   for (const p of g.players) {
-    if (p.leader) continue;
+    if (p.leader || p.bot) continue;
     const hand = deck.splice(0, shoppe.leaders_dealt);
     if (!hand.length) break;
-    const i = yield* ask({
+    const i = yield* ask(g, {
       kind: 'leader', player: p.id, prompt: `${p.name}: scegli il tuo caposquadra.`,
       options: hand.map(l => ({ label: `${l.name}, ${l.title}`, leader: l.id })),
     });
@@ -1744,7 +2115,7 @@ function* tinker(g: Game, p: Player): Gen<void> {
     .flatMap(v => [v.upgrade ? { v, second: false, id: v.upgrade } : null, v.upgrade2 ? { v, second: true, id: v.upgrade2 } : null])
     .filter((x): x is { v: Vehicle; second: boolean; id: string } => !!x);
   if (!slots.length) return;
-  const i = yield* ask({
+  const i = yield* ask(g, {
     kind: 'tinker', player: p.id, prompt: `${p.name}: Tinker, quale potenziamento scartare?`,
     options: slots.map(x => ({ label: `${upName(x.id)} (auto ${SIZE_NAME[x.v.size]})`, carId: x.v.id, upgrade: x.id, ...(x.v.pos ? { pos: x.v.pos } : {}) })),
   });
@@ -1761,7 +2132,7 @@ function* tinker(g: Game, p: Player): Gen<void> {
 function* showTime(g: Game, p: Player): Gen<void> {
   const cars = g.vehicles.filter(v => v.owner === p.id && v.status === 'ok' && !v.onFire);
   if (!cars.length) return;
-  const i = yield* ask({
+  const i = yield* ask(g, {
     kind: 'showTime', player: p.id, prompt: `${p.name}: Show Time, quale tua auto prende fuoco?`,
     options: cars.map(v => ({ label: `Auto ${SIZE_NAME[v.size]}`, carId: v.id, ...(v.pos ? { pos: v.pos } : {}) })),
   });
@@ -1778,7 +2149,8 @@ function* draftUpgrades(g: Game): Gen<void> {
   const hands = g.players.map(() => deck.splice(0, shoppe.upgrades_dealt));
   const kept: string[][] = g.players.map(() => []);
   // Bring the Bling (Ms. Betty): she keeps one card more than the others (the last one of her hand).
-  const keeps = (p: Player): number => shoppe.upgrades_kept + (hasPower(g, p.id, 'bring_the_bling') ? 1 : 0);
+  // A TRV9000 team keeps none: its team card gives its upgrades (its hand still goes round the table).
+  const keeps = (p: Player): number => (p.bot ? 0 : shoppe.upgrades_kept + (hasPower(g, p.id, 'bring_the_bling') ? 1 : 0));
   const rounds = Math.max(...g.players.map(keeps));
   for (let r = 0; r < rounds; r++) {
     g.draft = { round: r, hands, picks: g.players.map(p => r < keeps(p) && hands[p.id].length > 0) };
@@ -1786,7 +2158,7 @@ function* draftUpgrades(g: Game): Gen<void> {
       if (r >= keeps(p)) continue;
       const hand = hands[p.id];
       if (!hand.length) continue;
-      const i = yield* ask({
+      const i = yield* ask(g, {
         kind: 'draft', player: p.id, prompt: `${p.name}: scegli un potenziamento (${r + 1} di ${keeps(p)}).`,
         options: hand.map(id => ({ label: upName(id), upgrade: id })),
       });
@@ -1811,7 +2183,7 @@ function* draftUpgrades(g: Game): Gen<void> {
       let card = 0, car = 0;
       if (left.length > 1 || cars.length > 1) {
         const pairs = left.flatMap((id, ci) => cars.map((v, vi) => ({ ci, vi, id, v })));
-        const i = yield* ask({
+        const i = yield* ask(g, {
           kind: 'upgradeAssign', player: p.id, prompt: `${p.name}: trascina un potenziamento su un'auto.`,
           options: pairs.map(x => ({ label: `${upName(x.id)} → ${SIZE_NAME[x.v.size]}`, upgrade: x.id, carId: x.v.id })),
         });
@@ -1834,13 +2206,13 @@ function* thirdEye(g: Game, p: Player): Gen<void> {
   const down = [...g.hazards].filter(([, h]) => !h.faceUp);
   if (!down.length) return;
   const pos = down.map(([k]) => { const [r, c] = k.split(',').map(Number); return { r, c }; });
-  const i = yield* ask({
+  const i = yield* ask(g, {
     kind: 'peek', player: p.id, prompt: `${p.name}: Third Eye, quale pericolo coperto guardare?`,
     options: pos.map(q => ({ label: `Casella ${q.r + 1}-${q.c + 1}`, pos: q })),
   });
   say(g, `Third Eye: ${p.name} guarda un pericolo coperto.`, 'info');
   // Shown only in the prompt: the log is public.
-  yield* ask({
+  yield* ask(g, {
     kind: 'peekResult', player: p.id, prompt: `Solo per ${p.name}: è ${HAZARD_NAME[down[i][1].type]}.`,
     options: [{ label: 'Visto', pos: pos[i], hazard: down[i][1].type }],
   });

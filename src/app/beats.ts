@@ -10,6 +10,7 @@ import { actionDone, actionShot, directBeat, directing, shotFor } from './direct
 import { filmBeat, filmDice } from './shots';
 import { burst, crash, explode, flash, impact, smokeOn, word } from './effects';
 import { wormEats } from './worm';
+import { drawBotCards } from './botcard';
 import { decision, g } from './game';
 import { drawHud, toastLine } from './hud';
 import { damageUntil, showDamage, showRoll } from './info';
@@ -109,6 +110,7 @@ export function applyBeat(f: Frame, now: number): void {
     return;
   }
   drawTable(f.snap);
+  drawBotCards(f.snap);
   const at = f.at ? world(f.at) : null;
   if (settings.director2) filmBeat(f); else directBeat(f);
   switch (f.kind) {

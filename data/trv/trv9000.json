@@ -1,0 +1,347 @@
+{
+  "_module": "The TRV9000 (fan-made expansion, rules V20250511, cards V1.0): teams played by a deck of cards. Transcribed by eye from the sheets, the direction markers measured on the pixels; to be checked by the user before the rules are built on it. Not yet read by any code.",
+  "_steps": "A line is read left to right. \"2L\": up to 2 spaces forward-left; F forward, R forward-right (the top marker of the symbol is the diagonal toward the board's upper row, the car's left; the bottom one its right: confirmed by the user, 2026-11-18). \"fire:x\": only when the car is on fire, the fire die result applied there without rolling (eliminated, out, +1, +2: the last two are bonus moves straight forward, not mandatory).",
+  "_priority": "Which space of the front arc is shot at first, then the next (also the direction tried first when coasting). chopper: behind the target, which space the chopper is placed on first.",
+  "commands": {
+    "airstrike": "L'auto avversaria più avanti è il bersaglio: l'elicottero va dietro di lei, sulla casella indicata dalla priorità, e le spara.",
+    "drift": "Per tutto il round le auto TRV9000 attraversano la prima auto che incontrano senza slam.",
+    "repair": "Togli subito un segnalino danno da ogni auto TRV9000 in strada e rimescolali nella pila."
+  },
+  "cards": [
+    {
+      "id": 1,
+      "command": "repair",
+      "priority": ["L", "F", "R"],
+      "lines": [
+        { "car": "S", "steps": ["fire:eliminated", "2L", "4F", "3R"] },
+        { "car": "M", "steps": ["4F", "2L", "3R", "fire:+2"] },
+        { "car": "L", "steps": ["fire:out", "2R", "2L", "5F"] }
+      ]
+    },
+    {
+      "id": 2,
+      "command": "drift",
+      "priority": ["R", "F", "L"],
+      "lines": [
+        { "car": "S", "steps": ["5F", "2L", "2R", "fire:+1"] },
+        { "car": "M", "steps": ["fire:out", "2R", "4F", "3L"] },
+        { "car": "L", "steps": ["fire:eliminated", "3L", "2R", "4F"] }
+      ]
+    },
+    {
+      "id": 3,
+      "command": "airstrike",
+      "priority": ["L", "F", "R"],
+      "chopper": ["R", "F", "L"],
+      "lines": [
+        { "car": "S", "steps": ["3R", "3F", "3L", "fire:+2"] },
+        { "car": "M", "steps": ["fire:out", "2L", "2R", "5F"] },
+        { "car": "L", "steps": ["4F", "3L", "2R", "fire:+1"] }
+      ]
+    },
+    {
+      "id": 4,
+      "command": "repair",
+      "priority": ["R", "F", "L"],
+      "lines": [
+        { "car": "S", "steps": ["fire:out", "2L", "3R", "4F"] },
+        { "car": "L", "steps": ["5F", "2L", "2R", "fire:+1"] },
+        { "car": "M", "steps": ["fire:out", "3R", "4F", "2L"] }
+      ]
+    },
+    {
+      "id": 5,
+      "command": "drift",
+      "priority": ["L", "F", "R"],
+      "lines": [
+        { "car": "S", "steps": ["4F", "3R", "2L", "fire:+2"] },
+        { "car": "L", "steps": ["2R", "4F", "3L", "fire:+2"] },
+        { "car": "M", "steps": ["3L", "3F", "3R", "fire:+2"] }
+      ]
+    },
+    {
+      "id": 6,
+      "command": "airstrike",
+      "priority": ["R", "F", "L"],
+      "chopper": ["L", "F", "R"],
+      "lines": [
+        { "car": "S", "steps": ["fire:out", "2R", "2L", "5F"] },
+        { "car": "L", "steps": ["fire:out", "2L", "3R", "4F"] },
+        { "car": "M", "steps": ["4F", "3R", "2L", "fire:+2"] }
+      ]
+    },
+    {
+      "id": 7,
+      "command": "repair",
+      "priority": ["L", "F", "R"],
+      "lines": [
+        { "car": "M", "steps": ["fire:eliminated", "2L", "4F", "3R"] },
+        { "car": "S", "steps": ["5F", "2R", "2L", "fire:+1"] },
+        { "car": "L", "steps": ["fire:out", "3R", "4F", "2L"] }
+      ]
+    },
+    {
+      "id": 8,
+      "command": "drift",
+      "priority": ["R", "F", "L"],
+      "lines": [
+        { "car": "M", "steps": ["4F", "2R", "3L", "fire:+1"] },
+        { "car": "S", "steps": ["fire:out", "3R", "2L", "4F"] },
+        { "car": "L", "steps": ["3L", "3F", "3R", "fire:+2"] }
+      ]
+    },
+    {
+      "id": 9,
+      "command": "airstrike",
+      "priority": ["L", "F", "R"],
+      "chopper": ["R", "F", "L"],
+      "lines": [
+        { "car": "M", "steps": ["fire:out", "2R", "2L", "5F"] },
+        { "car": "S", "steps": ["fire:out", "2L", "3R", "4F"] },
+        { "car": "L", "steps": ["4F", "2R", "3L", "fire:+2"] }
+      ]
+    },
+    {
+      "id": 10,
+      "command": "repair",
+      "priority": ["R", "F", "L"],
+      "lines": [
+        { "car": "M", "steps": ["fire:out", "2L", "3R", "4F"] },
+        { "car": "L", "steps": ["4F", "3R", "2L", "fire:+2"] },
+        { "car": "S", "steps": ["fire:out", "3R", "2L", "4F"] }
+      ]
+    },
+    {
+      "id": 11,
+      "command": "drift",
+      "priority": ["L", "F", "R"],
+      "lines": [
+        { "car": "M", "steps": ["4F", "3L", "2R", "fire:+2"] },
+        { "car": "L", "steps": ["fire:out", "3R", "2L", "4F"] },
+        { "car": "S", "steps": ["fire:out", "2L", "2R", "5F"] }
+      ]
+    },
+    {
+      "id": 12,
+      "command": "airstrike",
+      "priority": ["R", "F", "L"],
+      "chopper": ["L", "F", "R"],
+      "lines": [
+        { "car": "M", "steps": ["3R", "3F", "3L", "fire:+2"] },
+        { "car": "L", "steps": ["fire:out", "3L", "4F", "2R"] },
+        { "car": "S", "steps": ["4F", "3R", "2L", "fire:+1"] }
+      ]
+    },
+    {
+      "id": 13,
+      "command": "repair",
+      "priority": ["L", "F", "R"],
+      "lines": [
+        { "car": "L", "steps": ["fire:eliminated", "2L", "4F", "3R"] },
+        { "car": "S", "steps": ["4F", "2L", "3R", "fire:+2"] },
+        { "car": "M", "steps": ["fire:out", "2R", "3L", "4F"] }
+      ]
+    },
+    {
+      "id": 14,
+      "command": "drift",
+      "priority": ["R", "F", "L"],
+      "lines": [
+        { "car": "L", "steps": ["4F", "2L", "3R", "fire:+2"] },
+        { "car": "S", "steps": ["fire:out", "2R", "4F", "3L"] },
+        { "car": "M", "steps": ["fire:eliminated", "3L", "2R", "4F"] }
+      ]
+    },
+    {
+      "id": 15,
+      "command": "airstrike",
+      "priority": ["L", "F", "R"],
+      "chopper": ["R", "F", "L"],
+      "lines": [
+        { "car": "L", "steps": ["3R", "3F", "3L", "fire:+2"] },
+        { "car": "S", "steps": ["3L", "3F", "3R", "fire:+2"] },
+        { "car": "M", "steps": ["5F", "2L", "2R", "fire:+1"] }
+      ]
+    },
+    {
+      "id": 16,
+      "command": "repair",
+      "priority": ["R", "F", "L"],
+      "lines": [
+        { "car": "L", "steps": ["fire:out", "2L", "2R", "5F"] },
+        { "car": "M", "steps": ["5F", "2R", "2L", "fire:+1"] },
+        { "car": "S", "steps": ["3R", "4F", "2L", "fire:+2"] }
+      ]
+    },
+    {
+      "id": 17,
+      "command": "drift",
+      "priority": ["L", "F", "R"],
+      "lines": [
+        { "car": "L", "steps": ["5F", "2R", "2L", "fire:+1"] },
+        { "car": "M", "steps": ["fire:out", "3R", "2L", "4F"] },
+        { "car": "S", "steps": ["fire:eliminated", "3L", "4F", "2R"] }
+      ]
+    },
+    {
+      "id": 18,
+      "command": "repair",
+      "priority": ["R", "F", "L"],
+      "lines": [
+        { "car": "L", "steps": ["fire:out", "2R", "3L", "4F"] },
+        { "car": "M", "steps": ["3L", "4F", "2R", "fire:+2"] },
+        { "car": "S", "steps": ["4F", "2L", "3R", "fire:+2"] }
+      ]
+    }
+  ],
+  "protocol": [
+    {
+      "level": 1,
+      "when": "move",
+      "text": "Off-Road spaces, Muddy spaces, Toxic Goo, Salt Flats, count as Road spaces."
+    },
+    {
+      "level": 2,
+      "when": "hazard",
+      "text": "First face-down hazard token crossed during the movement phase of a TRV9000 car is ignored."
+    },
+    {
+      "level": 3,
+      "when": "move",
+      "text": "TRV9000 cars may end their turn in space of its chopper; remove it from the road tile instead of eliminating the car."
+    },
+    {
+      "level": 4,
+      "when": "slam",
+      "text": "TRV9000 cars may pass through spaces it enters that contains another TRV9000 car, without slamming it."
+    }
+  ],
+  "teams": [
+    {
+      "id": "trigger_happy",
+      "name": "Trigger Happy",
+      "level": 1,
+      "upgrades": ["dual_guns", "rapid_reload", "double_barrel"],
+      "S": {
+        "when": "shoot",
+        "text": "If this car shoots another car and misses, reroll the shooting die."
+      },
+      "M": {
+        "when": "shoot",
+        "text": "If this car shoots another car, it shoots a second time at another potential target."
+      },
+      "L": {
+        "when": "shoot",
+        "text": "This car shoots before and after moving."
+      }
+    },
+    {
+      "id": "the_untouchables",
+      "name": "The Untouchables",
+      "level": 2,
+      "upgrades": ["smoke_screen", "stealth_technology", "armor_plating"],
+      "S": {
+        "when": "shoot",
+        "text": "Vehicles may not shoot this car from the space directly behind it."
+      },
+      "M": {
+        "when": "shoot",
+        "text": "Vehicles may not shoot this car if there is another vehicle they could shoot."
+      },
+      "L": {
+        "when": "shoot",
+        "text": "A shooting result of ANY against this car is treated as a miss."
+      }
+    },
+    {
+      "id": "mechanized_rams",
+      "name": "Mechanized Rams",
+      "level": 1,
+      "upgrades": ["stability_control", "sandbags", "assault_bumper"],
+      "S": {
+        "when": "slam",
+        "text": "If this car would move in a slam to an impassable space, reroll the direction die."
+      },
+      "M": {
+        "when": "slam",
+        "text": "If this car is involved in a slam, opponents may not reroll the slam die or direction die."
+      },
+      "L": {
+        "when": "slam",
+        "text": "When this car moves another car in a slam, move that car one extra space in the same direction."
+      }
+    },
+    {
+      "id": "the_immortals",
+      "name": "The Immortals",
+      "level": 2,
+      "upgrades": ["onboard_computer", "armor_plating", "heavy_frame"],
+      "S": {
+        "when": "damage",
+        "text": "Ignore the effects of damage tokens on this car. (Place them face down.)"
+      },
+      "M": {
+        "when": "shoot",
+        "text": "A shooting result of ANY against this car is treated as a miss."
+      },
+      "L": {
+        "when": "damage",
+        "text": "This car can have an additional damage token before becoming inoperable."
+      }
+    },
+    {
+      "id": "bomb_squad",
+      "name": "Bomb Squad",
+      "level": 3,
+      "upgrades": ["big_red_button", "flamethrower", "tire_spikes"],
+      "S": {
+        "when": "damage",
+        "text": "When this car becomes inoperable, it is eliminated, all adjacent opponent's cars are also eliminated."
+      },
+      "M": {
+        "when": "shoot",
+        "text": "If this car shoots another car and hits, set the target on fire."
+      },
+      "L": {
+        "when": "slam",
+        "text": "When this car moves another car in a slam, that car takes damage if it moved to an empty space."
+      }
+    },
+    {
+      "id": "gunners",
+      "name": "Gunners",
+      "level": 2,
+      "upgrades": ["rear_guns", "rail_gun", "punt_gun"],
+      "S": {
+        "when": "shoot",
+        "text": "This car can shoot any adjacent space."
+      },
+      "M": {
+        "when": "shoot",
+        "text": "This car can shoot up to two spaces away."
+      },
+      "L": {
+        "when": "shoot",
+        "text": "This car can shoot up to three spaces directly in front of it."
+      }
+    },
+    {
+      "id": "all_for_speed",
+      "name": "All For Speed",
+      "level": 3,
+      "upgrades": ["boost_switch", "grappling_hook", "snowplow"],
+      "S": {
+        "when": "move",
+        "text": "This car permanently gains +1 move forward, at the end of its movement phase."
+      },
+      "M": {
+        "when": "shoot",
+        "text": "If this car shoots another car and hits, after resolving the damage, it swap spaces with them."
+      },
+      "L": {
+        "when": "move",
+        "text": "When this car enters a space with another car, that car is moved to the space directly in front."
+      }
+    }
+  ]
+}

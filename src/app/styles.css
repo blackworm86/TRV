@@ -16,6 +16,14 @@
   #roundinfo small { display: block; font-size: 11px; letter-spacing: 2px; opacity: .7; }
   #roundinfo b { font-size: 34px; font-weight: 400; color: var(--acc); }
   #roundinfo span { display: block; font-size: 11px; opacity: .8; margin-top: 2px; }
+  /* TRV9000: the activation card of each bot this round; pointing at one shows it large. */
+  #botcards { display: flex; gap: 6px; pointer-events: auto; }
+  #botcards:empty { display: none; }
+  #botcards figure { margin: 0; width: 84px; position: relative; transform-origin: top right; transition: transform .2s; }
+  #botcards figure:hover { transform: scale(3.2); z-index: 5; }
+  #botcards img { width: 100%; display: block; filter: drop-shadow(0 4px 10px rgba(0,0,0,.5)); }
+  #botcards figure.on img { filter: drop-shadow(0 0 8px var(--c)) drop-shadow(0 4px 10px rgba(0,0,0,.5)); }
+  #botcards figcaption { font: 600 10px system-ui, sans-serif; text-align: center; color: var(--c); margin-top: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; text-shadow: 0 1px 2px #000; }
   #players { flex: 1; display: flex; gap: 12px; justify-content: center; flex-wrap: nowrap; min-width: 0; }
   .pl { --c: #888; display: grid; grid-template-columns: auto 1fr; grid-template-rows: auto auto auto; gap: 4px 10px; align-items: center; padding: 8px 12px 8px 8px; min-width: 0;
     transition: box-shadow .3s, transform .3s; }
@@ -363,7 +371,8 @@
   #setup h1 { font: 400 44px 'League Gothic', Impact, sans-serif; color: var(--acc); margin: 0 0 8px; }
   #setup label { display: block; margin: 10px 0 4px; font-weight: 600; }
   #setup input, #setup select { font: inherit; padding: 8px; border-radius: 6px; border: 1px solid #5a4330; background: #120c07; color: var(--ink); }
-  #setup .names { display: grid; grid-template-columns: 1fr auto; gap: 6px; }
+  #setup .names { display: grid; grid-template-columns: 1fr auto auto; gap: 6px; }
+  #setup #botrow > select { width: 100%; box-sizing: border-box; }
   #setup .go { margin-top: 16px; width: 100%; min-height: 48px; font-size: 18px; background: #e8742a; color: #1a120c; border: 0; border-radius: 10px; font-weight: 700; cursor: pointer; }
   #setup label.check { display: flex; align-items: center; gap: 8px; font-weight: 400; margin: 2px 0; }
   #setup label.check input { width: 18px; height: 18px; padding: 0; }

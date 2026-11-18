@@ -1,7 +1,8 @@
 // The 2D interface: the players' bubbles, the prompt, the toasts and the log drawer, the
 // player's strip with command board and dashboards, the winner's card.
 
-import { leaderOf, leaders, commandName, type Decision, type LogEntry, type Frame, type Vehicle } from '../game/trv/engine';
+import { leaderOf, leaders, commandName, botTeams, type Decision, type LogEntry, type Frame, type Vehicle } from '../game/trv/engine';
+import { drawBotCards } from './botcard';
 import { ongoingIllustration, upgradeIllustration } from '../view/cards';
 import { damageTokenSvg, dieSvg, hazardTokenSvg, commandTokenSvg, dashboardSvg, commandBoardSvg, playerStripSvg, avatarSvg, dataUrl } from '../view/vector/art';
 import { FX_ASK } from './beats';
@@ -124,9 +125,11 @@ export function drawHud(): void {
     return `<div class="bubble pl ${turn ? 'turn' : ''} ${decides ? 'decides' : ''} ${p.out ? 'out' : ''}" style="--c:${p.color}">
       <div class="av">${pl && PORTRAITS[pl.id] ? `<img src="${PORTRAITS[pl.id]}" alt="${esc(pl.name)}">` : avatarSvg(p.color, p.name)}</div>
       <div class="nm gothic">${esc(p.name)}${pl ? `<small>${esc(pl.name)}${p.tokens ? ` <span class="ctoks">${commandTokenSvg().repeat(p.tokens)}</span>` : ''}</small>` : ''}</div>
-      <div class="dice-row">${p.dice.length ? p.dice.map((n, i) => dieHtml('movement', n, p.color, p.used[i] ? 'used' : '')).join('') : '<span class="none">nessun dado</span>'}</div>
+      <div class="dice-row">${p.bot ? `<span class="none">TRV9000 · livello ${p.bot.protocol}${p.bot.team ? ` · ${esc(botTeams().find(t => t.id === p.bot!.team)?.name ?? '')}` : ''}</span>` : p.dice.length ? p.dice.map((n, i) => dieHtml('movement', n, p.color, p.used[i] ? 'used' : '')).join('') : '<span class="none">nessun dado</span>'}</div>
       <div class="cars">${cars}</div></div>`;
   }).join('');
+  // During a replay the beats keep the bots' cards in step with the table.
+  if (!S.playing) drawBotCards();
   $('roaddie').innerHTML = g.roadDie ? dieHtml('road', g.roadDie, undefined) : '';
   $('roaddie').parentElement!.classList.toggle('glow', d?.kind === 'roadDie');
 
