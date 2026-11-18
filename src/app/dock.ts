@@ -122,11 +122,14 @@ export function placeDock(): void {
   if (root) {
     // The owner's strip drawing: the drawer as drawn, behind the board's top edge.
     const vb = root.viewBox.baseVal, u = svg.width / vb.width;
-    const edge = svg.top + (DRAWER.edge - vb.y) * u;
-    const width = `${Math.round(DRAWER.w * u)}px`;
+    // A strip with a drawer of its own (the Final Five's) says where it is: top edge, middle, width.
+    const own = root.dataset.drawer?.split(',').map(Number);
+    const D = own?.length === 3 ? { edge: own[0], mid: own[1], w: own[2] } : DRAWER;
+    const edge = svg.top + (D.edge - vb.y) * u;
+    const width = `${Math.round(D.w * u)}px`;
     if (dock.style.width !== width) dock.style.width = width;
     dock.style.setProperty('--u', u.toFixed(4));
-    wrap.style.left = `${svg.left + (DRAWER.mid - vb.x) * u}px`;
+    wrap.style.left = `${svg.left + (D.mid - vb.x) * u}px`;
     wrap.style.bottom = `${innerHeight - edge - DOCK_TUCK}px`;
     wrap.dataset.edge = String(edge); // the 3D dice show only above it (hudDice.ts)
     return;
