@@ -1,0 +1,237 @@
+<!doctype html><html lang="it"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Menu e lobby</title>
+<link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700&family=League+Gothic&display=swap" rel="stylesheet">
+<style>
+:root{--ink:#f3e6d0;--dim:#b9a990;--bg:#1a120c;--card:#24180f;--card2:#2e2016;--line:#4a3523;--acc:#f6c46a;--hot:#4cff7a;--red:#e2563f;
+  --c-red:#d9412b;--c-blue:#2f7fd6;--c-green:#3aa556;--c-yellow:#e7b52c;--c-grey:#8f8f8f}
+*{box-sizing:border-box}
+body{margin:0;background:#0e0a07;color:var(--ink);font:500 16px/1.25 'Barlow Condensed',sans-serif}
+.top{padding:14px 20px 0;max-width:1064px;margin:auto}
+.top h1{font:400 30px 'League Gothic',sans-serif;margin:0;letter-spacing:.5px}
+.top p{margin:2px 0 10px;color:var(--dim)}
+.tabs{display:flex;gap:6px;flex-wrap:wrap}
+.tabs button{font:600 15px 'Barlow Condensed',sans-serif;background:var(--card);color:var(--dim);border:1px solid var(--line);border-bottom:0;padding:6px 12px;border-radius:6px 6px 0 0;cursor:pointer}
+.tabs button.on{background:var(--bg);color:var(--acc)}
+.frame{width:1024px;height:720px;margin:0 auto 30px;background:radial-gradient(circle at 30% 0,#3a2615,var(--bg) 60%);border:1px solid var(--line);position:relative;overflow:hidden}
+.screen{display:none;position:absolute;inset:0;padding:22px 26px}
+.screen.on{display:block}
+/* header */
+.hdr{display:flex;align-items:center;gap:14px;margin-bottom:18px}
+.logo{font:400 40px/1 'League Gothic',sans-serif;letter-spacing:1px;color:var(--acc);text-shadow:0 2px 0 #000}
+.logo small{display:block;font:600 13px 'Barlow Condensed';color:var(--dim);letter-spacing:2px}
+.sp{flex:1}
+.me{display:flex;align-items:center;gap:10px;background:var(--card);border:1px solid var(--line);border-radius:30px;padding:4px 14px 4px 4px}
+.av{width:36px;height:36px;border-radius:50%;background:var(--c-red);display:grid;place-items:center;font:400 20px 'League Gothic';border:2px solid #000;flex:none}
+.me b{display:block;font-size:17px}.me small{color:var(--dim)}
+.back{font:600 15px 'Barlow Condensed';background:none;border:1px solid var(--line);color:var(--dim);border-radius:6px;padding:6px 12px}
+h2{font:400 32px 'League Gothic',sans-serif;margin:0;letter-spacing:.5px}
+h3{font:400 21px 'League Gothic',sans-serif;margin:0 0 8px;color:var(--acc);letter-spacing:.5px}
+.panel{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:14px}
+.hint{color:var(--dim);font-size:14px;margin:4px 0}
+.pill{display:inline-block;font:700 12px 'Barlow Condensed';letter-spacing:.5px;text-transform:uppercase;padding:2px 7px;border-radius:10px;background:#3b2a1b;color:var(--dim)}
+.pill.turn{background:var(--hot);color:#0b2410}.pill.wait{background:#3b2a1b;color:var(--acc)}.pill.soon{background:#2a2a2a;color:#888}
+.pill.on{background:#16391f;color:var(--hot)}
+.go{font:400 22px 'League Gothic';letter-spacing:.8px;background:var(--acc);color:#2a1a08;border:0;border-radius:8px;padding:8px 22px;cursor:pointer}
+.go.s{font-size:18px;padding:4px 14px}
+.tool{font:600 15px 'Barlow Condensed';background:var(--card2);color:var(--ink);border:1px solid var(--line);border-radius:6px;padding:6px 12px;cursor:pointer}
+.tool.danger{color:#ff9a86}
+input,select{font:500 16px 'Barlow Condensed';background:#140d08;color:var(--ink);border:1px solid var(--line);border-radius:6px;padding:7px 9px}
+/* home */
+.home{display:grid;grid-template-columns:1.25fr 1fr;gap:18px}
+.big{display:flex;flex-direction:column;gap:10px}
+.btn{display:flex;align-items:center;gap:14px;text-align:left;background:var(--card);border:1px solid var(--line);border-radius:10px;padding:12px 16px;color:var(--ink);cursor:pointer}
+.btn i{font-style:normal;font-size:26px;width:38px;text-align:center}
+.btn b{display:block;font:400 26px/1 'League Gothic';letter-spacing:.5px}
+.btn small{color:var(--dim);font-size:15px}
+.btn.main{background:linear-gradient(90deg,#5a3612,#2e1d0f);border-color:var(--acc)}
+.btn.main b{color:var(--acc);font-size:32px}
+.btn.off{opacity:.45}
+.btn .n{margin-left:auto}
+.row{display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid var(--line)}
+.row:last-child{border-bottom:0}
+.dots{display:flex;gap:3px}.dots i{width:12px;height:12px;border-radius:50%;border:1px solid #000;display:block}
+.dots i.e{background:transparent;border:1px dashed #6b5440}
+.row .t{flex:1}.row .t b{display:block;font-size:17px}.row .t small{color:var(--dim)}
+.cols{display:grid;gap:18px;align-content:start}
+table{width:100%;border-collapse:collapse}
+th{font:700 12px 'Barlow Condensed';letter-spacing:.8px;text-transform:uppercase;color:var(--dim);text-align:left;padding:6px 8px;border-bottom:1px solid var(--line)}
+td{padding:9px 8px;border-bottom:1px solid #35261a;vertical-align:middle}
+tr.sel td{background:#3a2716}
+.exp{display:inline-flex;gap:4px}.exp span{font:700 11px 'Barlow Condensed';padding:1px 5px;border-radius:4px;background:#3b2a1b;color:var(--acc)}
+.seg{display:inline-flex;border:1px solid var(--line);border-radius:8px;overflow:hidden}
+.seg span{padding:6px 12px;color:var(--dim)}.seg span.on{background:var(--acc);color:#2a1a08;font-weight:700}
+.form{display:grid;grid-template-columns:150px 1fr;gap:10px 14px;align-items:center}
+.form>label{color:var(--dim)}
+.checks{display:flex;flex-direction:column;gap:4px}
+.friend{display:flex;align-items:center;gap:10px;padding:7px 0;border-bottom:1px solid #35261a}
+.friend .av{width:30px;height:30px;font-size:16px}
+.friend .t{flex:1}.friend small{color:var(--dim)}
+.note{position:absolute;left:26px;right:26px;bottom:14px;font-size:14px;color:#cdbb9c;background:#0006;border-left:3px solid var(--acc);padding:6px 10px}
+.seat{display:flex;align-items:center;gap:10px;background:var(--card2);border:1px solid var(--line);border-left:6px solid var(--c);border-radius:8px;padding:8px 10px;margin-bottom:8px}
+.seat.empty{border-left-color:#4a3523;border-style:dashed;color:var(--dim)}
+.seat b{flex:1;font-size:18px}
+.qr{width:96px;height:96px;background:repeating-conic-gradient(#000 0 25%,#fff 0 50%) 0 0/12px 12px;border:6px solid #fff;border-radius:4px;flex:none}
+</style></head><body>
+<div class="top">
+  <h1>Menu principale, lobby e partite: mock-up</h1>
+  <p>Sei schermate a 1024×720. Le voci grigie (Classificate, Classifica) sono già al loro posto ma arrivano dopo. Clic sulle schede per cambiare schermata.</p>
+  <div class="tabs" id="tabs"></div>
+</div>
+<div class="frame" id="frame">
+
+<!-- 1 HOME -->
+<section class="screen on" data-name="1 · Home">
+  <div class="hdr">
+    <div class="logo">THUNDER ROAD<small>VENDETTA · DIGITALE</small></div><div class="sp"></div>
+    <div class="me"><div class="av">R</div><div><b>Riccardo</b><small>TRV-7K4Q · Google</small></div></div>
+    <button class="tool">⚙</button>
+  </div>
+  <div class="home">
+    <div class="big">
+      <div class="btn main"><i>🏁</i><div><b>Gioca online</b><small>La lobby: partite aperte da tutti, o creane una</small></div></div>
+      <div class="btn"><i>📋</i><div><b>Le mie partite</b><small>Quelle in corso e quelle in attesa di giocatori</small></div><span class="n pill turn">2 tocca a te</span></div>
+      <div class="btn"><i>👥</i><div><b>Amici</b><small>Aggiungi amici e invitali a una partita diretta</small></div><span class="n pill on">3 online</span></div>
+      <div class="btn"><i>🪑</i><div><b>Partita in locale</b><small>Hot seat: tutti sullo stesso computer, a turno</small></div></div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+        <div class="btn off"><i>🏆</i><div><b>Classificate</b><small>Contano per il ranking</small></div><span class="n pill soon">presto</span></div>
+        <div class="btn off"><i>📈</i><div><b>Classifica</b><small>Il ranking dei giocatori</small></div><span class="n pill soon">presto</span></div>
+      </div>
+    </div>
+    <div class="cols">
+      <div class="panel">
+        <h3>Tocca a te</h3>
+        <div class="row"><div class="dots"><i style="background:var(--c-red)"></i><i style="background:var(--c-blue)"></i><i style="background:var(--c-green)"></i></div><div class="t"><b>Stanza K7QZP</b><small>Round 3 · Marco ha mosso 4 min fa</small></div><button class="tool">Gioca</button></div>
+        <div class="row"><div class="dots"><i style="background:var(--c-red)"></i><i style="background:var(--c-yellow)"></i></div><div class="t"><b>Stanza 9HXRA</b><small>Round 1 · draft dei potenziamenti</small></div><button class="tool">Gioca</button></div>
+        <div class="row"><div class="dots"><i style="background:var(--c-red)"></i><i style="background:var(--c-grey)"></i><i class="e"></i><i class="e"></i></div><div class="t"><b>Stanza P2MWD</b><small>In attesa · 2 di 4 giocatori</small></div><span class="pill wait">in attesa</span></div>
+      </div>
+      <div class="panel">
+        <h3>Amici online</h3>
+        <div class="friend"><div class="av" style="background:var(--c-blue)">M</div><div class="t"><b>Marco</b><br><small>in partita · K7QZP</small></div></div>
+        <div class="friend"><div class="av" style="background:var(--c-green)">G</div><div class="t"><b>Giulia</b><br><small>nel menu</small></div><button class="tool">Invita</button></div>
+        <div class="friend"><div class="av" style="background:var(--c-yellow)">L</div><div class="t"><b>Luca</b><br><small>nel menu</small></div><button class="tool">Invita</button></div>
+      </div>
+    </div>
+  </div>
+  <div class="note">Home: un solo pulsante principale (Gioca online), le partite in cui tocca a te sempre in vista, gli amici online a destra. Senza accesso Google si gioca lo stesso (nome scelto a mano), ma amici e partite su più dispositivi chiedono l’accesso.</div>
+</section>
+
+<!-- 2 LOBBY -->
+<section class="screen" data-name="2 · Lobby">
+  <div class="hdr"><button class="back">← Menu</button><h2>Lobby</h2><div class="sp"></div>
+    <input placeholder="Codice stanza" style="width:130px"><button class="tool">Entra</button><button class="go">+ Crea partita</button></div>
+  <div style="display:flex;gap:10px;align-items:center;margin-bottom:10px">
+    <div class="seg"><span class="on">Tutte</span><span>Base</span><span>Con espansioni</span><span>Di amici</span></div>
+    <div class="sp"></div><span class="hint">14 partite aperte · si aggiorna da sola</span>
+  </div>
+  <div class="panel" style="padding:4px 10px">
+  <table>
+    <tr><th>Host</th><th>Giocatori</th><th>Espansioni</th><th>Partenza</th><th>Aperta da</th><th></th></tr>
+    <tr class="sel"><td><b>Giulia</b> <span class="pill on">amica</span></td><td><div class="dots"><i style="background:var(--c-green)"></i><i style="background:var(--c-blue)"></i><i class="e"></i><i class="e"></i></div></td><td><span class="exp"><span>CHOPPE</span><span>CARNAGE</span></span></td><td>1a · Parking Lot</td><td>2 min</td><td><button class="go s">Entra</button></td></tr>
+    <tr><td><b>Furia_88</b></td><td><div class="dots"><i style="background:var(--c-red)"></i><i class="e"></i><i class="e"></i><i class="e"></i></div></td><td><span class="hint">solo base</span></td><td>1b · Runway</td><td>5 min</td><td><button class="tool">Entra</button></td></tr>
+    <tr><td><b>Dottor Asfalto</b></td><td><div class="dots"><i style="background:var(--c-yellow)"></i><i style="background:var(--c-grey)"></i><i style="background:var(--c-blue)"></i><i class="e"></i></div></td><td><span class="exp"><span>BIG RIG</span></span></td><td>1a · Parking Lot</td><td>7 min</td><td><button class="tool">Entra</button></td></tr>
+    <tr><td><b>sandro</b></td><td><div class="dots"><i style="background:var(--c-blue)"></i><i class="e"></i></div></td><td><span class="exp"><span>CHOPPE</span></span></td><td>1a · Parking Lot</td><td>12 min</td><td><button class="tool">Entra</button></td></tr>
+    <tr><td><b>Lupo</b> <span class="pill">TRV9000 ×1</span></td><td><div class="dots"><i style="background:var(--c-red)"></i><i style="background:var(--c-grey)"></i><i class="e"></i></div></td><td><span class="exp"><span>CARNAGE</span></span></td><td>1b · Runway</td><td>20 min</td><td><button class="tool">Entra</button></td></tr>
+  </table>
+  </div>
+  <div class="note">Lobby: solo le partite pubbliche non ancora iniziate. Quelle “solo su invito” non compaiono: ci si entra con link, QR, codice o invito di un amico. Le partite degli amici stanno in cima.</div>
+</section>
+
+<!-- 3 CREA -->
+<section class="screen" data-name="3 · Crea partita">
+  <div class="hdr"><button class="back">← Lobby</button><h2>Crea partita</h2></div>
+  <div style="display:grid;grid-template-columns:1.3fr 1fr;gap:18px">
+    <div class="panel"><div class="form">
+      <label>Chi può entrare</label><div class="seg"><span class="on">Tutti (in lobby)</span><span>Solo su invito</span><span>Solo amici</span></div>
+      <label>Giocatori</label><div class="seg"><span>2</span><span>3</span><span class="on">4</span></div>
+      <label>Tessera di partenza</label><select><option>1a — The Parking Lot</option></select>
+      <label style="align-self:start">Espansioni</label><div class="checks">
+        <label><input type="checkbox" checked> Choppe Shoppe: capisquadra e segnalini comando</label>
+        <label><input type="checkbox" checked> Choppe Shoppe: carte potenziamento</label>
+        <label><input type="checkbox"> Carnage at Devil’s Run</label>
+        <label><input type="checkbox"> The Big Rig and The Final Five</label></div>
+      <label>Squadre TRV9000</label><div><select><option>nessuna</option><option>1</option><option>2</option></select> <select><option>livello 1</option></select></div>
+      <label>Tempo per turno</label><div class="seg"><span class="on">In diretta</span><span>24 ore</span><span>72 ore</span></div>
+    </div></div>
+    <div class="panel">
+      <h3>Invita amici</h3>
+      <p class="hint">Ricevono l’invito nella home e possono entrare con un clic.</p>
+      <div class="friend"><input type="checkbox" checked><div class="av" style="background:var(--c-blue)">M</div><div class="t"><b>Marco</b><br><small>online</small></div></div>
+      <div class="friend"><input type="checkbox" checked><div class="av" style="background:var(--c-green)">G</div><div class="t"><b>Giulia</b><br><small>online</small></div></div>
+      <div class="friend"><input type="checkbox"><div class="av" style="background:var(--c-yellow)">L</div><div class="t"><b>Luca</b><br><small>visto ieri</small></div></div>
+      <div style="margin-top:16px;text-align:right"><button class="go">Crea la stanza</button></div>
+    </div>
+  </div>
+  <div class="note">Crea partita: lo stesso modulo per online e hot seat (in locale spariscono “Chi può entrare”, “Tempo per turno” e gli amici, e compaiono nomi e colori). “Tempo per turno 24/72 ore” vuol dire partite asincrone, che chiedono un arbitro sul server (vedi le opzioni di server).</div>
+</section>
+
+<!-- 4 MIE PARTITE -->
+<section class="screen" data-name="4 · Le mie partite">
+  <div class="hdr"><button class="back">← Menu</button><h2>Le mie partite</h2><div class="sp"></div>
+    <div class="seg"><span class="on">In corso (3)</span><span>In attesa (1)</span><span>Concluse</span></div></div>
+  <div class="panel" style="padding:4px 10px">
+  <table>
+    <tr><th>Stanza</th><th>Giocatori</th><th>Stato</th><th>Ultima mossa</th><th>Turno</th><th></th></tr>
+    <tr><td><b>K7QZP</b><br><small class="hint">Choppe · Carnage</small></td><td><div class="dots"><i style="background:var(--c-red)"></i><i style="background:var(--c-blue)"></i><i style="background:var(--c-green)"></i></div></td><td>Round 3</td><td>Marco · 4 min fa</td><td><span class="pill turn">tocca a te</span></td><td><button class="go s">Gioca</button></td></tr>
+    <tr><td><b>9HXRA</b><br><small class="hint">Choppe</small></td><td><div class="dots"><i style="background:var(--c-red)"></i><i style="background:var(--c-yellow)"></i></div></td><td>Draft</td><td>Luca · 1 ora fa</td><td><span class="pill turn">tocca a te</span></td><td><button class="go s">Gioca</button></td></tr>
+    <tr><td><b>ZT4NB</b><br><small class="hint">base · 24 ore</small></td><td><div class="dots"><i style="background:var(--c-blue)"></i><i style="background:var(--c-red)"></i><i style="background:var(--c-grey)"></i><i style="background:var(--c-green)"></i></div></td><td>Round 5</td><td>tu · ieri</td><td><span class="pill">Giulia · 18 h</span></td><td><button class="tool">Guarda</button></td></tr>
+  </table>
+  </div>
+  <div class="panel" style="margin-top:14px"><h3>Inviti ricevuti</h3>
+    <div class="row"><div class="av" style="width:30px;height:30px;font-size:16px;background:var(--c-green)">G</div><div class="t"><b>Giulia ti invita nella stanza QW7RT</b><small>Base + Big Rig · 3 di 4 giocatori</small></div><button class="go s">Entra</button><button class="tool">No grazie</button></div>
+  </div>
+  <div class="note">Le mie partite: tutte le stanze in cui sei seduto, da qualsiasi dispositivo (serve l’accesso). Da qui si riprende una partita lasciata, si esce da una in attesa, si rivede una conclusa.</div>
+</section>
+
+<!-- 5 AMICI -->
+<section class="screen" data-name="5 · Amici">
+  <div class="hdr"><button class="back">← Menu</button><h2>Amici</h2></div>
+  <div style="display:grid;grid-template-columns:1fr 1.3fr;gap:18px">
+    <div class="cols">
+      <div class="panel"><h3>Il tuo codice amico</h3>
+        <div style="font:400 40px 'League Gothic';letter-spacing:3px">TRV-7K4Q</div>
+        <p class="hint">Dallo a chi vuoi aggiungere, oppure manda il link.</p><button class="tool">Copia il link</button></div>
+      <div class="panel"><h3>Aggiungi un amico</h3>
+        <div style="display:flex;gap:8px"><input placeholder="Codice amico" style="flex:1"><button class="go s">Aggiungi</button></div>
+        <p class="hint">Oppure dalla sala d’attesa: “Aggiungi agli amici” accanto a chi ha giocato con te.</p></div>
+      <div class="panel"><h3>Richieste</h3>
+        <div class="friend"><div class="av" style="background:var(--c-grey)">D</div><div class="t"><b>Dottor Asfalto</b><br><small>avete giocato in K7QZP</small></div><button class="tool">Accetta</button><button class="tool danger">✕</button></div></div>
+    </div>
+    <div class="panel" style="align-self:start"><h3>I tuoi amici (3)</h3>
+      <div class="friend"><div class="av" style="background:var(--c-blue)">M</div><div class="t"><b>Marco</b> <span class="pill on">online</span><br><small>in partita · K7QZP (con te)</small></div><button class="tool">Invita</button><button class="tool">⋯</button></div>
+      <div class="friend"><div class="av" style="background:var(--c-green)">G</div><div class="t"><b>Giulia</b> <span class="pill on">online</span><br><small>nel menu</small></div><button class="tool">Invita</button><button class="tool">⋯</button></div>
+      <div class="friend"><div class="av" style="background:var(--c-yellow)">L</div><div class="t"><b>Luca</b><br><small>visto ieri</small></div><button class="tool">Invita</button><button class="tool">⋯</button></div>
+      <p class="hint" style="margin-top:12px">“Invita” apre Crea partita con l’amico già spuntato; se hai una stanza in attesa, propone anche di invitarlo lì. Nel menu ⋯: togli dagli amici, blocca.</p>
+    </div>
+  </div>
+  <div class="note">Amici: nessuna ricerca per nome (niente elenco pubblico degli utenti), solo codice amico, link o chi ha già giocato con te. La richiesta va accettata.</div>
+</section>
+
+<!-- 6 SALA D'ATTESA -->
+<section class="screen" data-name="6 · Sala d’attesa">
+  <div class="hdr"><button class="back">← Le mie partite</button><h2>Stanza P2MWD</h2><span class="pill">pubblica in lobby</span><div class="sp"></div><button class="tool danger">Chiudi la stanza</button></div>
+  <div style="display:grid;grid-template-columns:1.3fr 1fr;gap:18px">
+    <div class="panel"><h3>Giocatori (2 di 4)</h3>
+      <div class="seat" style="--c:var(--c-red)"><b>Riccardo <small class="pill">host</small> <small class="pill">tu</small></b><select><option>Rosso</option></select><select><option>Auto</option><option>Final Five</option><option>Big Rig</option></select></div>
+      <div class="seat" style="--c:var(--c-grey)"><b>TRV9000 <small class="pill">livello 1</small></b><select><option>Grigio</option></select><button class="tool">✕</button></div>
+      <div class="seat empty"><b>posto libero</b><button class="tool">+ TRV9000</button><button class="tool">Invita un amico</button></div>
+      <div class="seat empty"><b>posto libero · Giulia invitata…</b><button class="tool">Annulla invito</button></div>
+      <p class="hint">Base · Choppe Shoppe · partenza 1a · in diretta</p>
+      <div style="display:flex;gap:10px;align-items:center"><button class="go">Inizia la partita</button><span class="hint">Tutto pronto.</span></div>
+    </div>
+    <div class="panel" style="align-self:start"><h3>Invita</h3>
+      <div style="display:flex;gap:12px;align-items:center"><div class="qr"></div><div><div style="font:400 36px 'League Gothic';letter-spacing:3px">P2MWD</div><p class="hint">Fai inquadrare il QR, manda il link o detta il codice.</p><button class="tool">Copia il link</button></div></div>
+      <h3 style="margin-top:16px">Amici</h3>
+      <div class="friend"><div class="av" style="background:var(--c-green)">G</div><div class="t"><b>Giulia</b><br><small>invitata</small></div></div>
+      <div class="friend"><div class="av" style="background:var(--c-yellow)">L</div><div class="t"><b>Luca</b><br><small>visto ieri</small></div><button class="tool">Invita</button></div>
+    </div>
+  </div>
+  <div class="note">Sala d’attesa: la stanza di oggi, più gli inviti agli amici dentro i posti liberi. Chi esce da una partita iniziata non perde il posto e la ritrova in “Le mie partite”.</div>
+</section>
+</div>
+<script>
+const scr=[...document.querySelectorAll('.screen')],tabs=document.getElementById('tabs');
+scr.forEach((s,i)=>{const b=document.createElement('button');b.textContent=s.dataset.name;b.onclick=()=>show(i);tabs.append(b);});
+function show(i){scr.forEach((s,j)=>s.classList.toggle('on',i===j));[...tabs.children].forEach((b,j)=>b.classList.toggle('on',i===j));}
+const q=new URLSearchParams(location.search).get('s');show(q?Number(q):0);
+</script>
+</body></html>

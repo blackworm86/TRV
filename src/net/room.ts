@@ -44,12 +44,25 @@ export const TEAMS: Team[] = ['final_five', 'big_rig'];
 /** The team a seat really plays: a known one, never on a TRV9000 seat. */
 const teamOf = (s: Seat): Team | undefined => (!s.bot && s.team && TEAMS.includes(s.team) ? s.team : undefined);
 
+/** Who can find a room: everyone in the lobby, the host's friends in the lobby, or only who has the code. */
+export type Visibility = 'public' | 'friends' | 'invite';
+export const VISIBILITIES: Visibility[] = ['public', 'friends', 'invite'];
+
 /** What the host chooses before the start. */
 export interface RoomOptions {
   startSide: 'a' | 'b'; leaders: boolean; upgrades: boolean; carnage?: boolean;
   /** The Basic Protocol level of the TRV9000 teams (1-4), when there are any. */
   botLevel?: number;
+  /** Who finds the room in the lobby (absent: only who has the code, as rooms made before the lobby). */
+  vis?: Visibility;
+  /** How many seats the room has, 2 to {@link MAX_PLAYERS} (absent: {@link MAX_PLAYERS}). */
+  maxPlayers?: number;
+  /** The Big Rig and the Final Five may be picked by a seat (BRaFF p3). Absent: allowed, as before the option. */
+  teams?: boolean;
 }
+
+/** How many seats a room has. */
+export const roomSeats = (o: RoomOptions): number => o.maxPlayers && o.maxPlayers >= MIN_PLAYERS && o.maxPlayers <= MAX_PLAYERS ? o.maxPlayers : MAX_PLAYERS;
 
 /**
  * A player's request to the host: at log length `n`, option `c` of the pending decision. A draft
@@ -73,6 +86,12 @@ export interface Room {
   setup: Setup | null;
   log: number[];
   intents: Record<string, Intent>;
+  /** Written by the host while a match runs: who must decide now (a seat key), or null between decisions. */
+  turn: string | null;
+  /** When the log last grew (ms since the epoch), for "last move" in the list of one's games. */
+  moveAt: number;
+  /** The winner's name once the match is over (written by the host). */
+  ended: string | null;
 }
 
 export const MIN_PLAYERS = 2;
@@ -126,12 +145,18 @@ export function readRoom(raw: unknown): Room | null {
     createdAt: Number(r.createdAt) || 0,
     status: r.status === 'playing' ? 'playing' : 'lobby',
     options: { startSide: r.options?.startSide === 'b' ? 'b' : 'a', leaders: !!r.options?.leaders, upgrades: !!r.options?.upgrades, ...(r.options?.carnage ? { carnage: true } : {}),
-      ...(BOT_LEVELS.includes(Number(r.options?.botLevel)) ? { botLevel: Number(r.options!.botLevel) } : {}) },
+      ...(BOT_LEVELS.includes(Number(r.options?.botLevel)) ? { botLevel: Number(r.options!.botLevel) } : {}),
+      ...(VISIBILITIES.includes(r.options?.vis as Visibility) ? { vis: r.options!.vis } : {}),
+      ...(Number(r.options?.maxPlayers) >= MIN_PLAYERS && Number(r.options?.maxPlayers) <= MAX_PLAYERS ? { maxPlayers: Number(r.options!.maxPlayers) } : {}),
+      ...(typeof r.options?.teams === 'boolean' ? { teams: r.options.teams } : {}) },
     seats: (r.seats ?? {}) as Record<string, Seat>,
     order: list<string>(r.order),
     setup,
     log: list<number>(r.log),
     intents: (r.intents ?? {}) as Record<string, Intent>,
+    turn: typeof r.turn === 'string' ? r.turn : null,
+    moveAt: Number(r.moveAt) || 0,
+    ended: typeof r.ended === 'string' ? r.ended : null,
   };
 }
 
@@ -180,7 +205,7 @@ export async function joinRoom(store: RoomStore, code: string, me: { name: strin
   if (!room) return { ok: false, error: 'not-found' };
   if (room.seats[uid]) return { ok: true, room };
   if (room.status !== 'lobby') return { ok: false, error: 'started' };
-  if (Object.keys(room.seats).length >= MAX_PLAYERS) return { ok: false, error: 'full' };
+  if (Object.keys(room.seats).length >= roomSeats(room.options)) return { ok: false, error: 'full' };
   const seat: Seat = { name: cleanName(me.name, 'Giocatore'), crew: freeCrew(room, crews, me.crew), joinedAt: now };
   await store.write(roomPath(code, 'seats', uid), seat);
   return { ok: true, room: { ...room, seats: { ...room.seats, [uid]: seat } } };
@@ -194,7 +219,7 @@ export const isBotSeat = (room: Room, id: string): boolean => id.startsWith(BOT_
  * @returns the seat's key, or null when the room is full.
  */
 export async function addBot(store: RoomStore, code: string, room: Room, crews: string[], now: number): Promise<string | null> {
-  if (room.status !== 'lobby' || Object.keys(room.seats).length >= MAX_PLAYERS) return null;
+  if (room.status !== 'lobby' || Object.keys(room.seats).length >= roomSeats(room.options)) return null;
   let n = 1;
   while (room.seats[`${BOT_PREFIX}${n}`]) n++;
   const id = `${BOT_PREFIX}${n}`;
@@ -228,11 +253,13 @@ export function startProblem(room: Room): 'few' | 'many' | 'crews' | 'bots' | 't
 export async function startMatch(store: RoomStore, code: string, room: Room, seed: string, color: (crew: string) => string): Promise<void> {
   if (startProblem(room)) throw new Error('The room cannot start.');
   const order = seatOrder(room);
+  // A room made without the Big Rig and the Final Five plays three cars per seat, whatever a seat says.
+  const team = (uid: string): Team | undefined => room.options.teams === false ? undefined : teamOf(room.seats[uid]);
   const setup: Setup = {
     seed,
     players: order.map(uid => ({ name: room.seats[uid].name, color: color(room.seats[uid].crew), crew: room.seats[uid].crew,
       ...(isBotSeat(room, uid) ? { bot: { protocol: room.options.botLevel ?? 1 } } : {}),
-      ...(teamOf(room.seats[uid]) ? { team: teamOf(room.seats[uid]) } : {}) })),
+      ...(team(uid) ? { team: team(uid) } : {}) })),
     startSide: room.options.startSide,
     ...(room.options.leaders ? { leaders: true } : {}),
     ...(room.options.upgrades ? { upgrades: true } : {}),
@@ -240,6 +267,7 @@ export async function startMatch(store: RoomStore, code: string, room: Room, see
   };
   await store.write(roomPath(code, 'log'), null);
   await store.write(roomPath(code, 'intents'), null);
+  await store.write(roomPath(code, 'ended'), null);
   await store.write(roomPath(code, 'order'), order);
   await store.write(roomPath(code, 'setup'), setup);
   await store.write(roomPath(code, 'status'), 'playing');
@@ -252,6 +280,8 @@ export async function backToLobby(store: RoomStore, code: string): Promise<void>
   await store.write(roomPath(code, 'log'), null);
   await store.write(roomPath(code, 'intents'), null);
   await store.write(roomPath(code, 'order'), null);
+  await store.write(roomPath(code, 'turn'), null);
+  await store.write(roomPath(code, 'ended'), null);
 }
 
 /** Host: closes the room for everybody. */

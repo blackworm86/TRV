@@ -1,18 +1,24 @@
-// Online games: rooms on a shared store (Firebase, or local for checks), the lobby, the
+// Online games: rooms on a shared store (Firebase, or local for checks), the room's card, the
 // host as referee of every move.
 // A room on a shared store (src/net/room.ts): the host's browser is the referee. Every device
 // replays the room's log of choices on its own copy of the rules; a guest's click becomes an
 // intent that the host checks and appends. The room stays open until the host closes it.
+// The first screen around the rooms (lobby, one's games, friends) is home.ts.
 
-import { leaders, upgrades, type Team } from '../game/trv/engine';
+import type { Team } from '../game/trv/engine';
 import { BASE_CATALOG as CAT } from '../game/trv/catalog';
 import { newSeed } from '../platform/entropy';
-import { acceptable, addBot, isBotSeat, removeBot, BOT_LEVELS, undoable, backToLobby, cleanCode, closeRoom, createRoom, freeCrew, joinRoom, leaveRoom, readRoom, roomPath, startMatch, startProblem, MAX_PLAYERS, NAME_MAX, type Room, type RoomStore } from '../net/room';
+import {
+  acceptable, addBot, isBotSeat, removeBot, BOT_LEVELS, undoable, backToLobby, cleanCode, closeRoom, createRoom, freeCrew, joinRoom, leaveRoom, readRoom,
+  roomPath, roomSeats, startMatch, startProblem, type RoomOptions, type Room, type RoomStore, type Visibility,
+} from '../net/room';
+import { forgetGame, lobbyEntry, publishLobby, rememberGame } from '../net/social';
 import { FIREBASE_CONFIG } from '../net/firebase-config';
 import qrcode from 'qrcode-generator';
 import { applyChoice, deciders, g, pending, setPending, startGame, takeBack } from './game';
+import { checkedFriends, drawOnline, friendState, invite, myName, roomFriendsHtml, segValue, socialOn, typedCode } from './home';
 import { render } from './pieces';
-import { clearTable, openSetup } from './screens';
+import { clearTable, openSetup, showPane } from './screens';
 import { S } from './state';
 import { $, esc } from './util';
 
@@ -60,10 +66,13 @@ export function netError(e: unknown): void {
 }
 
 export function enterRoom(store: RoomStore, code: string, uid: string): void {
+  if (S.net) S.net.stop();
   S.net = { store, code, uid, host: false, room: null, stop: () => {}, lobbyOpen: false, qrFor: '' };
   history.replaceState(null, '', inviteUrl(code));
   $('setup').style.display = 'none';
   $('oerr').textContent = '';
+  // The room goes in the player's list of games, on every device (home.ts).
+  if (socialOn()) void rememberGame(store, code, Date.now()).catch(() => {});
   S.net.stop = store.watch(roomPath(code), raw => onRoom(readRoom(raw)));
 }
 
@@ -81,6 +90,7 @@ export function exitRoom(why = ''): void {
   drawLobby();
   openSetup();
   $('oerr').textContent = why;
+  drawOnline();
   render();
 }
 
@@ -106,6 +116,7 @@ export function onRoom(room: Room | null): void {
     }
     if (S.net.host) referee();
   }
+  if (S.net.host) hostDuties();
   drawLobby();
 }
 
@@ -125,8 +136,33 @@ export function referee(): void {
   }
 }
 
+/**
+ * Host: keeps what others read of the room up to date without replaying it: its card in the lobby,
+ * whose turn it is, when the last move was made and who won (for everybody's list of games).
+ */
+function hostDuties(): void {
+  const n = S.net;
+  if (!n?.host || !n.room) return;
+  const r = n.room, path = (k: string): string => roomPath(n.code, k);
+  if (socialOn()) {
+    const card = JSON.stringify(lobbyEntry(n.code, r));
+    if (card !== n.posted) { n.posted = card; void publishLobby(n.store, n.code, r).catch(e => console.warn(e)); }
+  }
+  if (r.status !== 'playing' || !S.saved) return;
+  const who = pending ? r.order[pending.player] : undefined;
+  const turn = who && !isBotSeat(r, who) && g?.winner === null ? who : null;
+  const winner = g && g.winner !== null ? r.setup?.players[g.winner]?.name ?? null : null;
+  if (turn !== r.turn) void n.store.write(path('turn'), turn).catch(netError);
+  if (winner !== r.ended) void n.store.write(path('ended'), winner).catch(netError);
+  if (n.logLen !== undefined && r.log.length !== n.logLen && r.log.length) void n.store.write(path('moveAt'), Date.now()).catch(netError);
+  n.logLen = r.log.length;
+}
+
 /** The levels of the Basic Protocol, as the hot seat setup names them (index.html, #botlevel). */
 const BOT_LEVEL_TEXT: Record<number, string> = Object.fromEntries([...document.querySelectorAll<HTMLOptionElement>('#botlevel option')].map(o => [Number(o.value), o.textContent ?? o.value]));
+$('obotlevel').innerHTML = BOT_LEVELS.map(l => `<option value="${l}">${esc(BOT_LEVEL_TEXT[l])}</option>`).join('');
+
+const VIS_TEXT: Record<Visibility, string> = { public: 'Tutti (in lobby)', friends: 'Solo amici', invite: 'Solo su invito' };
 
 export function drawLobby(): void {
   const lobby = $('lobby'), badge = $('roombadge');
@@ -138,6 +174,7 @@ export function drawLobby(): void {
   lobby.style.display = open ? 'grid' : 'none';
   if (!open) return;
   $('lcode').textContent = n.code;
+  $('lvis').textContent = { public: 'pubblica in lobby', friends: 'in lobby per gli amici', invite: 'solo su invito' }[r.options.vis ?? 'invite'];
   if (n.qrFor !== n.code) {
     n.qrFor = n.code;
     const link = inviteUrl(n.code);
@@ -149,8 +186,10 @@ export function drawLobby(): void {
   }
   // Seats: mine has the crew to pick (before the start), and the host picks the TRV9000 teams'
   // ones too and can take them off; the others are read only. A free seat lets the host add a
-  // TRV9000 team (asked by the user, 2026-11-18: bots in online games too).
+  // TRV9000 team (asked by the user, 2026-11-18: bots in online games too). Next to another
+  // person, "+ amico" asks them to be friends.
   const bots = ids.filter(id => isBotSeat(r, id));
+  const teamsOn = r.options.teams !== false;
   $('lseats').innerHTML = ids.map((id, i) => {
     const s = r.seats[id], mine = id === n.uid, bot = isBotSeat(r, id), mayPick = !inGame && (mine || (bot && n.host));
     const taken = new Set(ids.filter(x => x !== id).map(x => r.seats[x].crew));
@@ -159,13 +198,15 @@ export function drawLobby(): void {
       : `<small>${esc(CAT.crews.find(c => c.id === s.crew)?.name ?? s.crew)}</small>`;
     // The crew is three cars, the Final Five or the Big Rig (BRaFF p3): one of each per match.
     const others = new Set(ids.filter(x => x !== id).map(x => r.seats[x].team));
-    const team = bot ? '' : mine && !inGame
+    const team = bot || !teamsOn ? '' : mine && !inGame
       ? `<select class="lteam" data-seat="${esc(id)}">${[['', 'Auto'], ['final_five', 'Final Five (moto)'], ['big_rig', 'Big Rig']].map(([v, l]) => `<option value="${v}" ${(s.team ?? '') === v ? 'selected' : ''} ${v && others.has(v as Team) ? 'disabled' : ''}>${l}</option>`).join('')}</select>`
       : s.team ? `<small>${s.team === 'big_rig' ? 'Big Rig' : 'Final Five'}</small>` : '';
     const tag = bot ? `<small class="bottag">TRV9000 · livello ${r.options.botLevel ?? 1}</small>` : '';
     const drop = bot && n.host && !inGame ? `<button class="ldrop" data-seat="${esc(id)}" title="Togli questa squadra TRV9000">✕</button>` : '';
-    return `<div class="seat ${bot ? 'bot' : ''}" style="--c:${crewColor(s.crew)}" data-i="${i}"><i></i><b>${esc(s.name)}</b>${id === r.host ? '<small>host</small>' : ''}${mine ? '<small>tu</small>' : ''}${tag}${crew}${team}${drop}</div>`;
-  }).join('') + (inGame ? '' : Array.from({ length: Math.max(0, MAX_PLAYERS - ids.length) }, () =>
+    const fs = !bot && !mine && socialOn() ? friendState(id) : 'friend';
+    const befriend = fs === 'none' ? `<button class="lfriend" data-uid="${esc(id)}" title="Chiedi di diventare amici">+ amico</button>` : fs === 'asked' ? '<small>richiesta mandata</small>' : '';
+    return `<div class="seat ${bot ? 'bot' : ''}" style="--c:${crewColor(s.crew)}" data-i="${i}"><i></i><b>${esc(s.name)}</b>${id === r.host ? '<small>host</small>' : ''}${mine ? '<small>tu</small>' : ''}${tag}${befriend}${crew}${team}${drop}</div>`;
+  }).join('') + (inGame ? '' : Array.from({ length: Math.max(0, roomSeats(r.options) - ids.length) }, () =>
     `<div class="seat empty"><i></i><b>posto libero</b>${n.host ? '<button class="laddbot" title="Una squadra giocata dalle carte TRV9000">+ TRV9000</button>' : ''}</div>`).join(''));
   for (const sel of $('lseats').querySelectorAll<HTMLSelectElement>('select.lcrew')) {
     sel.onchange = () => { void n.store.write(roomPath(n.code, 'seats', sel.dataset.seat!, 'crew'), sel.value).catch(netError); };
@@ -178,24 +219,31 @@ export function drawLobby(): void {
   // Options: the host's to set before the start.
   const o = r.options;
   if (n.host && !inGame) {
-    $('lopts').innerHTML = `<label>Tessera di partenza</label>
+    $('lopts').innerHTML = `<label>Chi può entrare</label>
+      <select id="lvissel">${(['public', 'friends', 'invite'] as Visibility[]).map(v => `<option value="${v}" ${(o.vis ?? 'invite') === v ? 'selected' : ''}>${VIS_TEXT[v]}</option>`).join('')}</select>
+      <select id="lmax" title="Posti nella stanza">${[2, 3, 4].map(k => `<option value="${k}" ${roomSeats(o) === k ? 'selected' : ''} ${k < ids.length ? 'disabled' : ''}>${k} posti</option>`).join('')}</select>
+      <label>Tessera di partenza</label>
       <select id="lside"><option value="a" ${o.startSide === 'a' ? 'selected' : ''}>1a — The Parking Lot</option><option value="b" ${o.startSide === 'b' ? 'selected' : ''}>1b — Runway to Ruin</option></select>
       <label>Espansioni</label>
       <label class="check"><input type="checkbox" id="lleaders" ${o.leaders ? 'checked' : ''}> Choppe Shoppe: capisquadra e segnalini comando</label>
       <label class="check"><input type="checkbox" id="lupgrades" ${o.upgrades ? 'checked' : ''}> Choppe Shoppe: carte potenziamento</label>
       <label class="check"><input type="checkbox" id="lcarnage" ${o.carnage ? 'checked' : ''}> Carnage at Devil’s Run: tessere, pericoli e fuoco</label>
+      <label class="check"><input type="checkbox" id="lteams" ${teamsOn ? 'checked' : ''}> The Big Rig and The Final Five</label>
       <label ${bots.length ? '' : 'style="display:none"'}>Livello dei TRV9000</label>
       <select id="lbotlevel" ${bots.length ? '' : 'style="display:none"'}>${BOT_LEVELS.map(l => `<option value="${l}" ${(o.botLevel ?? 1) === l ? 'selected' : ''}>${BOT_LEVEL_TEXT[l]}</option>`).join('')}</select>`;
     const push = (): void => {
-      void n.store.write(roomPath(n.code, 'options'), { startSide: ($('lside') as HTMLSelectElement).value, leaders: ($('lleaders') as HTMLInputElement).checked,
+      const next: RoomOptions = { startSide: ($('lside') as HTMLSelectElement).value as 'a' | 'b', leaders: ($('lleaders') as HTMLInputElement).checked,
         upgrades: ($('lupgrades') as HTMLInputElement).checked, carnage: ($('lcarnage') as HTMLInputElement).checked,
-        botLevel: Number(($('lbotlevel') as HTMLSelectElement).value) }).catch(netError);
+        botLevel: Number(($('lbotlevel') as HTMLSelectElement).value), vis: ($('lvissel') as HTMLSelectElement).value as Visibility,
+        maxPlayers: Number(($('lmax') as HTMLSelectElement).value), teams: ($('lteams') as HTMLInputElement).checked };
+      void n.store.write(roomPath(n.code, 'options'), next).catch(netError);
     };
-    for (const id of ['lside', 'lleaders', 'lupgrades', 'lcarnage', 'lbotlevel']) $(id).onchange = push;
+    for (const id of ['lside', 'lleaders', 'lupgrades', 'lcarnage', 'lbotlevel', 'lvissel', 'lmax', 'lteams']) $(id).onchange = push;
   } else {
-    const exp = [o.leaders ? 'capisquadra' : '', o.upgrades ? 'carte potenziamento' : '', o.carnage ? 'Carnage at Devil’s Run' : ''].filter(Boolean).join(', ');
+    const exp = [o.leaders ? 'capisquadra' : '', o.upgrades ? 'carte potenziamento' : '', o.carnage ? 'Carnage at Devil’s Run' : '', teamsOn ? 'Big Rig e Final Five' : ''].filter(Boolean).join(', ');
     $('lopts').innerHTML = `<p class="hint">Partenza: tessera 1${o.startSide}. Espansioni: ${exp || 'nessuna'}.${bots.length ? ` TRV9000: livello ${o.botLevel ?? 1}.` : ''}</p>`;
   }
+  $('lfriends').innerHTML = socialOn() && !inGame ? roomFriendsHtml(n.code, ids) : '';
   const problem = startProblem(r);
   $('lstate').textContent = inGame ? 'Partita in corso.'
     : !n.host ? 'In attesa che l’host inizi la partita…'
@@ -206,7 +254,7 @@ export function drawLobby(): void {
   ($('lstart') as HTMLButtonElement).disabled = !!problem;
   show('lresume', inGame);
   show('lrematch', n.host && inGame);
-  show('lleave', !n.host);
+  show('lleave', !n.host || inGame);
   show('lclose', n.host);
 }
 
@@ -227,46 +275,79 @@ $('lrematch').onclick = () => {
   if (S.net?.host && confirm('Chiudere questa partita e tornare alla sala d’attesa?')) void backToLobby(S.net.store, S.net.code).catch(netError);
 };
 $('lclose').onclick = () => {
-  if (S.net?.host && confirm('Chiudere la stanza per tutti? La partita in corso va persa.')) void closeRoom(S.net.store, S.net.code).catch(netError);
+  const n = S.net;
+  if (!n?.host || !confirm('Chiudere la stanza per tutti? La partita in corso va persa.')) return;
+  void (async () => {
+    if (socialOn()) { await publishLobby(n.store, n.code, null).catch(() => {}); await forgetGame(n.store, n.code).catch(() => {}); }
+    await closeRoom(n.store, n.code);
+  })().catch(netError);
 };
 $('lleave').onclick = () => {
-  if (!S.net?.room) return;
-  // Before the start the seat is freed; during a match it is kept, so the player can come back.
-  if (S.net.room.status === 'lobby') void leaveRoom(S.net.store, S.net.code).catch(netError);
+  const n = S.net;
+  if (!n?.room) return;
+  // Before the start the seat is freed (and the room leaves the list of one's games); during a
+  // match it is kept, so the player can come back from "Le mie partite".
+  if (n.room.status === 'lobby') {
+    void leaveRoom(n.store, n.code).catch(netError);
+    if (socialOn()) void forgetGame(n.store, n.code).catch(() => {});
+  }
   exitRoom();
 };
 
-/** The name typed in the create (`oname`) or join (`jname`) pane, remembered for next time. */
-export const onlineName = (field: 'oname' | 'jname'): string => {
-  const name = ($(field) as HTMLInputElement).value.trim().slice(0, NAME_MAX);
-  try { if (name) localStorage.setItem(NAME_KEY, name); } catch { /* storage off */ }
-  return name;
-};
-$('ocreate').onclick = async () => {
-  const name = onlineName('oname');
-  if (!name) { $('oerr').textContent = 'Scrivi il tuo nome.'; return; }
-  $('oerr').textContent = 'Creo la stanza…';
-  try {
-    const store = await openStore();
-    const options = { startSide: ($('oside') as HTMLSelectElement).value as 'a' | 'b', leaders: ($('oleaders') as HTMLInputElement).checked, upgrades: ($('oupgrades') as HTMLInputElement).checked,
-      ...(($('ocarnage') as HTMLInputElement).checked ? { carnage: true } : {}) };
-    const code = await createRoom(store, { name, crew: CREW_IDS[0] }, options, randomBytes, Date.now());
-    enterRoom(store, code, await store.uid());
-  } catch (e) { netError(e); }
-};
-$('ojoin').onclick = async () => {
-  const name = onlineName('jname'), code = cleanCode(($('ocode') as HTMLInputElement).value);
-  if (!name) { $('oerr').textContent = 'Scrivi il tuo nome.'; return; }
+/** The player's name for a room, or null after asking for it (the header's field). */
+function nameOrAsk(): string | null {
+  const name = myName();
+  if (name) {
+    try { localStorage.setItem(NAME_KEY, name); } catch { /* storage off */ }
+    return name;
+  }
+  $('oerr').textContent = 'Scrivi il tuo nome in alto: è quello che vedono gli altri.';
+  ($('myname') as HTMLInputElement).focus();
+  return null;
+}
+
+/** Sits this player in room `code` (or back in it) and opens it. */
+export async function joinByCode(code: string): Promise<void> {
+  const name = nameOrAsk();
+  if (!name) return;
   if (!code) { $('oerr').textContent = 'Il codice ha cinque caratteri.'; return; }
   $('oerr').textContent = 'Entro nella stanza…';
   try {
     const store = await openStore();
     const res = await joinRoom(store, code, { name, crew: freeCrew(null, CREW_IDS) }, CREW_IDS, Date.now());
     if (!res.ok) {
-      $('oerr').textContent = { 'not-found': 'Stanza non trovata: controlla il codice.', full: 'La stanza è piena (quattro giocatori).', started: 'La partita è già iniziata.' }[res.error];
+      $('oerr').textContent = { 'not-found': 'Stanza non trovata: controlla il codice.', full: 'La stanza è piena.', started: 'La partita è già iniziata.' }[res.error];
       return;
     }
     enterRoom(store, code, await store.uid());
   } catch (e) { netError(e); }
+}
+
+$('ocreate').onclick = async () => {
+  const name = nameOrAsk();
+  if (!name) return;
+  $('oerr').textContent = 'Creo la stanza…';
+  try {
+    const store = await openStore();
+    const bots = Number(($('obots') as HTMLSelectElement).value), max = Number(segValue('omax')) || 4;
+    const options: RoomOptions = { startSide: ($('oside') as HTMLSelectElement).value as 'a' | 'b', leaders: ($('oleaders') as HTMLInputElement).checked, upgrades: ($('oupgrades') as HTMLInputElement).checked,
+      ...(($('ocarnage') as HTMLInputElement).checked ? { carnage: true } : {}), vis: (segValue('ovis') || 'public') as Visibility, maxPlayers: max,
+      teams: ($('oteams') as HTMLInputElement).checked, ...(bots ? { botLevel: Number(($('obotlevel') as HTMLSelectElement).value) } : {}) };
+    const code = await createRoom(store, { name, crew: CREW_IDS[0] }, options, randomBytes, Date.now());
+    for (let i = 0; i < Math.min(bots, max - 1); i++) {
+      const room = readRoom(await store.read(roomPath(code)));
+      if (room) await addBot(store, code, room, CREW_IDS, Date.now() + i + 1);
+    }
+    for (const uid of checkedFriends()) await invite(uid, code).catch(e => console.warn(e));
+    enterRoom(store, code, await store.uid());
+  } catch (e) { netError(e); }
 };
+$('ojoin').onclick = () => { void joinByCode(typedCode()); };
 ($('ocode') as HTMLInputElement).addEventListener('keydown', e => { if (e.key === 'Enter') $('ojoin').click(); });
+$('jjoin').onclick = () => { void joinByCode(cleanCode(new URLSearchParams(location.search).get('room') ?? '')); };
+
+/** Opens the pane for an invitation link to room `code`. */
+export function showInvite(code: string): void {
+  showPane('pJoin');
+  $('joinhint').textContent = `Sei stato invitato nella stanza ${code}.`;
+}

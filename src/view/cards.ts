@@ -22,8 +22,6 @@ const UPGRADE_PICTOGRAM = byId(import.meta.glob<string>('/assets/choppe_shoppe/c
 const ONGOING_ART = byId(import.meta.glob<string>('/assets/carnage/carte/effetto_continuo/*.jpg', { eager: true, query: '?url', import: 'default' }));
 const ONGOING_ILLUSTRATION = byId(import.meta.glob<string>('/assets/carnage/carte/effetto_continuo/illustrazioni/*.jpg', { eager: true, query: '?url', import: 'default' }));
 
-/** Where the scanned upgrade card's black text panel begins, as a share of the card's height. */
-export const UPGRADE_PANEL_TOP = 0.6;
 /** The upgrade panel's black, sampled from the scans. */
 export const CARD_BLACK = '#141313';
 /** Where the scanned ongoing effect card's red panel begins, as a share of its height. */

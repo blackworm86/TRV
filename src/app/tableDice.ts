@@ -40,7 +40,6 @@ export let tableDiceState: { used: boolean[]; idle: boolean[] } = { used: [], id
  * are in the drawer behind the command board instead (dock.ts); the chase view keeps them by the car.
  */
 export let diceOnTable = true;
-export function setDiceOnTable(on: boolean): void { diceOnTable = on; }
 
 /** Where die `i` of `n` rests: centred under the road, one die and a half apart. */
 export function tableDieSpot(i: number, n: number): THREE.Vector3 {

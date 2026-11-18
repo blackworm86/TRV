@@ -58,7 +58,9 @@ async function open(page: Page, opts: { save?: number[]; settings?: object; quer
   }, [SAVE_KEY, SETTINGS_KEY, opts.save ? { setup: { seed: SEED, startSide: 'a',
     ...(opts.leaders ? { players: PLAYERS.map((p, i) => ({ ...p, leader: opts.leaders![i] })), leaders: true } : { players: PLAYERS }) }, choices: opts.save } : null,
     { quality: 'low', ...opts.settings }] as const);
-  await page.goto(GAME + (opts.query ?? ''));
+  // The first screen connects to the online store at once (its home lists one's games and friends):
+  // the checks use the local store, never the real Firebase project.
+  await page.goto(GAME + (opts.query ?? '?net=local'));
   await expect.poll(() => page.evaluate(() => typeof window.trv?.choose)).toBe('function');
   return errors;
 }
@@ -82,11 +84,22 @@ async function playFirst(page: Page, n: number): Promise<number> {
   }, n);
 }
 
+/** From the first screen: names the player, goes to the lobby and creates a room with the default options. */
+async function createRoom(page: Page, name: string): Promise<void> {
+  await page.locator('#myname').fill(name);
+  await page.locator('#mPlay').click();
+  await page.locator('#mCreate').click();
+  await page.locator('#ocreate').click();
+  await expect.poll(() => page.locator('#lcode').textContent()).toMatch(/^[A-Z0-9]{5}$/);
+}
+
 test.describe('game', () => {
   test('first screen opens with no errors @boot', async ({ page }) => {
     const errors = await open(page);
     await expect(page.locator('#mHot')).toBeVisible();
-    await expect(page.locator('#mCreate')).toBeVisible();
+    await expect(page.locator('#mPlay')).toBeVisible();
+    await expect(page.locator('#mMine')).toBeVisible();
+    await expect(page.locator('#mFriends')).toBeVisible();
     await same(page, 'first-screen.png', 0.02);
     expect(errors).toEqual([]);
   });
@@ -183,18 +196,15 @@ test.describe('game', () => {
   test('an online room in local mode: create, join, start, play a move', async ({ page, context }) => {
     test.setTimeout(240_000); // two tables drawn in software, a move and an Undo
     const errors = await open(page, { query: '?net=local' });
-    await page.locator('#mCreate').click();
-    await page.locator('#oname').fill('Host');
-    await page.locator('#ocreate').click();
-    await expect.poll(() => page.locator('#lcode').textContent()).toMatch(/^[A-Z0-9]{5}$/);
+    await createRoom(page, 'Host');
     const code = (await page.locator('#lcode').textContent())!;
 
     const guest = await context.newPage();
     const guestErrors = watchErrors(guest);
     await guest.goto(GAME + '?net=local');
     await expect.poll(() => guest.evaluate(() => typeof window.trv?.choose)).toBe('function');
-    await guest.locator('#mJoin').click();
-    await guest.locator('#jname').fill('Ospite');
+    await guest.locator('#myname').fill('Ospite');
+    await guest.locator('#mPlay').click();
     await guest.locator('#ocode').fill(code);
     await guest.locator('#ojoin').click();
     await expect(page.locator('#lseats')).toContainText('Ospite');
@@ -234,10 +244,7 @@ test.describe('game', () => {
   test('an online room with a TRV9000 team: the host seats it, starts, and the bot plays its turns', async ({ page }) => {
     test.setTimeout(180_000);
     const errors = await open(page, { query: '?net=local' });
-    await page.locator('#mCreate').click();
-    await page.locator('#oname').fill('Host');
-    await page.locator('#ocreate').click();
-    await expect.poll(() => page.locator('#lcode').textContent()).toMatch(/^[A-Z0-9]{5}$/);
+    await createRoom(page, 'Host');
     // A free seat lets the host add a team; its level is set with the options.
     await page.locator('#lseats .laddbot').first().click();
     await expect(page.locator('#lseats .seat.bot')).toHaveCount(1);
@@ -257,5 +264,57 @@ test.describe('game', () => {
     }
     expect(await moved()).toBe(true);
     expect(errors).toEqual([]);
+  });
+
+  test('friends: a friend link, a request accepted, an invitation, the lobby and one’s games', async ({ page, context }) => {
+    test.setTimeout(120_000);
+    const errors = await open(page, { query: '?net=local' });
+    await page.locator('#myname').fill('Ada');
+    await page.locator('#myname').press('Tab');
+    await expect(page.locator('#mecode')).toHaveText(/^TRV-[A-Z0-9]{6}$/);
+    const friendCode = (await page.locator('#mecode').textContent())!.slice(4);
+
+    // Bo opens Ada's friend link and asks to be friends; Ada accepts.
+    const bo = await context.newPage();
+    const boErrors = watchErrors(bo);
+    await bo.goto(`${GAME}?net=local&friend=${friendCode}`);
+    await expect(bo.locator('#pFriends')).toHaveClass(/on/);
+    await bo.locator('#myname').fill('Bo');
+    await bo.locator('#myname').press('Tab');
+    await bo.locator('#fadd').click();
+    await expect(bo.locator('#faddmsg')).toContainText('Richiesta mandata');
+    await page.locator('#mFriends').click();
+    await expect(page.locator('#frequests')).toContainText('Bo');
+    await page.locator('#frequests .facc').click();
+    await expect(page.locator('#flist')).toContainText('Bo');
+
+    // Ada invites Bo from the friends' list into a new public room.
+    await page.locator('#flist .fplay').click();
+    await expect(page.locator('#pCreate')).toHaveClass(/on/);
+    await expect(page.locator('#ofriends input')).toBeChecked();
+    await page.locator('#ocreate').click();
+    await expect.poll(() => page.locator('#lcode').textContent()).toMatch(/^[A-Z0-9]{5}$/);
+    const code = (await page.locator('#lcode').textContent())!;
+
+    // Bo finds the room in the lobby, marked as a friend's, and the invitation in his games.
+    await bo.locator('#pFriends [data-back]').click();
+    await bo.locator('#mPlay').click();
+    await expect(bo.locator('#lobbyList')).toContainText('Ada');
+    await expect(bo.locator('#lobbyList tr.friend')).toHaveCount(1);
+    await bo.locator('#lobbyList [data-back], #pLobby [data-back]').first().click();
+    await bo.locator('#mMine').click();
+    await expect(bo.locator('#invites')).toContainText(code);
+    await bo.locator('#invites .ijoin').click();
+    await expect(page.locator('#lseats')).toContainText('Bo');
+
+    // Started: the room leaves the lobby, and Bo's list says whose turn it is.
+    await page.locator('#lstart').click();
+    await expect.poll(() => bo.evaluate(() => !!window.trv!.game)).toBe(true);
+    await bo.evaluate(() => document.getElementById('quit')!.click());
+    await bo.locator('#mMine').click();
+    await expect(bo.locator('#mineList')).toContainText(code);
+    await expect(bo.locator('#mineList')).toContainText(/In corso/);
+    expect(errors).toEqual([]);
+    expect(boErrors).toEqual([]);
   });
 });

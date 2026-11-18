@@ -452,7 +452,7 @@
   /* The first screen is a screen of its own: opaque, the game is not drawn behind it (main.ts). */
   #setup { position: fixed; inset: 0; display: grid; place-items: center; z-index: 10; overflow: auto;
     background: radial-gradient(ellipse at 50% 30%, #3a2416 0%, #1a110b 55%, #0d0805 100%); }
-  #setup .card { background: var(--card); padding: 22px 26px; border-radius: 14px; width: min(520px, 92vw); max-height: 96vh; overflow: auto; box-sizing: border-box; box-shadow: 0 10px 40px #000; }
+  #setup .card { background: transparent; padding: 18px 24px; width: min(1000px, 96vw); max-height: 100vh; overflow: auto; box-sizing: border-box; align-self: start; }
   #setup h1 { font: 400 44px 'League Gothic', Impact, sans-serif; color: var(--acc); margin: 0 0 8px; }
   #setup label { display: block; margin: 10px 0 4px; font-weight: 600; }
   #setup input, #setup select { font: inherit; padding: 8px; border-radius: 6px; border: 1px solid #5a4330; background: #120c07; color: var(--ink); }
@@ -462,33 +462,95 @@
   #setup label.check { display: flex; align-items: center; gap: 8px; font-weight: 400; margin: 2px 0; }
   #setup label.check input { width: 18px; height: 18px; padding: 0; }
   /* Online: create or join a room from the first screen; the lobby is a card of the same family. */
-  /* Account: optional Google sign-in at the top of the first screen; admins get their panel. */
-  #account { display: none; align-items: center; gap: 8px; margin: -6px 0 8px; padding-bottom: 10px; border-bottom: 1px solid #4a3523; font-size: 13px; }
+  /* The first screen (design/ux/menu-lobby/mockup.html, approved 2026-11-18): a header with the
+     player's card, then one pane at a time: home, lobby, create, my games, friends, local game. */
+  #setup .hdr { display: flex; align-items: center; gap: 12px; margin-bottom: 16px; flex-wrap: wrap; }
+  #setup .logo { font: 400 40px/1 'League Gothic', Impact, sans-serif; letter-spacing: 1px; color: var(--acc); text-shadow: 0 2px 0 #000; }
+  #setup .logo small { display: block; font: 700 12px system-ui, sans-serif; letter-spacing: 3px; color: var(--ink); opacity: .6; }
+  #setup .sp, #lobby .sp { flex: 1; }
+  #me { display: flex; align-items: center; gap: 8px; background: var(--card); border: 1px solid #4a3523; border-radius: 30px; padding: 4px 14px 4px 4px; }
+  .av { width: 34px; height: 34px; border-radius: 50%; background: var(--c, #6b5440); display: grid; place-items: center; font: 400 19px 'League Gothic', Impact, sans-serif; color: #f3e6d0; border: 2px solid #000; flex: none; }
+  #me .who { display: flex; flex-direction: column; }
+  #setup #myname { font-weight: 700; padding: 1px 4px; border: 1px solid transparent; background: transparent; width: 150px; }
+  #setup #myname:hover, #setup #myname:focus { border-color: #5a4330; background: #120c07; }
+  #mecode { font-size: 12px; opacity: .65; padding-left: 5px; }
+  /* Account: optional Google sign-in, next to the player's card; admins get their panel. */
+  #account { display: none; align-items: center; gap: 8px; font-size: 13px; }
   #account.on { display: flex; }
-  #accwho { flex: 1; min-width: 0; line-height: 1.3; opacity: .85; }
+  #accwho { max-width: 220px; line-height: 1.3; opacity: .8; }
   #account .tool { min-height: 30px; padding: 4px 10px; font-size: 13px; text-decoration: none; display: inline-flex; align-items: center; }
   #accadmin { background: var(--acc); color: #16100b; font-weight: 700; }
-  /* First screen: a menu of three choices, each opening its own pane with a way back. */
-  #setup h2 { font: 400 30px 'League Gothic', Impact, sans-serif; color: var(--acc); margin: 4px 0 2px; }
+  #setup h2 { font: 400 32px 'League Gothic', Impact, sans-serif; color: var(--ink); margin: 0; letter-spacing: .5px; }
+  #setup h3, #lobby h3 { font: 400 21px 'League Gothic', Impact, sans-serif; color: var(--acc); margin: 0 0 8px; letter-spacing: .5px; font-weight: 400; }
   #setup .pane { display: none; }
   #setup .pane.on { display: block; }
-  #setup .pane > input, #setup .pane > select { width: 100%; box-sizing: border-box; }
-  #setup .big { display: flex; flex-direction: column; align-items: flex-start; gap: 3px; width: 100%; margin: 10px 0 0; padding: 14px 18px; text-align: left; cursor: pointer;
-    font: inherit; color: var(--ink); background: #33271d; border: 2px solid #4a3523; border-radius: 12px; transition: border-color .15s, background .15s; }
-  #setup .big b { font: 400 28px/1 'League Gothic', Impact, sans-serif; letter-spacing: .4px; color: var(--acc); }
-  #setup .big small { font-size: 14px; opacity: .8; }
+  #setup .bar, #lobby .bar { display: flex; align-items: center; gap: 10px; margin-bottom: 12px; flex-wrap: wrap; }
+  #setup .panel { background: var(--card); border: 1px solid #4a3523; border-radius: 10px; padding: 14px; box-sizing: border-box; }
+  #setup .panel.narrow { max-width: 560px; }
+  #setup .panel.list { padding: 4px 10px; }
+  #setup .panel + .panel { margin-top: 14px; }
+  #setup .cols2, #lobby .cols2 { display: grid; grid-template-columns: 1.3fr 1fr; gap: 16px; align-items: start; }
+  #setup .cols2.rev { grid-template-columns: 1fr 1.3fr; }
+  #setup .stack { display: grid; gap: 14px; }
+  #setup .stack .panel + .panel { margin-top: 0; }
+  #setup .row { display: flex; gap: 8px; align-items: center; }
+  #setup .row input { flex: 1; min-width: 0; }
+  #setup .back { padding: 6px 12px; border: 1px solid #4a3523; border-radius: 6px; background: none; color: var(--ink); opacity: .8; font: inherit; cursor: pointer; }
+  #setup .back:hover { opacity: 1; border-color: var(--acc); }
+  #setup .go.small { width: auto; margin: 0; min-height: 38px; padding: 0 16px; font-size: 16px; }
+  .pill { display: inline-block; font: 700 11px system-ui, sans-serif; font-style: normal; letter-spacing: .6px; text-transform: uppercase; padding: 3px 8px; border-radius: 10px; background: #3b2a1b; color: #cdbb9c; white-space: nowrap; }
+  .pill:empty { display: none; }
+  .pill.turn { background: #4cff7a; color: #0b2410; } .pill.wait { color: var(--acc); } .pill.soon { background: #2a2a2a; color: #999; } .pill.on { background: #16391f; color: #4cff7a; }
+  /* Home: the big buttons on the left, one's games and friends online on the right. */
+  #setup .home { display: grid; grid-template-columns: 1.25fr 1fr; gap: 18px; align-items: start; }
+  #setup .bigs { display: flex; flex-direction: column; gap: 10px; }
+  #setup .bigs .two { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+  #setup .side { display: grid; gap: 14px; }
+  #setup .side .panel + .panel { margin-top: 0; }
+  #setup .big { display: flex; align-items: center; gap: 14px; width: 100%; margin: 0; padding: 12px 16px; text-align: left; cursor: pointer; box-sizing: border-box;
+    font: inherit; color: var(--ink); background: var(--card); border: 1px solid #4a3523; border-radius: 10px; transition: border-color .15s, background .15s; }
+  #setup .big > i { font-style: normal; font-size: 24px; width: 34px; text-align: center; flex: none; }
+  #setup .big > span { display: flex; flex-direction: column; gap: 2px; flex: 1; min-width: 0; }
+  #setup .big b { font: 400 26px/1 'League Gothic', Impact, sans-serif; letter-spacing: .4px; color: var(--ink); font-weight: 400; }
+  #setup .big small { font-size: 14px; opacity: .75; }
+  #setup .big.main { background: linear-gradient(90deg, #5a3612, #2e1d0f); border-color: var(--acc); }
+  #setup .big.main b { color: var(--acc); font-size: 32px; }
   #setup .big:hover:not(:disabled), #setup .big:focus-visible { border-color: var(--acc); background: #3d2f22; outline: none; }
-  #setup .big:disabled { opacity: .4; cursor: default; }
+  #setup .big:disabled { opacity: .45; cursor: default; }
   #setup .big.resume { background: #e8742a; border-color: #e8742a; }
   #setup .big.resume b, #setup .big.resume small { color: #1a120c; }
-  #setup .back { margin: 2px 0 4px; padding: 4px 0; border: 0; background: none; color: var(--ink); opacity: .75; font: inherit; cursor: pointer; }
-  #setup .back:hover { opacity: 1; }
-  #ocode { text-transform: uppercase; letter-spacing: 4px; }
+  /* Rows of people and games, and the tables of the lobby and of one's games. */
+  .prow { display: flex; align-items: center; gap: 10px; padding: 8px 0; border-bottom: 1px solid #35261a; }
+  .prow:last-child { border-bottom: 0; }
+  .prow .av { width: 30px; height: 30px; font-size: 16px; }
+  .prow .t { flex: 1; min-width: 0; } .prow .t b { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; } .prow .t small { opacity: .7; }
+  .dots { display: inline-flex; gap: 3px; vertical-align: middle; } .dots i { width: 12px; height: 12px; border-radius: 50%; border: 1px solid #000; display: block; background: var(--c); }
+  .dots i.e { background: transparent; border: 1px dashed #6b5440; }
+  .empty-note { opacity: .6; font-size: 14px; padding: 6px 0; }
+  #setup table { width: 100%; border-collapse: collapse; }
+  #setup th { font: 700 11px system-ui, sans-serif; letter-spacing: .8px; text-transform: uppercase; opacity: .65; text-align: left; padding: 8px; border-bottom: 1px solid #4a3523; }
+  #setup td { padding: 9px 8px; border-bottom: 1px solid #35261a; vertical-align: middle; }
+  #setup tr:last-child td { border-bottom: 0; }
+  #setup tr.friend td { background: #3a2716; }
+  #setup td small { opacity: .65; }
+  .exp { display: inline-flex; gap: 4px; flex-wrap: wrap; } .exp span { font: 700 10px system-ui, sans-serif; letter-spacing: .5px; padding: 2px 5px; border-radius: 4px; background: #3b2a1b; color: var(--acc); }
+  .seg { display: inline-flex; border: 1px solid #4a3523; border-radius: 8px; overflow: hidden; flex-wrap: wrap; }
+  .seg button { font: inherit; font-size: 15px; padding: 6px 12px; background: none; border: 0; color: var(--ink); opacity: .75; cursor: pointer; }
+  .seg button.on { background: var(--acc); color: #2a1a08; font-weight: 700; opacity: 1; }
+  .seg button:disabled { opacity: .35; cursor: default; }
+  #setup .form { display: grid; grid-template-columns: 140px 1fr; gap: 10px 14px; align-items: center; }
+  #setup .form > label { margin: 0; opacity: .75; font-weight: 600; } #setup .form > label.top { align-self: start; padding-top: 4px; }
+  #setup .checks { display: flex; flex-direction: column; gap: 2px; }
+  #setup .fcode { font: 400 40px 'League Gothic', Impact, sans-serif; letter-spacing: 3px; user-select: text; -webkit-user-select: text; }
+  #ocode { text-transform: uppercase; letter-spacing: 4px; width: 110px; }
   #lobby h1 { font: 400 44px 'League Gothic', Impact, sans-serif; color: var(--acc); margin: 0 0 4px; }
   #lcode { letter-spacing: 6px; color: var(--ink); user-select: text; -webkit-user-select: text; }
   .hint { margin: 4px 0 8px; opacity: .8; } .err { margin: 8px 0 0; color: #ff8a6a; min-height: 1.3em; }
   #lobby { position: fixed; inset: 0; display: none; place-items: center; background: rgba(10,6,3,.85); z-index: 11; }
-  #lobby .card { background: var(--card); padding: 22px 26px; border-radius: 14px; width: min(620px, 94vw); max-height: 94vh; overflow: auto; box-shadow: 0 10px 40px #000; box-sizing: border-box; }
+  #lobby .card { background: var(--card); padding: 22px 26px; border-radius: 14px; width: min(940px, 96vw); max-height: 96vh; overflow: auto; box-shadow: 0 10px 40px #000; box-sizing: border-box; }
+  #lobby .bar h1 { margin: 0; }
+  #lobby .seat .lfriend { font: 700 12px system-ui, sans-serif; padding: 2px 8px; border-radius: 8px; border: 1px solid rgba(243,230,208,.4); background: rgba(243,230,208,.08); color: #f3e6d0; cursor: pointer; }
+  #lfriendsbox:has(#lfriends:empty) { display: none; }
   #lobby label { display: block; margin: 12px 0 4px; font-weight: 600; }
   #lobby input, #lobby select { font: inherit; padding: 8px; border-radius: 6px; border: 1px solid #5a4330; background: #120c07; color: var(--ink); }
   #lobby label.check { display: flex; align-items: center; gap: 8px; font-weight: 400; margin: 2px 0; }

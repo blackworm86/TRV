@@ -73,16 +73,19 @@ crewSelects.forEach((sel, i) => {
 $('np').onchange = syncNames;
 syncNames();
 
-// A menu of three choices (hot seat, create online, join online), each opening its pane.
+// The first screen: the home and its panes (design/ux/menu-lobby/mockup.html); the online
+// panes are filled by home.ts.
 
-export type Pane = 'pMain' | 'pHot' | 'pCreate' | 'pJoin';
+export type Pane = 'pMain' | 'pHot' | 'pLobby' | 'pCreate' | 'pMine' | 'pFriends' | 'pJoin';
 export function showPane(id: Pane): void {
   for (const el of document.querySelectorAll<HTMLElement>('#setup .pane')) el.classList.toggle('on', el.id === id);
   $('oerr').textContent = '';
-  const resumable = !!g && g.winner === null && !S.net;
+  // A local game only: after leaving an online room the table still holds its game, not one to resume here.
+  const resumable = !!g && g.winner === null && !S.net && !!S.saved;
   $('mResume').style.display = id === 'pMain' && resumable ? '' : 'none';
-  if (id === 'pCreate') ($('oname') as HTMLInputElement).focus();
-  if (id === 'pJoin') (($('jname') as HTMLInputElement).value ? $('ocode') : $('jname')).focus();
+  const name = $('myname') as HTMLInputElement;
+  if ((id === 'pCreate' || id === 'pJoin') && !name.value.trim()) name.focus();
+  if (id === 'pLobby') ($('ocode') as HTMLInputElement).focus();
 }
 /** Opens the first screen on `pane` (the menu by default). */
 /** While a menu covers the game, the game's controls take no focus or clicks (Tab stays in the menu). */
@@ -101,10 +104,9 @@ export function openSetup(pane: Pane = 'pMain'): void {
   showPane(pane);
 }
 $('mHot').onclick = () => showPane('pHot');
-$('mCreate').onclick = () => showPane('pCreate');
-$('mJoin').onclick = () => showPane('pJoin');
 $('mResume').onclick = () => { $('setup').style.display = 'none'; render(); };
 for (const b of document.querySelectorAll<HTMLElement>('#setup [data-back]')) b.onclick = () => showPane('pMain');
+for (const b of document.querySelectorAll<HTMLElement>('#setup [data-to]')) b.onclick = () => showPane(b.dataset.to as Pane);
 /** Takes the pieces of the last match off the table, before a new one is set up. */
 export function clearTable(): void {
   for (const o of carObjs.values()) scene.remove(o);

@@ -5,8 +5,9 @@
 
 import { cleanCode, readRoom, roomPath, NAME_MAX } from '../net/room';
 import { FIREBASE_CONFIG } from '../net/firebase-config';
+import { bootHome, drawOnline, offline } from './home';
 import { closePops } from './menus';
-import { NAME_KEY, enterRoom, netError, netMode, openStore } from './online';
+import { NAME_KEY, enterRoom, netError, netMode, openStore, showInvite } from './online';
 import { showPane } from './screens';
 import { S } from './state';
 import { $ } from './util';
@@ -15,7 +16,7 @@ export let isAdminUser = false;
 /** Shows who is signed in and the buttons that apply. */
 export function drawAccount(user: { name: string | null; email: string | null; anonymous: boolean } | null): void {
   const google = !!user && !user.anonymous;
-  $('accwho').textContent = google ? `Accesso: ${user!.name ?? user!.email ?? 'account Google'}${isAdminUser ? ' · admin' : ''}` : 'Facoltativo: con Google ritrovi nome e posti online su ogni dispositivo.';
+  $('accwho').textContent = google ? `Accesso: ${user!.name ?? user!.email ?? 'account Google'}${isAdminUser ? ' · admin' : ''}` : 'Con Google ritrovi amici e partite su ogni dispositivo.';
   $('acclogin').style.display = google ? 'none' : '';
   $('acclogout').style.display = google ? '' : 'none';
   $('accadmin').style.display = isAdminUser ? '' : 'none';
@@ -32,10 +33,8 @@ export async function bootAccount(): Promise<void> {
   auth.onUser(async user => {
     isAdminUser = !!user && !user.anonymous && await auth.isAdmin(user.uid);
     drawAccount(user);
-    for (const id of ['oname', 'jname']) {
-      const name = $(id) as HTMLInputElement;
-      if (user && !user.anonymous && user.name && !name.value) name.value = user.name.slice(0, NAME_MAX);
-    }
+    const name = $('myname') as HTMLInputElement;
+    if (user && !user.anonymous && user.name && !name.value) { name.value = user.name.slice(0, NAME_MAX); name.dispatchEvent(new Event('change')); }
   });
   $('acclogin').onclick = async () => {
     $('oerr').textContent = '';
@@ -59,19 +58,15 @@ $('adminopen').onclick = () => { closePops(); window.open('./admin.html', '_blan
 
 /** First screen: says whether online is available; with an invite link, goes to the room. Returns true when a room is being entered. */
 export function bootOnline(): boolean {
-  try { for (const id of ['oname', 'jname']) ($(id) as HTMLInputElement).value = localStorage.getItem(NAME_KEY) ?? ''; } catch { /* storage off */ }
+  try { ($('myname') as HTMLInputElement).value = localStorage.getItem(NAME_KEY) ?? ''; } catch { /* storage off */ }
   showPane('pMain');
-  if (!netMode()) {
-    ($('mCreate') as HTMLButtonElement).disabled = true;
-    ($('mJoin') as HTMLButtonElement).disabled = true;
-    $('onlinehint').textContent = 'Il gioco online non è ancora attivo su questo sito.';
-    return false;
-  }
+  if (!netMode()) { offline(); return false; }
+  drawOnline();
+  void bootHome().catch(netError);
   const code = cleanCode(new URLSearchParams(location.search).get('room') ?? '');
   if (!code) return false;
   ($('ocode') as HTMLInputElement).value = code;
-  showPane('pJoin');
-  $('joinhint').textContent = `Sei stato invitato nella stanza ${code}: scrivi il tuo nome ed entra.`;
+  showInvite(code);
   // A device that already sits in the room (a reload, a return) goes straight back in.
   void (async () => {
     const store = await openStore(), uid = await store.uid();

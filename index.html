@@ -62,23 +62,101 @@
 <div id="cartip"></div>
 <div id="setup">
   <div class="card">
-    <div id="account">
-      <span id="accwho"></span>
-      <button class="tool" id="acclogin">Accedi con Google</button>
-      <a class="tool" id="accadmin" href="./admin.html">Pannello admin</a>
-      <button class="tool" id="acclogout">Esci</button>
-    </div>
-    <h1>Thunder Road Vendetta</h1>
+    <header class="hdr">
+      <div class="logo">THUNDER ROAD<small>VENDETTA</small></div>
+      <span class="sp"></span>
+      <div id="me">
+        <span class="av" id="meav">?</span>
+        <span class="who"><input id="myname" maxlength="24" placeholder="Il tuo nome" title="Il nome con cui ti vedono gli altri giocatori" autocomplete="nickname"><small id="mecode"></small></span>
+      </div>
+      <div id="account">
+        <span id="accwho"></span>
+        <button class="tool" id="acclogin">Accedi con Google</button>
+        <a class="tool" id="accadmin" href="./admin.html">Pannello admin</a>
+        <button class="tool" id="acclogout">Esci</button>
+      </div>
+    </header>
     <div class="pane" id="pMain">
-      <button class="big resume" id="mResume"><b>Torna alla partita</b><small>Riprendi la partita hot seat in corso</small></button>
-      <button class="big" id="mHot"><b>Crea partita hot seat</b><small>Tutti sullo stesso computer, a turno</small></button>
-      <button class="big" id="mCreate"><b>Crea partita online</b><small>Apri una stanza e invita gli altri con link, QR o codice</small></button>
-      <button class="big" id="mJoin"><b>Partecipa a partita online</b><small>Entra nella stanza di un amico con il codice o il link</small></button>
-      <p class="hint" id="onlinehint"></p>
+      <div class="home">
+        <div class="bigs">
+          <button class="big resume" id="mResume"><i>↩</i><span><b>Torna alla partita</b><small>Riprendi la partita in locale in corso</small></span></button>
+          <button class="big main" id="mPlay"><i>🏁</i><span><b>Gioca online</b><small>La lobby: partite aperte da tutti, o creane una</small></span></button>
+          <button class="big" id="mMine"><i>📋</i><span><b>Le mie partite</b><small>Quelle in corso e quelle in attesa di giocatori</small></span><em class="pill turn" id="mineBadge"></em></button>
+          <button class="big" id="mFriends"><i>👥</i><span><b>Amici</b><small>Aggiungi amici e invitali a una partita diretta</small></span><em class="pill on" id="friendsBadge"></em></button>
+          <button class="big" id="mHot"><i>🪑</i><span><b>Partita in locale</b><small>Hot seat: tutti sullo stesso computer, a turno</small></span></button>
+          <div class="two">
+            <button class="big" id="mRanked" disabled><i>🏆</i><span><b>Classificate</b><small>Contano per il ranking</small></span><em class="pill soon">presto</em></button>
+            <button class="big" id="mRank" disabled><i>📈</i><span><b>Classifica</b><small>Il ranking dei giocatori</small></span><em class="pill soon">presto</em></button>
+          </div>
+          <p class="hint" id="onlinehint"></p>
+        </div>
+        <div class="side">
+          <section class="panel"><h3>Le tue partite</h3><div id="homeGames"></div></section>
+          <section class="panel"><h3>Amici online</h3><div id="homeFriends"></div></section>
+        </div>
+      </div>
+    </div>
+    <div class="pane" id="pLobby">
+      <div class="bar"><button class="back" data-back>← Menu</button><h2>Lobby</h2><span class="sp"></span>
+        <input id="ocode" maxlength="5" placeholder="CODICE" autocapitalize="characters" autocomplete="off" spellcheck="false" title="Il codice di cinque caratteri di una stanza"><button class="tool" id="ojoin">Entra</button>
+        <button class="go small" id="mCreate">+ Crea partita</button></div>
+      <div class="bar"><div class="seg" id="lobbyFilter"><button type="button" data-f="all" class="on">Tutte</button><button type="button" data-f="base">Solo base</button><button type="button" data-f="exp">Con espansioni</button><button type="button" data-f="friends">Di amici</button></div>
+        <span class="sp"></span><span class="hint" id="lobbyCount"></span></div>
+      <div class="panel list"><table id="lobbyList"></table></div>
+    </div>
+    <div class="pane" id="pCreate">
+      <div class="bar"><button class="back" data-to="pLobby">← Lobby</button><h2>Crea partita</h2></div>
+      <div class="cols2">
+        <div class="panel form">
+          <label>Chi può entrare</label><div class="seg" id="ovis"><button type="button" data-v="public" class="on">Tutti (in lobby)</button><button type="button" data-v="invite">Solo su invito</button><button type="button" data-v="friends">Solo amici</button></div>
+          <label>Giocatori</label><div class="seg" id="omax"><button type="button" data-v="2">2</button><button type="button" data-v="3">3</button><button type="button" data-v="4" class="on">4</button></div>
+          <label>Tessera di partenza</label><select id="oside"><option value="a">1a — The Parking Lot</option><option value="b">1b — Runway to Ruin</option></select>
+          <label class="top">Espansioni</label>
+          <div class="checks">
+            <label class="check"><input type="checkbox" id="oleaders"> Choppe Shoppe: capisquadra e segnalini comando</label>
+            <label class="check"><input type="checkbox" id="oupgrades"> Choppe Shoppe: carte potenziamento</label>
+            <label class="check"><input type="checkbox" id="ocarnage"> Carnage at Devil’s Run: tessere, pericoli e fuoco</label>
+            <label class="check"><input type="checkbox" id="oteams"> The Big Rig and The Final Five</label>
+          </div>
+          <label>Squadre TRV9000</label><div class="row"><select id="obots"><option value="0">nessuna</option><option value="1">1</option><option value="2">2</option><option value="3">3</option></select><select id="obotlevel"></select></div>
+          <label>Tempo per turno</label><div class="seg"><button type="button" class="on">In diretta</button><button type="button" disabled title="Arriva con il server arbitro: oggi la partita va avanti solo con l’host collegato">24 ore</button><button type="button" disabled title="Arriva con il server arbitro: oggi la partita va avanti solo con l’host collegato">72 ore</button></div>
+        </div>
+        <div class="panel">
+          <h3>Invita amici</h3>
+          <p class="hint">Ricevono l’invito nella home e possono entrare con un clic.</p>
+          <div id="ofriends"></div>
+          <button class="go" id="ocreate">Crea la stanza</button>
+        </div>
+      </div>
+    </div>
+    <div class="pane" id="pMine">
+      <div class="bar"><button class="back" data-back>← Menu</button><h2>Le mie partite</h2><span class="sp"></span>
+        <div class="seg" id="mineTab"><button type="button" data-t="playing" class="on">In corso</button><button type="button" data-t="waiting">In attesa</button><button type="button" data-t="ended">Concluse</button></div></div>
+      <div class="panel list"><table id="mineList"></table></div>
+      <div class="panel" id="invitesBox"><h3>Inviti ricevuti</h3><div id="invites"></div></div>
+    </div>
+    <div class="pane" id="pFriends">
+      <div class="bar"><button class="back" data-back>← Menu</button><h2>Amici</h2></div>
+      <div class="cols2 rev">
+        <div class="stack">
+          <div class="panel"><h3>Il tuo codice amico</h3><div class="fcode" id="fcode">—</div><p class="hint">Dallo a chi vuoi aggiungere, oppure manda il link.</p><button class="tool" id="fcopy">Copia il link</button></div>
+          <div class="panel"><h3>Aggiungi un amico</h3><div class="row"><input id="faddcode" placeholder="TRV-XXXXXX" autocomplete="off" spellcheck="false"><button class="go small" id="fadd">Aggiungi</button></div><p class="hint" id="faddmsg">Oppure dalla stanza: “+ amico” accanto a chi gioca con te.</p></div>
+          <div class="panel"><h3>Richieste</h3><div id="frequests"></div></div>
+        </div>
+        <div class="panel"><h3 id="fcount">I tuoi amici</h3><div id="flist"></div></div>
+      </div>
+    </div>
+    <div class="pane" id="pJoin">
+      <div class="bar"><button class="back" data-back>← Menu</button><h2>Invito a una partita</h2></div>
+      <div class="panel narrow">
+        <p class="hint" id="joinhint"></p>
+        <p class="hint">Gli altri ti vedono con il nome scritto in alto.</p>
+        <button class="go" id="jjoin">Entra</button>
+      </div>
     </div>
     <div class="pane" id="pHot">
-      <button class="back" data-back>← Indietro</button>
-      <h2>Partita hot seat</h2>
+      <div class="bar"><button class="back" data-back>← Menu</button><h2>Partita in locale</h2></div>
+      <div class="panel narrow">
       <label>Giocatori</label>
       <select id="np"><option>2</option><option selected>3</option><option>4</option></select>
       <label>Nomi e colori</label>
@@ -96,48 +174,32 @@
       <label class="check"><input type="checkbox" id="upgrades"> Choppe Shoppe: carte potenziamento</label>
       <label class="check"><input type="checkbox" id="carnage"> Carnage at Devil’s Run: tessere, pericoli e fuoco</label>
       <button class="go" id="start">Si parte!</button>
-    </div>
-    <div class="pane" id="pCreate">
-      <button class="back" data-back>← Indietro</button>
-      <h2>Crea partita online</h2>
-      <p class="hint">Apri una stanza: gli altri entrano con il link, il QR o il codice. Il colore si sceglie nella stanza.</p>
-      <label>Il tuo nome</label>
-      <input id="oname" maxlength="24" placeholder="Il tuo nome">
-      <label>Tessera di partenza</label>
-      <select id="oside"><option value="a">1a — The Parking Lot</option><option value="b">1b — Runway to Ruin</option></select>
-      <label>Espansioni</label>
-      <label class="check"><input type="checkbox" id="oleaders"> Choppe Shoppe: capisquadra e segnalini comando</label>
-      <label class="check"><input type="checkbox" id="oupgrades"> Choppe Shoppe: carte potenziamento</label>
-      <label class="check"><input type="checkbox" id="ocarnage"> Carnage at Devil’s Run: tessere, pericoli e fuoco</label>
-      <button class="go" id="ocreate">Crea la stanza</button>
-    </div>
-    <div class="pane" id="pJoin">
-      <button class="back" data-back>← Indietro</button>
-      <h2>Partecipa a partita online</h2>
-      <p class="hint" id="joinhint">Scrivi il codice di cinque caratteri che ti ha dato chi ha creato la stanza.</p>
-      <label>Il tuo nome</label>
-      <input id="jname" maxlength="24" placeholder="Il tuo nome">
-      <label>Codice della stanza</label>
-      <input id="ocode" maxlength="5" placeholder="CODICE" autocapitalize="characters" autocomplete="off" spellcheck="false">
-      <button class="go" id="ojoin">Entra</button>
+      </div>
     </div>
     <p class="err" id="oerr"></p>
   </div>
 </div>
 <div id="lobby"><div class="card">
-  <h1>Stanza <span id="lcode"></span></h1>
-  <div class="invite">
-    <div id="lqr"></div>
-    <div class="how">
-      <p>Invita gli altri: fai inquadrare il QR, manda il link oppure detta il codice.</p>
-      <input id="llink" readonly>
-      <button class="tool" id="lcopy">Copia il link</button>
+  <div class="bar"><h1>Stanza <span id="lcode"></span></h1><em class="pill" id="lvis"></em></div>
+  <div class="cols2">
+    <div>
+      <label>Giocatori</label>
+      <div id="lseats"></div>
+      <div id="lopts"></div>
+      <p class="hint" id="lstate"></p>
+    </div>
+    <div>
+      <div class="invite">
+        <div id="lqr"></div>
+        <div class="how">
+          <p>Invita gli altri: fai inquadrare il QR, manda il link oppure detta il codice.</p>
+          <input id="llink" readonly>
+          <button class="tool" id="lcopy">Copia il link</button>
+        </div>
+      </div>
+      <div id="lfriendsbox"><label>Invita amici</label><div id="lfriends"></div></div>
     </div>
   </div>
-  <label>Giocatori</label>
-  <div id="lseats"></div>
-  <div id="lopts"></div>
-  <p class="hint" id="lstate"></p>
   <div class="btns">
     <button class="go" id="lstart">Inizia la partita</button>
     <button class="tool" id="lresume">Torna al tavolo</button>

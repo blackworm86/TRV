@@ -438,9 +438,6 @@ export function playerStripSvg(c: CommandBoardArt, dashes: DashboardArt[], extra
   return boards()?.stripSvg(c, dashes, extra) ?? null;
 }
 
-/** Where the dashboards start in the strip, as a fraction of its width (to line things up with them). */
-export const STRIP_DASH_START = 268 / STRIP_BOX.w;
-
 export function dashboardSvg(d: DashboardArt, extra = ''): string {
   const u = boards()?.dashboardSvg(d, extra);
   if (u) return u;

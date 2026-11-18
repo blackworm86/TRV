@@ -69,11 +69,27 @@ senza accesso: `npm run dev` e `/admin.html?admin=local`. In locale i commenti
 restano nel browser, e la scheda **Confronta con la fonte** mostra le scansioni di
 `assets/estratti/`, che il sito pubblicato non contiene.
 
+7. **Lobby, amici e "Le mie partite"** (dal 2026-11-18): `database.rules.json` ha
+   le sezioni `lobby`, `friendCodes`, `presence` e `users`. Incolla di nuovo il file
+   nella scheda **Regole** e **Pubblica**. Finché non lo fai le stanze funzionano
+   lo stesso (codice, link, QR), ma lobby, amici, inviti e l'elenco delle proprie
+   partite restano vuoti e la console del browser dice "regole del database da
+   aggiornare".
+
 ## Come si gioca online
 
-- L'host scrive il nome → **Crea stanza** → mostra QR, link o codice.
-- Gli altri aprono il link (o scrivono il codice) → nome → **Entra**.
-- Ognuno sceglie il colore; l'host sceglie tessera ed espansioni → **Inizia la partita**.
+- In alto ognuno scrive il proprio nome; sotto c'è il suo **codice amico** (`TRV-XXXXXX`).
+- **Gioca online** apre la lobby: le partite pubbliche non ancora iniziate (quelle
+  degli amici in cima), un campo per entrare con un codice e **+ Crea partita**.
+- **Crea partita**: chi può entrare (tutti in lobby, solo amici, solo su invito),
+  quanti posti, tessera, espansioni, squadre TRV9000 e gli amici da invitare.
+- Nella stanza: QR, link o codice per chiunque, e **Invita** accanto agli amici.
+  Ognuno sceglie il colore; l'host sceglie le opzioni → **Inizia la partita**.
+- **Le mie partite**: le stanze in cui sei seduto (in corso, in attesa, concluse),
+  con "tocca a te", e gli inviti ricevuti. Con l'accesso Google valgono su ogni
+  dispositivo.
+- **Amici**: si aggiungono con il codice amico o il suo link, oppure con "+ amico"
+  accanto a chi gioca con te; la richiesta va accettata.
 - Chi ricarica la pagina riprende il suo posto. L'host deve restare connesso:
   è lui che convalida le mosse.
 - Riquadro in basso a destra → **Nuova partita (stessi giocatori)** o **Chiudi la stanza**.
