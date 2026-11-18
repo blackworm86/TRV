@@ -7,7 +7,7 @@
 import { leaders, upgrades } from '../game/trv/engine';
 import { BASE_CATALOG as CAT } from '../game/trv/catalog';
 import { newSeed } from '../platform/entropy';
-import { acceptable, undoable, backToLobby, cleanCode, closeRoom, createRoom, freeCrew, joinRoom, leaveRoom, readRoom, roomPath, startMatch, startProblem, MAX_PLAYERS, NAME_MAX, type Room, type RoomStore } from '../net/room';
+import { acceptable, addBot, isBotSeat, removeBot, BOT_LEVELS, undoable, backToLobby, cleanCode, closeRoom, createRoom, freeCrew, joinRoom, leaveRoom, readRoom, roomPath, startMatch, startProblem, MAX_PLAYERS, NAME_MAX, type Room, type RoomStore } from '../net/room';
 import { FIREBASE_CONFIG } from '../net/firebase-config';
 import qrcode from 'qrcode-generator';
 import { applyChoice, deciders, g, pending, setPending, startGame, takeBack } from './game';
@@ -125,6 +125,9 @@ export function referee(): void {
   }
 }
 
+/** The levels of the Basic Protocol, as the hot seat setup names them (index.html, #botlevel). */
+const BOT_LEVEL_TEXT: Record<number, string> = Object.fromEntries([...document.querySelectorAll<HTMLOptionElement>('#botlevel option')].map(o => [Number(o.value), o.textContent ?? o.value]));
+
 export function drawLobby(): void {
   const lobby = $('lobby'), badge = $('roombadge');
   if (!S.net?.room) { lobby.style.display = 'none'; badge.style.display = 'none'; return; }
@@ -144,17 +147,26 @@ export function drawLobby(): void {
     qr.make();
     $('lqr').innerHTML = qr.createSvgTag({ cellSize: 4, margin: 0, scalable: true });
   }
-  // Seats: mine has the crew to pick (before the start); the others are read only.
-  const taken = new Set(ids.filter(id => id !== n.uid).map(id => r.seats[id].crew));
-  $('lseats').innerHTML = ids.map(id => {
-    const s = r.seats[id], mine = id === n.uid;
-    const crew = mine && !inGame
-      ? `<select id="lcrew">${CAT.crews.map(c => `<option value="${c.id}" ${c.id === s.crew ? 'selected' : ''} ${taken.has(c.id) ? 'disabled' : ''}>${esc(c.name)}</option>`).join('')}</select>`
+  // Seats: mine has the crew to pick (before the start), and the host picks the TRV9000 teams'
+  // ones too and can take them off; the others are read only. A free seat lets the host add a
+  // TRV9000 team (asked by the user, 2026-11-18: bots in online games too).
+  const bots = ids.filter(id => isBotSeat(r, id));
+  $('lseats').innerHTML = ids.map((id, i) => {
+    const s = r.seats[id], mine = id === n.uid, bot = isBotSeat(r, id), mayPick = !inGame && (mine || (bot && n.host));
+    const taken = new Set(ids.filter(x => x !== id).map(x => r.seats[x].crew));
+    const crew = mayPick
+      ? `<select class="lcrew" data-seat="${esc(id)}">${CAT.crews.map(c => `<option value="${c.id}" ${c.id === s.crew ? 'selected' : ''} ${taken.has(c.id) ? 'disabled' : ''}>${esc(c.name)}</option>`).join('')}</select>`
       : `<small>${esc(CAT.crews.find(c => c.id === s.crew)?.name ?? s.crew)}</small>`;
-    return `<div class="seat" style="--c:${crewColor(s.crew)}"><i></i><b>${esc(s.name)}</b>${id === r.host ? '<small>host</small>' : ''}${mine ? '<small>tu</small>' : ''}${crew}</div>`;
-  }).join('') + (inGame ? '' : '<div class="seat empty"><i></i><b>posto libero</b></div>'.repeat(Math.max(0, MAX_PLAYERS - ids.length)));
-  const crewSel = document.getElementById('lcrew') as HTMLSelectElement | null;
-  if (crewSel) crewSel.onchange = () => { void n.store.write(roomPath(n.code, 'seats', n.uid, 'crew'), crewSel.value).catch(netError); };
+    const tag = bot ? `<small class="bottag">TRV9000 · livello ${r.options.botLevel ?? 1}</small>` : '';
+    const drop = bot && n.host && !inGame ? `<button class="ldrop" data-seat="${esc(id)}" title="Togli questa squadra TRV9000">✕</button>` : '';
+    return `<div class="seat ${bot ? 'bot' : ''}" style="--c:${crewColor(s.crew)}" data-i="${i}"><i></i><b>${esc(s.name)}</b>${id === r.host ? '<small>host</small>' : ''}${mine ? '<small>tu</small>' : ''}${tag}${crew}${drop}</div>`;
+  }).join('') + (inGame ? '' : Array.from({ length: Math.max(0, MAX_PLAYERS - ids.length) }, () =>
+    `<div class="seat empty"><i></i><b>posto libero</b>${n.host ? '<button class="laddbot" title="Una squadra giocata dalle carte TRV9000">+ TRV9000</button>' : ''}</div>`).join(''));
+  for (const sel of $('lseats').querySelectorAll<HTMLSelectElement>('select.lcrew')) {
+    sel.onchange = () => { void n.store.write(roomPath(n.code, 'seats', sel.dataset.seat!, 'crew'), sel.value).catch(netError); };
+  }
+  for (const b of $('lseats').querySelectorAll<HTMLButtonElement>('button.ldrop')) b.onclick = () => { void removeBot(n.store, n.code, b.dataset.seat!).catch(netError); };
+  for (const b of $('lseats').querySelectorAll<HTMLButtonElement>('button.laddbot')) b.onclick = () => { void addBot(n.store, n.code, r, CREW_IDS, Date.now()).catch(netError); };
   // Options: the host's to set before the start.
   const o = r.options;
   if (n.host && !inGame) {
@@ -163,20 +175,24 @@ export function drawLobby(): void {
       <label>Espansioni</label>
       <label class="check"><input type="checkbox" id="lleaders" ${o.leaders ? 'checked' : ''}> Choppe Shoppe: capisquadra e segnalini comando</label>
       <label class="check"><input type="checkbox" id="lupgrades" ${o.upgrades ? 'checked' : ''}> Choppe Shoppe: carte potenziamento</label>
-      <label class="check"><input type="checkbox" id="lcarnage" ${o.carnage ? 'checked' : ''}> Carnage at Devil’s Run: tessere, pericoli e fuoco</label>`;
+      <label class="check"><input type="checkbox" id="lcarnage" ${o.carnage ? 'checked' : ''}> Carnage at Devil’s Run: tessere, pericoli e fuoco</label>
+      <label ${bots.length ? '' : 'style="display:none"'}>Livello dei TRV9000</label>
+      <select id="lbotlevel" ${bots.length ? '' : 'style="display:none"'}>${BOT_LEVELS.map(l => `<option value="${l}" ${(o.botLevel ?? 1) === l ? 'selected' : ''}>${BOT_LEVEL_TEXT[l]}</option>`).join('')}</select>`;
     const push = (): void => {
       void n.store.write(roomPath(n.code, 'options'), { startSide: ($('lside') as HTMLSelectElement).value, leaders: ($('lleaders') as HTMLInputElement).checked,
-        upgrades: ($('lupgrades') as HTMLInputElement).checked, carnage: ($('lcarnage') as HTMLInputElement).checked }).catch(netError);
+        upgrades: ($('lupgrades') as HTMLInputElement).checked, carnage: ($('lcarnage') as HTMLInputElement).checked,
+        botLevel: Number(($('lbotlevel') as HTMLSelectElement).value) }).catch(netError);
     };
-    for (const id of ['lside', 'lleaders', 'lupgrades', 'lcarnage']) $(id).onchange = push;
+    for (const id of ['lside', 'lleaders', 'lupgrades', 'lcarnage', 'lbotlevel']) $(id).onchange = push;
   } else {
     const exp = [o.leaders ? 'capisquadra' : '', o.upgrades ? 'carte potenziamento' : '', o.carnage ? 'Carnage at Devil’s Run' : ''].filter(Boolean).join(', ');
-    $('lopts').innerHTML = `<p class="hint">Partenza: tessera 1${o.startSide}. Espansioni: ${exp || 'nessuna'}.</p>`;
+    $('lopts').innerHTML = `<p class="hint">Partenza: tessera 1${o.startSide}. Espansioni: ${exp || 'nessuna'}.${bots.length ? ` TRV9000: livello ${o.botLevel ?? 1}.` : ''}</p>`;
   }
   const problem = startProblem(r);
   $('lstate').textContent = inGame ? 'Partita in corso.'
     : !n.host ? 'In attesa che l’host inizi la partita…'
-    : problem === 'few' ? 'Servono almeno due giocatori.' : problem === 'crews' ? 'Due giocatori hanno lo stesso colore.' : problem === 'many' ? 'Troppi giocatori: massimo quattro.' : 'Tutto pronto.';
+    : problem === 'few' ? 'Servono almeno due giocatori (anche un TRV9000).' : problem === 'crews' ? 'Due giocatori hanno lo stesso colore.' : problem === 'many' ? 'Troppi giocatori: massimo quattro.'
+    : problem === 'bots' ? 'Serve almeno una persona.' : 'Tutto pronto.';
   const show = (id: string, on: boolean): void => { $(id).style.display = on ? '' : 'none'; };
   show('lstart', n.host && !inGame);
   ($('lstart') as HTMLButtonElement).disabled = !!problem;

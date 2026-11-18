@@ -28,11 +28,19 @@ export interface RoomStore {
   watch(path: string, cb: (value: unknown) => void): () => void;
 }
 
-/** A player in the room, keyed by client identity. */
-export interface Seat { name: string; crew: string; joinedAt: number }
+/**
+ * A player in the room, keyed by client identity. A TRV9000 team (design/gdd/trv9000-bots.md) has a
+ * seat too, added by the host under a made-up key ({@link BOT_PREFIX}): nobody sits behind it, the
+ * rules play it on every table alike, so it never sends intents.
+ */
+export interface Seat { name: string; crew: string; joinedAt: number; bot?: true }
 
 /** What the host chooses before the start. */
-export interface RoomOptions { startSide: 'a' | 'b'; leaders: boolean; upgrades: boolean; carnage?: boolean }
+export interface RoomOptions {
+  startSide: 'a' | 'b'; leaders: boolean; upgrades: boolean; carnage?: boolean;
+  /** The Basic Protocol level of the TRV9000 teams (1-4), when there are any. */
+  botLevel?: number;
+}
 
 /**
  * A player's request to the host: at log length `n`, option `c` of the pending decision. A draft
@@ -64,6 +72,9 @@ export const NAME_MAX = 24;
 /** Room codes avoid look-alike characters (no 0/O, 1/I/L). */
 export const CODE_ALPHABET = 'ABCDEFGHJKMNPQRSTUVWXYZ23456789';
 export const CODE_LENGTH = 5;
+/** The key of a TRV9000 seat starts with this (a client identity never does). */
+export const BOT_PREFIX = 'trv9000-';
+export const BOT_LEVELS = [1, 2, 3, 4];
 
 export type JoinError = 'not-found' | 'full' | 'started';
 export type JoinResult = { ok: true; room: Room } | { ok: false; error: JoinError };
@@ -105,7 +116,8 @@ export function readRoom(raw: unknown): Room | null {
     host: r.host,
     createdAt: Number(r.createdAt) || 0,
     status: r.status === 'playing' ? 'playing' : 'lobby',
-    options: { startSide: r.options?.startSide === 'b' ? 'b' : 'a', leaders: !!r.options?.leaders, upgrades: !!r.options?.upgrades, ...(r.options?.carnage ? { carnage: true } : {}) },
+    options: { startSide: r.options?.startSide === 'b' ? 'b' : 'a', leaders: !!r.options?.leaders, upgrades: !!r.options?.upgrades, ...(r.options?.carnage ? { carnage: true } : {}),
+      ...(BOT_LEVELS.includes(Number(r.options?.botLevel)) ? { botLevel: Number(r.options!.botLevel) } : {}) },
     seats: (r.seats ?? {}) as Record<string, Seat>,
     order: list<string>(r.order),
     setup,
@@ -165,12 +177,35 @@ export async function joinRoom(store: RoomStore, code: string, me: { name: strin
   return { ok: true, room: { ...room, seats: { ...room.seats, [uid]: seat } } };
 }
 
-/** Why the host cannot start yet, or null when it can. */
-export function startProblem(room: Room): 'few' | 'many' | 'crews' | null {
+/** Whether the seat with key `id` is a TRV9000 team. */
+export const isBotSeat = (room: Room, id: string): boolean => id.startsWith(BOT_PREFIX) && !!room.seats[id]?.bot;
+
+/**
+ * Host: seats a TRV9000 team on a free crew, while there is room before the start.
+ * @returns the seat's key, or null when the room is full.
+ */
+export async function addBot(store: RoomStore, code: string, room: Room, crews: string[], now: number): Promise<string | null> {
+  if (room.status !== 'lobby' || Object.keys(room.seats).length >= MAX_PLAYERS) return null;
+  let n = 1;
+  while (room.seats[`${BOT_PREFIX}${n}`]) n++;
+  const id = `${BOT_PREFIX}${n}`;
+  await store.write(roomPath(code, 'seats', id), { name: `TRV9000 ${n}`, crew: freeCrew(room, crews), joinedAt: now, bot: true } satisfies Seat);
+  return id;
+}
+
+/** Host: takes a TRV9000 team off its seat (before the start). */
+export async function removeBot(store: RoomStore, code: string, id: string): Promise<void> {
+  if (!id.startsWith(BOT_PREFIX)) throw new Error('Not a TRV9000 seat.');
+  await store.write(roomPath(code, 'seats', id), null);
+}
+
+/** Why the host cannot start yet, or null when it can. A match needs at least one person. */
+export function startProblem(room: Room): 'few' | 'many' | 'crews' | 'bots' | null {
   const seats = Object.values(room.seats);
   if (seats.length < MIN_PLAYERS) return 'few';
   if (seats.length > MAX_PLAYERS) return 'many';
   if (new Set(seats.map(s => s.crew)).size !== seats.length) return 'crews';
+  if (seats.every(s => s.bot)) return 'bots';
   return null;
 }
 
@@ -184,7 +219,8 @@ export async function startMatch(store: RoomStore, code: string, room: Room, see
   const order = seatOrder(room);
   const setup: Setup = {
     seed,
-    players: order.map(uid => ({ name: room.seats[uid].name, color: color(room.seats[uid].crew), crew: room.seats[uid].crew })),
+    players: order.map(uid => ({ name: room.seats[uid].name, color: color(room.seats[uid].crew), crew: room.seats[uid].crew,
+      ...(isBotSeat(room, uid) ? { bot: { protocol: room.options.botLevel ?? 1 } } : {}) })),
     startSide: room.options.startSide,
     ...(room.options.leaders ? { leaders: true } : {}),
     ...(room.options.upgrades ? { upgrades: true } : {}),

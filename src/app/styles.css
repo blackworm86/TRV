@@ -472,6 +472,12 @@
   .seat i { width: 18px; height: 18px; border-radius: 50%; background: var(--c); flex: none; }
   .seat b { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .seat small { opacity: .7; } .seat.empty { opacity: .45; }
+  /* TRV9000 teams in the room (online): the host adds them from a free seat and can take them off. */
+  .seat.empty:has(.laddbot) { opacity: 1; } .seat.empty:has(.laddbot) i, .seat.empty:has(.laddbot) b { opacity: .45; }
+  .seat .bottag { font: 700 10px system-ui, sans-serif; letter-spacing: 1px; opacity: 1; color: #f3e6d0; background: color-mix(in srgb, var(--c) 45%, #000); border-radius: 5px; padding: 2px 6px; white-space: nowrap; }
+  .seat .laddbot, .seat .ldrop { font: 700 12px system-ui, sans-serif; padding: 4px 10px; border-radius: 8px; border: 1px solid rgba(243,230,208,.4); background: rgba(243,230,208,.08); color: #f3e6d0; cursor: pointer; }
+  .seat .laddbot:hover, .seat .ldrop:hover { background: rgba(243,230,208,.2); }
+  .seat .ldrop { padding: 2px 8px; }
   #lobby .btns { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 14px; align-items: center; }
   #lobby .go { flex: 1 1 100%; min-height: 48px; font-size: 18px; background: #e8742a; color: #1a120c; border: 0; border-radius: 10px; font-weight: 700; cursor: pointer; }
   #lobby .go:disabled { opacity: .45; cursor: default; }

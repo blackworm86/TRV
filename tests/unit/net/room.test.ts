@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import {
-  CODE_ALPHABET, CODE_LENGTH, acceptable, undoable, backToLobby, cleanCode, closeRoom, createRoom, freeCrew, joinRoom, leaveRoom,
+  BOT_PREFIX, CODE_ALPHABET, CODE_LENGTH, acceptable, addBot, isBotSeat, removeBot, undoable, backToLobby, cleanCode, closeRoom, createRoom, freeCrew, joinRoom, leaveRoom,
   newRoomCode, readRoom, roomPath, seatOf, startMatch, startProblem, type Room, type RoomStore,
 } from '../../../src/net/room';
 import { createTreeStore, memoryBacking, type TreeBacking } from '../../../src/net/tree-store';
@@ -99,6 +99,42 @@ describe('lobby', () => {
     guest.watch(roomPath(CODE), v => seen.push(v));
     await closeRoom(host, CODE);
     expect(seen[seen.length - 1]).toBe(null);
+  });
+});
+
+describe('TRV9000 seats', () => {
+  it('lets the host seat a team on a free crew, take it off, and not past four seats', async () => {
+    // Arrange: host (red) and one guest (blue).
+    const [host] = await seated(2);
+    // Act
+    const id = await addBot(host, CODE, await room(host), CREWS, NOW + 5);
+    // Assert: a bot seat on the first free crew, counted as a player.
+    let r = await room(host);
+    expect(id).toBe(`${BOT_PREFIX}1`);
+    expect(r.seats[id!]).toEqual({ name: 'TRV9000 1', crew: 'green', joinedAt: NOW + 5, bot: true });
+    expect(isBotSeat(r, id!)).toBe(true);
+    expect(isBotSeat(r, 'u1')).toBe(false);
+    expect(await addBot(host, CODE, r, CREWS, NOW + 6)).toBe(`${BOT_PREFIX}2`);
+    expect(await addBot(host, CODE, await room(host), CREWS, NOW + 7)).toBe(null); // four seats taken
+    await removeBot(host, CODE, id!);
+    r = await room(host);
+    expect(Object.keys(r.seats).sort()).toEqual(['trv9000-2', 'u0', 'u1']);
+    await expect(removeBot(host, CODE, 'u1')).rejects.toThrow();
+  });
+  it('needs at least one person to start', () => {
+    const r = readRoom({ host: 'u0', seats: {
+      'trv9000-1': { name: 'TRV9000 1', crew: 'red', joinedAt: 1, bot: true }, 'trv9000-2': { name: 'TRV9000 2', crew: 'blue', joinedAt: 2, bot: true } } })!;
+    expect(startProblem(r)).toBe('bots');
+  });
+  it('starts a match with the bot in the setup, at the chosen level', async () => {
+    const [host] = await seated(2);
+    await host.write(roomPath(CODE, 'options', 'botLevel'), 3);
+    await addBot(host, CODE, await room(host), CREWS, NOW + 5);
+    await startMatch(host, CODE, await room(host), SEED, COLOR);
+    const r = await room(host);
+    expect(r.order).toEqual(['u0', 'u1', `${BOT_PREFIX}1`]);
+    expect(r.setup!.players[2]).toEqual({ name: 'TRV9000 1', color: '#green', crew: 'green', bot: { protocol: 3 } });
+    expect(r.setup!.players[1].bot).toBeUndefined();
   });
 });
 
@@ -247,6 +283,23 @@ describe('host as referee', () => {
     const state = (t: Table): string => JSON.stringify({ v: t.game!.vehicles, round: t.game!.round, cur: t.game!.current, p: t.game!.players.map(p => p.dice) });
     expect(state(tables[1])).toBe(state(tables[0]));
     expect(state(tables[2])).toBe(state(tables[0]));
+  });
+  it('keeps two tables on the same match with a TRV9000 team, which never asks anything', async () => {
+    // Arrange: host, guest and a bot.
+    const stores = await seated(2);
+    await addBot(stores[0], CODE, await room(stores[0]), CREWS, NOW + 5);
+    await startMatch(stores[0], CODE, await room(stores[0]), SEED, COLOR);
+    const tables = stores.map((s, i) => new Table(s, `u${i}`, i === 0));
+    // Act: the people play; the bot's moves come from the rules on each table.
+    for (let step = 0; step < 300 && tables[0].decision; step++) {
+      const d = tables[0].decision;
+      expect(d.player).toBeLessThan(2); // never the bot's seat
+      tables[d.player].choose(step % d.options.length);
+    }
+    // Assert: both tables agree, and the bot has played.
+    const g0 = tables[0].game!, state = (t: Table): string => JSON.stringify({ v: t.game!.vehicles, round: t.game!.round, cur: t.game!.current });
+    expect(state(tables[1])).toBe(state(tables[0]));
+    expect(g0.vehicles.filter(v => v.owner === 2).some(v => !v.inStart || v.status !== 'ok')).toBe(true);
   });
   it('lets a player who reloads catch up from the log', async () => {
     const stores = await seated(2);

@@ -231,4 +231,31 @@ test.describe('game', () => {
     expect(errors).toEqual([]);
     expect(guestErrors).toEqual([]);
   });
+  test('an online room with a TRV9000 team: the host seats it, starts, and the bot plays its turns', async ({ page }) => {
+    test.setTimeout(180_000);
+    const errors = await open(page, { query: '?net=local' });
+    await page.locator('#mCreate').click();
+    await page.locator('#oname').fill('Host');
+    await page.locator('#ocreate').click();
+    await expect.poll(() => page.locator('#lcode').textContent()).toMatch(/^[A-Z0-9]{5}$/);
+    // A free seat lets the host add a team; its level is set with the options.
+    await page.locator('#lseats .laddbot').first().click();
+    await expect(page.locator('#lseats .seat.bot')).toHaveCount(1);
+    await page.locator('#lbotlevel').selectOption('2');
+    await expect(page.locator('#lseats .bottag')).toContainText('livello 2');
+    await expect(page.locator('#lstart')).toBeEnabled();
+    await page.locator('#lstart').click();
+    await expect.poll(() => page.evaluate(() => !!window.trv!.game)).toBe(true);
+    const bot = await page.evaluate(() => (window.trv!.game as unknown as { players: { bot?: { protocol: number } }[] }).players[1].bot?.protocol);
+    expect(bot).toBe(2);
+    // The person plays; the decisions never belong to the bot, and its cars leave the start.
+    const moved = (): Promise<boolean> => page.evaluate(() => window.trv!.game!.vehicles.some(v => v.owner === 1 && !(v as unknown as { inStart: boolean }).inStart));
+    for (let i = 0; i < 60 && !(await moved()); i++) {
+      await expect.poll(() => page.evaluate(() => !!window.trv!.decision), { timeout: 30_000 }).toBe(true);
+      expect(await page.evaluate(() => window.trv!.decision!.player)).toBe(0);
+      await page.evaluate(() => { window.trv!.choose(0); window.trv!.skipBeats(); });
+    }
+    expect(await moved()).toBe(true);
+    expect(errors).toEqual([]);
+  });
 });
