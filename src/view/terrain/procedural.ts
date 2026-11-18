@@ -306,9 +306,11 @@ export function proceduralTerrain(tile: TileData, opt: ProceduralOptions = {}): 
         + wP[p] * st.height.P + wF[p] * st.height.F + wS[p] * st.height.S) / g;
       // Ramp ground: packed sand. Goo: a few bubbles. Salt: the crust's raised polygon rims. Fire: scorched, cracked.
       hg += wP[p] / g * 0.12 * fbm(fx / 60, fy / 60, seed + 3);
-      if (wG[p] > 0) hg += wG[p] / g * 0.12 * bubble(fx, fy, seed);
-      if (wS[p] > 0) hg += wS[p] / g * 0.05 * saltRim(fx, fy, seed);
-      if (wF[p] > 0) hg += wF[p] / g * (0.1 * fbm(fx / 30, fy / 30, seed + 70) - 0.08 * crack(fx, fy, seed + 71));
+      if (wG[p] > 0) hg += wG[p] / g * (0.14 * bubble(fx, fy, seed) + 0.05 * gooSkin(fx, fy, seed));
+      if (wS[p] > 0) { plates(fx, fy, 64, seed + 90); hg += wS[p] / g * (0.1 * PL.rim - 0.06 * saltBrine(fx, fy, seed) - 0.05 * sandRut(fx, fy, seed + 5)); }
+      if (wF[p] > 0) { plates(fx, fy, 46, seed + 71); hg += wF[p] / g * (0.1 * fbm(fx / 30, fy / 30, seed + 70) - 0.1 * PL.rim + 0.14 * pebble(fx, fy, seed + 200)); }
+      // Glass: each shard lies tilted its own way, with a groove where two meet.
+      if (wD[p] > 0) { plates(fx, fy, 58, seed + 85); const turn = PL.id * 6.283; hg += wD[p] / g * (0.24 * (PL.dx * Math.cos(turn) + PL.dy * Math.sin(turn)) + 0.1 * (PL.id - 0.5) - 0.14 * PL.rim); }
       if (wO[p] > 0) {
         // Sand: dunes and ripples, flatter where the ground is dry and hard; stones stand on it, ruts cut it.
         const hard = hardpan(fx, fy, seed);
@@ -364,7 +366,7 @@ export function proceduralTerrain(tile: TileData, opt: ProceduralOptions = {}): 
       if (sX[p] > 0) add(rockColor(fx, fy, height[p], seed, st), sX[p] / tot);
       if (sG[p] > 0) add(gooColor(fx, fy, seed, st), sG[p] / tot);
       if (sD[p] > 0) add(glassColor(fx, fy, seed, st), sD[p] / tot);
-      if (sP[p] > 0) add(sandColor(fx, fy, i, j, seed, st).map(v => v * 0.92) as Rgb, sP[p] / tot);
+      if (sP[p] > 0) { const worn = 0.92 * (1 - 0.24 * wheelTracks(fx, fy, seed)); add(sandColor(fx, fy, i, j, seed, st).map(v => v * worn) as Rgb, sP[p] / tot); }
       if (sF[p] > 0) {
         add(scorchColor(fx, fy, seed, st), sF[p] / tot);
         glow![p] = 255 * emberGlow(fx, fy, seed) * sF[p] / tot;
@@ -376,6 +378,16 @@ export function proceduralTerrain(tile: TileData, opt: ProceduralOptions = {}): 
         add(asphaltColor(fx, fy, seed, st), sOil[p] / tot);
         const oc = oilColor(fx, fy, seed, st);
         for (let q = 0; q < 3; q++) col[q] = mix(col[q], oc[q], slick);
+      }
+      // Goo stains its shore dark and leaves a yellow foam line; fire blackens the ground around it with soot.
+      if (sG[p] > 0.04 && sG[p] / tot < 0.8) {
+        const edge = Math.sin(Math.PI * clamp01(sG[p] / tot / 0.8));
+        const foam = edge * smooth(0.45, 0.6, vnoise(fx / 6, fy / 6, seed + 64));
+        for (let q = 0; q < 3; q++) col[q] = mix(mix(col[q], st.goo[1][q] * 0.35, edge * 0.5), [214, 224, 120][q], foam * 0.6);
+      }
+      if (wF[p] > 0.01 && sF[p] / tot < 0.6) {
+        const soot = smooth(0.01, 0.35, wF[p]) * (0.4 + 0.35 * fbm(fx / 30, fy / 30, seed + 65, 2));
+        for (let q = 0; q < 3; q++) col[q] *= 1 - 0.6 * soot;
       }
       // Mud dries pale and cracks along its edge, and spatters the ground around it.
       if (sM[p] > 0.04 && sM[p] / tot < 0.8) {
@@ -398,6 +410,8 @@ export function proceduralTerrain(tile: TileData, opt: ProceduralOptions = {}): 
       rough[p] = 255 * (sR[p] * st.rough.R + sO[p] * st.rough.o + sM[p] * st.rough.M + sX[p] * st.rough.X + sG[p] * st.rough.G
         + sD[p] * st.rough.D + sP[p] * st.rough.P + sF[p] * st.rough.F + sS[p] * st.rough.S + sOil[p] * st.rough.O) / tot;
       if (slick > 0) rough[p] = mix(rough[p], 18, slick); // the oil is glossy
+      if (sS[p] > 0.3) rough[p] = mix(rough[p], 20, saltBrine(fx, fy, seed) * smooth(0.3, 0.8, sS[p] / tot)); // brine
+      if (sG[p] > 0.3) rough[p] = mix(rough[p], 190, gooSkin(fx, fy, seed) * 0.7); // the scum is dull
       if (sM[p] > 0.3) rough[p] = mix(rough[p], 14, puddle(fx, fy, seed) * smooth(0.3, 0.8, sM[p] / tot)); // standing water
       if (sR[p] > 0.5) rough[p] = mix(rough[p], 150, 0.5 * wheelTracks(fx, fy, seed)); // tyres polish the asphalt
     }
@@ -537,13 +551,6 @@ function mudColor(fx: number, fy: number, seed: number, st: TerrainStyle): Rgb {
   }) as Rgb;
 }
 
-/** Bubbles on toxic goo: 0..1, round blobs of a few sizes. */
-function bubble(fx: number, fy: number, seed: number): number {
-  const a = smooth(0.62, 0.72, vnoise(fx / 9, fy / 9, seed + 80));
-  const b = smooth(0.7, 0.78, vnoise(fx / 4, fy / 4, seed + 81));
-  return Math.max(a, b * 0.6);
-}
-
 /** Salt crust: 1 on the raised rims between the polygons of the crust (a cellular pattern). */
 function saltRim(fx: number, fy: number, seed: number): number {
   // Distance to the nearest and second nearest jittered cell centre: the rim is where they tie.
@@ -559,25 +566,75 @@ function saltRim(fx: number, fy: number, seed: number): number {
   return 1 - smooth(0.5, 3.5, d2 - d1);
 }
 
+/** Scratch result of plates(): the crack between plates (1 on it), the plate's own 0..1 number, the offset from its middle in plates. */
+const PL = { rim: 0, id: 0, dx: 0, dy: 0 };
+/** A surface broken in plates of about `S` px (salt crust, glass shards, baked earth): fills PL for a frame point. */
+function plates(fx: number, fy: number, S: number, seed: number): void {
+  const cx = Math.floor(fx / S), cy = Math.floor(fy / S);
+  let d1 = 1e9, d2 = 1e9, id = 0, ox = 0, oy = 0;
+  for (let j = -1; j <= 1; j++) {
+    for (let i = -1; i <= 1; i++) {
+      const px = (cx + i + 0.5 + 0.42 * hash(cx + i, cy + j, seed)) * S, py = (cy + j + 0.5 + 0.42 * hash(cx + i, cy + j, seed + 1)) * S;
+      const d = Math.hypot(fx - px, fy - py);
+      if (d < d1) { d2 = d1; d1 = d; id = h01(cx + i, cy + j, seed + 2); ox = fx - px; oy = fy - py; } else if (d < d2) d2 = d;
+    }
+  }
+  PL.rim = 1 - smooth(0.4, S * 0.09, d2 - d1); PL.id = id; PL.dx = ox / S; PL.dy = oy / S;
+}
+
+/** Bubbles on toxic goo: 0..1 domes, big slow ones and a fizz of small ones. */
+function bubble(fx: number, fy: number, seed: number): number {
+  const a = smooth(0.62, 0.72, vnoise(fx / 9, fy / 9, seed + 80));
+  const b = smooth(0.7, 0.78, vnoise(fx / 4, fy / 4, seed + 81));
+  const c = smooth(0.7, 0.8, vnoise(fx / 22, fy / 22, seed + 79));
+  return Math.max(a, b * 0.6, c);
+}
+
+/** Dark scum floating on the goo, 0..1: rafts drawn out by its slow flow. */
+function gooSkin(fx: number, fy: number, seed: number): number {
+  return smooth(0.2, 0.34, fbm(fx / 75 + 1.5 * fbm(fx / 160, fy / 160, seed + 76, 2), fy / 75, seed + 77, 3));
+}
+
 function gooColor(fx: number, fy: number, seed: number, st: TerrainStyle): Rgb {
-  const t = clamp01(0.5 + 0.7 * fbm(fx / 30, fy / 30, seed + 82, 3));
-  const swirl = smooth(0.3, 0.6, fbm(fx / 16 + 3 * fbm(fx / 50, fy / 50, seed + 83), fy / 16, seed + 84, 2));
-  const b = bubble(fx, fy, seed);
-  return [0, 1, 2].map(q => mix(mix(st.goo[0][q], st.goo[1][q], t * 0.8 + swirl * 0.2), st.gooBubble[q], b * 0.75)) as Rgb;
+  // Streaks of two greens pulled along by the flow, rafts of dark scum, bubbles with a bright rim.
+  const flow = fbm(fx / 60 + 2.2 * fbm(fx / 120, fy / 120, seed + 83, 2), fy / 34, seed + 84, 3);
+  const t = clamp01(0.5 + 0.8 * flow);
+  const skin = gooSkin(fx, fy, seed), b = bubble(fx, fy, seed);
+  const lit = Math.max(4 * b * (1 - b) * 0.85, b * 0.35) * (1 - 0.5 * skin);
+  const spark = hash(Math.floor(fx / 3), Math.floor(fy / 3), seed + 78) > 0.97 ? 0.5 * (1 - skin) : 0;
+  return [0, 1, 2].map(q => mix(mix(mix(st.goo[0][q], st.goo[1][q], t), st.goo[1][q] * 0.42, skin * 0.8), st.gooBubble[q], Math.max(lit, spark))) as Rgb;
 }
 
+/** Desert glass: sand fused into shards. Each shard has its own tint and catches the light on one side; sand lies in the cracks. */
 function glassColor(fx: number, fy: number, seed: number, st: TerrainStyle): Rgb {
-  const t = clamp01(0.5 + 0.6 * fbm(fx / 45, fy / 45, seed + 85, 3));
-  // Long bright streaks, as light on a glazed surface, and a few dark cracks.
+  plates(fx, fy, 58, seed + 85);
+  const turn = PL.id * 6.283, facet = clamp01(0.5 + 1.1 * (PL.dx * Math.cos(turn) + PL.dy * Math.sin(turn)));
+  const tone = clamp01(0.2 + 0.55 * PL.id + 0.25 * fbm(fx / 45, fy / 45, seed + 85, 2));
   const streak = smooth(0.55, 0.75, fbm(fx / 140 + fy / 60, fy / 18, seed + 86, 2));
-  const cr = crack(fx, fy, seed + 87) * 0.5;
-  return [0, 1, 2].map(q => mix(mix(mix(st.glass[0][q], st.glass[1][q], t), st.glassGlint[q], streak * 0.65), st.glass[1][q] * 0.7, cr)) as Rgb;
+  const glint = clamp01(smooth(0.62, 0.95, facet) * 0.75 + streak * 0.35);
+  const dust = PL.rim * smooth(-0.2, 0.3, fbm(fx / 90, fy / 90, seed + 87, 2));
+  return [0, 1, 2].map(q => {
+    const shard = mix(mix(st.glass[0][q], st.glass[1][q], tone) * (0.86 + 0.14 * facet), st.glassGlint[q], glint);
+    return mix(mix(shard, st.glass[1][q] * 0.5, PL.rim * 0.8), st.sand[1][q], dust * 0.7);
+  }) as Rgb;
 }
 
+/** Shallow brine standing on the salt, 0..1. */
+function saltBrine(fx: number, fy: number, seed: number): number {
+  return smooth(0.3, 0.42, fbm(fx / 120, fy / 120, seed + 92, 2));
+}
+
+/** Salt flats: a crust of white polygons with raised rims, dust blown over it, pools of pale brine, old tyre tracks. */
 function saltColor(fx: number, fy: number, seed: number, st: TerrainStyle): Rgb {
-  const t = clamp01(0.5 + 0.5 * fbm(fx / 60, fy / 60, seed + 88, 3));
-  const rim = saltRim(fx, fy, seed);
-  return [0, 1, 2].map(q => mix(mix(st.salt[0][q], st.salt[1][q], t), st.saltCrack[q], rim * 0.8)) as Rgb;
+  plates(fx, fy, 64, seed + 90);
+  const t = clamp01(0.3 * PL.id + 0.5 + 0.4 * fbm(fx / 60, fy / 60, seed + 88, 3));
+  const dirt = smooth(0.05, 0.5, fbm(fx / 260, fy / 260, seed + 93, 2)) * 0.3;
+  const brine = saltBrine(fx, fy, seed), rut = sandRut(fx, fy, seed + 5);
+  const water: Rgb = [150, 200, 204];
+  return [0, 1, 2].map(q => {
+    const crust = mix(mix(st.salt[0][q], st.salt[1][q], t), st.saltCrack[q], Math.max(PL.rim * 0.75, rut * 0.45));
+    return mix(mix(crust, st.sand[1][q], dirt), water[q], brine * 0.7 * (1 - 0.6 * PL.rim));
+  }) as Rgb;
 }
 
 /**
@@ -604,19 +661,26 @@ function oilColor(fx: number, fy: number, seed: number, st: TerrainStyle): Rgb {
   return [0, 1, 2].map(q => mix(st.oil[q], mix(a[q], b[q], f), sheen)) as Rgb;
 }
 
-/** Embers in burnt ground, 0..1: glowing cracks and a few hot spots. */
+/** Embers in burnt ground, 0..1: the cracks of the baked earth glowing where it is still hot, and a few hot spots. */
 function emberGlow(fx: number, fy: number, seed: number): number {
-  const cracks = crack(fx, fy, seed + 71) * smooth(0.0, 0.4, fbm(fx / 70, fy / 70, seed + 74));
+  plates(fx, fy, 46, seed + 71);
+  const hot = smooth(-0.05, 0.4, fbm(fx / 70, fy / 70, seed + 74, 2));
   const spots = smooth(0.66, 0.82, fbm(fx / 9, fy / 9, seed + 73, 2)) * 0.8;
-  return Math.max(cracks, spots);
+  return Math.max(PL.rim * hot, spots * hot);
 }
 
-/** Burnt ground: charcoal black, patches of grey ash, embers glowing in the cracks. */
+/** Burnt ground: charcoal black earth baked in plates, drifts of grey ash, charred lumps, embers in the cracks (white-hot at the heart). */
 function scorchColor(fx: number, fy: number, seed: number, st: TerrainStyle): Rgb {
   const t = clamp01(0.5 + 0.6 * fbm(fx / 25, fy / 25, seed + 72, 3));
-  const ash = smooth(0.55, 0.75, fbm(fx / 40, fy / 40, seed + 75, 3)) * 0.8;
+  const ash = smooth(0.5, 0.75, fbm(fx / 55 + fy / 140, fy / 30, seed + 75, 3)) * 0.8;
+  const lump = pebble(fx, fy, seed + 200);
   const glow = emberGlow(fx, fy, seed);
-  return [0, 1, 2].map(q => mix(mix(mix(st.scorch[0][q], st.scorch[1][q], t), st.ash[q], ash), st.ember[q], glow)) as Rgb;
+  const core: Rgb = [255, 222, 130];
+  return [0, 1, 2].map(q => {
+    const ground = mix(mix(st.scorch[0][q], st.scorch[1][q], t) * (0.8 + 0.4 * PL.id), st.ash[q], ash);
+    const burnt = lump > 0 ? mix(st.scorch[0][q] * 0.6, st.ash[q] * 0.7, lump * lump) : ground;
+    return mix(mix(burnt, st.ember[q], glow), core[q], smooth(0.75, 1, glow) * 0.7);
+  }) as Rgb;
 }
 
 function rockColor(fx: number, fy: number, hgt: number, seed: number, st: TerrainStyle): Rgb {
