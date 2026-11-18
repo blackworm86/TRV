@@ -26,12 +26,15 @@ const inner = (s: string): string => s.replace(/^<svg[^>]*>|<\/svg>$/g, '');
 const die = (x: number, y: number, s: number, value: number, color: string): string =>
   `<g transform="translate(${x - s / 2} ${y - s / 2}) scale(${s / 100})" pointer-events="none">${inner(dieSvg({ kind: 'movement', value, color, number: true, ui: true }))}</g>`;
 
-/** A minor damage token (BRaFF p3): a dark eight-sided plate with the red warning sign. */
+/** The minor damage token's drawing (assets/big_rig/segnalini/danno_minore.svg): its inner shapes and its size. */
+const TOKEN_RAW = Object.values(import.meta.glob<string>('/assets/big_rig/segnalini/danno_minore.svg', { eager: true, query: '?raw', import: 'default' }))[0] ?? '';
+const TOKEN_BODY = TOKEN_RAW.replace(/<\?xml[^>]*>|<!--[\s\S]*?-->/g, '').replace(/^[\s\S]*?<svg[^>]*>|<\/svg>[\s\S]*$/g, '');
+const TOKEN_SIZE = Number(/viewBox="0 0 ([\d.]+)/.exec(TOKEN_RAW)?.[1] ?? 93.1);
+
+/** A minor damage token (BRaFF p3), `s` wide, centred on (cx, cy): the dark cross with the red warning light. */
 export function minorTokenAt(cx: number, cy: number, s: number): string {
-  const k = s / 100;
-  return `<g transform="translate(${cx} ${cy}) scale(${k})" pointer-events="none">`
-    + '<path d="M-18 -50 H18 L26 -26 L50 -18 V18 L26 26 L18 50 H-18 L-26 26 L-50 18 V-18 L-26 -26Z" fill="#1d2433" stroke="#0b0d12" stroke-width="5"/>'
-    + '<circle r="19" fill="none" stroke="#e0402f" stroke-width="7"/><rect x="-3.5" y="-12" width="7" height="15" fill="#e0402f"/><circle cy="9" r="3.8" fill="#e0402f"/></g>';
+  const k = s / TOKEN_SIZE;
+  return `<g transform="translate(${cx - s / 2} ${cy - s / 2}) scale(${k})" pointer-events="none">${TOKEN_BODY}</g>`;
 }
 
 /** A minor damage token on its own, as an SVG drawing. */
