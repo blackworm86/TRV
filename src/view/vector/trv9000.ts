@@ -20,6 +20,11 @@ export interface BotCardArt {
 export interface BotCardLook {
   color?: string;
   active?: number | null;
+  /**
+   * How many lines are uncovered, from the top (all when absent). As on the table, where the card
+   * slides out from under a player board one line per turn: the later lines stay hidden.
+   */
+  shown?: number;
   /** Texts of the commands (Italian), from the data file. */
   commands: Record<string, string>;
   /** How many cards the deck has, for the number at the corner. */
@@ -128,5 +133,15 @@ export function botCardSvg(c: BotCardArt, look: BotCardLook, extra = ''): string
     line.steps.forEach((s, k) => { b += step(s, 182 + k * 110, y + h / 2); });
   });
   b += `<text x="592" y="${rows[1] - 18}" text-anchor="end" font-size="22" fill="${INK}" opacity=".55" ${FONT}>${c.id}/${look.of ?? 18}</text>`;
+  // The lines still to come, covered as by the player board the card slides out from under.
+  const shown = Math.max(0, Math.min(c.lines.length, look.shown ?? c.lines.length));
+  if (shown < c.lines.length) {
+    const top = rows[shown] - 14;
+    b += `<path d="M0 ${top} H630 V846 Q630 880 596 880 H34 Q0 880 0 846Z" fill="${PANEL}"/>`;
+    b += `<rect x="0" y="${top}" width="630" height="10" fill="${col}"/>`;
+    for (let y = top + 40; y < 870; y += 36) b += `<path d="M30 ${y} H600" stroke="${CREAM}" stroke-opacity=".06" stroke-width="10"/>`;
+    const n = c.lines.length - shown;
+    b += `<text x="315" y="${(top + 880) / 2 + 14}" text-anchor="middle" font-size="44" fill="${CREAM}" opacity=".5" ${FONT}>${n === 1 ? 'TURNO SUCCESSIVO COPERTO' : `${n} TURNI SUCCESSIVI COPERTI`}</text>`;
+  }
   return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 630 880" ${extra}>${b}</svg>`;
 }

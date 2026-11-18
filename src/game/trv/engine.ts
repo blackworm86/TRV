@@ -190,7 +190,7 @@ export interface Snapshot {
   choppers: (Pos | null)[];
   activeCar: string | null;
   /** TRV9000: per seat, the bot's activation card this round and the line being played (null for a person). */
-  bots?: ({ card: number | null; active: number | null; drift: boolean } | null)[];
+  bots?: ({ card: number | null; active: number | null; line: number; drift: boolean } | null)[];
 }
 
 /**
@@ -504,7 +504,7 @@ export function snapshot(g: Game): Snapshot {
     hazards: [...g.hazards].map(([k, h]) => [k, { ...h }]),
     choppers: g.players.map(p => (p.chopper ? { ...p.chopper } : null)),
     activeCar: g.activeCar,
-    ...(g.trv9000 ? { bots: g.players.map(p => (p.bot ? { card: p.bot.card, active: p.bot.active, drift: p.bot.drift } : null)) } : {}),
+    ...(g.trv9000 ? { bots: g.players.map(p => (p.bot ? { card: p.bot.card, active: p.bot.active, line: p.bot.line, drift: p.bot.drift } : null)) } : {}),
   };
 }
 

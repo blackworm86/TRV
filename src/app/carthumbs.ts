@@ -5,7 +5,7 @@
 import * as THREE from 'three';
 import { carObjs } from './board';
 
-const W = 150, H = 70;
+const W = 150, H = 84;
 const cache = new Map<string, string>();
 let renderer: THREE.WebGLRenderer | null = null;
 let retry = 0;
@@ -25,10 +25,22 @@ function draw(model: THREE.Object3D): string {
   const sun = new THREE.DirectionalLight(0xffffff, 2.2);
   sun.position.set(2, 6, 4);
   scene.add(c, new THREE.HemisphereLight(0xffffff, 0x3a2a1a, 2.4), sun);
-  const m = Math.max(size.x, size.z) * 0.56;
-  const cam = new THREE.OrthographicCamera(-m, m, m * H / W, -m * H / W, 0.01, 100);
-  cam.position.set(-m * 0.25, m * 1.1, m * 1.5);
+  // Seen from three quarters; the frame is fitted to the whole model as the camera sees it (the
+  // eight corners of its box), with a margin, so nothing is cut (asked by the user, 2026-11-18).
+  const m = Math.max(size.x, size.y, size.z);
+  const cam = new THREE.OrthographicCamera(-1, 1, 1, -1, 0.01, m * 20);
+  cam.position.set(-m * 0.9, m * 0.85, m * 3);
   cam.lookAt(0, 0, 0);
+  cam.updateMatrixWorld(true);
+  const half = size.clone().multiplyScalar(0.5), view = cam.matrixWorldInverse;
+  let hx = 0, hy = 0;
+  for (const sx of [-1, 1]) for (const sy of [-1, 1]) for (const sz of [-1, 1]) {
+    const q = new THREE.Vector3(sx * half.x, sy * half.y, sz * half.z).applyMatrix4(view);
+    hx = Math.max(hx, Math.abs(q.x)); hy = Math.max(hy, Math.abs(q.y));
+  }
+  const fit = Math.max(hx, hy * W / H) * 1.04;
+  cam.left = -fit; cam.right = fit; cam.top = fit * H / W; cam.bottom = -fit * H / W;
+  cam.updateProjectionMatrix();
   renderer.render(scene, cam);
   return renderer.domElement.toDataURL('image/png');
 }

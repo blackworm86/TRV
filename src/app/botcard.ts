@@ -1,5 +1,7 @@
 // TRV9000 (design/gdd/trv9000-bots.md, 9): each bot's activation card of the round beside the
-// players, redrawn in the game's look, with the line playing now lit. It follows the beats: during a
+// players, redrawn in the game's look, with the line playing now lit. Only the command and the
+// lines played so far are uncovered: the later ones stay hidden, as under the player board the
+// card slides out from on the table (asked by the user, 2026-11-18). It follows the beats: during a
 // replay it shows the card as the table was at that beat.
 
 import trv9000 from '../../data/trv/trv9000.json';
@@ -18,17 +20,17 @@ let shown = '';
 export function drawBotCards(snap?: Snapshot): void {
   const el = $('botcards');
   const s = g?.trv9000 ? snap ?? snapshot(g) : null;
-  const items = (s?.bots ?? []).flatMap((b, i) => (b && b.card !== null ? [{ seat: i, card: b.card, active: b.active }] : []));
-  const key = items.map(x => `${x.seat}:${x.card}:${x.active}`).join('|');
+  const items = (s?.bots ?? []).flatMap((b, i) => (b && b.card !== null ? [{ seat: i, card: b.card, active: b.active, shown: Math.max(b.line ?? 3, (b.active ?? -1) + 1) }] : []));
+  const key = items.map(x => `${x.seat}:${x.card}:${x.active}:${x.shown}`).join('|');
   if (key === shown) return;
   shown = key;
   el.innerHTML = items.map(x => {
     const p = g!.players[x.seat];
-    const id = `${x.card}|${x.active}|${p.color}`;
+    const id = `${x.card}|${x.active}|${x.shown}|${p.color}`;
     let url = drawn.get(id);
     if (!url) {
       const card = botCards().find(c => c.id === x.card)!;
-      url = dataUrl(botCardSvg(card, { color: p.color, active: x.active, commands: COMMANDS, of: botCards().length }));
+      url = dataUrl(botCardSvg(card, { color: p.color, active: x.active, shown: x.shown, commands: COMMANDS, of: botCards().length }));
       drawn.set(id, url);
     }
     return `<figure class="${x.active !== null ? 'on' : ''}" style="--c:${p.color}"><img src="${url}" alt="Carta TRV9000 ${x.card}"><figcaption>${esc(p.name)}</figcaption></figure>`;

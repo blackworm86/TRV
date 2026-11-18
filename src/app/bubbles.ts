@@ -1,5 +1,5 @@
-// The players' bubbles at the top (redrawn as asked by the user, 2026-11-18): avatar, name, crew
-// leader and command tokens, the dice still to play, then the three cars as thumbnails of their 3D
+// The players' bubbles at the top (redrawn as asked by the user, 2026-11-18): avatar, the player's
+// name (the leader's is in the avatar's pop-up) and command tokens, the dice still to play, then the three cars as thumbnails of their 3D
 // models with their pieces under them (upgrade cards, damage tokens, ongoing effect cards, ON FIRE!).
 // Pointing at a piece shows it large, under it and centred on the pointer, like the commands'
 // pop-up; pointing at the avatar shows the leader's power; a click on a car takes the view to it.
@@ -21,7 +21,6 @@ const hasCard = (id: string): boolean => upgrades().some(u => u.id === id);
 /** Onboard Computer: the car's damage tokens stay face down, without effect. */
 const faceDown = (v: Vehicle): boolean => v.upgrade === 'onboard_computer' || v.upgrade2 === 'onboard_computer';
 const stateOf = (v: Vehicle): 'elim' | 'inop' | 'start' | 'road' => (v.status === 'elim' ? 'elim' : v.status === 'inop' ? 'inop' : v.inStart ? 'start' : 'road');
-const STATE_NAME = { elim: 'eliminata', inop: 'fuori uso', start: 'in partenza', road: 'in strada' };
 
 /** One car of the bubble: its thumbnail and, under it, its pieces. */
 function carSlot(p: Player, v: Vehicle, redraw: () => void): string {
@@ -43,7 +42,7 @@ function carSlot(p: Player, v: Vehicle, redraw: () => void): string {
     if (v.onFire) pcs += `<span class="pc fire" data-tip="fire" data-vid="${v.id}">${onFireTokenSvg()}</span>`;
   }
   return `<div class="slot ${st}"><i class="sz">${v.size}</i>`
-    + `<button class="car" data-tip="car" data-vid="${v.id}" ${gone ? 'disabled' : ''}>${pic ? `<img src="${pic}" alt="Auto ${SIZE[v.size]}">` : carSvg(v.size, p.color)}${gone ? '<em class="x">✕</em>' : ''}</button>`
+    + `<button class="car" data-vid="${v.id}" ${gone ? 'disabled' : ''}>${pic ? `<img src="${pic}" alt="Auto ${SIZE[v.size]}">` : carSvg(v.size, p.color)}${gone ? '<em class="x">✕</em>' : ''}</button>`
     + `<div class="pcs">${pcs}</div></div>`;
 }
 
@@ -62,7 +61,7 @@ export function bubbleHtml(p: Player, cls: string, redraw: () => void): string {
   const tip = l || p.bot ? `data-tip="av" data-p="${p.id}"` : '';
   return `<div class="bubble pl ${cls}" style="--c:${p.color}">`
     + `<div class="av" ${tip}>${pic ? `<img src="${pic}" alt="${esc(l!.name)}">` : avatarSvg(p.color, p.name)}</div>`
-    + `<div class="hd"><b class="gothic">${esc(p.name)}</b>${l ? `<small>${esc(l.name)}</small>` : ''}${toks}</div>`
+    + `<div class="hd"><b class="gothic">${esc(p.name)}</b>${toks}</div>`
     + `<div class="dice">${dice}</div><div class="cars">${cars}</div></div>`;
 }
 
@@ -108,11 +107,6 @@ function tipFor(el: HTMLElement): { html: string; card: boolean } | null {
   }
   if (kind === 'fire') {
     return { card: false, html: `<div class="tokbig">${onFireTokenSvg()}</div><b>In fiamme</b><small>${whose}</small><p>Prima di muoverla si tira il dado fuoco: movimenti in più, il fuoco si spegne, o l’auto è eliminata.</p>` };
-  }
-  if (kind === 'car') {
-    const st = stateOf(v);
-    const n = v.damage.length;
-    return { card: false, html: `<b>Auto ${SIZE[v.size]}</b><small>${STATE_NAME[st]} · ${n} ${n === 1 ? 'danno' : 'danni'}</small>${st === 'elim' ? '' : '<p>Clic: la vista va sull’auto.</p>'}` };
   }
   return null;
 }

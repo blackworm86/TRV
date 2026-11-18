@@ -17,6 +17,17 @@ describe('TRV9000 card drawing', () => {
     }
   });
 
+  it('covers the lines after the uncovered ones, and none when all are shown', () => {
+    const c = CARDS[0];
+    // Arrange: the steps of the last line, which only an uncovered card shows in full.
+    const covered = (n?: number) => botCardSvg(c, { color: COLOR, active: null, shown: n, commands: COMMANDS });
+    // Act / Assert
+    expect(covered(1)).toContain('2 TURNI SUCCESSIVI COPERTI');
+    expect(covered(2)).toContain('TURNO SUCCESSIVO COPERTO');
+    expect(covered(3)).not.toContain('COPERT');
+    expect(covered()).not.toContain('COPERT');
+  });
+
   it('lights the active line in the team colour, and no line without one', () => {
     const c = CARDS[0];
     expect(botCardSvg(c, { color: COLOR, active: 2, commands: COMMANDS })).toContain(`fill="${COLOR}"/>`);
