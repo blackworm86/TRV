@@ -45,21 +45,21 @@ export function minorTokenSvg(extra = ''): string {
 // ---------------------------------------------------------------- reading the drawing
 
 /** One shape of the drawing: its tag, its class (the drawing's st0-st8) and its geometry attributes. */
-interface Shape { tag: string; cls: string; attrs: string }
+export interface Shape { tag: string; cls: string; attrs: string }
 /** A box: left, top, right, bottom. */
-type Box = [number, number, number, number];
+export type Box = [number, number, number, number];
 
 /** The shapes of a piece of the drawing, in drawing order. */
-function shapes(src: string): Shape[] {
+export function shapes(src: string): Shape[] {
   const out: Shape[] = [];
   for (const m of src.matchAll(/<(path|polygon|polyline|line|circle)\s+class="(st\d+)"([\s\S]*?)\/>/g)) {
     out.push({ tag: m[1], cls: m[2], attrs: m[3].replace(/\s+/g, ' ').trim() });
   }
   return out;
 }
-const attr = (s: Shape, name: string): string => new RegExp(`${name}="([^"]*)"`).exec(s.attrs)?.[1] ?? '';
+export const attr = (s: Shape, name: string): string => new RegExp(`${name}="([^"]*)"`).exec(s.attrs)?.[1] ?? '';
 /** The box of a shape (enough for paths, polygons, lines and circles). */
-function boxOf(s: Shape): Box {
+export function boxOf(s: Shape): Box {
   let pts: [number, number][];
   if (s.tag === 'path') pts = pathPoints(attr(s, 'd'));
   else if (s.tag === 'polygon' || s.tag === 'polyline') {
@@ -71,10 +71,10 @@ function boxOf(s: Shape): Box {
   const xs = pts.map(p => p[0]), ys = pts.map(p => p[1]);
   return [Math.min(...xs), Math.min(...ys), Math.max(...xs), Math.max(...ys)];
 }
-const midX = (b: Box): number => (b[0] + b[2]) / 2;
-const midY = (b: Box): number => (b[1] + b[3]) / 2;
+export const midX = (b: Box): number => (b[0] + b[2]) / 2;
+export const midY = (b: Box): number => (b[1] + b[3]) / 2;
 /** A shape again, with other paint. */
-const draw = (s: Shape, paint: string): string => `<${s.tag} ${s.attrs} ${paint}/>`;
+export const draw = (s: Shape, paint: string): string => `<${s.tag} ${s.attrs} ${paint}/>`;
 
 /** The command board and the five dashboards, read from the drawing once. */
 interface Drawing {

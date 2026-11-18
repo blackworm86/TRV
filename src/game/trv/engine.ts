@@ -374,6 +374,7 @@ const SECTION_NAME: Record<RigSection, string> = { front: 'motrice', mid: 'rimor
 const RIG_CMD_NAME: Record<string, string> = {
   hazard_dispenser: 'Hazard Dispenser', repair: 'Riparazione', targeting_computer: 'Targeting Computer',
   traction_drive: 'Traction Drive', airstrike: 'Attacco aereo', missile_launcher: 'Missile Launcher', cow_catcher: 'Cow Catcher',
+  hydraulic_steering: 'Sterzo idraulico',
 };
 /** The Big Rig's numbers and names, for the interface. */
 export const bigRig = (): typeof BR & { sectionName: typeof SECTION_NAME; commandName: typeof RIG_CMD_NAME } =>

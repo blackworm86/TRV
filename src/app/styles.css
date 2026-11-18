@@ -294,8 +294,9 @@
   #cmddock .dice { display: flex; justify-content: center; gap: calc(var(--u, 1) * 3px); }
   #cmddock .dice:empty { display: none; }
   /* The Final Five's drawer: two rows of three dice, larger (asked by the user, 2026-11-18). */
-  #cmddock.two .dice { display: grid; grid-template-columns: repeat(3, auto); justify-content: center; gap: calc(var(--u, 1) * 4px) calc(var(--u, 1) * 10px); }
-  #cmddock.two .mydie { width: calc(var(--u, 1) * 50px); height: calc(var(--u, 1) * 50px); }
+  /* Two rows, sized by dock.ts to the drawer's width (--cols, --die). */
+  #cmddock.two .dice { display: grid; grid-template-columns: repeat(var(--cols, 3), auto); justify-content: center; gap: calc(var(--u, 1) * 4px) calc(var(--u, 1) * 8px); }
+  #cmddock.two .mydie { width: var(--die, calc(var(--u, 1) * 40px)); height: var(--die, calc(var(--u, 1) * 40px)); }
   #cmddock .mydie { width: calc(var(--u, 1) * 32px); height: calc(var(--u, 1) * 32px); display: grid; place-items: center; border-radius: 50%; cursor: grab; touch-action: none; }
   #cmddock .mydie svg { width: 82%; height: 82%; }
   #cmddock .mydie.can { background: radial-gradient(circle, rgba(76,255,122,.6), rgba(76,255,122,0) 68%); }
@@ -401,6 +402,16 @@
   /* Over a car that cannot be shot: the other car's ability, said plainly. */
   .blocktip { position: absolute; transform: translate(-50%, -100%); max-width: 240px; padding: 6px 10px; border-radius: 10px; font-size: 13px; font-weight: 600; line-height: 1.25;
     background: rgba(120,16,12,.95); color: #fff; border: 2px solid #ff3b30; box-shadow: 0 6px 16px rgba(0,0,0,.5); text-align: center; }
+  /* Aiming at the Big Rig: the systems that can be hit, round the section (rigpick.ts). */
+  #rigpick .links { position: absolute; inset: 0; width: 100%; height: 100%; overflow: visible; }
+  #rigpick line { stroke: #ff3b3b; stroke-width: 3; stroke-dasharray: 7 5; filter: drop-shadow(0 1px 2px rgba(0,0,0,.8)); }
+  #rigpick .aim { position: absolute; width: 72px; height: 72px; margin: -36px 0 0 -36px; padding: 0; border-radius: 50%; display: grid; place-items: center; cursor: pointer;
+    pointer-events: auto; background: #26232b; border: 3px solid #ff3b3b; box-shadow: 0 0 0 3px rgba(0,0,0,.5), 0 0 18px rgba(255,59,59,.55); transition: transform .12s; }
+  #rigpick .aim:hover { transform: scale(1.12); background: #3a1d22; }
+  #rigpick .aim svg { width: 64px; height: 64px; }
+  #rigpick circle { fill: #ff3b3b; stroke: #26232b; stroke-width: 3; }
+  #rigpick .ask { position: absolute; transform: translateX(-50%); white-space: nowrap; padding: 4px 12px; border-radius: 8px; background: rgba(38,35,43,.92);
+    color: #f6c46a; font: 400 22px/1.1 'League Gothic', Impact, sans-serif; letter-spacing: .5px; border: 1px solid #ff3b3b; }
   .blocktip.warn { background: rgba(110,74,8,.95); border-color: #ffb02a; }
   .blocktip.warn::after { border-top-color: #ffb02a; }
   .blocktip b { display: block; font: 400 20px/1 'League Gothic', Impact, sans-serif; letter-spacing: .5px; color: #ffd0c8; }

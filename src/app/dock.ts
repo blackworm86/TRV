@@ -98,6 +98,10 @@ export function drawDock(d: Decision | null, mine: boolean, me?: Player): void {
     q.textContent = /secondo/.test(d.prompt) ? `Ora il secondo dado: su un'altra moto${cmd ? ' o su un comando' : ''}`
       : `Due dadi su due moto${cmd ? ', oppure uno su un comando' : ''}`;
   }
+  // The Big Rig's first die of the round goes on the Hydraulic Steering, the only slot lit (asked by
+  // the user, 2026-11-18: a reminder over the dice, no button over the rig).
+  if (d && mine && d.kind === 'steer') q.textContent = 'Piazza Sterzo Idraulico';
+  else if (d && mine && d.kind === 'assign' && me?.rig) q.textContent = 'Un dado su un comando di una sezione';
   // End Turn (asked by the user, 2026-11-18): on the tab, once everything of the turn is done.
   const ending = !!d && mine && d.kind === 'endTurn';
   const end = $('endturn');
@@ -119,12 +123,8 @@ export const DOCK_TUCK = 22;
 export function placeDock(): void {
   const wrap = $('cmdwrap'), dock = $('cmddock');
   if (!wrap.classList.contains('on')) return;
-  const slots = [...document.querySelectorAll<SVGElement>('#strip [data-drop^="cmd:"]')].map(el => el.getBoundingClientRect()).filter(r => r.width);
   const svg = $('strip').querySelector('svg, .loose')?.getBoundingClientRect();
-  if (!slots.length || !svg) return;
-  const top = Math.min(...slots.map(r => r.top));
-  const upper = slots.filter(r => r.top < top + 30); // the two corner slots at the top (and the quarters next to them)
-  const left = Math.min(...upper.map(r => r.left + r.width / 2)), right = Math.max(...upper.map(r => r.left + r.width / 2));
+  if (!svg) return;
   const root = $('strip').querySelector<SVGSVGElement>('svg[data-strip="2"]');
   if (root) {
     // The owner's strip drawing: the drawer as drawn, behind the board's top edge.
@@ -134,6 +134,12 @@ export function placeDock(): void {
     const D = own?.length === 3 ? { edge: own[0], mid: own[1], w: own[2] } : DRAWER;
     // There the six dice go in two rows of three, larger (asked by the user, 2026-11-18).
     dock.classList.toggle('two', own?.length === 3);
+    // On two rows, as large as the drawer's width allows (asked by the user, 2026-11-18: the Final
+    // Five's and the Big Rig's dice were cut): never larger than 50 units, never cut.
+    const n = dock.querySelectorAll('.mydie, .mytok').length, cols = Math.max(1, Math.ceil(n / 2)), gap = 8 * u;
+    const die = Math.min(50 * u, (D.w * u - 16 - (cols - 1) * gap) / cols);
+    dock.style.setProperty('--cols', String(cols));
+    dock.style.setProperty('--die', `${Math.floor(die)}px`);
     const edge = svg.top + (D.edge - vb.y) * u;
     const width = `${Math.round(D.w * u)}px`;
     if (dock.style.width !== width) dock.style.width = width;
@@ -143,6 +149,11 @@ export function placeDock(): void {
     wrap.dataset.edge = String(edge); // the 3D dice show only above it (hudDice.ts)
     return;
   }
+  const slots = [...document.querySelectorAll<SVGElement>('#strip [data-drop^="cmd:"]')].map(el => el.getBoundingClientRect()).filter(r => r.width);
+  if (!slots.length) return;
+  const top = Math.min(...slots.map(r => r.top));
+  const upper = slots.filter(r => r.top < top + 30); // the two corner slots at the top (and the quarters next to them)
+  const left = Math.min(...upper.map(r => r.left + r.width / 2)), right = Math.max(...upper.map(r => r.left + r.width / 2));
   const edge = document.body.classList.contains('tall') ? svg.top + 4 : top - 4; // base board: its top edge runs just above the corner slots
   const width = `${Math.round(right - left)}px`;
   if (dock.style.width !== width) dock.style.width = width;

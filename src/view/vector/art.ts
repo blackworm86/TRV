@@ -88,7 +88,7 @@ const commandTokenRaw = Object.values(import.meta.glob<string>('/assets/choppe_s
 const commandTokenInner = /<svg[^>]*>([\s\S]*)<\/svg>/.exec(commandTokenRaw)?.[1].replace(/<!--[\s\S]*?-->/g, '').trim()
   ?? '<circle cx="50" cy="50" r="44" fill="#ece5d3"/><text x="50" y="66" font-size="48" text-anchor="middle" fill="#1c2242">★</text>';
 // The commands' icons (tools/art/make_command_icons.py): one colour (currentColor), 100 x 100.
-const COMMAND_ICONS = new Map(Object.entries(import.meta.glob<string>(['/assets/base/icone/comandi/*.svg', '/assets/choppe_shoppe/icone/comandi/*.svg'],
+const COMMAND_ICONS = new Map(Object.entries(import.meta.glob<string>(['/assets/base/icone/comandi/*.svg', '/assets/choppe_shoppe/icone/comandi/*.svg', '/assets/big_rig/icone/comandi/*.svg'],
   { eager: true, query: '?raw', import: 'default' })).map(([path, raw]) => [/([\w-]+)\.svg$/.exec(path)![1], /<svg[^>]*>([\s\S]*)<\/svg>/.exec(raw)?.[1] ?? '']));
 /** Tells the icons' masks apart when a page shows the same icon more than once. */
 let iconSerial = 0;

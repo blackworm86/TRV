@@ -14,6 +14,7 @@ import { hudCam, hudRenderer, hudScene, syncHudDice } from './hudDice';
 import { moveCamera } from './keys';
 import { tiltView } from './mapView';
 import { placeBlockTips } from './markers';
+import { placeRigPick } from './rigpick';
 import { groundTick, render } from './pieces';
 import { frameTimes } from './quality';
 import { timeScale } from './replay';
@@ -130,5 +131,6 @@ renderer.setAnimationLoop(t => {
   placeActions();
   placeDock();
   placeBlockTips();
+  placeRigPick();
   hudRenderer.render(hudScene, hudCam);
 });

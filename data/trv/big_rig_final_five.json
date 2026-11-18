@@ -50,7 +50,8 @@
       "traction_drive": ["Questo turno il Big Rig", "usa il dado strada."],
       "airstrike": ["Elicottero su una casella vuota,", "poi spara come nel gioco base."],
       "missile_launcher": ["Dopo il movimento, dal 2° round: dado sparo", "su 2 caselle avanti e le adiacenti."],
-      "cow_catcher": ["Il primo veicolo incontrato va", "avanti a sinistra o a destra."]
+      "cow_catcher": ["Il primo veicolo incontrato va", "avanti a sinistra o a destra."],
+      "hydraulic_steering": ["Primo turno del round: quante volte il Big Rig", "può spostarsi avanti a sinistra o avanti a destra."]
     },
     "turn": {
       "_page": 4,

@@ -155,10 +155,13 @@ export function drawMarkers(): void {
       blockTips.push({ el, at: world(v.pos) });
     }
   }
-  if (!['step', 'airstrike', 'shoot', 'peek', 'peekResult', 'plow', 'rollCage', 'dispense', 'radar'].includes(d.kind)) return;
+  // The Big Rig's Cow Catcher (asked by the user, 2026-11-18): the two spaces the vehicle can be
+  // sent to, lit on the table, each with the glass copy of the vehicle and its arrow, as in a bump.
+  if (d.kind === 'cowCatcher') for (const o of d.options) if (o.carId && o.pos) markPreview(o.carId, o.pos);
+  if (!['step', 'airstrike', 'shoot', 'peek', 'peekResult', 'plow', 'rollCage', 'dispense', 'radar', 'cowCatcher'].includes(d.kind)) return;
   const MARK_COLOR: Partial<Record<Decision['kind'], number>> = {
     step: 0x4cff7a, shoot: 0xff2d2d, airstrike: 0x7fd4ff,
-    dispense: 0x2f7bff, plow: 0x2f7bff, rollCage: 0x2f7bff, radar: 0x2f7bff, peek: 0x2f7bff, peekResult: 0x2f7bff,
+    dispense: 0x2f7bff, plow: 0x2f7bff, rollCage: 0x2f7bff, radar: 0x2f7bff, peek: 0x2f7bff, peekResult: 0x2f7bff, cowCatcher: 0x2f7bff,
   };
   d.options.forEach((o, i) => {
     if (!o.pos) return;
@@ -167,7 +170,7 @@ export function drawMarkers(): void {
     // What the space is for, by colour (asked by the user, 2026-11-17): green a move, red a shot,
     // blue a card's or a power's ability (oil, mine, Snowplow, Roll Cage, radar, Third Eye);
     // the chopper's landing keeps its sky blue, a step that eliminates the car its warning red.
-    const color = o.danger ? 0xff3b30 : MARK_COLOR[d.kind] ?? 0x4cff7a;
+    const color = o.danger || (d.kind === 'cowCatcher' && /eliminat/.test(o.label)) ? 0xff3b30 : MARK_COLOR[d.kind] ?? 0x4cff7a;
     const onTable = o.pos.r >= 0 && o.pos.r < ROWS && o.pos.c >= 0 && o.pos.c < COLS;
     let mesh: THREE.Mesh;
     if (onTable) {

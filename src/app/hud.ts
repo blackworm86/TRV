@@ -9,6 +9,7 @@ import { ongoingIllustration, upgradeIllustration } from '../view/cards';
 import { damageTokenSvg, dieSvg, hazardTokenSvg, commandTokenSvg, dashboardSvg, commandBoardSvg, playerStripSvg, dataUrl } from '../view/vector/art';
 import { ffStripSvg } from '../view/vector/ffboards';
 import { rigStripSvg, type RigBoardArt } from '../view/vector/rigboard';
+import { drawRigPick } from './rigpick';
 import { FX_ASK } from './beats';
 import { carObjs } from './board';
 import { chase, chaseButtons } from './chase';
@@ -47,6 +48,8 @@ function upgradeArt(v: Vehicle): { upgrade?: { name: string; text: string; art?:
 
 /** The decisions whose options are pieces of the game, shown face up to pick from (see drawHud). */
 const PICK_ASSETS: Decision['kind'][] = ['pickDamage', 'tinker'];
+/** The Big Rig's decisions answered off the floating buttons. */
+const RIG_ON_BOARD: Decision['kind'][] = ['steer', 'cowCatcher', 'rigTarget', 'rigDamage'];
 
 export function dieHtml(kind: string, value: number | string, color: string | undefined, cls = '', attrs = ''): string {
   // The face alone, flat (asked by the user, 2026-11-17): movement dice with their value as a digit.
@@ -178,7 +181,10 @@ export function drawHud(): void {
     else if (['plow', 'rollCage', 'dispense', 'radar'].includes(d.kind)) btn(0, d.options[0].label, d.options[0].danger ? 'danger' : 'quiet');
     // Skull Shift Knob: the one step choice that is not a space.
     else if (d.kind === 'step') d.options.forEach((o, i) => { if (!o.pos) btn(i, o.label, 'quiet'); });
-    else if (!['assign', 'airstrike', 'repair', 'leader', 'peek', 'peekResult', 'draft', 'upgradeAssign', ...PICK_ASSETS].includes(d.kind)) d.options.forEach((o, i) => btn(i, o.label));
+    // The Big Rig's choices are made on the board, on the table or on the rig itself (asked by the
+    // user, 2026-11-18): the steering diamond, the cow catcher's spaces, the aims round the section
+    // hit (rigpick.ts), the systems lit in red for a minor damage.
+    else if (!['assign', 'airstrike', 'repair', 'leader', 'peek', 'peekResult', 'draft', 'upgradeAssign', ...PICK_ASSETS, ...RIG_ON_BOARD].includes(d.kind)) d.options.forEach((o, i) => btn(i, o.label));
   }
   // Choppe Shoppe setup: the upgrade cards to draft, then one for each car. Online everyone picks
   // at once from their own hand; the cards passed on come when all have picked.
@@ -248,6 +254,8 @@ export function drawHud(): void {
     step: left ? `${left} moviment${left === '1' ? 'o' : 'i'}` : 'Muovi', airstrike: 'Scegli una casella vuota', repair: 'Scegli l’auto da riparare',
     token: `Segnalino comando? (${d ? g.players[d.player].tokens : 0})`, shootReroll: 'Mancato: ritiri il dado sparo?', dirReroll: 'Slam: ritiri la direzione?',
     peek: 'Third Eye: scegli un pericolo coperto', transfer: d?.prompt.replace(/^[^:]+: /, '') ?? '',
+    cowCatcher: 'Cow Catcher: dove mandi il veicolo?',
+    rigDamage: 'Scegli il sistema da coprire con il danno minore',
   };
   // The upgrades' own questions are asked in full: they name the card.
   const asked = d && (d.kind === 'command' || d.kind === 'token') ? '' : d ? ASK[d.kind] ?? (['plow', 'rollCage', 'dispense', 'radar', 'swap', 'redButton'].includes(d.kind) ? d.prompt.replace(/^[^:]+: /, '') : '') : '';
@@ -280,6 +288,7 @@ export function drawHud(): void {
   // Bottom: my dice, command board, dashboards, chopper.
   const hot = hotZones();
   const mine = d && d.player === me.id;
+  drawRigPick(S.playing ? null : d, !!mine);
   syncTableDice(me, !!mine);
   syncFxSupply();
   const lead = leaderOf(me);
@@ -315,7 +324,7 @@ export function drawHud(): void {
   const strip = $('strip');
   // The Final Five: stand-in boards until the project owner draws them (design/gdd/big-rig-final-five.md §1.5).
   const bikeOf = (id: string): number | undefined => g!.vehicles.find(v => v.id === id)?.bike;
-  strip.innerHTML = me.rig ? rigStripSvg(rigArt(me, hot))
+  strip.innerHTML = me.rig ? rigStripSvg({ ...rigArt(me, hot, d?.kind === 'rigDamage' && mine ? d : null), undo: cmdArt.undo })
     : me.team === 'final_five'
     ? ffStripSvg(cmdArt, dashArt.map(a => ({ ...a, marking: bikeOf(a.carId) ?? 0, coastMax: finalFive().turn.coast_max })))
     : playerStripSvg(cmdArt, dashArt) ?? `<div class="loose">${commandBoardSvg(cmdArt)}${dashArt.map(a => dashboardSvg(a)).join('')}</div>`;
@@ -335,8 +344,16 @@ export function drawHud(): void {
     el.addEventListener('click', () => {
       // No die selected: use the first free die that fits this slot.
       const pick = S.selDie ?? me.dice.findIndex((_, i) => !me.used[i] && zoneOption(el.dataset.drop!, i) >= 0);
-      if (pick !== null && pick >= 0) choose(zoneOption(el.dataset.drop!, pick));
+      const opt = pick !== null && pick >= 0 ? zoneOption(el.dataset.drop!, pick) : -1;
+      if (opt >= 0) choose(opt);
     });
+  }
+  // A minor damage on the Big Rig: its owner clicks one of the systems lit in red.
+  if (d?.kind === 'rigDamage' && mine) {
+    for (const el of document.querySelectorAll<SVGElement>('#strip [data-pick]')) {
+      const i = d.options.findIndex(o => o.rig === el.dataset.pick);
+      if (i >= 0) el.addEventListener('click', e => { e.stopImmediatePropagation(); choose(i); });
+    }
   }
   if (d?.kind === 'repair') {
     for (const el of document.querySelectorAll<SVGElement>('#strip [data-car]')) {
@@ -424,8 +441,9 @@ $('ticker').onclick = () => {
  * The Big Rig's stand-in board (design/gdd/big-rig-final-five.md §1.5): the three sections, rear first,
  * with the die on each command this round, the minor damage tokens and the steering.
  */
-function rigArt(p: Player, hot: Set<string>): RigBoardArt {
+function rigArt(p: Player, hot: Set<string>, damage: Decision | null): RigBoardArt {
   const br = bigRig(), r = p.rig!;
+  const picks = new Set(damage ? damage.options.map(o => o.rig) : []);
   return {
     color: p.color,
     sections: RIG_BOARD.map(sec => ({
@@ -433,12 +451,12 @@ function rigArt(p: Player, hot: Set<string>): RigBoardArt {
       commands: br.sections[sec].map(c => {
         const key = `${sec}:${c.id}`;
         return {
-          key, name: br.commandName[c.id] ?? c.id, slot: c.slot === 'any' ? '1-3' : c.slot.join(' '), lines: br.command_text[c.id] ?? [],
+          key, cmd: c.id, pick: picks.has(key), name: br.commandName[c.id] ?? c.id, slot: c.slot === 'any' ? '1-3' : c.slot.join(' '), lines: br.command_text[c.id] ?? [],
           hot: hot.has(`rig:${key}`), damaged: r.damaged.includes(key), ...(r.placed[key] !== undefined ? { die: r.placed[key] } : {}),
         };
       }),
     })),
-    steer: { die: r.steer ? r.steer : null, left: r.steer, hot: hot.has('steer') },
+    steer: { die: r.steer ? r.steer : null, hot: hot.has('steer'), name: br.commandName.hydraulic_steering, text: (br.command_text.hydraulic_steering ?? []).join(' ') },
     damage: r.damaged.length, max: br.damage.eliminated_at,
   };
 }

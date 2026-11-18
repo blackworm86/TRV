@@ -12,7 +12,7 @@
 import { readdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { chromium } from 'playwright';
 
-const FOLDERS = ['assets/base/icone/comandi', 'assets/choppe_shoppe/icone/comandi'];
+const FOLDERS = ['assets/base/icone/comandi', 'assets/choppe_shoppe/icone/comandi', 'assets/big_rig/icone/comandi'];
 const files = FOLDERS.flatMap(d => readdirSync(d).filter(f => f.endsWith('.svg')).map(f => `${d}/${f}`));
 
 /** The icon's markup with any earlier centring removed. */
