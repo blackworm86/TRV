@@ -91,9 +91,16 @@ export function drawDock(d: Decision | null, mine: boolean, me?: Player): void {
     }
   }
   if (!asking) skipConfirm = false;
+  // End Turn (asked by the user, 2026-11-18): on the tab, once everything of the turn is done.
+  const ending = !!d && mine && d.kind === 'endTurn';
+  const end = $('endturn');
+  end.style.display = ending ? '' : 'none';
+  // Alone on the tab: the dice, all used by now, are not shown with it (asked by the user, 2026-11-18).
+  if (ending) $('cmddice').innerHTML = '';
+  end.onclick = ending ? () => choose(0) : null;
   // Out while there are dice to play or a token to place; back behind the board otherwise.
   const live = !!me && mine && me.dice.some((_, i) => !me.used[i] && dieUsable(i));
-  dock.classList.toggle('ask', asking || live);
+  dock.classList.toggle('ask', asking || live || ending);
   $('cmdwrap').classList.toggle('on', !!g && !menuOpen());
 }
 /** How far the drawer reaches behind the command board's top edge (hidden by the board), in px. */

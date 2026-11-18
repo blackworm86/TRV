@@ -1,5 +1,5 @@
 // The car inspection tip: a car's damage and abilities, shown on hover.
-// Pointing at a car, on the table or in a player's bubble, shows its card: owner, state, damage
+// Pointing at a car on the table shows its card (the bubbles have their own pop-ups, bubbles.ts): owner, state, damage
 // and its special ability (the upgrade card, Choppe Shoppe).
 
 import { type Vehicle } from '../game/trv/engine';
@@ -49,11 +49,6 @@ export function showCarTip(id: string | null, x = 0, y = 0): void {
   el.style.left = `${Math.min(innerWidth - w - 8, x + 16)}px`;
   el.style.top = `${Math.max(8, Math.min(innerHeight - h - 8, y + 16))}px`;
 }
-$('players').addEventListener('pointermove', e => {
-  const car = (e.target as HTMLElement).closest<HTMLElement>('.car[data-vid]');
-  showCarTip(car?.dataset.vid ?? null, e.clientX, e.clientY);
-});
-$('players').addEventListener('pointerleave', () => showCarTip(null));
 /** The car under the pointer on the table, or null. */
 export function carAt(e: PointerEvent): string | null {
   const rect = renderer.domElement.getBoundingClientRect();

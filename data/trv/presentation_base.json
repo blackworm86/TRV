@@ -106,6 +106,10 @@
     "seconds": 3.4, "width": 0.85, "up": -0.95, "gape": 0.6, "shut": -0.5, "sway": 0.5,
     "quake": 0.14, "rise": 0.3, "gulp": 0.46, "dive": 0.78
   },
+  "turn_splash": {
+    "_module": "app/turnsplash.ts: the \"Tocca a...\" band at the start of a person's turn; seconds before it goes by itself (a click or a key closes it sooner).",
+    "seconds": 3.2
+  },
   "burst": {
     "_module": "effects.ts: a gun's burst",
     "aim": 0.32, "rounds": 8, "gap": 0.085, "speed": 26, "spread": 0.22

@@ -25,28 +25,58 @@
   #botcards figure.on img { filter: drop-shadow(0 0 8px var(--c)) drop-shadow(0 4px 10px rgba(0,0,0,.5)); }
   #botcards figcaption { font: 600 10px system-ui, sans-serif; text-align: center; color: var(--c); margin-top: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; text-shadow: 0 1px 2px #000; }
   #players { flex: 1; display: flex; gap: 12px; justify-content: center; flex-wrap: nowrap; min-width: 0; }
-  .pl { --c: #888; display: grid; grid-template-columns: auto 1fr; grid-template-rows: auto auto auto; gap: 4px 10px; align-items: center; padding: 8px 12px 8px 8px; min-width: 0;
-    transition: box-shadow .3s, transform .3s; }
-  .pl .av { width: 56px; height: 56px; grid-row: 1 / span 3; align-self: start; }
-  /* A crew leader's portrait takes the place of the player's initial. */
-  .pl .av img { width: 100%; height: 100%; border-radius: 50%; object-fit: cover; object-position: 50% 20%; border: 2px solid var(--c); box-sizing: border-box; display: block; }
-  .pl .nm { font-size: 24px; line-height: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-  .pl .nm small { margin-left: 8px; font: 500 12px system-ui, sans-serif; opacity: .75; }
-  .pl .dice-row { display: flex; gap: 4px; min-height: 22px; align-items: center; }
-  .pl .dice-row svg { width: 22px; height: 22px; }
-  .pl .dice-row svg.used { opacity: .22; }
-  .pl .dice-row .none { font-size: 11px; opacity: .5; }
-  .pl .cars { display: flex; gap: 4px; }
-  .car { position: relative; display: flex; flex-direction: column; align-items: center; justify-content: center; min-width: 46px; padding: 2px 5px 3px; border-radius: 7px;
-    background: var(--c); color: #16100b; line-height: 1; cursor: help; pointer-events: auto; }
-  .car b { font-size: 13px; font-weight: 800; }
-  .car small { font-size: 9px; font-weight: 600; white-space: nowrap; }
-  .car em { display: flex; gap: 2px; margin-top: 2px; }
-  .car i { width: 5px; height: 5px; border-radius: 50%; background: #d42f30; box-shadow: 0 0 0 1px #16100b; display: inline-block; }
-  .car u { position: absolute; top: -6px; right: -5px; text-decoration: none; font-size: 11px; color: #ffd23a; text-shadow: 0 0 2px #000, 0 0 2px #000; }
-  .car.inop { background: repeating-linear-gradient(45deg, #5a5a5a 0 4px, #3c3c3c 4px 8px); color: #ffd23a; }
-  .car.elim { background: #2a211b; color: #6f6257; }
-  .car.elim b { text-decoration: line-through; }
+  /* The players' bubbles (redrawn 2026-11-18): avatar, name and tokens, dice, then the three cars with their pieces. */
+  .pl { --c: #888; position: relative; display: grid; grid-template-columns: 58px 1fr; grid-template-rows: auto auto auto; gap: 2px 10px; width: 292px; box-sizing: border-box;
+    padding: 8px 10px 8px 8px; transition: box-shadow .3s, transform .3s; }
+  .pl::before { content: ''; position: absolute; left: 14px; right: 14px; top: 0; height: 3px; border-radius: 0 0 3px 3px; background: var(--c); }
+  .pl .av { grid-row: 1 / span 2; width: 58px; height: 58px; border-radius: 50%; overflow: hidden; border: 3px solid var(--c); box-sizing: border-box; background: #111; }
+  .pl .av[data-tip] { cursor: help; }
+  .pl .av img, .pl .av svg { width: 100%; height: 100%; object-fit: cover; object-position: 50% 20%; display: block; }
+  .pl .hd { display: flex; align-items: baseline; gap: 7px; min-width: 0; }
+  .pl .hd b { font-size: 26px; line-height: 1; color: #f3e6d0; font-weight: 400; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .pl .hd small { font: 600 12px system-ui, sans-serif; color: #f3e6d0; opacity: .6; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .pl .tok { margin-left: auto; position: relative; width: 20px; height: 20px; flex: none; align-self: center; }
+  .pl .tok svg { width: 100%; height: 100%; }
+  .pl .tok i { position: absolute; right: -6px; bottom: -4px; font: 700 10px system-ui; color: #f3e6d0; background: #26232b; border-radius: 6px; padding: 0 3px; font-style: normal; }
+  .pl .dice { display: flex; gap: 3px; align-items: center; min-height: 22px; }
+  .pl .dice svg { width: 21px; height: 21px; }
+  .pl .dice svg.used { opacity: .22; }
+  .pl .botbadge { font: 700 10px system-ui, sans-serif; letter-spacing: 1.5px; color: #f3e6d0; background: color-mix(in srgb, var(--c) 45%, #000); border-radius: 5px; padding: 2px 7px; }
+  .pl .cars { grid-column: 1 / -1; display: grid; grid-template-columns: repeat(3, 1fr); gap: 5px; margin-top: 6px; }
+  .pl .slot { position: relative; display: grid; grid-template-rows: 34px 26px; justify-items: center; gap: 2px; padding: 3px; border-radius: 9px; background: rgba(255,255,255,.05); }
+  .pl .sz { position: absolute; left: 5px; top: 3px; font: 400 15px/1 'League Gothic', Impact, sans-serif; font-style: normal; color: #f3e6d0; opacity: .7; }
+  .pl .car { position: relative; width: 72px; height: 34px; padding: 0; border: 0; background: none; cursor: pointer; }
+  .pl .car:disabled { cursor: default; }
+  .pl .car img, .pl .car svg { width: 100%; height: 100%; display: block; object-fit: contain; }
+  .pl .car:hover:not(:disabled) img { filter: drop-shadow(0 0 4px var(--c)) brightness(1.15); }
+  .pl .slot.start .car img { opacity: .5; }
+  .pl .slot.inop .car img { transform: scaleX(-1); filter: grayscale(1) brightness(.75); }
+  .pl .slot.elim { background: none; grid-template-rows: 34px 0; }
+  .pl .slot.elim .car img, .pl .slot.elim .car svg { opacity: .3; filter: grayscale(1); }
+  .pl .x { position: absolute; inset: -4px 0 0; display: grid; place-items: center; font: 900 26px system-ui; color: #e2463a; font-style: normal; text-shadow: 0 1px 3px #000; }
+  .pl .pcs { display: flex; gap: 3px; align-items: center; justify-content: center; min-width: 0; }
+  .pl .pc { width: 22px; height: 22px; display: grid; place-items: center; cursor: help; flex: none; }
+  .pl .pc svg { width: 100%; height: 100%; display: block; }
+  .pl .pc.up, .pl .pc.og { width: 17px; height: 24px; }
+  .pl .pc.up .ucard { --w: 17px; }
+  .pl .pc.og svg { border-radius: 2px; }
+  .pl .pc.team { font-size: 16px; color: #ffd23a; text-shadow: 0 0 2px #000; }
+  .pl .slot.inop .pc { filter: grayscale(.7); }
+  /* The pop-up of a bubble's piece: under it, centred on the pointer, like the commands' one. */
+  #pltip { position: fixed; z-index: 70; pointer-events: none; display: none; }
+  #pltip.show { display: block; }
+  #pltip.text { width: 250px; background: #f3e6d0; color: #26232b; border-radius: 12px; padding: 10px 12px; box-shadow: 0 10px 28px rgba(0,0,0,.55); font-size: 15px; line-height: 1.25; }
+  #pltip.text b { display: block; font: 400 25px/1 'League Gothic', Impact, sans-serif; text-transform: uppercase; }
+  #pltip.text small { display: block; opacity: .6; text-transform: uppercase; letter-spacing: 1px; font-size: 12px; margin: 2px 0 4px; }
+  #pltip.text p { margin: 0; font-weight: 500; }
+  #pltip.text .tokbig { float: left; width: 66px; height: 66px; margin: 0 10px 2px 0; }
+  #pltip.text .tokbig svg { width: 100%; height: 100%; }
+  #pltip.text::after { content: ''; position: absolute; left: var(--ax, 50%); top: -7px; width: 14px; height: 14px; margin-left: -7px; background: #f3e6d0; transform: rotate(45deg); }
+  #pltip.card { width: 200px; filter: drop-shadow(0 12px 24px rgba(0,0,0,.6)); }
+  #pltip.card .ucard { --w: 200px; }
+  #pltip.card .ogbig { width: 200px; height: 309px; display: block; }
+  #pltip.card .ogbig svg { width: 100%; height: 100%; }
+  #pltip.card .cap { margin-top: 6px; text-align: center; font: 600 13px system-ui, sans-serif; color: #f3e6d0; text-shadow: 0 1px 3px #000; }
   /* The card shown while the pointer is on a car (on the table or in a bubble). */
   #cartip { position: fixed; z-index: 9; display: none; width: 260px; padding: 10px 12px; border-radius: 12px; pointer-events: none;
     background: rgba(24,16,10,.97); border: 2px solid var(--c, var(--acc)); box-shadow: 0 10px 28px rgba(0,0,0,.6); font-size: 13px; line-height: 1.35; }
@@ -226,6 +256,31 @@
   body:has(#strip svg[data-strip="2"]) #cmddock.ask { transform: translateY(0); }
   body:has(#strip svg[data-strip="2"]) #cmddock .stripe, body:has(#strip svg[data-strip="2"]) #cmddock .undo { display: none; }
   body:has(#strip svg[data-strip="2"]) #cmddock .q { color: var(--whoInk, #26232b); font-size: max(14px, calc(var(--u, 1) * 14px)); }
+  /* End Turn, on the command board's tab (mock-up 1A, chosen 2026-11-18). */
+  #cmddock .endturn { display: block; align-self: center; margin: 2px auto 4px; white-space: nowrap; font: 400 21px 'League Gothic', Impact, sans-serif; letter-spacing: .5px;
+    background: #26232b; color: #f3e6d0; border: 2px solid #f3e6d0; border-radius: 8px; padding: 3px 9px 1px; line-height: 1.1; cursor: pointer;
+    box-shadow: 0 0 0 2px #26232b, 0 0 16px rgba(255,220,120,.8); animation: endglow 1.6s ease-in-out infinite; }
+  #cmddock .endturn span { font-size: 15px; vertical-align: 3px; margin-left: 3px; color: #ffc94a; }
+  #cmddock .endturn:hover { filter: brightness(1.15); }
+  @keyframes endglow { 50% { box-shadow: 0 0 0 2px #26232b, 0 0 26px rgba(255,220,120,1); } }
+  /* "Tocca a...": the slanted band in the player's colour, the avatar in a circle over it (turnsplash.ts). */
+  #turnsplash { position: fixed; inset: 0; z-index: 60; display: grid; place-items: center; cursor: pointer; animation: tsin .35s ease-out; }
+  #turnsplash.out { animation: tsout .3s ease-in forwards; }
+  #turnsplash .veil { position: absolute; inset: 0; background: rgba(0,0,0,.55); }
+  #turnsplash .stage { position: relative; width: 100vw; height: 190px; }
+  #turnsplash .slash { position: absolute; left: -6vw; right: -6vw; top: 0; bottom: 0; transform: rotate(-6deg); background: var(--c); overflow: hidden;
+    box-shadow: 0 0 0 6px #17120e, 0 0 0 10px #f3e6d0, 0 20px 60px rgba(0,0,0,.7); animation: tsslash .45s cubic-bezier(.2,.9,.3,1.2); }
+  #turnsplash .slash i { position: absolute; inset: 0; background: repeating-linear-gradient(100deg, transparent 0 60px, rgba(0,0,0,.12) 60px 64px, transparent 64px 120px); }
+  #turnsplash .row { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; gap: 40px; }
+  #turnsplash .av { flex: none; width: 236px; height: 236px; border-radius: 50%; overflow: hidden; border: 7px solid #f3e6d0; background: #111; box-shadow: 0 10px 30px rgba(0,0,0,.65); }
+  #turnsplash .av img, #turnsplash .av svg { width: 100%; height: 100%; object-fit: cover; object-position: 50% 20%; display: block; }
+  #turnsplash .txt { color: var(--ink); line-height: .9; transform: rotate(-6deg); }
+  #turnsplash .txt small { font: 800 16px system-ui, sans-serif; letter-spacing: 5px; opacity: .8; }
+  #turnsplash .txt b { display: block; font-size: 116px; font-weight: 400; font-style: italic; text-shadow: 4px 4px 0 rgba(0,0,0,.3); white-space: nowrap; }
+  #turnsplash .hint { position: absolute; bottom: 20%; font: 600 16px system-ui, sans-serif; color: #f3e6d0; opacity: .85; letter-spacing: 1px; }
+  @keyframes tsin { from { opacity: 0; } }
+  @keyframes tsout { to { opacity: 0; } }
+  @keyframes tsslash { from { transform: rotate(-6deg) translateX(-100%); } }
   #cmddock .dice { display: flex; justify-content: center; gap: calc(var(--u, 1) * 3px); }
   #cmddock .dice:empty { display: none; }
   #cmddock .mydie { width: calc(var(--u, 1) * 32px); height: calc(var(--u, 1) * 32px); display: grid; place-items: center; border-radius: 50%; cursor: grab; touch-action: none; }

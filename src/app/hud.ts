@@ -1,10 +1,12 @@
 // The 2D interface: the players' bubbles, the prompt, the toasts and the log drawer, the
 // player's strip with command board and dashboards, the winner's card.
 
-import { leaderOf, leaders, commandName, botTeams, type Decision, type LogEntry, type Frame, type Vehicle } from '../game/trv/engine';
+import { leaderOf, leaders, commandName, type Decision, type LogEntry, type Frame, type Vehicle } from '../game/trv/engine';
 import { drawBotCards } from './botcard';
+import { bubbleHtml } from './bubbles';
+import { maybeTurnSplash } from './turnsplash';
 import { ongoingIllustration, upgradeIllustration } from '../view/cards';
-import { damageTokenSvg, dieSvg, hazardTokenSvg, commandTokenSvg, dashboardSvg, commandBoardSvg, playerStripSvg, avatarSvg, dataUrl } from '../view/vector/art';
+import { damageTokenSvg, dieSvg, hazardTokenSvg, commandTokenSvg, dashboardSvg, commandBoardSvg, playerStripSvg, dataUrl } from '../view/vector/art';
 import { FX_ASK } from './beats';
 import { carObjs } from './board';
 import { chase, chaseButtons } from './chase';
@@ -108,6 +110,7 @@ export function drawHud(): void {
   // While the last choice plays out, nothing can be chosen.
   const d = S.playing ? null : decision;
   if (d) handoff(d);
+  maybeTurnSplash(d);
   // A new kind of choice forgets a strip opened or closed by hand.
 
   // Top: the round, then a bubble per player in seating order (the one on turn glows), the road die.
@@ -117,16 +120,7 @@ export function drawHud(): void {
   // dice (available and used); under those the cars with their state. Pointing at a car shows it.
   $('players').innerHTML = g.players.map(p => {
     const turn = p.id === g!.current && g!.winner === null, decides = !!d && d.player === p.id;
-    const cars = g!.vehicles.filter(v => v.owner === p.id).sort((a, b) => 'SML'.indexOf(a.size) - 'SML'.indexOf(b.size)).map(v => {
-      const state = v.status === 'elim' ? 'eliminata' : v.status === 'inop' ? 'fuori uso' : v.inStart ? 'in partenza' : 'in strada';
-      return `<span class="car ${v.status === 'ok' ? '' : v.status}" data-vid="${v.id}"><b>${v.size}</b><small>${state}</small>${v.damage.length ? `<em>${'<i></i>'.repeat(v.damage.length)}</em>` : ''}${v.upgrade ? '<u>★</u>' : ''}</span>`;
-    }).join('');
-    const pl = leaderOf(p);
-    return `<div class="bubble pl ${turn ? 'turn' : ''} ${decides ? 'decides' : ''} ${p.out ? 'out' : ''}" style="--c:${p.color}">
-      <div class="av">${pl && PORTRAITS[pl.id] ? `<img src="${PORTRAITS[pl.id]}" alt="${esc(pl.name)}">` : avatarSvg(p.color, p.name)}</div>
-      <div class="nm gothic">${esc(p.name)}${pl ? `<small>${esc(pl.name)}${p.tokens ? ` <span class="ctoks">${commandTokenSvg().repeat(p.tokens)}</span>` : ''}</small>` : ''}</div>
-      <div class="dice-row">${p.bot ? `<span class="none">TRV9000 · livello ${p.bot.protocol}${p.bot.team ? ` · ${esc(botTeams().find(t => t.id === p.bot!.team)?.name ?? '')}` : ''}</span>` : p.dice.length ? p.dice.map((n, i) => dieHtml('movement', n, p.color, p.used[i] ? 'used' : '')).join('') : '<span class="none">nessun dado</span>'}</div>
-      <div class="cars">${cars}</div></div>`;
+    return bubbleHtml(p, `${turn ? 'turn' : ''} ${decides ? 'decides' : ''} ${p.out ? 'out' : ''}`, drawHud);
   }).join('');
   // During a replay the beats keep the bots' cards in step with the table.
   if (!S.playing) drawBotCards();
@@ -142,7 +136,7 @@ export function drawHud(): void {
     assign: 'assegna un dado', command: 'comando?', airstrike: 'piazza l’elicottero', repair: 'quale auto ripari?',
     roadDie: `dado strada: +${g.roadDie}?`, slamReroll: 'slam: ritiri i dadi?', shoot: 'scegli il bersaglio',
     leader: 'scegli il caposquadra', token: 'segnalino comando?', shootReroll: 'ritiri il dado sparo?', dirReroll: 'ritiri il dado direzione?',
-    peek: 'guarda un pericolo coperto',
+    peek: 'guarda un pericolo coperto', endTurn: 'premi Fine turno quando hai finito',
   };
   if (d && SHORT[d.kind]) $('prompt').innerHTML = `<b style="color:${g.players[d.player].color}">${esc(name)}</b>${esc(SHORT[d.kind]!)}`;
   if (d && !S.net && performance.now() < passUntil) $('prompt').insertAdjacentHTML('afterbegin', '<span class="passing">Passa il dispositivo ·</span>');
@@ -165,7 +159,7 @@ export function drawHud(): void {
       b.onclick = () => choose(i);
       actions.appendChild(b);
     };
-    if (d.kind === 'command' || d.kind === 'token') { /* on the command board's tab: see drawDock */ }
+    if (d.kind === 'command' || d.kind === 'token' || d.kind === 'endTurn') { /* on the command board's tab: see drawDock */ }
     else if (d.kind === 'shoot') btn(0, 'Non sparare', 'quiet'); // the targets are lit on the table
     else if (d.kind === 'roadDie') { btn(1, `+${g.roadDie} movimenti`, 'road'); btn(0, 'Fermati', 'quiet'); }
     else if (d.kind === 'slamReroll') { btn(0, 'Tieni', 'quiet'); btn(1, 'Ritira i dadi'); }

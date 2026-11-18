@@ -168,7 +168,7 @@ export interface Decision {
   kind: 'assign' | 'command' | 'airstrike' | 'repair' | 'step' | 'roadDie' | 'slamReroll' | 'shoot'
     | 'leader' | 'token' | 'shootReroll' | 'dirReroll' | 'peek' | 'peekResult' | 'transfer'
     | 'draft' | 'upgradeAssign' | 'swap' | 'plow' | 'rollCage' | 'pickDamage' | 'redButton' | 'dispense' | 'radar'
-    | 'tinker' | 'showTime';
+    | 'tinker' | 'showTime' | 'endTurn';
   player: number;
   prompt: string;
   options: Option[];
@@ -1631,6 +1631,11 @@ function* turn(g: Game, p: Player): Gen<void> {
   else if (g.winner === null && car.status === 'ok' && car.pos) yield* shootFrom(g, p.id, car.pos, carName(g, car), car);
   yield* chopperCheck(g);
   g.activeCar = null;
+  // The player ends the turn with the End Turn button, so the next player does not start while
+  // they still look at what happened (asked by the user, 2026-11-18). A bot is never asked.
+  if (g.winner === null && !p.out) {
+    yield* ask(g, { kind: 'endTurn', player: p.id, prompt: `${p.name}: fine del turno?`, options: [{ label: 'Fine turno' }] });
+  }
 }
 
 /**

@@ -32,6 +32,8 @@ function run(seed: number, setup: { leaders?: boolean; fixed?: (string | undefin
   let x = seed * 7919 + 1;
   for (let k = 0; !r.done; k++) {
     if (k > 20000) throw new Error('game did not end');
+    // End Turn has one answer: it is not a choice, so it takes nothing from the chooser's sequence.
+    if (r.value.kind === 'endTurn') { see({ d: r.value, choice: 0, g }); r = it.next(0); continue; }
     x = (x * 1103515245 + 12345) & 0x7fffffff;
     const safe = r.value.options.map((o, i) => ({ o, i })).filter(e => !e.o.danger);
     const pool = safe.length ? safe : r.value.options.map((o, i) => ({ o, i }));

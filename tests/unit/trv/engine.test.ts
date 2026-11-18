@@ -31,6 +31,32 @@ describe('board geometry', () => {
   });
 });
 
+describe('end of turn', () => {
+  it('asks the player on turn to end it, after everything else of their turn, at most once per turn', () => {
+    for (let s = 1; s <= 20; s++) {
+      let x = s, turns = 0, ends = 0;
+      let last: number | null = null; // the player of the last turn begun, until they end it
+      const { g } = autoplay(SEED(s), 3, d => {
+        if (d.kind === 'assign') { turns++; last = d.player; }
+        if (d.kind === 'endTurn') {
+          ends++;
+          expect([d.player, d.options.length]).toEqual([last, 1]);
+          last = null; // a second End Turn before the next turn would fail the line above
+          return 0;
+        }
+        x = (x * 1103515245 + 12345) & 0x7fffffff;
+        const safe = d.options.map((o, i) => ({ o, i })).filter(e => !e.o.danger);
+        const pool = safe.length ? safe : d.options.map((o, i) => ({ o, i }));
+        return pool[x % pool.length].i;
+      });
+      expect(g.winner).not.toBeNull();
+      // Every turn ends with it, but the one that won and those whose player went out.
+      expect(ends).toBeGreaterThan(turns * 0.8);
+      expect(ends).toBeLessThanOrEqual(turns);
+    }
+  });
+});
+
 describe('whole games', () => {
   it('ends every random game with a winner, for 2 to 4 players', () => {
     for (let s = 1; s <= 150; s++) {

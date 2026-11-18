@@ -47,6 +47,8 @@ export interface Presentation {
   replay: { speed: number; before: number; after: number; camera: [number, number, number] };
   /** The sand worm swallowing a car (app/worm.ts): see the data file. */
   sandWorm: { seconds: number; width: number; up: number; gape: number; shut: number; sway: number; quake: number; rise: number; gulp: number; dive: number };
+  /** The "Tocca a..." splash at the start of a turn (app/turnsplash.ts). */
+  turnSplash: { seconds: number };
   burst: { aim: number; rounds: number; gap: number; speed: number; spread: number };
 }
 
