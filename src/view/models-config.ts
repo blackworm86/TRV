@@ -4,6 +4,7 @@
 
 import * as THREE from 'three';
 import type { SpinPart, Tint, WheelSpec } from './models3d';
+import type { WormSpec } from './worm';
 
 // Imported through the bundler, so a build (GitHub Pages) ships the files and gets their real address.
 // Each game keeps its own models (assets/<game>/modelli/), found here by file name.
@@ -17,6 +18,8 @@ export const MODEL = {
   wrecks: [file('wreck_1.glb'), file('wreck_2.glb'), file('wreck_3.glb'), file('wreck_4.glb'), file('wreck_5.glb')],
   /** Carnage at Devil's Run: the launch ramp (Meshy, from design/art/carnage-ramp-prompts.md). */
   ramp: file('Ramp.glb'),
+  /** Carnage at Devil's Run: the sand worm (Meshy, bare geometry: view/worm.ts paints and poses it). */
+  worm: file('sand_worm.glb'),
 };
 
 /**
@@ -25,6 +28,16 @@ export const MODEL = {
  * The large one fills a road space (about 46 mm). Wrecks count as small cars.
  */
 export const SHOW_LENGTH_MM = { S: 22, M: 33, L: 44, chopper: 50, wreck: 22 };
+
+/**
+ * The sand worm model, measured off its side view (model coordinates, y up, mouth toward +z): the
+ * throat its jaws turn about, the way the mouth points, how far the jaws reach, the share of its
+ * height that stays straight in the ground, and its colours. A model that changes needs these again.
+ */
+export const WORM: WormSpec = {
+  hinge: [0, 0.19, 0.03], axis: [0, 0.55, 0.83], jaw: 0.36, root: 0.15,
+  colors: { hide: 0xa8683a, hideDark: 0x5a3220, belly: 0xe0bf8c, bone: 0xeadfc4, boneTip: 0x4a3a2c, flesh: 0xb3262a, throat: 0x2a0508 },
+};
 
 /** Turn that brings a model's nose to +x (the direction of travel): these come with it at -x. */
 export const MODEL_YAW = Math.PI;

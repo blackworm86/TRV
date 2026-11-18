@@ -1,6 +1,7 @@
 // The FX dice (road, stunt, slam, shooting, direction, fire) rolled on the table, and the
 // round banner.
 
+import { wormReady } from './worm';
 import * as THREE from 'three';
 import { neighbor, type Dir, type Frame, type Pos } from '../game/trv/engine';
 import { GRID } from '../view/board3d';
@@ -47,6 +48,7 @@ export function syncFxSupply(): void {
   for (const k of FX_ORDER) if (k !== 'fire' || g.carnage) fxDie(k);
   const fire = fxSupply.get('fire');
   if (fire) fire.d.mesh.visible = !!g.carnage;
+  if (g.carnage) wormReady();
 }
 
 /** Sends the dice out on the road back to their resting places, showing the face they rolled. */

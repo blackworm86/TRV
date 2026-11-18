@@ -39,6 +39,7 @@ import { playBeats, queue, skipBeats } from './beats';
 import { carObjs, hazardObjs } from './board';
 import { CHASE, chase, chaseLens, setChase } from './chase';
 import { burst, crash, explode, word } from './effects';
+import { wormEats, wormReady } from './worm';
 import { Saved, canUndo, choose, decision, g, startGame, undo, zoneOption } from './game';
 import { showDamage, showRoll } from './info';
 import { markBlocked } from './markers';
@@ -89,6 +90,7 @@ Object.assign(window, { __fx: {
     const a = carObjs.get(fromId), b = carObjs.get(toId);
     if (a && b) burst(a.position.clone(), b.position.clone(), toId);
   },
+  worm: (id: string) => { wormReady(); return wormEats(id); },
   word: (t: string, x: number, z: number) => word(t, new THREE.Vector3(x, TILE_T, z), '#ffb02a'),
   blocked: (carId: string, because = 'stealth_technology') => { const v = g?.vehicles.find(x => x.id === carId); if (v?.pos) markBlocked({ carId, pos: v.pos, because }); },
   chase: (carId: string | null) => setChase(carId),

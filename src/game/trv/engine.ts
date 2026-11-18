@@ -193,6 +193,8 @@ export interface Frame {
   /** Elimination: the space the vehicle was entering (off the road, or impassable), and why. */
   into?: Pos;
   why?: string;
+  /** Elimination: what took the vehicle, when it has a show of its own (the sand worm swallows it). */
+  by?: 'sand_worm';
   /** Damage: the token drawn and turned over (null when the pile is empty). */
   token?: DamageToken | null;
   /** Damage: the token stays face down and its effect is ignored (Jury-Rigging). */
@@ -577,9 +579,9 @@ function activePlayers(g: Game): Player[] {
   return g.players.filter(p => !p.out);
 }
 
-function eliminate(g: Game, v: Vehicle, why: string, into?: Pos): void {
+function eliminate(g: Game, v: Vehicle, why: string, into?: Pos, by?: Frame['by']): void {
   if (v.status === 'elim') return;
-  beat(g, 'elim', { vehicleId: v.id, why, ...(v.pos ? { at: { ...v.pos } } : {}), ...(into ? { into: { ...into } } : {}) });
+  beat(g, 'elim', { vehicleId: v.id, why, ...(v.pos ? { at: { ...v.pos } } : {}), ...(into ? { into: { ...into } } : {}), ...(by ? { by } : {}) });
   say(g, `${capital(carName(g, v))} è eliminata: ${why}.`, 'bad');
   if (v.isWreck) {
     g.vehicles = g.vehicles.filter(x => x !== v);
@@ -1193,7 +1195,7 @@ function sandWorm(g: Game): void {
   if (!road.length) return;
   const last = Math.min(...road.map(back));
   say(g, 'Verme delle sabbie!', 'bad');
-  for (const v of road.filter(x => back(x) === last)) eliminate(g, v, 'è stata inghiottita dal verme delle sabbie');
+  for (const v of road.filter(x => back(x) === last)) eliminate(g, v, 'è stata inghiottita dal verme delle sabbie', undefined, 'sand_worm');
 }
 
 /** Internals for unit tests only: moving into a space and taking damage, outside a whole game. */

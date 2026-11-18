@@ -45,6 +45,8 @@ export interface Presentation {
   chaseDice: { size: number; side: number; gap: number; ahead: number; rows: number; cols: number; every: number; slide: number };
   mapView: { fit: { side: number; high: number; gap: number }; swap: number; elevNear: number };
   replay: { speed: number; before: number; after: number; camera: [number, number, number] };
+  /** The sand worm swallowing a car (app/worm.ts): see the data file. */
+  sandWorm: { seconds: number; width: number; up: number; gape: number; shut: number; sway: number; quake: number; rise: number; gulp: number; dive: number };
   burst: { aim: number; rounds: number; gap: number; speed: number; spread: number };
 }
 

@@ -9,6 +9,7 @@ import { JUMP, JUMP_BY_SPACES, JUMP_FLIP_LIFT, JUMP_WOBBLE, Jump, STUNT_SLOWMO, 
 import { actionDone, actionShot, directBeat, directing, shotFor } from './director';
 import { filmBeat, filmDice } from './shots';
 import { burst, crash, explode, flash, impact, smokeOn, word } from './effects';
+import { wormEats } from './worm';
 import { decision, g } from './game';
 import { drawHud, toastLine } from './hud';
 import { damageUntil, showDamage, showRoll } from './info';
@@ -38,6 +39,7 @@ export function beatLength(f: Frame): number {
       ? jp.flight * (STUNT_SLOWMO.to - STUNT_SLOWMO.from) * (1 / STUNT_SLOWMO.speed - 1) : 0;
     return JUMP.climb + jp.flight + JUMP.land + slow;
   }
+  if (f.kind === 'elim' && f.by === 'sand_worm') return P.sandWorm.seconds;
   if (f.kind !== 'log') return BEAT[f.kind] ?? 0.3;
   if (f.logKind === 'turn') return 0.6;
   return f.logKind === 'dice' || f.logKind === 'bad' || f.logKind === 'good' ? 0.45 : 0.1;
@@ -74,6 +76,12 @@ export function skipBeats(): void {
 
 /** Questions about the FX dice just rolled: asked beside them, with the view close on them. */
 export const FX_ASK = new Set<string>(['slamReroll', 'shootReroll', 'dirReroll']);
+/**
+ * Questions asked while the effect the dice were rolled for is still going (a reroll, an ability
+ * answering the slam or the damage): the dice stay where they fell until it is over, so the
+ * question, which sits by them, does not move (asked by the user, 2026-11-18).
+ */
+export const FX_PENDING = new Set<string>([...FX_ASK, 'plow', 'rollCage', 'pickDamage', 'redButton', 'radar', 'swap']);
 
 export function finishBeats(): void {
   S.playing = false;
@@ -86,8 +94,9 @@ export function finishBeats(): void {
     if (settings.director2) filmDice(S.trayDice.map(t => t.to)); else actionShot(c);
   } else {
     actionDone();
-    // The effect is over: its dice go back to rest, after a moment to read them.
-    if (S.trayDice.length) S.fxHomeAt = performance.now() / 1000 + 1.4;
+    // The effect is over: its dice go back to rest, after a moment to read them. Not while a
+    // question about it is still open.
+    if (S.trayDice.length && !(decision && FX_PENDING.has(decision.kind))) S.fxHomeAt = performance.now() / 1000 + 1.4;
   }
   render();
 }
@@ -121,6 +130,8 @@ export function applyBeat(f: Frame, now: number): void {
       if (at) { impact(at, 0xff2a2a, 1.1); word('DANNO!', at, '#ff4a3a'); }
       break;
     case 'elim':
+      // The sand worm swallows its car; when its model is not there yet, the car blows up as any other.
+      if (f.vehicleId && f.by === 'sand_worm' && wormEats(f.vehicleId)) break;
       if (f.vehicleId) crash(f.vehicleId, f.into ? world(f.into) : null, f.why ?? '');
       else if (at) explode(at);
       break;

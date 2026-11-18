@@ -226,6 +226,8 @@ describe('new hazards', () => {
     run(__test.enter(g, v, AT, { left: 2 }, 'F'));
     expect([a.status, b.status, c.status, v.status]).toEqual(['elim', 'elim', 'ok', 'ok']);
     expect(g.hazards.has(key(AT))).toBe(false);
+    // The beats say the worm took them, so the table shows it swallowing each one.
+    expect(g.frames.filter(f => f.kind === 'elim').map(f => [f.vehicleId, f.by])).toEqual([['p1S', 'sand_worm'], ['p1M', 'sand_worm']]);
   });
   it('makes the landing spaces of a quake reveal their hazards, in some order', () => {
     // Each landing space in every direction holds a face-down mine: whatever the die, a car lands on one.

@@ -101,6 +101,11 @@
     "_module": "replay.ts: the instant replay (speed a share of normal, before/after in beats, camera offset in world units)",
     "speed": 0.45, "before": 8, "after": 2, "camera": [-2.4, 4.4, 5.4]
   },
+  "sand_worm": {
+    "_module": "app/worm.ts: the sand worm swallowing a car. seconds: the whole show; width: the body's width in road spaces; up: the lean (radians) that turns its mouth to the sky under the car; gape, shut: how far the jaws open and close (radians); sway: how far it leans about after swallowing (radians); shares of the show: quake (the ground shakes), rise (it is out), gulp (the jaws shut), dive (it starts to go down).",
+    "seconds": 3.4, "width": 0.85, "up": -0.95, "gape": 0.6, "shut": -0.5, "sway": 0.5,
+    "quake": 0.14, "rise": 0.3, "gulp": 0.46, "dive": 0.78
+  },
   "burst": {
     "_module": "effects.ts: a gun's burst",
     "aim": 0.32, "rounds": 8, "gap": 0.085, "speed": 26, "spread": 0.22
