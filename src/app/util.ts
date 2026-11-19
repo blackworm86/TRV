@@ -16,4 +16,32 @@ export const esc = (s: string): string => s.replace(/&/g, '&amp;').replace(/</g,
  */
 export const menuOpen = (): boolean => getComputedStyle(document.getElementById('setup')!).display !== 'none'
   || document.getElementById('lobby')?.style.display === 'grid';
+/**
+ * Asks to confirm something that cannot be undone, on the first screen's own card (design/ux/chiudi-partite):
+ * `title` and `text` say what goes, `ok` names the action. Resolves true on the action, false on
+ * Annulla, Esc or a click outside the card.
+ */
+export function sure(title: string, text: string, ok: string): Promise<boolean> {
+  const card = document.getElementById('sure')!, yes = document.getElementById('sureOk')!, no = document.getElementById('sureNo')!;
+  document.getElementById('sureT')!.textContent = title;
+  document.getElementById('sureP')!.textContent = text;
+  yes.textContent = ok;
+  card.classList.add('on');
+  no.focus();
+  return new Promise(done => {
+    const end = (v: boolean): void => {
+      card.classList.remove('on');
+      yes.onclick = no.onclick = null;
+      removeEventListener('keydown', key, true);
+      removeEventListener('pointerdown', away, true);
+      done(v);
+    };
+    const key = (e: KeyboardEvent): void => { if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); end(false); } };
+    const away = (e: PointerEvent): void => { if (!card.contains(e.target as Node)) end(false); };
+    yes.onclick = () => end(true);
+    no.onclick = () => end(false);
+    addEventListener('keydown', key, true);
+    addEventListener('pointerdown', away, true);
+  });
+}
 export const cssPx = (name: string): number => parseFloat(getComputedStyle(document.documentElement).getPropertyValue(name));

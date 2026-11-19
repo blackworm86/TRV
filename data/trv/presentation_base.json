@@ -167,6 +167,11 @@
     "_module": "effects.ts: a gun's burst",
     "aim": 0.32, "rounds": 8, "gap": 0.085, "speed": 26, "spread": 0.22
   },
+  "shrapnel": {
+    "_module": "shrapnel.ts: the Shrapnel damage token, a jagged piece of sheet metal torn off the damaged car flies the way the direction die says; it hits the first vehicle in that line or flies off the road (asked by the user, 2026-11-19)",
+    "_units": "windup, after, min_flight: seconds; speed: road spaces per second; apex, height, hit_height, size: road spaces; spin: radians per second; bits: smaller fragments flying with it; metal: how metallic it looks (0-1); glint: how much of its own colour it gives off, so it reads in the shade",
+    "windup": 0.3, "speed": 7, "min_flight": 0.3, "after": 0.5, "apex": 0.45, "height": 0.35, "hit_height": 0.22, "size": 0.2, "spin": 16, "bits": 3, "color": "#b9bec2", "metal": 0.45, "glint": 0.18
+  },
   "salvo": {
     "_module": "salvo.ts: the Big Rig's Missile Launcher, a rocket salvo on the spaces it strikes (asked by the user, 2026-11-18)",
     "_units": "seconds: the beat's length; per_space: rockets on each space; stagger: seconds between two launches; flight: seconds in the air; apex: height of the arc in road spaces; mark: seconds the struck spaces stay lit after the last hit",

@@ -213,3 +213,46 @@ describe('damage pile', () => {
     expect([count('blastoff'), count('dazed'), count('dent'), count('shrapnel'), count('skid')]).toEqual([5, 3, 3, 3, 6]);
   });
 });
+
+describe('shrapnel and what each beat shows', () => {
+  /** Whole games until one has a shrapnel beat; its game. */
+  function withShrapnel(hit: boolean): Game {
+    for (let s = 1; s <= 200; s++) {
+      let x = s;
+      const { g } = autoplay(SEED(s), 4, d => { x = (x * 1103515245 + 12345) % 2147483648; return x % d.options.length; });
+      if (g.frames.some(f => f.kind === 'shot' && f.why === 'shrapnel' && !!f.vehicleId === hit)) return g;
+    }
+    throw new Error('no shrapnel in 200 games');
+  }
+
+  it('flies to the vehicle it hits before that vehicle takes its damage', () => {
+    // Arrange
+    const g = withShrapnel(true);
+    // Act
+    const i = g.frames.findIndex(f => f.kind === 'shot' && f.why === 'shrapnel' && !!f.vehicleId);
+    const shot = g.frames[i];
+    const next = g.frames.slice(i + 1).find(f => f.kind === 'damage');
+    // Assert: from the damaged car to the target's space, and the next damage is the target's.
+    expect(shot.from).toBeDefined();
+    expect(shot.snap.vehicles.find(v => v.id === shot.vehicleId)?.pos).toEqual(shot.at);
+    expect(next?.vehicleId).toBe(shot.vehicleId);
+  });
+
+  it('flies off the road when it hits nobody: its last space is on the road, the next one is not', () => {
+    const g = withShrapnel(false);
+    const shot = g.frames.find(f => f.kind === 'shot' && f.why === 'shrapnel' && !f.vehicleId)!;
+    expect(onBoard(shot.at!)).toBe(true);
+    expect(onBoard(shot.into!)).toBe(false);
+  });
+
+  it('shows a damage token on the car only after its damage beat, never before', () => {
+    // Arrange: the first token drawn in a game.
+    const g = withShrapnel(true);
+    const i = g.frames.findIndex(f => f.kind === 'damage' && !!f.token && !!f.vehicleId);
+    const f = g.frames[i];
+    const count = (k: number): number => g.frames[k].snap.vehicles.find(v => v.id === f.vehicleId)?.damage.length ?? 0;
+    // Assert: none in any beat before; the table has it once the damage is dealt.
+    expect(g.frames.slice(0, i + 1).every((_, k) => count(k) === 0)).toBe(true);
+    expect(g.frames.slice(i + 1).some((_, k) => count(i + 1 + k) === 1)).toBe(true);
+  });
+});

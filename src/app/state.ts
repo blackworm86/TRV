@@ -1,7 +1,7 @@
 // Mutable state that several modules change (see S below).
 
 import type * as THREE from 'three';
-import type { Decision, Frame, Snapshot } from '../game/trv/engine';
+import type { Decision, Frame, Snapshot, Vehicle } from '../game/trv/engine';
 import type { Marker, TableDie } from './board';
 import type { Shot } from './director';
 import type { Net, Saved } from './game';
@@ -39,6 +39,14 @@ export const S = {
    */
   settleBy: 0,
   playing: false,
+  /**
+   * While the beats play: the table as the beat on show has it (its snapshot). The bubbles, the
+   * dashboards and the car's card read the cars' state from it, so a damage token, a car put out of
+   * use or set on fire shows up when its beat comes, never before (asked by the user, 2026-11-19).
+   */
+  shownSnap: null as Snapshot | null,
+  /** The table at rest, as last drawn outside the beats: what is shown before the first new beat. */
+  restSnap: null as Snapshot | null,
   replayAt: null as THREE.Vector3 | null,
   replayFrames: null as Frame[] | null,
   saved: null as Saved | null,
@@ -57,3 +65,10 @@ export const S = {
   trayFresh: true,
   winShown: false,
 };
+
+/** Vehicle `v` as the table shows it now: during the beats, its state at the beat on show (S.shownSnap). */
+export function shown<T extends Vehicle>(v: T): T {
+  const s = S.playing ? S.shownSnap?.vehicles.find(x => x.id === v.id) : undefined;
+  if (!s) return v;
+  return { ...v, status: s.status, isWreck: s.isWreck, damage: s.damage ?? v.damage, onFire: s.onFire, inStart: s.inStart };
+}

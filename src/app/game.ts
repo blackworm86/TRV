@@ -1,7 +1,7 @@
 // The game being played: its saved setup and choices, the rules' generator, the decision
 // waiting, undo, and where the player may put a die.
 
-import { key, newGame, play, type Game, type Decision, type Setup, type Player } from '../game/trv/engine';
+import { key, newGame, play, snapshot, type Game, type Decision, type Setup, type Player } from '../game/trv/engine';
 import { roomPath, seatOf, type Room, type RoomStore } from '../net/room';
 import { playBeats, queue } from './beats';
 import { netError } from './online';
@@ -204,6 +204,7 @@ export function applyChoice(i: number): void {
   S.saved.choices.push(i);
   deciders.push(pending.player);
   const luck = JSON.stringify(g!.rng);
+  const before = S.playing ? undefined : snapshot(g!); // what the table shows until the first new beat
   const r = S.gen.next(i);
   setPending(r.done ? null : r.value);
   // Dice rolled, a pile shuffled or something hidden shown: from here on Undo cannot go back before this choice.
@@ -213,7 +214,7 @@ export function applyChoice(i: number): void {
   const fresh = g!.frames.slice(S.frameSeen);
   S.frameSeen = g!.frames.length;
   keepReplay(fresh);
-  playBeats(fresh);
+  playBeats(fresh, before);
 }
 
 export function undo(): void {
@@ -266,6 +267,18 @@ function confirmHazard(yes: () => void): void {
   box.querySelector<HTMLButtonElement>('.no')!.onclick = close;
   box.style.display = 'flex';
   addEventListener('keydown', keys, true);
+}
+
+/** Hot seat: deletes the local game, here and in this browser's storage (the menu's Elimina). */
+export function dropLocal(): void {
+  try { localStorage.removeItem(SAVE_KEY); } catch { /* storage off */ }
+  S.saved = null;
+  S.gen = null;
+  S.replayFrames = null;
+  g = null;
+  setPending(null);
+  queue.length = 0;
+  S.playing = false;
 }
 
 export function persist(): void {

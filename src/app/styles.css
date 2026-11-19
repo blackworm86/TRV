@@ -685,3 +685,15 @@
   #actions .sep { width: 1px; height: 24px; background: #ffffff22; margin: 0 2px; }
   #actions button.mode { width: 32px; padding: 0; justify-content: center; font-size: 16px; }
   @keyframes handpulse { 50% { box-shadow: 0 3px 0 #1e6b37, 0 0 18px 4px rgba(76,255,122,.55); } }
+
+/* Closing and deleting games (design/ux/chiudi-partite): the local game's Elimina beside its card, the confirmation card. */
+#setup .resumeRow { display: flex; gap: 8px; align-items: stretch; }
+#setup .resumeRow .big { flex: 1; min-width: 0; }
+#mDrop { flex: none; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; padding: 0 16px; font-size: 15px; }
+#mDrop i { font-style: normal; font-size: 20px; }
+#sure { display: none; position: fixed; left: 50%; top: 50%; transform: translate(-50%, -50%); z-index: 60; max-width: 440px; padding: 18px 22px;
+  background: #2a2019; border: 2px solid var(--acc); border-radius: 10px; color: var(--ink); box-shadow: 0 12px 40px #000a; }
+#sure.on { display: block; }
+#sure b { display: block; font: 400 28px/1.05 'League Gothic', Impact, sans-serif; letter-spacing: .3px; }
+#sure p { margin: 8px 0 14px; font-size: 15px; line-height: 1.4; }
+#sure div { display: flex; gap: 8px; justify-content: flex-end; }

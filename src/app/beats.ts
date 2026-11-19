@@ -2,7 +2,7 @@
 // what each does to the table, and skipping to the end.
 
 import * as THREE from 'three';
-import { type Frame } from '../game/trv/engine';
+import { type Frame, type Snapshot } from '../game/trv/engine';
 import { rampSurfaceAt } from '../view/terrain/carnage3d';
 import { carObjs, chopperObjs, fxSupply, markerGroup } from './board';
 import { JUMP, JUMP_BY_SPACES, JUMP_FLIP_LIFT, JUMP_WOBBLE, Jump, STUNT_SLOWMO, jumpSeconds, ramps } from './cars';
@@ -11,6 +11,7 @@ import { filmBeat, filmDice, filmRoll } from './shots';
 import { burst, crash, explode, flash, impact, smokeOn, word, words } from './effects';
 import { wormEats } from './worm';
 import { salvo } from './salvo';
+import { shrapnel, shrapnelSeconds } from './shrapnel';
 import { drawBotCards } from './botcard';
 import { decision, g } from './game';
 import { drawHud, toastLine, turnOrder } from './hud';
@@ -47,6 +48,7 @@ export function beatLength(f: Frame): number {
   }
   if (f.kind === 'elim' && f.by === 'sand_worm') return P.sandWorm.seconds;
   if (f.kind === 'shot' && f.why === 'missiles') return P.salvo.seconds;
+  if (f.kind === 'shot' && f.why === 'shrapnel' && f.from && f.at) return shrapnelSeconds(world(f.from), world(f.into ?? f.at));
   if (f.kind !== 'log') return BEAT[f.kind] ?? 0.3;
   if (f.logKind === 'turn') return 0.6;
   return f.logKind === 'dice' || f.logKind === 'bad' || f.logKind === 'good' ? 0.45 : 0.1;
@@ -77,9 +79,13 @@ export function settled(): boolean {
   return true;
 }
 
-/** Starts replaying the beats the last choice produced. */
-export function playBeats(frames: Frame[]): void {
+/**
+ * Starts replaying the beats the last choice produced. `before`: the table before them, what the
+ * bubbles and dashboards show until the first beat (by default the first beat's own table).
+ */
+export function playBeats(frames: Frame[], before?: Snapshot): void {
   if (!frames.length) { render(); return; }
+  if (!S.playing) S.shownSnap = before ?? S.restSnap ?? frames[0].snap;
   // The bubbles keep the order they had until the roll for the first player or the new round's
   // beat comes up (then they slide into the new turn order, see applyBeat).
   if (g && frames.some(f => f.kind === 'order')) S.bubbleOrder = g.players.map(p => p.id);
@@ -124,6 +130,7 @@ export const FX_PENDING = new Set<string>([...FX_ASK, 'plow', 'rollCage', 'pickD
 
 export function finishBeats(): void {
   S.playing = false;
+  S.shownSnap = null;
   S.settleBy = 0;
   S.bubbleOrder = null;
   if (replaying) endReplay();
@@ -143,6 +150,7 @@ export function finishBeats(): void {
 }
 
 export function applyBeat(f: Frame, now: number): void {
+  S.shownSnap = f.snap;
   if (f.kind === 'log') {
     toastLine(f);
     // A new turn clears the dice shown, but never a damage token still being read.
@@ -151,6 +159,7 @@ export function applyBeat(f: Frame, now: number): void {
   }
   drawTable(f.snap);
   drawBotCards(f.snap);
+  drawHud(); // the bubbles and the dashboards follow the beat (S.shownSnap)
   const at = f.at ? world(f.at) : null;
   if (settings.director2) filmBeat(f); else directBeat(f);
   switch (f.kind) {
@@ -167,6 +176,7 @@ export function applyBeat(f: Frame, now: number): void {
       break;
     case 'shot':
       if (f.why === 'missiles' && f.from && f.spaces) salvo(f.vehicleId, world(f.from), f.spaces);
+      else if (f.why === 'shrapnel' && f.from && at) shrapnel(world(f.from), at, f.vehicleId, f.into ? world(f.into) : null);
       else if (f.from && at) burst(world(f.from), at, f.vehicleId);
       break;
     case 'damage':

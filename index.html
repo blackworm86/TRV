@@ -69,6 +69,8 @@
   <div class="card">
     <header class="hdr">
       <div class="logo">THUNDER ROAD<small>VENDETTA</small></div>
+      <div id="sure" role="alertdialog" aria-modal="true" aria-labelledby="sureT"><b id="sureT"></b><p id="sureP"></p>
+        <div><button class="tool" id="sureNo">Annulla</button><button class="tool danger" id="sureOk">Elimina</button></div></div>
       <span class="sp"></span>
       <div id="me">
         <span class="av" id="meav">?</span>
@@ -84,7 +86,10 @@
     <div class="pane" id="pMain">
       <div class="home">
         <div class="bigs">
-          <button class="big resume" id="mResume"><i>↩</i><span><b>Torna alla partita</b><small>Riprendi la partita in locale in corso</small></span></button>
+          <div class="resumeRow" id="mResumeRow">
+            <button class="big resume" id="mResume"><i>↩</i><span><b>Torna alla partita</b><small id="mResumeWhat">Riprendi la partita in locale in corso</small></span></button>
+            <button class="tool danger" id="mDrop" title="Elimina la partita in locale"><i>🗑</i>Elimina</button>
+          </div>
           <button class="big main" id="mPlay"><i>🏁</i><span><b>Gioca online</b><small>La lobby: partite aperte da tutti, o creane una</small></span></button>
           <button class="big" id="mMine"><i>📋</i><span><b>Le mie partite</b><small>Quelle in corso e quelle in attesa di giocatori</small></span><em class="pill turn" id="mineBadge"></em></button>
           <button class="big" id="mFriends"><i>👥</i><span><b>Amici</b><small>Aggiungi amici e invitali a una partita diretta</small></span><em class="pill on" id="friendsBadge"></em></button>

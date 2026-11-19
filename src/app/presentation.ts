@@ -62,6 +62,8 @@ export interface Presentation {
   turnSplash: { seconds: number };
   burst: { aim: number; rounds: number; gap: number; speed: number; spread: number };
   salvo: { seconds: number; perSpace: number; stagger: number; flight: number; apex: number; mark: number };
+  /** The Shrapnel damage token's piece of metal (app/shrapnel.ts). */
+  shrapnel: { windup: number; speed: number; minFlight: number; after: number; apex: number; height: number; hitHeight: number; size: number; spin: number; bits: number; color: string; metal: number; glint: number };
   /** A destroyed car goes to pieces, a car falls into a pit (app/wreckage.ts). */
   wreckage: {
     grid: [number, number, number]; char: number; glow: number; cool: number; heap: number; flight: [number, number];

@@ -2,16 +2,16 @@
 // player's card, the home lists, the lobby, one's games, friends and invitations. The rooms
 // themselves (create, join, the room's card) are online.ts; the data is src/net/social.ts.
 
-import { NAME_MAX, cleanCode, readRoom, roomPath, type RoomStore } from '../net/room';
+import { NAME_MAX, cleanCode, closeRoom, readRoom, roomPath, type RoomStore } from '../net/room';
 import {
   HEARTBEAT_MS, acceptFriend, addFriend, cleanFriendCode, declineFriend, dropInvite, ensureProfile, forgetGame, gameRow, heartbeat, inviteFriend, isOnline,
-  lobbyPath, mutualFriends, readLobby, readPresence, readProfile, readSocial, removeFriend, showFriendCode, userPath,
+  lobbyPath, mutualFriends, publishLobby, readLobby, readPresence, readProfile, readSocial, removeFriend, showFriendCode, userPath,
   type GameRow, type LobbyEntry, type Presence,
 } from '../net/social';
 import { NAME_KEY, crewColor, joinByCode, netError, openStore, randomBytes } from './online';
 import { showPane, type Pane } from './screens';
 import { S } from './state';
-import { $, esc } from './util';
+import { $, esc, sure } from './util';
 
 /** What the first screen knows of the player's online side. */
 export const H = {
@@ -167,7 +167,11 @@ function drawMine(): void {
     const turn = r.state === 'turn' ? '<em class="pill turn">tocca a te</em>' : r.state === 'waiting' ? `<em class="pill wait">${r.players.length} di ${r.seats}</em>`
       : r.state === 'ended' ? `<em class="pill">vince ${esc(r.winner ?? '')}</em>` : `<em class="pill">${esc(r.turnName ?? '…')}</em>`;
     const act = r.state === 'turn' ? `<button class="go small gplay" data-code="${r.code}">Gioca</button>` : `<button class="tool gplay" data-code="${r.code}">${r.state === 'ended' ? 'Rivedi' : 'Apri'}</button>`;
-    const out = r.state === 'waiting' && !r.host ? ` <button class="tool gforget" data-code="${r.code}" title="Lascia il posto">Esci</button>` : r.state === 'ended' ? ` <button class="tool gforget" data-code="${r.code}" title="Toglila dall’elenco">✕</button>` : '';
+    // The host closes the room for everybody; a guest leaves it (design/ux/chiudi-partite, 2026-11-19).
+    const out = r.state === 'ended' ? ` <button class="tool ${r.host ? 'gclose' : 'gforget'}" data-code="${r.code}" title="Toglila dall’elenco">✕</button>`
+      : r.host ? ` <button class="tool danger gclose" data-code="${r.code}" title="Chiude la stanza per tutti">Chiudi per tutti</button>`
+      : r.state === 'waiting' ? ` <button class="tool gforget" data-code="${r.code}" title="Lascia il posto">Esci</button>`
+      : ` <button class="tool danger gquit" data-code="${r.code}" title="Lascia la partita">Abbandona</button>`;
     return `<tr><td><b>${r.code}</b>${r.host ? ' <small>host</small>' : ''}</td><td>${dots(r.players.map(p => p.crew), r.state === 'waiting' ? r.seats : r.players.length)}</td>
       <td>${r.state === 'waiting' ? 'In attesa' : r.state === 'ended' ? 'Conclusa' : 'In corso'}</td><td>${ago(r.moveAt)}</td><td>${turn}</td><td>${act}${out}</td></tr>`;
   }).join('') : `<tr><td colspan="6" class="empty-note">${H.store ? 'Nessuna partita qui.' : noStore()}</td></tr>`);
@@ -323,6 +327,20 @@ $('setup').addEventListener('click', e => {
       if (room?.status === 'lobby' && room.host !== H.uid) await store.write(roomPath(code, 'seats', H.uid), null);
       await forgetGame(store, code);
     })().catch(fail);
+  } else if (b.classList.contains('gquit')) {
+    void sure(`Abbandonare la partita ${code}?`, 'La partita esce dal tuo elenco. Il tuo posto resta a tavola: quando tocca a te gli altri ti aspettano, finché l’host non chiude la stanza.', 'Abbandona')
+      .then(ok => ok ? forgetGame(store, code) : undefined).catch(fail);
+  } else if (b.classList.contains('gclose')) {
+    const row = H.rows[code];
+    void (row?.state === 'ended' ? Promise.resolve(true) : sure(`Chiudere la stanza ${code} per tutti?`, row?.state === 'waiting'
+      ? 'La stanza esce dalla lobby e dagli elenchi di chi ci si era seduto.'
+      : 'La partita in corso va persa per tutti i giocatori e la stanza viene cancellata.', 'Chiudi per tutti'))
+      .then(async ok => {
+        if (!ok) return;
+        await publishLobby(store, code, null).catch(() => {});
+        await forgetGame(store, code);
+        await closeRoom(store, code);
+      }).catch(fail);
   } else if (b.classList.contains('facc')) void acceptFriend(store, uid, H.social.requests[uid]?.name ?? 'Giocatore', Date.now()).then(refresh).catch(fail);
   else if (b.classList.contains('fdec')) void declineFriend(store, uid).catch(fail);
   else if (b.classList.contains('fdel')) { if (confirm('Togliere questa persona dagli amici?')) void removeFriend(store, uid).then(refresh).catch(fail); }

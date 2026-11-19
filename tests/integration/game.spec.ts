@@ -104,6 +104,26 @@ test.describe('game', () => {
     expect(errors).toEqual([]);
   });
 
+  test('the local game can be deleted from the menu, after a confirmation', async ({ page }) => {
+    // Arrange: a saved hot seat game, the menu opened over it.
+    const errors = await open(page, { save: [] });
+    await expect.poll(() => page.evaluate(() => !!window.trv?.game)).toBe(true);
+    await page.evaluate(() => document.getElementById('quit')!.click());
+    await expect(page.locator('#mResumeRow')).toBeVisible();
+    await expect(page.locator('#mResumeWhat')).toContainText('round');
+    // Act and assert: Annulla keeps it, Elimina deletes it here and in storage.
+    await page.locator('#mDrop').click();
+    await page.locator('#sureNo').click();
+    await expect(page.locator('#mResumeRow')).toBeVisible();
+    await page.locator('#mDrop').click();
+    await page.locator('#sureOk').click();
+    await expect(page.locator('#mResumeRow')).toBeHidden();
+    expect(await page.evaluate(k => localStorage.getItem(k), SAVE_KEY)).toBeNull();
+    await page.reload();
+    await expect(page.locator('#mHot')).toBeVisible();
+    expect(await page.evaluate(() => !!window.trv!.game)).toBe(false);
+    expect(errors).toEqual([]);
+  });
   test('a hot seat game starts from the menu and asks to assign a die', async ({ page }) => {
     const errors = await open(page);
     await page.locator('#mHot').click();

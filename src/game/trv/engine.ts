@@ -213,7 +213,8 @@ export interface LogEntry { text: string; kind: 'info' | 'dice' | 'bad' | 'good'
 export interface Snapshot {
   board: TileRef[];
   finalTile: boolean;
-  vehicles: Pick<Vehicle, 'id' | 'owner' | 'size' | 'isWreck' | 'pos' | 'inStart' | 'status' | 'z' | 'onFire' | 'bike' | 'rig'>[];
+  /** `damage`: the tokens on the vehicle at that moment, so the interface never shows one before its beat. */
+  vehicles: Pick<Vehicle, 'id' | 'owner' | 'size' | 'isWreck' | 'pos' | 'inStart' | 'status' | 'z' | 'onFire' | 'bike' | 'rig' | 'damage'>[];
   /** Spaces turned off-road by the Big Rig (BRaFF p5), as board keys. */
   offroad?: string[];
   hazards: [string, HazardOnBoard][];
@@ -240,7 +241,11 @@ export interface Frame {
   /** Elimination: the space the vehicle was entering (off the road, or impassable), and why. */
   into?: Pos;
   why?: string;
-  /** Shot: every space a salvo strikes (the Big Rig's Missile Launcher, `why` 'missiles'). */
+  /**
+   * Shot: every space a salvo strikes (the Big Rig's Missile Launcher, `why` 'missiles'). Shrapnel (`why`
+   * 'shrapnel'): the piece flies from `from` to `at`, the space of the vehicle it hits (`vehicleId`), or the
+   * last space on the road when it hits nobody; then `into` is the first space off it.
+   */
   spaces?: Pos[];
   /** Elimination: what took the vehicle, when it has a show of its own (the sand worm swallows it). */
   /** What eliminated the vehicle when the view shows it its own way: the sand worm, or a pit trap it fell into. */
@@ -601,7 +606,7 @@ export function snapshot(g: Game): Snapshot {
   return {
     board: g.board.map(t => ({ ...t })),
     finalTile: g.finalTile,
-    vehicles: g.vehicles.map(v => ({ id: v.id, owner: v.owner, size: v.size, isWreck: v.isWreck, pos: v.pos ? { ...v.pos } : null, inStart: v.inStart, status: v.status, z: v.z, ...(v.onFire ? { onFire: true } : {}), ...(v.bike !== undefined ? { bike: v.bike } : {}), ...(v.rig ? { rig: v.rig } : {}) })),
+    vehicles: g.vehicles.map(v => ({ id: v.id, owner: v.owner, size: v.size, isWreck: v.isWreck, pos: v.pos ? { ...v.pos } : null, inStart: v.inStart, status: v.status, z: v.z, damage: v.damage.map(t => ({ ...t })), ...(v.onFire ? { onFire: true } : {}), ...(v.bike !== undefined ? { bike: v.bike } : {}), ...(v.rig ? { rig: v.rig } : {}) })),
     ...(g.offroad.size ? { offroad: [...g.offroad] } : {}),
     hazards: [...g.hazards].map(([k, h]) => [k, { ...h }]),
     choppers: g.players.map(p => (p.chopper ? { ...p.chopper } : null)),
@@ -1231,12 +1236,20 @@ function* damageEffect(g: Game, v: Vehicle, t: DamageToken): Gen<void> {
     case 'shrapnel': {
       const d = rollFx(g, 'direction', 'shrapnel', v.pos);
       say(g, `Schegge verso ${DIR_NAME[d]}.`, 'dice');
-      let p = neighbor(v.pos, d);
+      let p = neighbor(v.pos, d), last: Pos = v.pos;
       while (onBoard(p)) {
         const hit = vehiclesAt(g, p).filter(x => x !== v);
-        if (hit.length) { yield* damage(g, hit[hit.length - 1]); return; }
+        if (hit.length) {
+          const target = hit[hit.length - 1];
+          // Presentation only: the piece of metal flies to the vehicle it hits (asked by the user, 2026-11-19).
+          beat(g, 'shot', { why: 'shrapnel', from: { ...v.pos }, at: { ...p }, vehicleId: target.id });
+          yield* damage(g, target);
+          return;
+        }
+        last = p;
         p = neighbor(p, d);
       }
+      beat(g, 'shot', { why: 'shrapnel', from: { ...v.pos }, at: { ...last }, into: { ...p } });
       say(g, 'Le schegge non colpiscono nessuno.');
       return;
     }

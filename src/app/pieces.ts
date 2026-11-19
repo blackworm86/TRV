@@ -312,7 +312,9 @@ function offroadPatch(k: string): THREE.Mesh {
 /** Everything: the table as the rules have it now, the highlights and the interface. */
 export function render(): void {
   if (!g) return;
-  drawTable(snapshot(g));
+  const snap = snapshot(g);
+  if (!S.playing) S.restSnap = snap;
+  drawTable(snap);
   drawMarkers();
   drawHud();
 }

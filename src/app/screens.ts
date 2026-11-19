@@ -6,14 +6,14 @@ import { newSeed } from '../platform/entropy';
 import { skipBeats } from './beats';
 import { carObjs, chopperObjs } from './board';
 import { smokeOff, smokes } from './effects';
-import { g, startGame, undo } from './game';
+import { dropLocal, g, startGame, undo } from './game';
 import { typing } from './keys';
 import { closePops } from './menus';
 import { drawLobby, exitRoom } from './online';
 import { render } from './pieces';
 import { scene } from './stage';
 import { S } from './state';
-import { $, esc, menuOpen } from './util';
+import { $, esc, menuOpen, sure } from './util';
 
 export const crewSelects: HTMLSelectElement[] = [];
 /** Per row: a person, or a TRV9000 team played by the cards (design/gdd/trv9000-bots.md). */
@@ -82,7 +82,8 @@ export function showPane(id: Pane): void {
   $('oerr').textContent = '';
   // A local game only: after leaving an online room the table still holds its game, not one to resume here.
   const resumable = !!g && g.winner === null && !S.net && !!S.saved;
-  $('mResume').style.display = id === 'pMain' && resumable ? '' : 'none';
+  $('mResumeRow').style.display = id === 'pMain' && resumable ? '' : 'none';
+  if (resumable) $('mResumeWhat').textContent = localWhat();
   const name = $('myname') as HTMLInputElement;
   if ((id === 'pCreate' || id === 'pJoin') && !name.value.trim()) name.focus();
   if (id === 'pLobby') ($('ocode') as HTMLInputElement).focus();
@@ -105,6 +106,21 @@ export function openSetup(pane: Pane = 'pMain'): void {
 }
 $('mHot').onclick = () => showPane('pHot');
 $('mResume').onclick = () => { $('setup').style.display = 'none'; render(); };
+/** The local game in a few words: who plays, and the round. */
+function localWhat(): string {
+  if (!g) return '';
+  const names = g.players.map(p => p.name);
+  return `${names.length > 2 ? names.slice(0, -1).join(', ') + ' e ' + names[names.length - 1] : names.join(' contro ')} · round ${g.round}`;
+}
+$('mDrop').onclick = () => {
+  if (!g) return;
+  void sure('Eliminare la partita in locale?', `${localWhat()}. La partita salvata in questo browser viene cancellata e non si può riprendere.`, 'Elimina').then(ok => {
+    if (!ok) return;
+    dropLocal();
+    clearTable();
+    showPane('pMain');
+  });
+};
 for (const b of document.querySelectorAll<HTMLElement>('#setup [data-back]')) b.onclick = () => showPane('pMain');
 for (const b of document.querySelectorAll<HTMLElement>('#setup [data-to]')) b.onclick = () => showPane(b.dataset.to as Pane);
 /** Takes the pieces of the last match off the table, before a new one is set up. */

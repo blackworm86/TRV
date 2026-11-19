@@ -8,7 +8,7 @@ import { g } from './game';
 import { DAMAGE_INFO, ONGOING_INFO, UPGRADE_INFO, upgradeName } from './info';
 import { drag, pointer, ray } from './input';
 import { camera, renderer } from './stage';
-import { S } from './state';
+import { S, shown } from './state';
 import { $, esc } from './util';
 
 export const SIZE_NAME: Record<string, string> = { S: 'piccola', M: 'media', L: 'grande' };
@@ -42,7 +42,7 @@ export function showCarTip(id: string | null, x = 0, y = 0): void {
   if (tipFor !== id) {
     tipFor = id;
     el.style.setProperty('--c', v.owner !== null && g ? g.players[v.owner].color : '#9a8f84');
-    el.innerHTML = carTipHtml(v);
+    el.innerHTML = carTipHtml(shown(v));
   }
   el.classList.add('show');
   const w = el.offsetWidth, h = el.offsetHeight;

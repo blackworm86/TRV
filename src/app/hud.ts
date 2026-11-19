@@ -24,7 +24,7 @@ import { drawMarkers } from './markers';
 import { drawPath, pathPill, pathToggle, planning } from './waypoints';
 import { syncFxSupply } from './rolls';
 import { P } from './presentation';
-import { S } from './state';
+import { S, shown } from './state';
 import { syncTableDice } from './tableDice';
 import { $, esc } from './util';
 
@@ -315,7 +315,7 @@ export function drawHud(): void {
     } } : {}),
   };
   const pickIds = new Set(d?.kind === 'repair' || (d?.kind === 'upgradeAssign' && mine) ? d.options.map(o => o.carId) : []);
-  const dashArt = g.vehicles.filter(v => v.owner === me.id).map(v => ({
+  const dashArt = g.vehicles.filter(v => v.owner === me.id).map(shown).map(v => ({
     carId: v.id, size: v.size, color: me.color, status: v.status, placed: v.placed, damage: v.damage.length,
     dropMove: hot.has(`move:${v.id}`), dropCoast: hot.has(`coast:${v.id}`), pick: pickIds.has(v.id),
     label: v.status === 'elim' ? '' : v.inStart ? 'IN PARTENZA' : '',

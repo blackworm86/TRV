@@ -15,6 +15,7 @@ import { g } from './game';
 import { cardHtml } from './hand';
 import { DAMAGE_INFO, PORTRAITS, POWER_INFO } from './info';
 import { focusOn } from './keys';
+import { shown as atBeat } from './state';
 import { $, esc } from './util';
 
 const SIZE: Record<string, string> = { S: 'piccola', M: 'media', L: 'grande' };
@@ -27,8 +28,8 @@ const faceDown = (v: Vehicle): boolean => v.upgrade === 'onboard_computer' || v.
 const stateOf = (v: Vehicle): 'elim' | 'inop' | 'start' | 'road' => (v.status === 'elim' ? 'elim' : v.status === 'inop' ? 'inop' : v.inStart ? 'start' : 'road');
 
 /** One car of the bubble: its thumbnail and, under it, its pieces. */
-function carSlot(p: Player, v: Vehicle, redraw: () => void): string {
-  const st = stateOf(v), gone = st === 'elim';
+function carSlot(p: Player, car: Vehicle, redraw: () => void): string {
+  const v = atBeat(car), st = stateOf(v), gone = st === 'elim';
   const pic = carThumb(v.id, p.color, redraw);
   let pcs = '';
   if (!gone) {
@@ -100,8 +101,9 @@ function tipFor(el: HTMLElement): { html: string; card: boolean } | null {
     }
     return null;
   }
-  const v = g.vehicles.find(x => x.id === el.dataset.vid);
-  if (!v) return null;
+  const found = g.vehicles.find(x => x.id === el.dataset.vid);
+  if (!found) return null;
+  const v = atBeat(found);
   const owner = v.owner !== null ? g.players[v.owner] : null;
   const whose = `${v.bike !== undefined ? `moto ${finalFive().marking_names[v.bike]}` : `auto ${SIZE[v.size]}`}${owner ? ` di ${esc(owner.name)}` : ''}`;
   if (kind === 'up') return { card: true, html: `${cardHtml(el.dataset.up!, owner?.color ?? '#888')}<div class="cap">${v.status === 'ok' ? '' : 'Non attiva: '}${whose}</div>` };
