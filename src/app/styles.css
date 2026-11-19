@@ -637,3 +637,24 @@
   #hzask .no { background: #f3e6d0; color: #1a120c; }
   #win .card { background: var(--card); padding: 24px 30px; border-radius: 14px; text-align: center; }
   #win .big { font: 400 56px 'League Gothic', Impact, sans-serif; color: var(--acc); }
+  /* Dice thrown by hand (handroll.ts): the TIRA button beside the hovering dice, also during a director's scene. */
+  #handroll { position: fixed; z-index: 40; display: none; flex-direction: column; align-items: center; gap: 4px; padding: 8px 14px 10px;
+    background: rgba(20, 14, 10, .93); border: 1px solid #4a3523; border-radius: 10px; box-shadow: 0 10px 26px rgba(0,0,0,.6); color: #f3e6d0; text-align: center; }
+  #handroll.show { display: flex; }
+  #handroll b { font-size: 22px; font-weight: 400; color: var(--acc); }
+  #handroll span { font: 600 15px 'Barlow Condensed', system-ui, sans-serif; }
+  #handroll i { font-style: normal; font-weight: 700; }
+  #handroll button { margin-top: 4px; padding: 5px 26px; border: 0; border-radius: 8px; background: #4cff7a; color: #0b1a0f; font-size: 26px; cursor: pointer;
+    box-shadow: 0 3px 0 #1e6b37; animation: handpulse 1.2s ease-in-out infinite; }
+  #handroll button:hover { filter: brightness(1.1); }
+  #handroll kbd { font: 600 12px system-ui, sans-serif; color: #b9a990; border: 1px solid #4a3523; border-radius: 4px; padding: 0 5px; }
+  /* Which motorcycle goes first (bikepick.ts): a badge over each, with its marking. */
+  #bikepick .bike { position: fixed; transform: translate(-50%, -100%); display: flex; flex-direction: column; align-items: center; gap: 1px;
+    padding: 6px 8px 4px; border: 3px solid var(--c); border-radius: 14px; background: rgba(20, 14, 10, .92); color: #f3e9d2; cursor: pointer;
+    box-shadow: 0 6px 16px rgba(0,0,0,.6); animation: bikebob 1.6s ease-in-out infinite; pointer-events: auto; }
+  #bikepick .bike::after { content: ''; position: absolute; bottom: -11px; left: 50%; margin-left: -8px; border: 8px solid transparent; border-top-color: var(--c); border-bottom: 0; }
+  #bikepick .bike .mark { width: 40px; height: 40px; display: grid; place-items: center; border-radius: 50%; background: var(--c); }
+  #bikepick .bike .gothic { font-size: 17px; letter-spacing: 1px; }
+  #bikepick .bike:hover { background: #2e2016; box-shadow: 0 0 0 3px #f6c46a, 0 6px 16px rgba(0,0,0,.6); }
+  @keyframes bikebob { 50% { margin-top: -5px; } }
+  @keyframes handpulse { 50% { box-shadow: 0 3px 0 #1e6b37, 0 0 18px 4px rgba(76,255,122,.55); } }

@@ -21,6 +21,7 @@ import { drawMarkers } from './markers';
 import { registerTextures } from './quality';
 import { drawMarking } from '../view/vector/markings';
 import { layRig } from '../view/rigchain';
+import { pruneHeaps } from './wreckage';
 import { BOARD_X0, KX, MM, PITCH_W, TILE_H, TILE_T, TILE_W, pieces, scene, tileCache, tileSlots, world } from './stage';
 import { S } from './state';
 import { $ } from './util';
@@ -321,6 +322,7 @@ export function drawTable(s: Snapshot): void {
   if (!g) return;
   S.lastSnap = s;
   showTiles(s);
+  pruneHeaps(s); // the heaps of destroyed cars: gone with an undo, another game or their tile
   showFinish(s.finalTile, g.finishLine);
   const hz = new Map(s.hazards);
 

@@ -15,6 +15,7 @@ import { moveCamera } from './keys';
 import { tiltView } from './mapView';
 import { placeBlockTips } from './markers';
 import { placeRigPick } from './rigpick';
+import { placeBikePick } from './bikepick';
 import { groundTick, render } from './pieces';
 import { frameTimes } from './quality';
 import { timeScale } from './replay';
@@ -22,6 +23,7 @@ import { fxGoHome } from './rolls';
 import { SPEED_SCALE, settings } from './settings';
 import { shotsTick } from './shots';
 import { camera, controls, renderer, scene, tileSlots } from './stage';
+import { holdForHand, tickHand } from './handroll';
 import { S } from './state';
 import { animTableDice } from './tableDice';
 import { $, menuOpen } from './util';
@@ -62,7 +64,9 @@ renderer.setAnimationLoop(t => {
   // Beats follow the clock, not the frame rate: a slow frame plays every beat that is due.
   // While the director's camera moves into a shot, the beats wait for it (SHOT.wait seconds).
   if (S.playing && S.shot && now < actionSince + SHOT.wait) S.nextBeatAt = Math.max(S.nextBeatAt, now);
-  while (S.playing && now >= S.nextBeatAt) {
+  // Dice to throw by hand: the playback waits for TIRA (handroll.ts).
+  tickHand(now);
+  while (S.playing && now >= S.nextBeatAt && !holdForHand(queue)) {
     const f = queue.shift();
     if (!f) {
       // The last beat is out: the table comes to rest before the next choice or the end of the game.
@@ -132,5 +136,6 @@ renderer.setAnimationLoop(t => {
   placeDock();
   placeBlockTips();
   placeRigPick();
+  placeBikePick();
   hudRenderer.render(hudScene, hudCam);
 });

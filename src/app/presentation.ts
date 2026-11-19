@@ -36,7 +36,7 @@ export interface Presentation {
   director: {
     diceDist: number; shot: { blendIn: number; blendOut: number; wait: number; follow: number }; lift: number;
     /** The new director (shots.ts): see the data file. */
-    hold: number; refresh: number; floor: number;
+    hold: number; refresh: number; floor: number; merge: number;
     subject: { car: number; close: number; slam: number; chopper: number; chopperUp: number; die: number; worm: number; wormUp: number };
     blocker: { rockR: number; rockH: number; carR: number; carH: number; chopperR: number };
     shots: Record<string, { id: string; yaw: number; elev: number; fill: number; near?: number; orbit?: number }[]>;
@@ -53,6 +53,12 @@ export interface Presentation {
   turnSplash: { seconds: number };
   burst: { aim: number; rounds: number; gap: number; speed: number; spread: number };
   salvo: { seconds: number; perSpace: number; stagger: number; flight: number; apex: number; mark: number };
+  /** A destroyed car goes to pieces, a car falls into a pit (app/wreckage.ts). */
+  wreckage: {
+    grid: [number, number, number]; char: number; glow: number; cool: number; heap: number; flight: [number, number];
+    settle: number; lift: number; spin: number; bounce: number; ground: number; flames: number;
+    pit: { roll: number; drop: number; after: number; depth: number; tip: number; blast: number };
+  };
 }
 
 /** The values in use. */

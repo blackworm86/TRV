@@ -7,7 +7,7 @@ import { rampSurfaceAt } from '../view/terrain/carnage3d';
 import { carObjs, chopperObjs, fxSupply, markerGroup } from './board';
 import { JUMP, JUMP_BY_SPACES, JUMP_FLIP_LIFT, JUMP_WOBBLE, Jump, STUNT_SLOWMO, jumpSeconds, ramps } from './cars';
 import { actionDone, actionShot, directBeat, directing, shotFor } from './director';
-import { filmBeat, filmDice } from './shots';
+import { filmBeat, filmDice, filmRoll } from './shots';
 import { burst, crash, explode, flash, impact, smokeOn, word, words } from './effects';
 import { wormEats } from './worm';
 import { salvo } from './salvo';
@@ -18,6 +18,7 @@ import { damageUntil, showDamage, showRoll } from './info';
 import { drawTable, render } from './pieces';
 import { P } from './presentation';
 import { endReplay, replaying } from './replay';
+import { dropHand } from './handroll';
 import { rollOnTable, showOrder, showRound } from './rolls';
 import { SPEED_SCALE, settings } from './settings';
 import { TILE_W, tileSlots, world } from './stage';
@@ -95,6 +96,8 @@ export function playBeats(frames: Frame[]): void {
 /** Jumps to the end of the replay. */
 export function skipBeats(): void {
   if (!S.playing) return;
+  dropHand(); // dice waiting to be thrown by hand are rolled with the rest
+
   for (const f of queue) {
     if (f.kind === 'log') { toastLine(f); if (f.logKind === 'turn') S.trayFresh = true; }
     // The dice rolled in the skipped beats still lie by the action, at rest: a question may be about them.
@@ -152,9 +155,11 @@ export function applyBeat(f: Frame, now: number): void {
   if (settings.director2) filmBeat(f); else directBeat(f);
   switch (f.kind) {
     case 'roll':
-      // A slam's dice: the shot of the impact is over, the view goes back up to see them land by the cars.
-      if (shotFor === 'slam' && f.die && (f.die.die === 'slam' || f.die.die === 'direction')) actionDone();
+      // The old director: a slam's dice end the shot of the impact, the view goes back up to see them land by the cars.
+      if (!settings.director2 && shotFor === 'slam' && f.die && (f.die.die === 'slam' || f.die.die === 'direction')) actionDone();
       rollOnTable(f); showRoll(f);
+      // The new one films the roll: the action's space and where the die lands (shots.ts).
+      if (settings.director2 && f.die) { const td = fxSupply.get(f.die.die); if (td) filmRoll(f, td.to); }
       break;
     case 'slam':
       S.shakeUntil = now + 0.35;
@@ -172,7 +177,7 @@ export function applyBeat(f: Frame, now: number): void {
     case 'elim':
       // The sand worm swallows its car: eaten, not blown up (even before its model has loaded).
       if (f.vehicleId && f.by === 'sand_worm' && wormEats(f.vehicleId)) break;
-      if (f.vehicleId) crash(f.vehicleId, f.into ? world(f.into) : null, f.why ?? '');
+      if (f.vehicleId) crash(f.vehicleId, f.into ? world(f.into) : null, f.by, f.at ?? null);
       else if (at) explode(at);
       break;
     case 'reveal':

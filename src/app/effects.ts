@@ -3,7 +3,9 @@
 // Smoke: soft grey puffs rising from inoperable cars (always) and burning wrecks (for a while).
 
 import * as THREE from 'three';
+import type { Frame, Pos } from '../game/trv/engine';
 import { effects } from './beats';
+import { pitFall, shatter } from './wreckage';
 import { carObjs, chopperObjs } from './board';
 import { collectMaterials } from './pieces';
 import { P } from './presentation';
@@ -176,39 +178,26 @@ export function explode(at: THREE.Vector3, size = 1, now = performance.now() / 1
 }
 
 /**
- * A vehicle is destroyed. With `into` (the space it was entering: an obstacle, or off the road) it
- * first lunges that way and blows up against it; then the wreck is thrown up, spinning, and is gone.
+ * A vehicle is destroyed (app/wreckage.ts, asked by the user, 2026-11-19). Into a pit trap (`by`
+ * 'pit'): it drops into the hole, then the pit blows up. Otherwise, with `into` (the space it was
+ * entering: an obstacle, or off the road) it first lunges that way; then it blows up and goes to
+ * pieces, which fall in a charred heap on its last space `at`.
  */
-export function crash(id: string, into: THREE.Vector3 | null, why: string): void {
+export function crash(id: string, into: THREE.Vector3 | null, by: Frame['by'] | undefined, at: Pos | null): void {
   const o = carObjs.get(id);
   if (!o) return;
   carObjs.delete(id); // from here on this effect owns the piece: the table no longer drives it
   smokeOff(id);
   const from = o.position.clone();
+  if (by === 'pit' && into) { pitFall(o, into); return; }
   const hit = into ? from.clone().lerp(into, 0.6) : from.clone();
-  const yaw0 = o.rotation.y;
+  const lunge = into ? 0.3 : 0;
+  if (!lunge) { shatter(id, o, hit, at, from); return; }
   let blown = false;
-  effects.push({ life: into ? 1.5 : 1.2, t: 0, step: u => {
-    const lunge = into ? 0.2 : 0.02;
-    if (u < lunge) {
-      o.position.lerpVectors(from, hit, (u / lunge) ** 2);
-      return;
-    }
-    if (!blown) {
-      blown = true;
-      explode(hit, 1);
-      word('BOOM!', hit, '#ff6a2a', true);
-      for (const m of collectMaterials(o)) { m.color.multiplyScalar(0.25); m.emissive.setRGB(1, 0.35, 0.05); m.emissiveIntensity = 0.8; }
-    }
-    const v = (u - lunge) / (1 - lunge), t = v * 1.3;
-    // Thrown back from the obstacle and up, tumbling; it shrinks away as it lands.
-    const back = into ? from.clone().sub(hit).setY(0).normalize() : new THREE.Vector3(0, 0, 0);
-    o.position.copy(hit).addScaledVector(back, t * 1.6).setY(Math.max(TILE_T, hit.y + 5.5 * t - 6.5 * t * t));
-    o.rotation.set(t * 7, yaw0 + t * 3, t * 4);
-    o.scale.setScalar(v < 0.75 ? 1 : Math.max(0.01, 1 - (v - 0.75) / 0.25));
-    if (u >= 1) scene.remove(o);
+  effects.push({ life: lunge, t: 0, step: u => {
+    o.position.lerpVectors(from, hit, u * u);
+    if (u >= 1 && !blown) { blown = true; shatter(id, o, hit, at, from); }
   } });
-  void why;
 }
 
 /** A coloured ring that spreads and fades over a space. */

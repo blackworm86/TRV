@@ -1,0 +1,94 @@
+<!doctype html><html lang="it"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Tiro dei dadi a mano</title>
+<link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700&family=League+Gothic&display=swap" rel="stylesheet">
+<style>
+:root{--ink:#f3e6d0;--dim:#b9a990;--bg:#1a120c;--card:#24180f;--line:#4a3523;--acc:#f6c46a;--hot:#4cff7a;--red:#e2563f;--road:#57514a;--sand:#d9b47a}
+*{box-sizing:border-box}
+body{margin:0;background:#0e0a07;color:var(--ink);font:500 16px/1.3 'Barlow Condensed',sans-serif;padding:18px}
+h1{font:400 32px 'League Gothic';margin:0 0 4px;letter-spacing:.5px}
+.lead{color:var(--dim);margin:0 0 16px;max-width:1000px}
+.row{display:flex;gap:18px;flex-wrap:wrap;align-items:flex-start}
+.cap{font:400 22px 'League Gothic';color:var(--acc);margin:0 0 6px;letter-spacing:.5px}
+.note{color:var(--dim);font-size:15px;max-width:460px;margin:6px 0 0}
+.pop{width:340px;background:#1f1610;border:1px solid var(--line);border-radius:10px;padding:12px 14px;box-shadow:0 10px 30px #000a}
+.pop h3{font:400 18px 'League Gothic';color:var(--acc);margin:10px 0 6px;letter-spacing:.5px}
+.pop h3:first-child{margin-top:0}
+.seg{display:flex;border:1px solid var(--line);border-radius:6px;overflow:hidden}
+.seg b{flex:1;text-align:center;padding:6px 4px;font-weight:600;color:var(--dim);background:#2a1d13}
+.seg b.on{background:var(--acc);color:#1a120c}
+.new{outline:2px dashed var(--hot);outline-offset:4px;border-radius:8px;padding:2px 0 6px}
+.new small{display:block;color:var(--dim);margin-top:5px;font-size:14px}
+.ghost{opacity:.45}
+.scene{width:640px;height:400px;position:relative;border-radius:10px;overflow:hidden;border:1px solid var(--line);
+  background:linear-gradient(180deg,#2a1d13 0 46px,transparent 46px),repeating-linear-gradient(90deg,#5d564e 0 78px,#514a43 78px 80px),var(--road)}
+.bar{position:absolute;left:0;right:0;top:0;height:46px;display:flex;align-items:center;gap:10px;padding:0 12px;background:#140e0a;border-bottom:1px solid var(--line)}
+.bar .who{font:400 22px 'League Gothic';color:#9fd3ff}
+.bar .skip{margin-left:auto;border:1px solid var(--line);border-radius:6px;padding:3px 9px;color:var(--dim);font-weight:600}
+.lane{position:absolute;left:0;right:0;height:2px;background:#e8c14a88}
+.car{position:absolute;width:86px;height:40px;border-radius:9px;background:linear-gradient(#6d8fc2,#3c5f95);border:2px solid #1b2a40;box-shadow:0 8px 10px #0008}
+.car.r{background:linear-gradient(#d36a55,#9c3b2b);border-color:#4a1b12}
+.car:after{content:'';position:absolute;left:52px;top:7px;width:22px;height:22px;border-radius:4px;background:#0006}
+.aim{position:absolute;height:3px;background:repeating-linear-gradient(90deg,#ffd23a 0 10px,transparent 10px 16px);transform-origin:left center}
+.die{position:absolute;width:46px;height:46px;border-radius:9px;background:linear-gradient(145deg,#fff,#d8d2c8);border:2px solid #222;display:grid;place-items:center;font:400 26px 'League Gothic';color:#c8302a;
+  box-shadow:0 0 0 6px #4cff7a55,0 0 26px 8px #4cff7a88,0 14px 16px #000a;animation:hover 1.4s ease-in-out infinite}
+@keyframes hover{50%{transform:translateY(-8px) rotate(8deg)}}
+.label{position:absolute;background:#140e0aee;border:1px solid var(--line);border-radius:8px;padding:6px 10px;text-align:center}
+.label b{display:block;font:400 20px 'League Gothic';color:var(--acc);letter-spacing:.5px}
+.btn{display:inline-block;margin-top:6px;background:var(--hot);color:#0b1a0f;font:400 22px 'League Gothic';padding:4px 18px;border-radius:7px;letter-spacing:1px;box-shadow:0 3px 0 #1e6b37}
+kbd{font:600 13px 'Barlow Condensed';border:1px solid var(--line);border-radius:4px;padding:0 5px;color:var(--dim);margin-left:4px}
+.hand{position:absolute;font-size:34px;filter:drop-shadow(0 3px 2px #000)}
+.fling{position:absolute;border:3px dashed #fff8;border-color:#fff8 transparent transparent transparent;border-radius:50%}
+.tag{position:absolute;left:10px;bottom:10px;font:400 22px 'League Gothic';background:var(--acc);color:#1a120c;padding:2px 10px;border-radius:6px}
+</style></head><body>
+<h1>Tiro dei dadi a mano</h1>
+<p class="lead">Nuova opzione: con “A mano”, quando durante il turno il gioco deve tirare un dado (sparo, slam, direzione, acrobazia, fuoco…), si ferma e il giocatore di turno lo lancia lui. I dadi di inizio round (movimento e dado strada) restano automatici. Il risultato lo decide sempre il motore con il suo seme (giusto anche online): il lancio decide come il dado vola e rimbalza. Online gli altri vedono il lancio come l’ha fatto lui.</p>
+
+<div class="row">
+  <div>
+    <p class="cap">1 · L'opzione, nel menu Opzioni</p>
+    <div class="pop">
+      <h3 class="ghost">Velocità animazioni</h3>
+      <div class="seg ghost"><b class="on">Complete</b><b>Veloci</b><b>Salta</b></div>
+      <div class="new">
+        <h3>Tiro dei dadi</h3>
+        <div class="seg"><b>Automatico</b><b class="on">A mano</b></div>
+        <small>A mano: durante il tuo turno lanci tu i dadi d’effetto. Quelli di inizio round restano automatici.</small>
+      </div>
+      <h3 class="ghost">Tavolo</h3>
+    </div>
+    <p class="note">Vale per questo dispositivo: in hot seat per tutti i giocatori al computer, online ognuno sceglie per sé.</p>
+  </div>
+
+  <div>
+    <p class="cap">2a · Lancio con un pulsante</p>
+    <div class="scene">
+      <div class="bar"><span class="who">Blu</span><span>spara: tira il dado sparo</span><span class="skip">⏭ Salta scena</span></div>
+      <div class="lane" style="top:170px"></div><div class="lane" style="top:250px"></div><div class="lane" style="top:330px"></div>
+      <div class="car" style="left:120px;top:186px"></div>
+      <div class="car r" style="left:400px;top:266px"></div>
+      <div class="aim" style="left:206px;top:206px;width:200px;transform:rotate(22deg)"></div>
+      <div class="die" style="left:262px;top:96px">◎</div>
+      <div class="label" style="left:330px;top:70px"><b>Dado sparo</b>contro l’auto rossa<br><span class="btn">TIRA!</span><kbd>Spazio</kbd></div>
+      <span class="tag">A</span>
+    </div>
+    <p class="note">Il dado appare sospeso vicino all’azione, illuminato, con la scena già inquadrata. Un clic su TIRA (o Spazio) e il dado parte verso un punto libero e visibile vicino all’azione.</p>
+  </div>
+
+  <div>
+    <p class="cap">2b · Lancio “afferra e scaglia”</p>
+    <div class="scene">
+      <div class="bar"><span class="who">Blu</span><span>spara: lancia il dado sparo</span><span class="skip">⏭ Salta scena</span></div>
+      <div class="lane" style="top:170px"></div><div class="lane" style="top:250px"></div><div class="lane" style="top:330px"></div>
+      <div class="car" style="left:120px;top:186px"></div>
+      <div class="car r" style="left:400px;top:266px"></div>
+      <div class="aim" style="left:206px;top:206px;width:200px;transform:rotate(22deg)"></div>
+      <div class="die" style="left:150px;top:300px">◎</div>
+      <span class="hand" style="left:178px;top:322px">✊</span>
+      <div class="fling" style="left:180px;top:240px;width:220px;height:120px;transform:rotate(-12deg)"></div>
+      <div class="label" style="left:372px;top:96px"><b>Afferra e scaglia</b>trascina il dado e lascialo andare:<br>più veloce il gesto, più forte il lancio</div>
+      <span class="tag">B</span>
+    </div>
+    <p class="note">Si prende il dado col mouse o col dito e lo si scaglia: direzione e forza del gesto danno il volo e i rimbalzi, e il dado si ferma comunque in un punto libero e visibile. Un clic senza trascinare lo lancia come in A.</p>
+  </div>
+</div>
+</body></html>

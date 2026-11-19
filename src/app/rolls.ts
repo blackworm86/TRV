@@ -3,7 +3,7 @@
 
 import { wormReady } from './worm';
 import * as THREE from 'three';
-import { neighbor, type Dir, type Frame, type Pos } from '../game/trv/engine';
+import { COLS, ROWS, neighbor, onBoard, terrainAt, type Dir, type Frame, type Pos } from '../game/trv/engine';
 import { GRID } from '../view/board3d';
 import { avatarSvg } from '../view/vector/art';
 import { makeDie } from '../view/dice3d';
@@ -14,7 +14,7 @@ import { g } from './game';
 import { P } from './presentation';
 import { dieHtml } from './hud';
 import type { Round } from './spots';
-import { BOARD_X0, KX, KZ, PITCH_W, TILE_H, TILE_W, scene, tileSlots, world } from './stage';
+import { BOARD_X0, KX, KZ, PITCH_W, TILE_H, TILE_W, camera, scene, tileSlots, world } from './stage';
 import { S } from './state';
 import { $, FACES, esc } from './util';
 
@@ -79,8 +79,10 @@ export function rollOnTable(f: Frame): void {
   const cell = f.at ?? car?.pos ?? null;
   const at = cell ? world(cell) : null;
   // Never on the action's space or the six around it (asked by the user, 2026-11-17): the dice
-  // must not hide what happens there, a slam's push, a car going off.
+  // must not hide what happens there, a slam's push, a car going off. Nor on the spaces the car whose
+  // turn it is may drive onto next, two steps ahead (asked by the user, 2026-11-19).
   const zone = cell ? actionZone(cell) : [];
+  if (car?.pos) for (const q of aheadOf(car.pos)) zone.push(world(q));
   // A die already out stays where it is and is rolled again there, unless it lies in that ring.
   let to = S.trayDice.includes(td) ? td.to.clone() : null;
   if (to && zone.some(z => onSpace(z, to!))) to = null;
@@ -106,22 +108,66 @@ export function rollOnTable(f: Frame): void {
   td.t = 0; td.dur = P.diceThrow.seconds; td.hop = 0;
 }
 
+/** The spaces a car at `p` may reach in its next two steps (its front arc, and the front arc of those). */
+function aheadOf(p: Pos): Pos[] {
+  const arc = (q: Pos): Pos[] => (['FL', 'F', 'FR'] as Dir[]).map(d => neighbor(q, d)).filter(onBoard);
+  const one = arc(p);
+  return [...one, ...one.flatMap(arc)];
+}
+
+/** A formation of an impassable space, in world units: its middle, its radius and the height of its top. */
+interface Rock { x: number; z: number; r: number; top: number }
+/** The rocks, mesas and bunkers on the road tiles now (terrain/obstacles.ts lists them on each tile). */
+function rocks(): Rock[] {
+  const out: Rock[] = [];
+  for (const grp of tileSlots) {
+    for (const b of (grp?.userData.blockers as ObstacleBlocker[] | undefined) ?? []) {
+      const w = grp!.localToWorld(new THREE.Vector3(b.x, b.h, b.z));
+      const edge = grp!.localToWorld(new THREE.Vector3(b.x + b.r, b.h, b.z));
+      out.push({ x: w.x, z: w.z, r: Math.hypot(edge.x - w.x, edge.z - w.z), top: w.y });
+    }
+  }
+  return out;
+}
+
+/** True when a rock stands between the camera and `p`, high enough to hide a die there. */
+function hiddenByRock(p: THREE.Vector3, list: Rock[]): boolean {
+  const cam = camera.position;
+  const dx = p.x - cam.x, dz = p.z - cam.z, len2 = dx * dx + dz * dz;
+  if (len2 < 1e-6) return false;
+  return list.some(k => {
+    const t = THREE.MathUtils.clamp(((k.x - cam.x) * dx + (k.z - cam.z) * dz) / len2, 0, 1);
+    if (t >= 0.999) return false;
+    const near = Math.hypot(cam.x + dx * t - k.x, cam.z + dz * t - k.z);
+    return near < k.r && cam.y + (p.y - cam.y) * t < k.top;
+  });
+}
+
 /**
  * Where an FX die lands near the action at `c`. The first die of an effect takes the free spot
  * nearest the action (two rings of spots around it, the camera's side first); the next ones line
  * up beside it, in a row along the road. A spot is free when it is on the road and clear of the
- * vehicles, the spaces that can be picked and the dice already there.
+ * vehicles, the spaces that can be picked, the dice already there, the impassable spaces and their
+ * rocks, and no rock stands between it and the camera (asked by the user, 2026-11-19: the dice fell
+ * among the rocks and were lost from sight).
  */
 export function fxSpot(c: THREE.Vector3, dice: THREE.Vector3[], snap: Frame['snap'], zone: THREE.Vector3[] = []): THREE.Vector3 | null {
   const space = GRID.pitch * KX; // one road space, in world units
   const gap = DIE_W * FX_SCALE * 1.45;
+  const half = DIE_W * FX_SCALE / 2;
   const cars = snap.vehicles.filter(v => v.pos && v.status !== 'elim').map(v => world(v.pos!));
   const roadZ = TILE_H / 2 - DIE_W * FX_SCALE;
+  const stones = rocks();
+  const blocked: THREE.Vector3[] = [];
+  if (g) for (let r = 0; r < ROWS; r++) for (let col = 0; col < COLS; col++) if (terrainAt(g, { r, c: col }) === 'X') blocked.push(world({ r, c: col }));
   const free = (p: THREE.Vector3): boolean => Math.abs(p.z) <= roadZ && p.x >= BOARD_X0 + 0.5
     && !zone.some(z => onSpace(z, p))
+    && !blocked.some(z => onSpace(z, p))
+    && !stones.some(k => Math.hypot(k.x - p.x, k.z - p.z) < k.r + half * 1.4)
     && !cars.some(v => Math.hypot(v.x - p.x, v.z - p.z) < space * 0.75)
     && !S.markers.some(m => Math.hypot(m.at.x - p.x, m.at.z - p.z) < space * 0.6)
-    && !dice.some(q => Math.hypot(q.x - p.x, q.z - p.z) < gap * 0.95);
+    && !dice.some(q => Math.hypot(q.x - p.x, q.z - p.z) < gap * 0.95)
+    && !hiddenByRock(p, stones);
   if (dice.length) {
     // In the row of the first die: right beside the last one, then on either end.
     const row = dice[0];

@@ -243,7 +243,8 @@ export interface Frame {
   /** Shot: every space a salvo strikes (the Big Rig's Missile Launcher, `why` 'missiles'). */
   spaces?: Pos[];
   /** Elimination: what took the vehicle, when it has a show of its own (the sand worm swallows it). */
-  by?: 'sand_worm';
+  /** What eliminated the vehicle when the view shows it its own way: the sand worm, or a pit trap it fell into. */
+  by?: 'sand_worm' | 'pit';
   /** Damage: the token drawn and turned over (null when the pile is empty). */
   token?: DamageToken | null;
   /** Damage: the token stays face down and its effect is ignored (Jury-Rigging). */
@@ -748,6 +749,9 @@ function activePlayers(g: Game): Player[] {
   return g.players.filter(p => !p.out);
 }
 
+/** 'pit' when a revealed pit trap is on `p` (the space a vehicle is lost on), for the view to show the fall. */
+const pitAt = (g: Game, p: Pos): 'pit' | undefined => (onBoard(p) && g.hazards.get(key(p))?.type === 'pit_trap' ? 'pit' : undefined);
+
 function eliminate(g: Game, v: Vehicle, why: string, into?: Pos, by?: Frame['by']): void {
   if (v.status === 'elim') return;
   // BRaFF p5: the Big Rig is eliminated only by six minor damage tokens or dumped off the rear tile.
@@ -871,7 +875,7 @@ function* enter(g: Game, v: Vehicle, to: Pos, ctx: MoveCtx | null, dir?: Dir): G
     to = { r: to.r, c: to.c - TILE_COLS };
   }
   if (!onBoard(to)) { eliminate(g, v, 'è uscita dalla strada', to); return true; }
-  if (terrainAt(g, to) === 'X') { eliminate(g, v, 'è entrata in una casella invalicabile', to); return true; }
+  if (terrainAt(g, to) === 'X') { eliminate(g, v, 'è entrata in una casella invalicabile', to, pitAt(g, to)); return true; }
   v.pos = { ...to };
   v.inStart = false;
   v.z = ++g.zTop;
@@ -938,11 +942,11 @@ function* enter(g: Game, v: Vehicle, to: Pos, ctx: MoveCtx | null, dir?: Dir): G
       const f = rollFx(g, 'shooting', 'pit-trap', to);
       const hit = f === 'ANY' || f === v.size || (f === 'SM' && (v.size === 'S' || v.size === 'M'));
       say(g, `Trappola: dado sparo ${f} — ${hit ? 'presa!' : 'scampata.'}`, 'dice');
-      if (hit) { eliminate(g, v, 'è caduta nella trappola', to); return true; }
+      if (hit) { eliminate(g, v, 'è caduta nella trappola', to, 'pit'); return true; }
       // Not hit: it may drive on with the moves it has left; with none (or pushed there by a slam or
       // damage) it ends its turn on an impassable space and is eliminated (ruling of the rules
       // owner, 2026-11-17). A car that stops there later is caught at the end of moveCar.
-      if (!ctx || ctx.left === 0) { eliminate(g, v, 'è rimasta sulla trappola, ora invalicabile', to); return true; }
+      if (!ctx || ctx.left === 0) { eliminate(g, v, 'è rimasta sulla trappola, ora invalicabile', to, 'pit'); return true; }
       return false;
     }
   }
@@ -1417,7 +1421,7 @@ function* quake(g: Game): Gen<void> {
     const to = neighbor(v.pos!, d);
     if (to.c >= COLS && to.r >= 0 && to.r < ROWS) { ahead.push(v); continue; }
     if (!onBoard(to)) { eliminate(g, v, 'è uscita dalla strada nel terremoto', to); continue; }
-    if (terrainAt(g, to) === 'X') { eliminate(g, v, 'è finita su una casella invalicabile nel terremoto', to); continue; }
+    if (terrainAt(g, to) === 'X') { eliminate(g, v, 'è finita su una casella invalicabile nel terremoto', to, pitAt(g, to)); continue; }
     v.pos = { ...to };
     beat(g, 'move', { vehicleId: v.id, at: { ...to } });
     landed.push(v);
@@ -1689,7 +1693,7 @@ function* moveCar(g: Game, car: Vehicle, moves: number, drift: boolean, coast: b
   // A car whose move ends on an impassable space (a revealed pit trap: Skull Shift Knob stopping
   // there, an oil slick) is eliminated, as if it had entered one (ruling of the rules owner, 2026-11-17).
   if (car.status === 'ok' && car.pos && onBoard(car.pos) && terrainAt(g, car.pos) === 'X' && g.winner === null) {
-    eliminate(g, car, 'ha finito il movimento su una casella invalicabile', car.pos);
+    eliminate(g, car, 'ha finito il movimento su una casella invalicabile', car.pos, pitAt(g, car.pos));
   }
 }
 
@@ -2673,7 +2677,7 @@ function* botTurn(g: Game, p: Player): Gen<void> {
     }
     if (car.status === 'ok' && car.pos && vehiclesAt(g, car.pos).length > 1 && g.winner === null) yield* slam(g, car.pos);
     if (car.status === 'ok' && car.pos && onBoard(car.pos) && terrainAt(g, car.pos) === 'X' && g.winner === null) {
-      eliminate(g, car, 'ha finito il movimento su una casella invalicabile', car.pos);
+      eliminate(g, car, 'ha finito il movimento su una casella invalicabile', car.pos, pitAt(g, car.pos));
     }
   }
   if (coast) car.coasts++; else car.moved = true;

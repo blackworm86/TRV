@@ -41,6 +41,8 @@
     "lift": 0.2,
     "_director2": "shots.ts, the new director (design/gdd/camera-director.md). hold: seconds in which a new event joins the shot being taken; refresh: seconds between two looks at the interface; floor: the camera's lowest height above the tile. subject: radius of what a shot must show (a car, a car in close-up, a slam with the six spaces around it, a chopper's target and how high above it the chopper is, a die). blocker: radius and height of what can hide the action. shots: for each event the ways of filming it, the first being the one meant for it: yaw and elev in DEGREES (yaw 0 behind the action, 90 side on; both sides are tried), fill the share of the free part of the screen the subjects take, near the closest the camera comes, orbit degrees per second around the subjects.",
     "hold": 1.2, "refresh": 0.25, "floor": 0.35,
+    "_merge": "merge: road spaces; a new event (or a die rolled) joins the shot being taken only when it is this close to what the shot shows, else the camera cuts to it (asked by the user, 2026-11-19: the camera stayed on one action while dice were rolled for another). shots.roll: how a die rolled for an action is filmed, with that action's space.",
+    "merge": 1.8,
     "_worm": "subject.worm: the radius of the sand worm's show (the worm out of the ground and the car thrown over its open mouth), worm_up how high above the ground its middle is; shots.worm: how it is filmed.",
     "subject": { "car": 0.55, "close": 0.55, "slam": 1.15, "chopper": 1.3, "chopper_up": 1.4, "die": 0.35, "worm": 1.5, "worm_up": 0.9 },
     "blocker": { "rock_r": 0.5, "rock_h": 1.1, "car_r": 0.38, "car_h": 0.5, "chopper_r": 0.8 },
@@ -85,6 +87,10 @@
       ],
       "dice": [
         { "id": "front", "yaw": 90, "elev": 55, "fill": 0.45, "near": 5 }
+      ],
+      "roll": [
+        { "id": "three_quarter", "yaw": 75, "elev": 42, "fill": 0.4, "near": 6 },
+        { "id": "high", "yaw": 90, "elev": 58, "fill": 0.45, "near": 6 }
       ],
       "default": [
         { "id": "side", "yaw": 80, "elev": 35, "fill": 0.7, "near": 5 }
@@ -141,5 +147,12 @@
     "_module": "salvo.ts: the Big Rig's Missile Launcher, a rocket salvo on the spaces it strikes (asked by the user, 2026-11-18)",
     "_units": "seconds: the beat's length; per_space: rockets on each space; stagger: seconds between two launches; flight: seconds in the air; apex: height of the arc in road spaces; mark: seconds the struck spaces stay lit after the last hit",
     "seconds": 3.2, "per_space": 2, "stagger": 0.09, "flight": 1.0, "apex": 2.4, "mark": 0.9
+  },
+  "wreckage": {
+    "_module": "wreckage.ts: a destroyed car goes to pieces and leaves a charred heap on its last space; a car falls into a pit trap, then the pit blows up (asked by the user, 2026-11-19)",
+    "_units": "grid: chunks along the car's length, height and width; char: colour kept by the charred chunks (0 black, 1 as they were); glow: how hot they glow at first; cool: seconds to cool down; heap: radius of the heap in road spaces; flight: shortest and longest flight of a chunk in seconds; settle: seconds after the last landing; lift: height of the throw in road spaces; spin: radians per second of tumbling; bounce: height of the bounce in road spaces; ground: height of a chunk's middle over the table in road spaces; flames: size of the flames left on the heap in road spaces; pit: roll seconds onto the hole, drop seconds into it, after seconds of the blast, depth in road spaces, tip radians nose down, blast size (1 = a car blowing up)",
+    "grid": [3, 2, 2], "char": 0.22, "glow": 0.9, "cool": 1.4, "heap": 0.28,
+    "flight": [0.55, 1.05], "settle": 0.5, "lift": 0.9, "spin": 14, "bounce": 0.06, "ground": 0.04, "flames": 0.3,
+    "pit": { "roll": 0.45, "drop": 0.85, "after": 0.6, "depth": 0.9, "tip": 1.0, "blast": 0.8 }
   }
 }

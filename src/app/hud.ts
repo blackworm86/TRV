@@ -10,6 +10,7 @@ import { damageTokenSvg, dieSvg, hazardTokenSvg, commandTokenSvg, dashboardSvg, 
 import { ffStripSvg } from '../view/vector/ffboards';
 import { rigStripSvg, type RigBoardArt } from '../view/vector/rigboard';
 import { drawRigPick } from './rigpick';
+import { drawBikePick } from './bikepick';
 import { FX_ASK } from './beats';
 import { carObjs } from './board';
 import { chase, chaseButtons } from './chase';
@@ -184,7 +185,7 @@ export function drawHud(): void {
     // The Big Rig's choices are made on the board, on the table or on the rig itself (asked by the
     // user, 2026-11-18): the steering diamond, the cow catcher's spaces, the aims round the section
     // hit (rigpick.ts), the systems lit in red for a minor damage.
-    else if (!['assign', 'airstrike', 'repair', 'leader', 'peek', 'peekResult', 'draft', 'upgradeAssign', ...PICK_ASSETS, ...RIG_ON_BOARD].includes(d.kind)) d.options.forEach((o, i) => btn(i, o.label));
+    else if (!['assign', 'airstrike', 'repair', 'leader', 'peek', 'peekResult', 'draft', 'upgradeAssign', 'first', ...PICK_ASSETS, ...RIG_ON_BOARD].includes(d.kind)) d.options.forEach((o, i) => btn(i, o.label));
   }
   // Choppe Shoppe setup: the upgrade cards to draft, then one for each car. Online everyone picks
   // at once from their own hand; the cards passed on come when all have picked.
@@ -290,6 +291,7 @@ export function drawHud(): void {
   const hot = hotZones();
   const mine = d && d.player === me.id;
   drawRigPick(S.playing ? null : d, !!mine);
+  drawBikePick(S.playing ? null : d, !!mine);
   syncTableDice(me, !!mine);
   syncFxSupply();
   const lead = leaderOf(me);

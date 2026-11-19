@@ -85,7 +85,9 @@ Object.assign(window, { __fx: {
   aim: (id: string, yaw: number | null) => { const o = carObjs.get(id); if (o) o.userData.aim = yaw; },
   zoom: (id: string, d = 3) => { const o = carObjs.get(id); if (o) { controls.target.copy(o.position); camera.position.copy(o.position).add(new THREE.Vector3(-d * 0.3, d * 0.6, d)); } },
   explode: (x: number, z: number) => explode(new THREE.Vector3(x, TILE_T, z)),
-  crash: (id: string, dx = 1.5, dz = 0) => { const o = carObjs.get(id); if (o) crash(id, o.position.clone().add(new THREE.Vector3(dx, 0, dz)), ''); },
+  crash: (id: string, dx = 1.5, dz = 0) => { const o = carObjs.get(id); if (o) crash(id, o.position.clone().add(new THREE.Vector3(dx, 0, dz)), undefined, null); },
+  // A car falling into a pit trap `dx` ahead of it.
+  pit: (id: string, dx = 1.6) => { const o = carObjs.get(id); if (o) crash(id, o.position.clone().add(new THREE.Vector3(dx, 0, 0)), 'pit', null); },
   burst: (fromId: string, toId: string) => {
     const a = carObjs.get(fromId), b = carObjs.get(toId);
     if (a && b) burst(a.position.clone(), b.position.clone(), toId);

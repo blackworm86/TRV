@@ -177,11 +177,37 @@ export function filmBeat(f: Frame): void {
   // The sand worm has a shot of its own, never merged into another.
   if (f.kind === 'elim' && f.by === 'sand_worm') { begin('worm', made.subjects, made.axis, now); return; }
   // Events one right after the other stay in one shot, which widens to hold them: no flurry of cuts.
-  if (take && S.shot && now - take.t0 < D.hold) {
-    for (const s of made.subjects) if (!take.subjects.some(x => x.key === s.key)) take.subjects.push(s);
+  // Only when they happen there, though: an event somewhere else gets a shot of its own.
+  if (take && S.shot && now - take.t0 < D.hold && closeTo(take, made.subjects)) {
+    join(take, made.subjects);
     return;
   }
   begin(f.kind, made.subjects, made.axis, now);
+}
+
+/** True when one of `subjects` is within `merge` road spaces of what the shot `tk` shows. */
+function closeTo(tk: Take, subjects: Live[]): boolean {
+  const shown = tk.subjects.map(s => s.get().at);
+  return subjects.some(s => { const p = s.get().at; return shown.some(q => Math.hypot(p.x - q.x, p.z - q.z) < D.merge * SP); });
+}
+/** Adds `subjects` to the shot `tk` (the shot widens to hold them). */
+function join(tk: Take, subjects: Live[]): void {
+  for (const s of subjects) if (!tk.subjects.some(x => x.key === s.key)) tk.subjects.push(s);
+}
+
+/**
+ * A die rolled on the table for an action (asked by the user, 2026-11-19: the camera stayed on one
+ * action while the dice of another were rolled): the shot shows the action's space and where the die
+ * lands. A roll by what the shot already shows joins it; elsewhere, the camera goes there. `landing`
+ * is where the die comes to rest (app/rolls.ts chose it).
+ */
+export function filmRoll(f: Frame, landing: THREE.Vector3): void {
+  if (!directing() || !f.at || !f.die) return;
+  const now = performance.now() / 1000;
+  const subjects = [point(world(f.at), D.subject.car), point(landing, D.subject.die)];
+  if (take && S.shot && closeTo(take, subjects)) { join(take, subjects); return; }
+  setShotFor('roll');
+  begin('roll', subjects, ROAD, now);
 }
 
 /** A shot on dice lying on the table (a question about them). */
