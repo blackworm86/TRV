@@ -28,6 +28,8 @@ type Trv = {
   snapshot(): unknown;
   playing: boolean;
   camera: { fov: number };
+  scenes: { played: { scene: { kind: string }; from: number; to: number }[]; phase: string; clock: number; shown: number; log: { frame: { kind: string; snap: unknown } }[] };
+  shownSnap: unknown;
   cam: { chase: string | null; action: boolean; back: boolean; settings: { zenith: boolean } };
 };
 declare global { interface Window { trv?: Trv } }
@@ -47,7 +49,7 @@ function watchErrors(page: Page): string[] {
  * Opens the game. `save` puts a hot seat game in storage first (the page resumes it), with the
  * given choices already made; `settings` sets the display options.
  */
-async function open(page: Page, opts: { save?: number[]; settings?: object; query?: string; leaders?: string[] } = {}): Promise<string[]> {
+async function open(page: Page, opts: { save?: number[]; setup?: object; settings?: object; query?: string; leaders?: string[] } = {}): Promise<string[]> {
   const errors = watchErrors(page);
   await page.addInitScript(([saveKey, settingsKey, save, settings]) => {
     if (sessionStorage.getItem('trv-test-init')) return; // only on the first load of the test
@@ -55,7 +57,7 @@ async function open(page: Page, opts: { save?: number[]; settings?: object; quer
     localStorage.clear();
     if (save) localStorage.setItem(saveKey as string, JSON.stringify(save));
     localStorage.setItem(settingsKey as string, JSON.stringify(settings));
-  }, [SAVE_KEY, SETTINGS_KEY, opts.save ? { setup: { seed: SEED, startSide: 'a',
+  }, [SAVE_KEY, SETTINGS_KEY, opts.save ? { setup: opts.setup ?? { seed: SEED, startSide: 'a',
     ...(opts.leaders ? { players: PLAYERS.map((p, i) => ({ ...p, leader: opts.leaders![i] })), leaders: true } : { players: PLAYERS }) }, choices: opts.save } : null,
     { quality: 'low', ...opts.settings }] as const);
   // The first screen connects to the online store at once (its home lists one's games and friends):
@@ -336,5 +338,214 @@ test.describe('game', () => {
     await expect(bo.locator('#mineList')).toContainText(/In corso/);
     expect(errors).toEqual([]);
     expect(boErrors).toEqual([]);
+  });
+
+  test('Movimento nuovo: a recorded game plays its slams, shots, jumps and eliminations one scene at a time, the bubbles never ahead', async ({ page }) => {
+    test.setTimeout(900_000);
+    // A Carnage game with three teams, chosen by a fixed chooser that avoids the options marked as
+    // dangerous: it holds a slam, a shot that deals damage, a ramp jump and an elimination.
+    const players = [...PLAYERS, { name: 'Arancio', color: '#ec9230', crew: 'orange' }];
+    const errors = await open(page, { save: [], setup: { seed: '06'.repeat(32), startSide: 'a', players, carnage: true }, settings: { speed: 'fast', newMotion: true } });
+    // Every animation frame: while the beats play, once a choice's first frame is shown the table shows the
+    // state of the last frame shown, never a later one (before it, the state before the choice).
+    await page.evaluate(() => {
+      const w = window as unknown as { trvAhead: string[]; trvChecks: number };
+      w.trvAhead = []; w.trvChecks = 0;
+      let base = -1;
+      const look = (): void => {
+        const t = window.trv!;
+        const log = t.scenes.log;
+        if (!t.playing) base = -1;
+        else if (base < 0) base = log.length;
+        if (t.playing && log.length > base) {
+          w.trvChecks++;
+          const last = log[log.length - 1].frame;
+          if (t.shownSnap !== last.snap) w.trvAhead.push(`${t.scenes.phase} after ${last.kind} (${log.length - base} shown)`);
+        }
+        requestAnimationFrame(look);
+      };
+      requestAnimationFrame(look);
+    });
+    // The choices that show an event still to see play out as scenes; the others are skipped to their end.
+    let wanted = ['slam', 'shot', 'jump', 'elim'];
+    let state = { x: 11, n: 0 };
+    while (wanted.length && state.n < 1200) {
+      // The table is drawn in software here: a choice with many events plays for minutes.
+      await page.waitForFunction(() => !window.trv!.playing && !!window.trv!.decision, null, { timeout: 240_000, polling: 500 }).catch(async () => {
+        const st = await page.evaluate(() => ({ playing: window.trv!.playing, phase: window.trv!.scenes.phase, decision: !!window.trv!.decision }));
+        throw new Error(`after choice ${state.n}: the table never came back to a decision ${JSON.stringify(st)}`);
+      });
+      const r = await page.evaluate(([st, wanted]) => {
+        const t = window.trv!;
+        let { x, n } = st;
+        while (t.decision && n < 1200) {
+          x = (x * 1103515245 + 12345) & 0x7fffffff; n++;
+          const from = t.game!.frames.length;
+          const opts = t.decision.options as { danger?: boolean }[];
+          const safe = opts.map((o, i) => (o.danger ? -1 : i)).filter(i => i >= 0);
+          t.choose(safe.length ? safe[x % safe.length] : x % opts.length);
+          const fr = t.game!.frames.slice(from) as { kind: string }[];
+          const kinds = fr.map((f, i) => (f.kind === 'shot' ? (fr.slice(i + 1).some(d => d.kind === 'damage') ? 'shot' : 'miss') : f.kind));
+          if (kinds.some(k => wanted.includes(k))) return { x, n, kinds };
+          t.skipBeats();
+        }
+        return { x, n, kinds: [] as string[] };
+      }, [state, wanted] as const);
+      state = { x: r.x, n: r.n };
+      wanted = wanted.filter(k => !r.kinds.includes(k));
+      if (!r.kinds.length) break;
+    }
+    expect(wanted).toEqual([]);
+    await expect.poll(() => page.evaluate(() => window.trv!.playing), { timeout: 240_000 }).toBe(false);
+    const st = await page.evaluate(() => {
+      const s = window.trv!.scenes;
+      const w = window as unknown as { trvAhead: string[]; trvChecks: number };
+      return { played: s.played.map(p => ({ kind: p.scene.kind, from: p.from, to: p.to })), ahead: w.trvAhead, checks: w.trvChecks };
+    });
+    const kindsPlayed = new Set(st.played.map(p => p.kind));
+    for (const k of ['slam', 'shot', 'jump']) expect([...kindsPlayed], k).toContain(k);
+    // One scene at a time: each starts once the one before is over.
+    for (let k = 1; k < st.played.length; k++) expect(st.played[k].from, `scene ${k}`).toBeGreaterThanOrEqual(st.played[k - 1].to - 1e-6);
+    expect(st.checks).toBeGreaterThan(100);
+    expect(st.ahead).toEqual([]);
+    expect(errors).toEqual([]);
+  });
+
+  test('Percorso mode still plans in the next game after a path sent to the host as an online guest', async ({ page }) => {
+    // The bug (2026-11-19): a guest's path marked the choices up to its end as sent (waypoints.ts), and
+    // that mark outlived the game; in the next one the choices start again from 0, so Percorso stayed
+    // off, the table moved one step per click, until the page was loaded again.
+    const errors = await open(page, { save: [], settings: { speed: 'skip', move: 'path' } });
+    const r = await page.evaluate(async players => {
+      const W = await import('/src/app/waypoints.ts');
+      const G = await import('/src/app/game.ts');
+      const { S } = await import('/src/app/state.ts');
+      const t = window.trv!;
+      // Up to the first step decision.
+      for (let i = 0; i < 20 && t.decision && t.decision.kind !== 'step'; i++) { t.choose(0); t.skipBeats(); }
+      if (t.decision?.kind !== 'step') return { first: false, sent: false, next: false };
+      // A guest of an online room: the path goes to the host (the write is not looked at here).
+      const net = { store: { write: async () => {} }, code: 'ABCDE', uid: 'u', host: false, room: null, stop: () => {}, lobbyOpen: false, qrFor: '' };
+      S.net = net as unknown as typeof S.net;
+      const first = W.planning();
+      W.addPoint(0); W.confirmStop(); W.go();
+      const sent = !t.decision; // sent: waiting for the host
+      S.net = null;
+      // The next game, from the hot seat setup: its first step decision.
+      G.startGame({ setup: { seed: '9'.repeat(64), startSide: 'a', players }, choices: [] }, true);
+      t.skipBeats();
+      for (let i = 0; i < 20 && t.decision && t.decision.kind !== 'step'; i++) { t.choose(0); t.skipBeats(); }
+      return { first, sent, next: t.decision?.kind === 'step' && W.planning() };
+    }, PLAYERS);
+    expect(r).toEqual({ first: true, sent: true, next: true });
+    expect(errors).toEqual([]);
+  });
+
+  test('an online room with crew leaders: both players see their own two boards and pick at once', async ({ page, context }) => {
+    test.setTimeout(240_000); // two tables drawn in software
+    // Asked by the user (2026-11-19): while one player picked a crew leader, the others could do nothing.
+    const errors = await open(page, { query: '?net=local' });
+    await page.locator('#myname').fill('Host');
+    await page.locator('#mPlay').click();
+    await page.locator('#mCreate').click();
+    await page.locator('#oleaders').check();
+    await page.locator('#ocreate').click();
+    await expect.poll(() => page.locator('#lcode').textContent()).toMatch(/^[A-Z0-9]{5}$/);
+    const code = (await page.locator('#lcode').textContent())!;
+    const guest = await context.newPage();
+    const guestErrors = watchErrors(guest);
+    await guest.goto(GAME + '?net=local');
+    await expect.poll(() => guest.evaluate(() => typeof window.trv?.choose)).toBe('function');
+    await guest.locator('#myname').fill('Ospite');
+    await guest.locator('#mPlay').click();
+    await guest.locator('#ocode').fill(code);
+    await guest.locator('#ojoin').click();
+    await expect(page.locator('#lseats')).toContainText('Ospite');
+    await page.locator('#lstart').click();
+    // Act: both tables show their own two boards at once, whoever the rules ask first.
+    for (const p of [page, guest]) await expect(p.locator('#leaderpick .leader')).toHaveCount(2, { timeout: 60_000 });
+    // The one not asked yet picks first: it is told to wait for the others.
+    const asked = (await page.evaluate(() => !!window.trv!.decision && window.trv!.decision.kind === 'leader')) ? page : guest;
+    const early = asked === page ? guest : page;
+    await early.locator('#leaderpick .leader').first().click();
+    await expect(early.locator('#leaderpick h2')).toContainText('in attesa', { timeout: 30_000 });
+    await asked.locator('#leaderpick .leader').last().click();
+    // Assert: both picks are taken, the two tables the same.
+    const leaders = (p: Page): Promise<string> => p.evaluate(() => JSON.stringify((window.trv!.game as unknown as { players: { leader?: string }[] }).players.map(x => !!x.leader)));
+    await expect.poll(() => leaders(page), { timeout: 60_000 }).toBe('[true,true]');
+    await expect.poll(() => leaders(guest), { timeout: 60_000 }).toBe('[true,true]');
+    await expect.poll(async () => (await page.evaluate(() => JSON.stringify(window.trv!.snapshot())))
+      === (await guest.evaluate(() => JSON.stringify(window.trv!.snapshot()))), { timeout: 45_000 }).toBe(true);
+    expect(errors).toEqual([]);
+    expect(guestErrors).toEqual([]);
+  });
+
+  test('a waypoint path ending with "no road die" before a shot is asked: the car drives its path once, never back', async ({ page }) => {
+    test.setTimeout(300_000);
+    // The bug (2026-11-19): declining the road die shows nothing when a shot is asked right after; the
+    // table was then drawn as the rules had it, the car slid straight to its last space while its
+    // moves were still queued, went back to the first and drove the path.
+    const players = [...PLAYERS, { name: 'Arancio', color: '#ec9230', crew: 'orange' }];
+    const errors = await open(page, { save: [], setup: { seed: SEED, startSide: 'a', players }, settings: { speed: 'full', move: 'path' } });
+    // Arrange: skip through the game to a path all on road whose "no road die" produces no frame.
+    const mine = await page.evaluate(async ([saveKey]) => {
+      const W = await import('/src/app/waypoints.ts');
+      const E = await import('/src/game/trv/engine.ts');
+      const t = window.trv!;
+      const framesAfter = (extra: number[]): number => {
+        const s = JSON.parse(localStorage.getItem(saveKey)!) as { setup: Parameters<typeof E.newGame>[0]; choices: number[] };
+        const g = E.newGame(s.setup), it = E.play(g);
+        let r = it.next(0);
+        for (const c of [...s.choices, ...extra]) { if (r.done) break; r = it.next(c); }
+        return g.frames.length;
+      };
+      let x = 11;
+      for (let n = 0; n < 1500 && t.decision; n++) {
+        if (t.decision.kind === 'step' && W.planning()) {
+          const path: number[] = [];
+          for (let k = 0; k < 9; k++) {
+            const d = W.planDecision();
+            if (!d) break;
+            // The road space farthest ahead.
+            let best = -1, col = -1;
+            d.options.forEach((o, i) => { const q = o as { pos?: { c: number }; label: string }; if (q.pos && /: strada$/.test(q.label) && q.pos.c > col) { col = q.pos.c; best = i; } });
+            if (best < 0) break;
+            W.addPoint(best); path.push(best);
+          }
+          const asksRoadDie = /Tutto su strada/.test(document.querySelector('#wpwin h4')?.textContent ?? '');
+          W.restart();
+          if (asksRoadDie && path.length >= 2 && framesAfter([...path, 0]) === framesAfter(path)) return path;
+        }
+        x = (x * 1103515245 + 12345) & 0x7fffffff;
+        const opts = t.decision.options as { danger?: boolean }[];
+        const safe = opts.map((o, i) => (o.danger ? -1 : i)).filter(i => i >= 0);
+        t.choose(safe.length ? safe[x % safe.length] : x % opts.length);
+        // A face-down hazard asks first: yes.
+        const ask = document.getElementById('hzask');
+        if (ask && ask.style.display !== 'none') [...ask.querySelectorAll('button')].find(b => /^s/i.test(b.textContent!.trim()))?.click();
+        t.skipBeats();
+      }
+      return null;
+    }, [SAVE_KEY] as const);
+    expect(mine, 'a path all on road whose road die answer shows nothing').not.toBe(null);
+    await page.waitForTimeout(1500);
+    // Act: the path is planned again and run with VAI! (Enter: without the road die); the car is watched.
+    await page.evaluate(async mine => {
+      const W = await import('/src/app/waypoints.ts');
+      const { carObjs } = await import('/src/app/board.ts');
+      const G = await import('/src/app/game.ts');
+      const o = carObjs.get(G.g!.activeCar!)!;
+      for (const c of mine) W.addPoint(c);
+      const w = window as unknown as { trvBack: number };
+      w.trvBack = 0;
+      let far = o.position.x;
+      const look = (): void => { w.trvBack = Math.max(w.trvBack, far - o.position.x); far = Math.max(far, o.position.x); requestAnimationFrame(look); };
+      requestAnimationFrame(look);
+      dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true, cancelable: true }));
+    }, mine!);
+    await expect.poll(() => page.evaluate(() => !window.trv!.playing && !!window.trv!.decision), { timeout: 90_000 }).toBe(true);
+    // Assert: it never went back along the road (a road space is about 1.5 units long).
+    expect(await page.evaluate(() => (window as unknown as { trvBack: number }).trvBack)).toBeLessThan(0.2);
+    expect(errors).toEqual([]);
   });
 });

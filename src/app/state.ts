@@ -55,6 +55,8 @@ export const S = {
   tabOpen: false,
   /** Online upgrade draft: the round this device has sent its pick for (-1: none). */
   draftSent: -1,
+  /** Online: this player has sent their crew leader pick (game.ts leaderPick), waiting for the host. */
+  leaderSent: false,
   /** Cars whose upgrade card has just fired a passive ability, and until when it glows (performance.now ms). */
   cardFlash: new Map<string, number>(),
   /** The dice drawer opened or closed by hand, for one decision (then it follows the game again). */

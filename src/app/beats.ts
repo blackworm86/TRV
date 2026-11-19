@@ -5,10 +5,12 @@ import * as THREE from 'three';
 import { type Frame, type Snapshot } from '../game/trv/engine';
 import { rampSurfaceAt } from '../view/terrain/carnage3d';
 import { carObjs, chopperObjs, fxSupply, markerGroup } from './board';
-import { JUMP, JUMP_BY_SPACES, JUMP_FLIP_LIFT, JUMP_WOBBLE, Jump, STUNT_SLOWMO, jumpSeconds, ramps } from './cars';
+import { ramps, track } from './cars';
+import { jumpEstimate, makeJump, planJump, type Jump } from './motion/jump';
+import { hopMove, pushMove, quakeMove, slewMove, spinMove, type Move } from './motion/moves';
 import { actionDone, actionShot, directBeat, directing, shotFor } from './director';
 import { filmBeat, filmDice, filmRoll } from './shots';
-import { burst, crash, explode, flash, impact, smokeOn, word, words } from './effects';
+import { aimAt, burst, crash, explode, flash, impact, smokeOn, word, words } from './effects';
 import { wormEats } from './worm';
 import { salvo } from './salvo';
 import { shrapnel, shrapnelSeconds } from './shrapnel';
@@ -22,9 +24,9 @@ import { endReplay, replaying } from './replay';
 import { dropHand } from './handroll';
 import { rollOnTable, showOrder, showRound } from './rolls';
 import { SPEED_SCALE, settings } from './settings';
+import { pushScenes, sceneMode, skipScenes } from './scenePlayer';
 import { TILE_W, tileSlots, world } from './stage';
 import { S } from './state';
-import { JumpStunt, hash01, pickStunt } from './stunts';
 import { $ } from './util';
 
 /**
@@ -36,19 +38,59 @@ export const effects: Effect[] = [];
 export const queue: Frame[] = [];
 
 export const BEAT = P.beats.seconds as Partial<Record<Frame['kind'], number>>;
+
+/** A gun's burst, from the first round to the last spark. */
+const burstSeconds = (): number => P.burst.aim + P.burst.rounds * P.burst.gap + 0.5;
+/** The shooting die of a gun's shot (its frame knows whether it hit), not a pit trap's or a salvo's. */
+const gunRoll = (f: Frame): boolean => f.kind === 'roll' && f.die?.die === 'shooting' && f.hit !== undefined;
+/**
+ * A vehicle moved without driving (asked by the user, 2026-11-19), as the move's `why` says: pushed
+ * by a slam or a bump, spun by an oil slick, slewed by a skid, shaken by a quake, flung by Blastoff
+ * (motion/moves.ts). Its move to start from where it stands now to `to`.
+ */
+function shoveOf(why: string, o: THREE.Object3D, to: THREE.Vector3): Move | null {
+  const from = o.position.clone(), yaw = (o.userData.yaw ?? 0) as number, space = TILE_W / 8;
+  if (from.distanceTo(to) < space * 0.1) return null;
+  const side = to.z > from.z ? -1 : 1;
+  switch (why) {
+    case 'slam': case 'push': return pushMove(from, to, yaw, space);
+    case 'oil': return spinMove(from, to, yaw, side, space);
+    case 'skid': return slewMove(from, to, yaw, side);
+    case 'quake': return quakeMove(from, to, yaw, space, from.x * 7 + from.z * 3);
+    case 'blastoff': return hopMove(from, to, yaw, space);
+    default: return null;
+  }
+}
+/** How long a move without driving lasts (seconds at normal speed), for the beat after it to wait. */
+function shoveSeconds(f: Frame): number | null {
+  const M = P.motion.moves;
+  switch (f.why) {
+    case 'slam': case 'push': return 1 / M.pushSpeed + M.pushSettle;
+    case 'oil': return M.spinSeconds;
+    case 'skid': return M.slewSeconds;
+    case 'quake': return M.quakeSeconds;
+    case 'blastoff': return M.hopSeconds;
+    default: return null;
+  }
+}
+
+/** The last gun's shot shown: the shooting die that follows fires its burst (asked by the user, 2026-11-19). */
+let lastShot: Frame | null = null;
 export function beatLength(f: Frame): number {
   // A ramp jump lasts as long as its flight: the next beat waits for the landing.
   if (f.kind === 'jump' && f.from && f.at) {
     const jp = f.vehicleId ? carObjs.get(f.vehicleId)?.userData.jump as Jump | undefined : undefined;
-    if (!jp) return jumpSeconds(Math.max(1, f.at.c - f.from.c));
-    // A stunt's slow motion makes its flight longer: the next beat waits for it too.
-    const slow = directing() && (jp.stunt === 'barrel' || jp.stunt === 'backflip')
-      ? jp.flight * (STUNT_SLOWMO.to - STUNT_SLOWMO.from) * (1 / STUNT_SLOWMO.speed - 1) : 0;
-    return JUMP.climb + jp.flight + JUMP.land + slow;
+    if (!jp) return jumpEstimate(Math.max(1, f.at.c - f.from.c));
+    // Its plan (motion/jump.ts); a stunt's slow motion makes its flight longer: the next beat waits for it too.
+    return planJump(jp, directing()).seconds;
   }
   if (f.kind === 'elim' && f.by === 'sand_worm') return P.sandWorm.seconds;
   if (f.kind === 'shot' && f.why === 'missiles') return P.salvo.seconds;
   if (f.kind === 'shot' && f.why === 'shrapnel' && f.from && f.at) return shrapnelSeconds(world(f.from), world(f.into ?? f.at));
+  // A gun's shot decided by the die only aims; the shooting die then lasts until its burst is over.
+  if (f.kind === 'shot' && !f.why && !f.auto) return P.burst.aimBeat;
+  if (gunRoll(f)) return P.burst.afterDie + burstSeconds();
+  if (f.kind === 'move' && f.why) { const s = shoveSeconds(f); if (s !== null) return s; }
   if (f.kind !== 'log') return BEAT[f.kind] ?? 0.3;
   if (f.logKind === 'turn') return 0.6;
   return f.logKind === 'dice' || f.logKind === 'bad' || f.logKind === 'good' ? 0.45 : 0.1;
@@ -67,7 +109,7 @@ export function settled(): boolean {
   for (const o of carObjs.values()) {
     const tg = o.userData.target as THREE.Vector3 | undefined;
     // Along the table only: a car parked on a ramp rests on its surface, above its target's height.
-    if (o.userData.jump || (tg && Math.hypot(o.position.x - tg.x, o.position.z - tg.z) > 0.03)) return false;
+    if (o.userData.jump || o.userData.shove || (tg && Math.hypot(o.position.x - tg.x, o.position.z - tg.z) > 0.03)) return false;
   }
   for (const td of fxSupply.values()) if (td.t < 1) return false;
   for (const o of chopperObjs.values()) {
@@ -84,13 +126,18 @@ export function settled(): boolean {
  * bubbles and dashboards show until the first beat (by default the first beat's own table).
  */
 export function playBeats(frames: Frame[], before?: Snapshot): void {
-  if (!frames.length) { render(); return; }
+  // A choice that shows nothing (the road die declined before a shot is asked, a die assigned). While
+  // earlier beats still play, the table stays as they show it: drawn as the rules have it now, a car
+  // whose moves are still queued would slide straight to its last space, then back to drive its path
+  // (bug of 2026-11-19, a waypoint path ending with "no road die").
+  if (!frames.length) { if (S.playing) drawHud(); else render(); return; }
   if (!S.playing) S.shownSnap = before ?? S.restSnap ?? frames[0].snap;
   // The bubbles keep the order they had until the roll for the first player or the new round's
   // beat comes up (then they slide into the new turn order, see applyBeat).
   if (g && frames.some(f => f.kind === 'order')) S.bubbleOrder = g.players.map(p => p.id);
   else if (frames.some(f => f.kind === 'round') && S.shownOrder.length && !S.bubbleOrder) S.bubbleOrder = [...S.shownOrder];
-  queue.push(...frames);
+  // With "Movimento nuovo" the frames are played as the director's scenes (scenePlayer.ts).
+  if (sceneMode()) pushScenes(frames); else queue.push(...frames);
   S.playing = true;
   S.nextBeatAt = 0;
   markerGroup.clear();
@@ -103,17 +150,20 @@ export function playBeats(frames: Frame[], before?: Snapshot): void {
 export function skipBeats(): void {
   if (!S.playing) return;
   dropHand(); // dice waiting to be thrown by hand are rolled with the rest
-
-  for (const f of queue) {
+  // The frames not shown yet: the beats' queue, or the scenes still to play.
+  const left = [...queue, ...skipScenes()];
+  queue.length = 0;
+  for (const f of left) {
     if (f.kind === 'log') { toastLine(f); if (f.logKind === 'turn') S.trayFresh = true; }
     // The dice rolled in the skipped beats still lie by the action, at rest: a question may be about them.
     if (f.kind === 'roll' && !replaying) rollOnTable(f);
   }
   // A damage token drawn in the skipped beats is still shown: the player must see what the car took.
-  const dmg = [...queue].reverse().find(f => f.kind === 'damage');
+  const dmg = [...left].reverse().find(f => f.kind === 'damage');
   if (dmg && !replaying) showDamage(dmg);
   for (const td of fxSupply.values()) { td.t = 1; td.d.mesh.position.copy(td.to); td.d.mesh.quaternion.copy(td.q1); }
-  queue.length = 0;
+  // A jump in the air lands at once (the table is shown as the frames leave it).
+  for (const o of carObjs.values()) if (o.userData.jump) { delete o.userData.jump; track(o).finish(); }
   $('roundbox').classList.remove('show');
   document.getElementById('orderbox')?.classList.remove('show');
   finishBeats();
@@ -149,7 +199,11 @@ export function finishBeats(): void {
   render();
 }
 
-export function applyBeat(f: Frame, now: number): void {
+/**
+ * Shows one beat. `film`: the director takes a shot for it (false for the frames of a scene after
+ * its first: one shot per scene, design/gdd/camera-director.md §B.7).
+ */
+export function applyBeat(f: Frame, now: number, film = true): void {
   S.shownSnap = f.snap;
   if (f.kind === 'log') {
     toastLine(f);
@@ -158,15 +212,27 @@ export function applyBeat(f: Frame, now: number): void {
     return;
   }
   drawTable(f.snap);
+  // A move the vehicle did not drive: its own motion, from where it stands to the space drawn.
+  if (f.kind === 'move' && f.why && f.vehicleId) {
+    const o = carObjs.get(f.vehicleId), to = o?.userData.target as THREE.Vector3 | undefined;
+    const mv = o && to && !o.userData.hitch ? shoveOf(f.why, o, to) : null;
+    if (o && mv) { delete o.userData.route; o.userData.shove = mv; }
+  }
   drawBotCards(f.snap);
   drawHud(); // the bubbles and the dashboards follow the beat (S.shownSnap)
   const at = f.at ? world(f.at) : null;
-  if (settings.director2) filmBeat(f); else directBeat(f);
+  if (film) { if (settings.director2) filmBeat(f); else directBeat(f); }
   switch (f.kind) {
     case 'roll':
       // The old director: a slam's dice end the shot of the impact, the view goes back up to see them land by the cars.
       if (!settings.director2 && shotFor === 'slam' && f.die && (f.die.die === 'slam' || f.die.die === 'direction')) actionDone();
       rollOnTable(f); showRoll(f);
+      // The burst comes once the shooting die has landed: on the target (debris, sparks) or wide of it.
+      if (gunRoll(f) && lastShot?.from && lastShot.at) {
+        const shot = lastShot, hit = !!f.hit;
+        let fired = false;
+        effects.push({ life: P.burst.afterDie, t: 0, step: u => { if (u >= 1 && !fired) { fired = true; burst(world(shot.from!), world(shot.at!), shot.vehicleId, hit); } } });
+      }
       // The new one films the roll: the action's space and where the die lands (shots.ts).
       if (settings.director2 && f.die) { const td = fxSupply.get(f.die.die); if (td) filmRoll(f, td.to); }
       break;
@@ -177,7 +243,9 @@ export function applyBeat(f: Frame, now: number): void {
     case 'shot':
       if (f.why === 'missiles' && f.from && f.spaces) salvo(f.vehicleId, world(f.from), f.spaces);
       else if (f.why === 'shrapnel' && f.from && at) shrapnel(world(f.from), at, f.vehicleId, f.into ? world(f.into) : null);
-      else if (f.from && at) burst(world(f.from), at, f.vehicleId);
+      // A hit with no die (Spotter, Called Shot) fires at once; else the gun aims and waits for the die.
+      else if (f.from && at && f.auto) burst(world(f.from), at, f.vehicleId, true);
+      else if (f.from && at) { lastShot = f; aimAt(world(f.from), at, f.vehicleId); }
       break;
     case 'damage':
       showDamage(f);
@@ -199,39 +267,17 @@ export function applyBeat(f: Frame, now: number): void {
       // short of the space, then rolls forward to its centre: never back.
       const o = f.vehicleId ? carObjs.get(f.vehicleId) : undefined;
       if (o && f.from && f.at) {
-        const space = TILE_W / 8;
-        const rampAt = world(f.from), to = world(f.at);
+        const to = world(f.at);
         const list = ramps(now);
-        // The lip: the far end of the ramp's surface along the road, and its slope there.
-        let lip = new THREE.Vector3(rampAt.x + space * 0.3, rampAt.y + space * 0.3, rampAt.z), slope = JUMP.maxAngle;
-        for (let k = 0.5; k >= 0; k -= 0.02) {
-          const y = rampSurfaceAt(list, rampAt.x + k * space, rampAt.z);
-          if (y === null) continue;
-          const back = rampSurfaceAt(list, rampAt.x + (k - 0.12) * space, rampAt.z) ?? y;
-          lip = new THREE.Vector3(rampAt.x + k * space, y, rampAt.z);
-          slope = Math.atan2(y - back, 0.12 * space);
-          break;
-        }
-        // Touch down a little short of the centre and roll on; a short jump lands on the centre.
-        const touchX = Math.max(lip.x + JUMP.minFlight * space, to.x - JUMP.short * space);
-        const touch = touchX >= to.x ? to.clone() : to.clone().setX(touchX);
-        const angle = Math.max(JUMP.minAngle, Math.min(JUMP.maxAngle, slope));
-        // The flight time a body thrown at that angle needs to come down on the touch point.
-        const rise = (touch.x - lip.x) * Math.tan(angle) - (touch.y - lip.y);
-        const flight = Math.sqrt(2 * Math.max(rise, 0.05 * space) / (JUMP.gravity * space));
         const n = Math.max(1, Math.min(4, f.at.c - f.from.c));
-        const seed = `${f.vehicleId}|${f.from.r},${f.from.c}|${f.at.c}|${g?.round ?? 0}`;
-        const stunt = (o.userData.forceStunt as JumpStunt | undefined) ?? pickStunt(n, hash01(seed));
-        // A somersault needs a steeper launch, so more time in the air.
-        const launch = stunt === 'backflip' ? Math.min(angle + JUMP_FLIP_LIFT, 1.1) : angle;
-        const lift = (touch.x - lip.x) * Math.tan(launch) - (touch.y - lip.y);
-        const air = stunt === 'backflip' ? Math.sqrt(2 * Math.max(lift, 0.05 * space) / (JUMP.gravity * space)) : flight;
-        const jump: Jump = {
-          from: o.position.clone(), lip, touch, to, angle: launch, flight: air, t: 0, landed: false, style: JUMP_BY_SPACES[n], touchPitch: 0,
-          stunt, side: hash01(`${seed}|side`) < 0.5 ? 1 : -1, touchRoll: 0,
-          wobble: (hash01(`${seed}|wobble`) * 2 - 1) * JUMP_WOBBLE, nod: (hash01(`${seed}|nod`) * 2 - 1) * JUMP_WOBBLE,
-        };
+        const jump: Jump = makeJump({
+          from: o.position, rampAt: world(f.from), to, spaces: n,
+          seed: `${f.vehicleId}|${f.from.r},${f.from.c}|${f.at.c}|${g?.round ?? 0}`,
+          stunt: o.userData.forceStunt as Jump['stunt'] | undefined,
+        }, { space: TILE_W / 8, surfaceAt: (x, z) => rampSurfaceAt(list, x, z) });
         o.userData.jump = jump;
+        track(o).begin(planJump(jump, directing()));
+        const lip = jump.lip;
         // The table's snapshot still has the car on the ramp: where it is going is the landing space.
         o.userData.target = to.clone();
         word('SALTO!', lip, '#f2c230', true);

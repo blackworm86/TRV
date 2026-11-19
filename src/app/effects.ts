@@ -10,7 +10,7 @@ import { carObjs, chopperObjs } from './board';
 import { collectMaterials } from './pieces';
 import { P } from './presentation';
 import { settings } from './settings';
-import { TILE_T, camera, renderer, scene } from './stage';
+import { TILE_T, TILE_W, camera, renderer, scene } from './stage';
 import { S } from './state';
 import { $ } from './util';
 
@@ -222,8 +222,8 @@ export const bulletGeo = new THREE.CylinderGeometry(0.022, 0.022, 1, 6);
  * and fires a burst. Every round has a muzzle flash, a recoil, a tracer that flies to the target
  * and sparks where it lands. The die that follows says whether it did any damage.
  */
-export function burst(from: THREE.Vector3, to: THREE.Vector3, targetId?: string): void {
-  // Who is firing: a chopper standing over that spot, else the nearest car to it.
+/** Who fires from `from` at `targetId`: a chopper standing over that spot, else the nearest car to it. */
+function shooterAt(from: THREE.Vector3, targetId?: string): { shooter: THREE.Object3D | undefined; flying: boolean } {
   let shooter: THREE.Object3D | undefined, flying = false;
   for (const o of chopperObjs.values()) {
     const tg = o.userData.target as THREE.Vector3 | undefined;
@@ -237,10 +237,30 @@ export function burst(from: THREE.Vector3, to: THREE.Vector3, targetId?: string)
       if (d < best) { best = d; shooter = o; }
     }
   }
+  return { shooter, flying };
+}
+
+/** The shooter turns its gun on the target and holds it there, before the die says how the burst goes. */
+export function aimAt(from: THREE.Vector3, to: THREE.Vector3, targetId?: string): void {
+  const { shooter } = shooterAt(from, targetId);
+  if (shooter) shooter.userData.aim = Math.atan2(-(to.z - shooter.position.z), to.x - shooter.position.x);
+}
+
+/**
+ * A gun's burst from `from` at `to`. `hit` (asked by the user, 2026-11-19, the burst after the
+ * shooting die): the rounds strike the target, sparks fly and pieces of it are thrown about; a miss
+ * sends them wide and past, raising dust where they land.
+ */
+export function burst(from: THREE.Vector3, to: THREE.Vector3, targetId?: string, hit = true): void {
+  const { shooter, flying } = shooterAt(from, targetId);
   const origin = (shooter?.position ?? from).clone();
   const yaw = Math.atan2(-(to.z - origin.z), to.x - origin.x);
   if (shooter) shooter.userData.aim = yaw;
-  const target = to.clone().setY(Math.max(to.y, TILE_T) + 0.3);
+  // A miss: the rounds go to one side of the target and a little past it.
+  const along = new THREE.Vector3(Math.cos(yaw), 0, -Math.sin(yaw)), side = new THREE.Vector3(-along.z, 0, along.x);
+  const space = TILE_W / 8, wide = (targetId ? targetId.charCodeAt(targetId.length - 1) % 2 : 0) ? 1 : -1;
+  const aimed = hit ? to.clone() : to.clone().addScaledVector(side, wide * BURST.missOffset * space).addScaledVector(along, BURST.missOffset * space * 0.6);
+  const target = aimed.setY(hit ? Math.max(to.y, TILE_T) + 0.3 : TILE_T + 0.02);
   const turret = shooter?.userData.turret as THREE.Object3D | undefined;
   const muzzleAt = (): THREE.Vector3 => {
     if (turret) return (turret.userData.muzzle as THREE.Object3D).getWorldPosition(new THREE.Vector3());
@@ -255,6 +275,12 @@ export function burst(from: THREE.Vector3, to: THREE.Vector3, targetId?: string)
     if (u >= 1 && shooter) shooter.userData.aim = null;
   } });
   word('RATATATA!', origin, '#ffe066');
+  // A hit: when the last rounds strike, the target throws pieces about.
+  if (hit && targetId) {
+    let thrown = false;
+    const at = BURST.aim + (BURST.rounds - 2) * BURST.gap + 0.08;
+    effects.push({ life: at, t: 0, step: u => { if (u >= 1 && !thrown) { thrown = true; debris(targetId, to); } } });
+  }
 
   function round(n: number): void {
     const a = muzzleAt();
@@ -288,9 +314,56 @@ export function burst(from: THREE.Vector3, to: THREE.Vector3, targetId?: string)
     scene.add(m);
     effects.push({ life: Math.max(0.05, dist / BURST.speed), t: 0, step: v => {
       m.position.copy(a).addScaledVector(dir, Math.max(streak / 2, v * dist - streak / 2));
-      if (v >= 1) { scene.remove(m); (m.material as THREE.Material).dispose(); sparks(b, dir); }
+      if (v >= 1) { scene.remove(m); (m.material as THREE.Material).dispose(); if (hit) sparks(b, dir); else dust(b); }
     } });
   }
+}
+
+/** Pieces of a vehicle struck by a burst: bits of its body, dark metal and hot glowing ones, thrown up and about. */
+function debris(targetId: string, at: THREE.Vector3): void {
+  if (!settings.effects) return;
+  const o = carObjs.get(targetId);
+  let body = 0x777777;
+  o?.traverse(x => { const m = (x as THREE.Mesh).material as THREE.MeshStandardMaterial | undefined; if (body === 0x777777 && m?.color && !m.transparent) body = m.color.getHex(); });
+  const D = BURST.debris, p0 = (o?.position ?? at).clone().setY(Math.max(at.y, TILE_T) + 0.3);
+  for (let i = 0; i < D.pieces; i++) {
+    const hot = i % 4 === 3;
+    const mat = hot ? new THREE.MeshBasicMaterial({ color: 0xffa040, transparent: true }) : new THREE.MeshStandardMaterial({ color: i % 2 ? body : 0x34312e, roughness: 0.7, metalness: 0.4, transparent: true });
+    const s = D.size * (0.6 + ((i * 37) % 10) / 10);
+    const m = new THREE.Mesh(new THREE.BoxGeometry(s, s * 0.35, s * 0.8), mat);
+    const a = (i / D.pieces) * Math.PI * 2 + i;
+    const v0 = new THREE.Vector3(Math.cos(a) * D.speed * (0.5 + (i % 3) / 3), D.lift * (0.6 + (i % 4) / 6), Math.sin(a) * D.speed * (0.5 + (i % 3) / 3));
+    const spin = new THREE.Vector3(7 + i, 5 + 2 * i, 3 + i);
+    m.position.copy(p0);
+    m.castShadow = true;
+    scene.add(m);
+    effects.push({ life: D.life, t: 0, step: v => {
+      // Thrown up, falling back, one low bounce on the table, then lying there as it fades.
+      const t = v * D.life, ground = TILE_T + s * 0.2;
+      let y = p0.y + v0.y * t - 9 * t * t, k = 1;
+      const land = (v0.y + Math.sqrt(v0.y * v0.y + 36 * (p0.y - ground))) / 18;
+      if (t > land) { const u = t - land, up = v0.y * 0.25; y = ground + Math.max(0, up * u - 9 * u * u); k = 0.35; }
+      const flat = Math.min(t, land) + Math.max(0, t - land) * k;
+      m.position.set(p0.x + v0.x * flat, Math.max(ground, y), p0.z + v0.z * flat);
+      if (t < land + 0.25) m.rotation.set(spin.x * t, spin.y * t, spin.z * t);
+      mat.opacity = v < 0.7 ? 1 : 1 - (v - 0.7) / 0.3;
+      if (hot) (mat as THREE.MeshBasicMaterial).color.setHex(0xffa040).lerp(new THREE.Color(0x2a2522), Math.min(1, v * 1.6));
+      if (v >= 1) { scene.remove(m); m.geometry.dispose(); mat.dispose(); }
+    } });
+  }
+  sparks(p0, new THREE.Vector3(0, -1, 0));
+}
+
+/** A round that missed hits the road: a little puff of dust. */
+function dust(at: THREE.Vector3): void {
+  if (!settings.effects) return;
+  const puff = new THREE.Sprite(new THREE.SpriteMaterial({ map: smokeTex, color: 0xb59a74, transparent: true, opacity: 0, depthWrite: false }));
+  puff.position.copy(at).setY(TILE_T + 0.05);
+  scene.add(puff);
+  effects.push({ life: 0.6, t: 0, step: v => {
+    puff.position.y = TILE_T + 0.05 + v * 0.18; puff.scale.setScalar(0.12 + v * 0.35); puff.material.opacity = 0.55 * Math.sin(v * Math.PI);
+    if (v >= 1) { scene.remove(puff); puff.material.dispose(); }
+  } });
 }
 
 /** Sparks where a round lands: a flash and a few bright bits thrown back. */

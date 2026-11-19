@@ -7,6 +7,21 @@
     "_settle": "After the last beat the table must come to rest (cars parked, dice landed, effects and the worm over) before the next choice or the end of the game; settle_max_s: the longest wait, in seconds of real time, in case something never stops.",
     "settle_max_s": 6
   },
+  "scenes": {
+    "_module": "app/scenes.ts, the director's scenes (design/gdd/camera-director.md §A): how the rules' frames are grouped into scenes and how long each phase lasts. takes: for each kind of scene, the kinds of frame that join it after the one that starts it (a log line joins whatever scene it falls in; moves of the same vehicle make one drive scene; a ramp's stunt die starts the jump scene it belongs to). push_moves: the most moves a slam scene takes after its direction die (the push, and Assault Bumper's extra space). prep: seconds for the camera to come onto the scene before its action (none for log lines); hold: seconds the scene stays on screen once its action is over, by kind (other: any kind not listed). Seconds at normal speed, scaled by beats.speed_scale.",
+    "takes": {
+      "slam": ["roll", "move", "damage", "elim", "fire", "reveal"],
+      "shot": ["roll", "damage", "elim", "fire"],
+      "jump": ["move", "damage", "elim", "fire"],
+      "damage": ["fire", "elim"]
+    },
+    "push_moves": 2,
+    "_alone": "alone_dice: dice that are never part of another scene (the road die is rolled for the turn, not for an action); alone_logs: kinds of log line that close the open scene and start one of their own (a new turn).",
+    "alone_dice": ["road"],
+    "alone_logs": ["turn"],
+    "prep": 0.6,
+    "hold": { "drive": 0.2, "slam": 0.8, "shot": 0.8, "jump": 0.6, "damage": 0.8, "elim": 0.8, "log": 0, "other": 0.3 }
+  },
   "drive": {
     "_module": "cars.ts: cars driving between spaces (world units per second, radians per second, radians)",
     "speed": 7, "turn_rate": 9, "park_turn_rate": 2.5, "max_yaw": 0.87
@@ -166,7 +181,69 @@
   },
   "burst": {
     "_module": "effects.ts: a gun's burst",
-    "aim": 0.32, "rounds": 8, "gap": 0.085, "speed": 26, "spread": 0.22
+    "aim": 0.32, "rounds": 8, "gap": 0.085, "speed": 26, "spread": 0.22,
+    "_after_die": "The burst comes after the shooting die (asked by the user, 2026-11-19): the shot's own beat only aims (aim_beat seconds), and the burst starts after_die seconds after the die is thrown, once it has landed. A hit throws debris pieces of the target (speed and lift in world units per second, life in seconds) and sparks; a miss sends the rounds miss_offset spaces wide and past, raising dust where they land.",
+    "aim_beat": 0.5, "after_die": 0.9, "miss_offset": 0.9,
+    "debris": { "pieces": 14, "speed": 2.4, "lift": 3.4, "life": 1.6, "size": 0.13 }
+  },
+  "motion": {
+    "_module": "view/models-config.ts (CarRig) and app/cars.ts: how a vehicle moves on its springs and how a motorcycle leans; the Vehicle Motion system (design/gdd/vehicle-motion.md, #36) grows from here",
+    "_units": "angles in radians; lengths as a fraction of the vehicle's height; k: spring stiffness, c: damping (per second)",
+    "car": {
+      "_note": "engine: a fast, small shake of the running body (lift, roll, freq in radians per second); pitch_per_accel, roll_per_turn: how much the body tips per unit of acceleration and of turn, at most max_tip; max_accel, max_turn_rate, max_speed: limits on the inputs (world units, seconds); steer_gain: wheel angle per radian of turn still to make, at most max_steer",
+      "engine": { "lift": 0.006, "roll": 0.004, "freq": 46 },
+      "pitch_per_accel": 0.012, "roll_per_turn": 0.05, "max_tip": 0.12,
+      "max_accel": 12, "max_turn_rate": 6, "max_speed": 10,
+      "steer_gain": 1.4, "max_steer": 0.5
+    },
+    "spring": {
+      "_note": "body: pitch and roll of the body; susp: each wheel's suspension following the ground (app/motion/rig.ts). k stiffness, c damping; c near 2*sqrt(k) stops without bouncing",
+      "body": { "k": 140, "c": 9 },
+      "susp": { "k": 320, "c": 26 }
+    },
+    "aim": {
+      "_note": "app/motion/aim.ts, a gun on a turret: speed radians per second the turret turns when its model gives none, elev_speed the barrel's; gap seconds between rounds; recoil seconds the barrel takes to come back; hold seconds it stays aimed after the last round before turning back; body_kick how hard each round rocks the body (radians per second on its springs); flash seconds of the muzzle flash",
+      "speed": 2.5, "elev_speed": 1.4, "gap": 0.2, "recoil": 0.14, "hold": 0.35, "body_kick": 0.35, "flash": 0.07
+    },
+    "drive": {
+      "_note": "app/motion/drive.ts: a car on a route never goes slower than min_speed (world units per second), so it always gets there; its front wheels look look_ahead road spaces ahead along the route to steer",
+      "min_speed": 0.05, "look_ahead": 0.5
+    },
+    "ride": {
+      "_note": "app/motion/rig.ts: how fast (per second) a vehicle's ride height follows the ground under its middle, sinking into mud and climbing onto sand; the suspensions take the difference under each wheel",
+      "rate": 10
+    },
+    "settle_eps": {
+      "_note": "app/motion/plan.ts, the true stop (design/gdd/vehicle-motion.md): a vehicle is still when its path is over and every spring is within x (radians) of rest and moves slower than v (radians per second)",
+      "x": 0.002, "v": 0.02
+    },
+    "bike": {
+      "_note": "lean: radians of lean per radian per second of turning per unit of speed (speed counted up to speed_cap), at most lean_max, reached at lean_rate per second; drift: how much further than its path a motorcycle's heading swings when it changes lane (asked by the user, 2026-11-18)",
+      "lean": 0.055, "lean_max": 0.6, "speed_cap": 6, "lean_rate": 7, "drift": 1.35,
+      "_g_lean": "app/motion/drive.ts bikeLean (design/gdd/vehicle-motion.md): lean = atan(v * yaw_rate / g_lean), at most lean_max; world units per second squared",
+      "g_lean": 9.8
+    },
+    "moves": {
+      "_note": "app/motion/moves.ts. push: a vehicle pushed off its space (slam, bump) slides at push_speed road spaces per second, hopping push_hop spaces, then settles push_settle seconds; push_kick rocks its body (radians per second). hit: the one that hits lunges hit_lunge spaces in hit_seconds, its nose dipping by hit_kick. skid (Stunned): it swings skid_angle radians out of line and back in skid_seconds, sliding skid_slide spaces. flip (out of action): it tips onto its side in flip_seconds, hopping flip_hop of its height. fall (into a pit): it rolls onto the hole, then drops fall_depth spaces tipping fall_tip radians, in fall_seconds",
+      "push_speed": 3.2, "push_hop": 0.05, "push_settle": 0.2, "push_kick": 0.9,
+      "hit_lunge": 0.16, "hit_seconds": 0.45, "hit_kick": 0.7,
+      "skid_angle": 1.05, "skid_seconds": 1.0, "skid_slide": 0.12,
+      "flip_seconds": 0.75, "flip_hop": 0.6,
+      "fall_seconds": 1.1, "fall_depth": 0.9, "fall_tip": 1.0,
+      "_involuntary": "Moves the vehicle does not drive (asked by the user, 2026-11-19), as the frame's why says. spin (an oil slick): it loses its grip and slides to its space turning spin_turns whole turns in spin_seconds, its path swinging spin_swing spaces out of line. slew (a skid, Bald Tires, Loose Wiring, Dazed): it slides to its space in slew_seconds, its nose swung slew_angle radians out of line and back. quake: shaken to its space in quake_seconds, quake_hops hops of quake_hop spaces, rocking quake_shake radians. hop (Blastoff): flung to its space on an arc hop_high spaces high, in hop_seconds. A slam's push and a bump use push.",
+      "spin_seconds": 1.15, "spin_turns": 1, "spin_swing": 0.35,
+      "slew_seconds": 0.7, "slew_angle": 0.7,
+      "quake_seconds": 0.9, "quake_hops": 3, "quake_hop": 0.12, "quake_shake": 0.12,
+      "hop_seconds": 1.0, "hop_high": 1.4
+    },
+    "crash": {
+      "_note": "app/motion/crash.ts, a vehicle destroyed: its separate parts (wheels, turret, fork) fly off at speed road spaces per second (between the two), up at up, under gravity spaces per second squared, spinning up to spin radians per second, bouncing bounce of their speed, for seconds; the body left behind turns to char",
+      "seconds": 1.8, "speed": [0.8, 1.8], "up": [1.6, 2.8], "gravity": 9, "spin": 14, "bounce": 0.3, "char": "#2a201a"
+    },
+    "tow": {
+      "_note": "app/motion/hitch.ts, the Big Rig's trailers: each is pulled by its hitch_front toward the hitch_rear of the piece ahead, its heading turning toward the pull; it never turns more than max_angle radians away from the piece ahead (no jackknife into it)",
+      "max_angle": 0.8
+    }
   },
   "shrapnel": {
     "_module": "shrapnel.ts: the Shrapnel damage token, a jagged piece of sheet metal torn off the damaged car flies the way the direction die says; it hits the first vehicle in that line or flies off the road (asked by the user, 2026-11-19)",

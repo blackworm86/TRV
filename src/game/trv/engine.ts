@@ -255,6 +255,13 @@ export interface Frame {
   /** Damage: the token stays face down and its effect is ignored (Jury-Rigging). */
   faceDown?: boolean;
   die?: RolledDie;
+  /**
+   * The shot's outcome, for the view to show the burst after the die (asked by the user, 2026-11-19):
+   * on the shooting die's roll, whether that roll hit; on a shot, `auto` when it hits with no die
+   * (Spotter, Called Shot). The rules do not read them.
+   */
+  hit?: boolean;
+  auto?: boolean;
   /** Round start: each player's movement dice, the road die and who rolled it. */
   round?: { n: number; dice: { player: number; values: number[] }[]; roadDie: number; roller: number };
   /** The roll for the first player (setup step 6): each player's dice, and who goes first (null: a tie for lowest, everyone rolls again). */
@@ -270,6 +277,12 @@ export interface Game {
    * others (asked by the user, 2026-11-17); the rules still take the picks in seat order. Null otherwise.
    */
   draft: { round: number; hands: string[][]; picks: boolean[] } | null;
+  /**
+   * The crew leaders dealt (setup steps 2-5), each player's two boards (empty for one who does not
+   * choose). Online every player sees their own and picks at once (asked by the user, 2026-11-19);
+   * the rules still take the picks in seat order. Null outside that moment.
+   */
+  leaderHands: string[][] | null;
   /**
    * The drafted cards being put on the cars: each player's cards still to place and the places
    * left (car ids; Bring the Bling's large car twice). Online every player places at once (asked by
@@ -647,7 +660,7 @@ export function newGame(s: Setup): Game {
   for (const t of ['final_five', 'big_rig'] as Team[]) if (s.players.filter(p => p.team === t).length > 1) throw new Error(`only one ${t} per game`);
   if (s.players.some(p => p.team && p.bot)) throw new Error('a TRV9000 team plays cars only');
   const g: Game = {
-    rng: r.value, draft: null, assign: null, players: [], vehicles: [], board: [], pile: [], tilesPlaced: 3, finalTile: false, finishLine: textHash(s.seed) % finishData.lines.length,
+    rng: r.value, draft: null, leaderHands: null, assign: null, players: [], vehicles: [], board: [], pile: [], tilesPlaced: 3, finalTile: false, finishLine: textHash(s.seed) % finishData.lines.length,
     hazards: new Map(), hazardPile: [], hazardDiscard: [], damagePile: [], round: 0, firstPlayer: 0,
     current: 0, roadDie: 0, winner: null, log: [], zTop: 0, activeCar: null, lastRoll: [], pendingDice: [], frames: [],
     tokenSupply: shoppe.command_tokens, dealLeaders: !!s.leaders, dealUpgrades: !!s.upgrades, fx: { bump: false, calledShot: false, slams: 0, flamethrower: false },
@@ -860,9 +873,11 @@ const spaceOption = (q: Pos): Option => ({ label: `Casella ${q.r + 1}-${q.c + 1}
 
 /**
  * A road vehicle enters a space, by moving, slam or damage (pp. 7, 9, 11).
- * Returns true when the vehicle loses its remaining moves.
+ * Returns true when the vehicle loses its remaining moves. `why`: what moved it when it did not
+ * drive there (a slam, an oil slick, a quake...), for the view to show it its own way; the rules
+ * do not read it.
  */
-function* enter(g: Game, v: Vehicle, to: Pos, ctx: MoveCtx | null, dir?: Dir): Gen<boolean> {
+function* enter(g: Game, v: Vehicle, to: Pos, ctx: MoveCtx | null, dir?: Dir, why?: string): Gen<boolean> {
   if (g.winner !== null) return true;
   // Sturdy (BRaFF p5): nothing moves the Big Rig but its own move (rigDrive).
   if (isRig(v)) return true;
@@ -884,7 +899,7 @@ function* enter(g: Game, v: Vehicle, to: Pos, ctx: MoveCtx | null, dir?: Dir): G
   v.pos = { ...to };
   v.inStart = false;
   v.z = ++g.zTop;
-  beat(g, 'move', { vehicleId: v.id, at: { ...to } });
+  beat(g, 'move', { vehicleId: v.id, at: { ...to }, ...(why ? { why } : {}) });
   const k = key(to);
   let h = g.hazards.get(k);
   // Basic Protocol 2 (TRV9000): the first face-down hazard crossed is ignored, and stays face down.
@@ -930,7 +945,7 @@ function* enter(g: Game, v: Vehicle, to: Pos, ctx: MoveCtx | null, dir?: Dir): G
     } else if (h.type === 'oil') {
       const d = rollFx(g, 'direction', 'oil-slick', to);
       say(g, `Olio! Dado direzione: ${DIR_NAME[d]}.`, 'dice');
-      const stop = yield* enter(g, v, neighbor(to, d), ctx, d);
+      const stop = yield* enter(g, v, neighbor(to, d), ctx, d, 'oil');
       yield* baldTires(g, v, d);
       return stop;
     } else if (h.type === 'quake') {
@@ -989,7 +1004,7 @@ function* enter(g: Game, v: Vehicle, to: Pos, ctx: MoveCtx | null, dir?: Dir): G
   if (ctx?.bot && up(v, 'snowplow') && others.length) {
     const o = others[others.length - 1];
     say(g, `Snowplow: ${carName(g, v)} spinge avanti ${carName(g, o)}.`, 'info');
-    yield* enter(g, o, neighbor(to, 'F'), null, 'F');
+    yield* enter(g, o, neighbor(to, 'F'), null, 'F', 'push');
     if (vehiclesAt(g, to).length === 1 || g.winner !== null) return false;
   }
   // Snowplow: a wreck or an inoperable vehicle in the way is pushed aside, and the car goes on.
@@ -1002,7 +1017,7 @@ function* enter(g: Game, v: Vehicle, to: Pos, ctx: MoveCtx | null, dir?: Dir): G
       });
       if (i > 0) {
         others[0].pos = { ...free[i - 1] };
-        beat(g, 'move', { vehicleId: others[0].id, at: { ...free[i - 1] } });
+        beat(g, 'move', { vehicleId: others[0].id, at: { ...free[i - 1] }, why: 'push' });
         say(g, `Snowplow: ${carName(g, others[0])} è spostata di lato.`, 'info');
         return false;
       }
@@ -1117,7 +1132,7 @@ function* slam(g: Game, at: Pos): Gen<void> {
         if (i > 0) {
           affected.pos = { ...free[i - 1] };
           affected.z = ++g.zTop;
-          beat(g, 'move', { vehicleId: affected.id, at: { ...free[i - 1] } });
+          beat(g, 'move', { vehicleId: affected.id, at: { ...free[i - 1] }, why: 'push' });
           say(g, `Roll Cage: ${carName(g, affected)} si mette in una casella vuota.`, 'info');
           continue;
         }
@@ -1125,7 +1140,7 @@ function* slam(g: Game, at: Pos): Gen<void> {
     }
     const other = affected === top ? bottom : top;
     const wasEmpty = onBoard(dest) && isEmpty(g, dest);
-    yield* enter(g, affected, dest, null, d);
+    yield* enter(g, affected, dest, null, d, 'slam');
     // Tire Spikes (TRV9000 Bomb Squad): the car it moved in a slam takes damage when it went to an empty space.
     if (wasEmpty && up(other, 'tire_spikes') && !affected.isWreck && affected.status !== 'elim' && samePos(affected.pos, dest) && g.winner === null) {
       say(g, 'Tire Spikes: l\'auto spostata subisce danno.', 'bad');
@@ -1135,7 +1150,7 @@ function* slam(g: Game, at: Pos): Gen<void> {
     // Assault Bumper: the car it moved in a slam goes one extra space in the same direction.
     if (up(other, 'assault_bumper') && !affected.isWreck && affected.status !== 'elim' && samePos(affected.pos, dest) && g.winner === null) {
       say(g, 'Assault Bumper: una casella in più nella stessa direzione.', 'info');
-      yield* enter(g, affected, neighbor(dest, d), null, d);
+      yield* enter(g, affected, neighbor(dest, d), null, d, 'slam');
     }
   }
 }
@@ -1256,7 +1271,7 @@ function* damageEffect(g: Game, v: Vehicle, t: DamageToken): Gen<void> {
     case 'skid': {
       const d = t.dir ?? 'F';
       say(g, `Sbandata: 1 casella ${DIR_NAME[d]}.`);
-      yield* enter(g, v, neighbor(v.pos, d), null, d);
+      yield* enter(g, v, neighbor(v.pos, d), null, d, 'skid');
       return;
     }
     case 'dazed': {
@@ -1268,7 +1283,7 @@ function* damageEffect(g: Game, v: Vehicle, t: DamageToken): Gen<void> {
         const to = neighbor(v.pos, d);
         say(g, `Stordito: verso ${DIR_NAME[d]}.`, 'dice');
         ctx.left = Math.max(0, ctx.left - (onBoard(to) && terrainAt(g, to) === 'M' ? 2 : 1));
-        if (yield* enter(g, v, to, ctx, d)) break;
+        if (yield* enter(g, v, to, ctx, d, 'skid')) break;
         yield* baldTires(g, v, d);
       }
       return;
@@ -1288,7 +1303,7 @@ function* damageEffect(g: Game, v: Vehicle, t: DamageToken): Gen<void> {
       say(g, `Decollo: ${n} caselle verso ${DIR_NAME[d]}.`, 'dice');
       let p = v.pos;
       for (let i = 0; i < n; i++) p = neighbor(p, d);
-      yield* enter(g, v, p, null, d);
+      yield* enter(g, v, p, null, d, 'blastoff');
       yield* baldTires(g, v, d);
       return;
     }
@@ -1347,7 +1362,7 @@ const NITRO_LEAK_DIE = (carnageData.ongoing_effects as { id: string; die?: numbe
 function* baldTires(g: Game, v: Vehicle, d: Dir): Gen<void> {
   if (!hasOngoing(v, 'bald_tires') || v.status === 'elim' || !v.pos || g.winner !== null) return;
   say(g, `Bald Tires: ${carName(g, v)} scivola di un'altra casella ${DIR_NAME[d]}.`, 'info');
-  yield* enter(g, v, neighbor(v.pos, d), null, d);
+  yield* enter(g, v, neighbor(v.pos, d), null, d, 'skid');
 }
 
 /** Whether ongoing effect card `id` lies under one of the car's damage tokens (CDR p4). */
@@ -1436,11 +1451,11 @@ function* quake(g: Game): Gen<void> {
     if (!onBoard(to)) { eliminate(g, v, 'è uscita dalla strada nel terremoto', to); continue; }
     if (terrainAt(g, to) === 'X') { eliminate(g, v, 'è finita su una casella invalicabile nel terremoto', to, pitAt(g, to)); continue; }
     v.pos = { ...to };
-    beat(g, 'move', { vehicleId: v.id, at: { ...to } });
+    beat(g, 'move', { vehicleId: v.id, at: { ...to }, why: 'quake' });
     landed.push(v);
   }
   // Past the front edge: the new tile comes in (positions shift with it, so each is recomputed).
-  for (const v of ahead) if (v.status !== 'elim' && v.pos && g.winner === null) yield* enter(g, v, neighbor(v.pos, d), null, d);
+  for (const v of ahead) if (v.status !== 'elim' && v.pos && g.winner === null) yield* enter(g, v, neighbor(v.pos, d), null, d, 'quake');
   for (const v of shuffled(g, landed, 'quake-order')) {
     if (v.status === 'elim' || !v.pos || g.winner !== null) continue;
     yield* enter(g, v, v.pos, null, d);
@@ -1546,12 +1561,12 @@ function* shootFrom(g: Game, player: number, from: Pos, who: string, shooter: Ve
     });
     aim = aims[a];
   }
-  beat(g, 'shot', { from: { ...from }, at: { ...t.pos! }, vehicleId: t.id });
   // Spotter (Abigail): another of your operable cars next to the target. Called Shot (Boudreaux).
   const spotter = hasPower(g, player, 'spotter') && g.vehicles.some(v => v.owner === player && v.status === 'ok'
     && v.pos && !samePos(v.pos, from) && ALL_DIRS.some(d => samePos(neighbor(t.pos!, d), v.pos)));
   const called = g.fx.calledShot && player === g.current;
   let hit = spotter || called;
+  beat(g, 'shot', { from: { ...from }, at: { ...t.pos! }, vehicleId: t.id, ...(hit ? { auto: true } : {}) });
   if (hit) say(g, `${spotter ? 'Spotter' : 'Called Shot'}: colpo automatico!`, 'good');
   else {
     const shot = (cause: string): boolean => {
@@ -1560,6 +1575,9 @@ function* shootFrom(g: Game, player: number, from: Pos, who: string, shooter: Ve
       const armor = f === 'ANY' && up(t, 'armor_plating');
       const ok = !armor && (f === 'ANY' || f === t.size || (f === 'SM' && (t.size === 'S' || t.size === 'M')));
       const face = f === 'ANY' ? 'qualsiasi' : f === 'SM' ? 'piccola/media' : SIZE_NAME[f as Size];
+      // The roll's frame learns whether it hit (for the view only).
+      const rolled = [...g.frames].reverse().find(x => x.kind === 'roll' && x.die?.die === 'shooting');
+      if (rolled) rolled.hit = ok;
       say(g, `Dado sparo: ${face} — ${ok ? 'COLPITO!' : armor ? 'mancato (Armor Plating).' : 'mancato.'}`, 'dice');
       return ok;
     };
@@ -1830,7 +1848,7 @@ function* drive(g: Game, p: Player, car: Vehicle, coast: boolean, die: number, m
   if (hasOngoing(car, 'loose_wiring') && car.pos && car.status === 'ok' && g.winner === null) {
     const d = rollFx(g, 'direction', 'loose-wiring', car.pos);
     say(g, `Loose Wiring: una casella ${DIR_NAME[d]}.`, 'dice');
-    yield* enter(g, car, neighbor(car.pos, d), null, d);
+    yield* enter(g, car, neighbor(car.pos, d), null, d, 'skid');
     yield* baldTires(g, car, d);
   }
   const { fixed, mustMoveAll } = beforeMove(g, car, mv);
@@ -2228,7 +2246,7 @@ function* rigEnter(g: Game, p: Player, front: Vehicle, to: Pos, ctx: { left: num
         pos: x.q, carId: o.id })),
     });
     say(g, `Cow Catcher: ${carName(g, o)} è spinta di lato.`, 'info');
-    yield* enter(g, o, sides[i].q, null, sides[i].d);
+    yield* enter(g, o, sides[i].q, null, sides[i].d, 'push');
     if (g.winner !== null) return true;
     if (vehiclesAt(g, to).length < 2) return false;
   }
@@ -2789,10 +2807,13 @@ function* chooseLeaders(g: Game): Gen<void> {
   // upgrade cards; Emberco: Carnage at Devil's Run's fire).
   const ready = (need: string): boolean => (need === 'upgrades' ? g.dealUpgrades : need === 'carnage' ? !!g.carnage : false);
   const deck = shuffled(g, LEADERS.filter(l => (l.needs ?? []).every(ready)), 'crew-leaders');
+  // Every hand is dealt first, in seat order (a pick does not change the others' hands): online
+  // everyone picks at once.
+  const hands = g.players.map(p => (p.leader || p.bot || p.team ? [] : deck.splice(0, shoppe.leaders_dealt)));
+  g.leaderHands = hands.map(h => h.map(l => l.id));
   for (const p of g.players) {
-    if (p.leader || p.bot || p.team) continue;
-    const hand = deck.splice(0, shoppe.leaders_dealt);
-    if (!hand.length) break;
+    const hand = hands[p.id];
+    if (!hand.length) continue;
     const i = yield* ask(g, {
       kind: 'leader', player: p.id, prompt: `${p.name}: scegli il tuo caposquadra.`,
       options: hand.map(l => ({ label: `${l.name}, ${l.title}`, leader: l.id })),
@@ -2800,6 +2821,7 @@ function* chooseLeaders(g: Game): Gen<void> {
     takeLeader(g, p, hand[i].id);
     say(g, `${p.name} sceglie ${hand[i].name}.`, 'info');
   }
+  g.leaderHands = null;
 }
 
 /** Tinker (Ms. Betty): she discards an upgrade of one of her cars and draws a new one for that car. */

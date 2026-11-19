@@ -36,6 +36,7 @@ import * as THREE from 'three';
 import { ROWS, COLS, snapshot, terrainAt, type Pos, type Frame } from '../game/trv/engine';
 import { bootAccount, bootOnline } from './account';
 import { playBeats, queue, skipBeats } from './beats';
+import { sceneState, shownLog } from './scenePlayer';
 import { carObjs, hazardObjs } from './board';
 import { CHASE, chase, chaseLens, setChase } from './chase';
 import { burst, crash, explode, word } from './effects';
@@ -71,6 +72,8 @@ try {
   get game() { return g; }, get decision() { return decision; }, choose, undo, canUndo, get choices() { return S.saved?.choices.length ?? 0; }, render, snapshot: () => g && snapshot(g), terrain: (p: Pos) => g && terrainAt(g, p), zoneOption, scene, hazardObjs, camera, controls,
   get take() { return takeNow(); }, get queue() { return queue; }, get playing() { return S.playing; }, skipBeats, playBeats, // playBeats: replays frames (presentation only), for checks
   get rows() { return ROWS; }, get cols() { return COLS; },
+  // "Movimento nuovo": the scenes played and every frame shown with its scene (scenePlayer.ts), and what the bubbles show.
+  get scenes() { return { ...sceneState(), log: shownLog }; }, get shownSnap() { return S.shownSnap; },
   get cam() { return { chase, chaseSet: CHASE, chaseLens, action: !!S.shot, back: !!S.shotBack, focusGoal: S.focusGoal?.toArray(), focusDist: S.focusDist, settings }; },
 };
 

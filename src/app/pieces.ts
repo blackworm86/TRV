@@ -25,6 +25,11 @@ import { pruneHeaps } from './wreckage';
 import { BOARD_X0, KX, MM, PITCH_W, TILE_H, TILE_T, TILE_W, pieces, scene, tileCache, tileSlots, world } from './stage';
 import { S } from './state';
 import { $ } from './util';
+import { settings } from './settings';
+import { PartsRig } from './motion/rig';
+import { buildTestVehicle, toTable, type VehicleSheet } from '../view/test-vehicles';
+import { describeVehicle } from '../view/vehicle-rig';
+import TEST_CAR from '../../assets/base/modelli/schede/collaudo_auto.json';
 
 /**
  * Revealed hazards that stay on the board as terrain, and the terrain code each one draws in 3D on
@@ -199,6 +204,35 @@ export function useModel(o: THREE.Group, url: string, lengthMm: number, tint: Ti
     o.userData.model = d;
     o.userData.phase = phaseOf(id);
   });
+}
+
+/**
+ * The test car in parts (view/test-vehicles.ts, docs/piano-integrazione-veicoli.md phase 6) in place of
+ * the Medium Car's model, with the option "Auto di collaudo": its body in the crew's colour, its parts
+ * moved by the parts rig (motion/rig.ts) instead of the one-piece CarRig.
+ */
+function useTestCar(o: THREE.Group, color: string): void {
+  const sheet = TEST_CAR as unknown as VehicleSheet;
+  const d = buildTestVehicle(sheet);
+  toTable(d, sheet, MM);
+  // The crew's colour on the bodywork, so the cars of the crews stay apart.
+  const paint = new THREE.Color(color);
+  d.getObjectByName('body_mesh')?.traverse(m => {
+    const mesh = m as THREE.Mesh;
+    if (!mesh.isMesh) return;
+    const mat = (mesh.material as THREE.MeshStandardMaterial).clone();
+    mat.color.copy(paint);
+    mesh.material = mat;
+  });
+  d.updateMatrixWorld(true);
+  const size = new THREE.Box3().setFromObject(d).getSize(new THREE.Vector3());
+  o.userData.parts = new PartsRig(describeVehicle(d), d.scale.x);
+  o.userData.mats = collectMaterials(d);
+  for (const c of o.children) if (c !== o.userData.flames && c !== o.userData.marking) c.visible = false;
+  o.add(d);
+  o.userData.modelHeight = size.y;
+  o.userData.modelSize = size;
+  o.userData.model = d;
 }
 
 /**
@@ -392,6 +426,7 @@ export function drawTable(s: Snapshot): void {
         useModel(o, MODEL.motorcycle, SHOW_LENGTH_MM.bike, crewTint(g.players[v.owner!].color), v.id, d => printMarking(d, k));
         o.userData.bike = true;
       } else if (v.rig) useRigModel(o, v.rig, crewTint(g.players[v.owner!].color), v.id);
+      else if (settings.testCar && v.size === 'M') useTestCar(o, g.players[v.owner!].color);
       else useModel(o, MODEL.car[v.size], SHOW_LENGTH_MM[v.size], crewTint(g.players[v.owner!].color), v.id);
       carObjs.set(v.id, o);
       scene.add(o);

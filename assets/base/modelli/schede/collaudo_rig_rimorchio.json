@@ -1,0 +1,28 @@
+{
+  "_note": "A test Big Rig trailer (docs/piano-integrazione-veicoli.md, phase 4), the middle and the rear one alike: same conventions as collaudo_auto.json. Its hitch_front, on the drawbar, goes on the hitch_rear of the piece ahead; its own hitch_rear takes the next trailer.",
+  "id": "collaudo_rig_rimorchio",
+  "out": "assets/base/modelli/collaudo_rig_rimorchio.glb",
+  "length_m": 6.0,
+  "show_mm": 46,
+  "capabilities": ["suspension", "articulated", "detachable"],
+  "parts": [
+    { "node": "body", "source": "proc", "pivot": [0, 1.0, 0], "mass": 2, "zones": ["paint_primary", "metal"],
+      "shapes": [
+        { "box": [4.8, 0.3, 1.9], "at": [-0.3, -0.2, 0], "color": "#4a4a4a" },
+        { "box": [4.7, 1.6, 2.1], "at": [-0.3, 0.75, 0], "color": "#c9c2b4" },
+        { "box": [4.72, 0.12, 2.12], "at": [-0.3, 1.0, 0], "color": "#d8742c" }
+      ] },
+    { "node": "hitch_front", "pivot": [3.0, 0.9, 0],
+      "shapes": [
+        { "cyl": [0.14, 0.12], "axis": "y", "color": "#f2d25c" },
+        { "box": [1.0, 0.1, 0.12], "at": [-0.5, 0, 0], "color": "#f2d25c" }
+      ] },
+    { "node": "hitch_rear", "pivot": [-3.0, 0.9, 0],
+      "shapes": [ { "cyl": [0.18, 0.12], "axis": "y", "color": "#f2d25c" } ] },
+    { "node": "fx_smoke", "parent": "body", "pivot": [0, 1.2, 0] },
+    { "node": "wheel", "source": "proc", "width": 0.4, "axles": [
+        { "x": 1.4, "track": 0.98, "steer": false, "radius": 0.5, "travel": [-0.08, 0.12] },
+        { "x": -1.9, "track": 0.98, "steer": false, "radius": 0.5, "travel": [-0.08, 0.12] }
+      ] }
+  ]
+}

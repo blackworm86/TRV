@@ -256,3 +256,51 @@ describe('shrapnel and what each beat shows', () => {
     expect(g.frames.slice(i + 1).some((_, k) => count(i + 1 + k) === 1)).toBe(true);
   });
 });
+
+describe('the shot told to the view', () => {
+  it('marks every gun shooting die with whether it hit, as the log line of the rules says', () => {
+    // Arrange: whole games with a fixed chooser (the burst after the die needs the outcome, 2026-11-19).
+    let rolls = 0, hits = 0;
+    for (let seed = 1; seed <= 12; seed++) {
+      const { g } = autoplay(SEED(seed), 3, (d, k) => (k * 7 + seed) % d.options.length);
+      g.frames.forEach((f, i) => {
+        if (f.kind !== 'roll' || f.die?.die !== 'shooting') return;
+        // A pit trap's or a salvo's shooting die has no gun shot before it.
+        const before = g.frames.slice(0, i).reverse().find(x => x.kind === 'shot' || (x.kind === 'roll' && x.die?.die !== 'shooting'));
+        if (before?.kind !== 'shot' || before.why) return;
+        // Act: the line the rules write for that die.
+        const line = g.frames.slice(i + 1).find(x => x.kind === 'log' && /^Dado sparo/.test(x.text ?? ''));
+        // Assert: the outcome is on the die's frame, and it is the rules' own.
+        rolls++;
+        expect(typeof f.hit).toBe('boolean');
+        expect(f.hit).toBe(/COLPITO/.test(line?.text ?? ''));
+        if (f.hit) hits++;
+      });
+    }
+    expect(rolls).toBeGreaterThan(5);
+    expect(hits).toBeGreaterThan(0);
+  });
+});
+
+describe('the moves told to the view', () => {
+  it('names what moved a vehicle after a direction die (slam, oil, quake, skid, blastoff)', () => {
+    // Arrange: whole games; a direction die always moves a vehicle that did not drive there.
+    let seen = 0;
+    const kinds = new Set<string>();
+    for (let seed = 1; seed <= 12; seed++) {
+      const { g } = autoplay(SEED(seed), 3, (d, k) => (k * 7 + seed) % d.options.length);
+      g.frames.forEach((f, i) => {
+        if (f.kind !== 'roll' || f.die?.die !== 'direction') return;
+        // Act: the first move after it, before anything else happens (log lines and dice aside).
+        const next = g.frames.slice(i + 1).find(x => x.kind !== 'log' && x.kind !== 'roll');
+        if (next?.kind !== 'move') return;
+        // Assert: it says why.
+        seen++;
+        expect(next.why, `move after a direction die in game ${seed}`).toBeTruthy();
+        kinds.add(next.why!);
+      });
+    }
+    expect(seen).toBeGreaterThan(5);
+    expect(kinds.has('slam')).toBe(true);
+  });
+});

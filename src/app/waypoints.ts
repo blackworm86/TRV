@@ -19,23 +19,29 @@ import { $, esc, menuOpen } from './util';
 
 /** The path being planned: for which decision (`key`), the steps simulated, and the stop the player confirmed (`ok`, a step index). */
 let plan: { key: string; steps: SimStep[]; ok: number } = { key: '', steps: [], ok: -1 };
-/** A path sent to the host (online guest): no planning until the host has played it. */
-let sentUntil = -1;
+/**
+ * A path sent to the host (online guest): no planning until the host has played it, up to choice
+ * `until` of the game with seed `seed`. Another game is not held back by it (bug of 2026-11-19: the
+ * mark outlived its game, and Percorso stayed off in the next one until the page was loaded again).
+ */
+let sent = { seed: '', until: -1 };
 
-const keyNow = (): string => (decision && S.saved ? `${S.saved.choices.length}:${decision.prompt}` : '');
+/** The decision being planned: the game (its seed), how many choices made, and what is asked. */
+const keyNow = (): string => (decision && S.saved ? `${S.saved.setup.seed}:${S.saved.choices.length}:${decision.prompt}` : '');
 
 /** Switches between one step per click and the waypoint path, from the Options, the pill or P. */
 export function setMoveMode(m: MoveMode): void {
   settings.move = m;
   saveSettings();
   plan = { key: '', steps: [], ok: -1 };
-  render();
+  // While beats play the table stays as they show it (beats.ts playBeats); it is drawn when they end.
+  if (!S.playing) render();
 }
 
 /** True while this screen's player plans a car's path (Percorso mode, a step decision of theirs). */
 export function planning(): boolean {
   if (settings.move !== 'path' || !decision || decision.kind !== 'step' || S.playing || !S.saved || !g) return false;
-  if (S.saved.choices.length < sentUntil) return false;
+  if (sent.seed === S.saved.setup.seed && S.saved.choices.length < sent.until) return false;
   const k = keyNow();
   if (plan.key !== k) plan = { key: k, steps: [], ok: -1 };
   return true;
@@ -99,7 +105,7 @@ export function go(extra: number[] = []): void {
   if (!planning() || !S.saved || asking()) return;
   const path = [...plan.steps.map(s => s.choice), ...extra];
   if (!path.length) return;
-  if (S.net && !S.net.host) sentUntil = S.saved.choices.length + path.length;
+  if (S.net && !S.net.host) sent = { seed: S.saved.setup.seed, until: S.saved.choices.length + path.length };
   plan = { key: '', steps: [], ok: -1 };
   choosePath(path);
 }

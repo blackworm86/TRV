@@ -1,0 +1,36 @@
+{
+  "_note": "The test Big Rig's tractor (docs/piano-integrazione-veicoli.md, phase 4): same conventions as collaudo_auto.json. Its hitch_rear, on the root, is where the first trailer's hitch_front goes; the missile launcher turns about y and is its own gun (it rises about z). Each piece of the Big Rig is one space long on the table.",
+  "id": "collaudo_rig_motrice",
+  "out": "assets/base/modelli/collaudo_rig_motrice.glb",
+  "length_m": 6.0,
+  "show_mm": 46,
+  "capabilities": ["suspension", "steering", "turret", "articulated", "detachable"],
+  "parts": [
+    { "node": "body", "source": "proc", "pivot": [0, 0.95, 0], "mass": 2, "zones": ["paint_primary", "metal"],
+      "shapes": [
+        { "box": [5.6, 0.35, 1.9], "at": [0, -0.2, 0], "color": "#4a4a4a" },
+        { "box": [1.7, 1.55, 2.2], "at": [1.95, 0.75, 0], "color": "#d8742c" },
+        { "box": [0.9, 0.7, 2.0], "at": [2.6, 0.2, 0], "color": "#b85f22" },
+        { "box": [0.1, 0.6, 1.9], "at": [2.82, 1.05, 0], "color": "#3a6f8f" },
+        { "cyl": [0.1, 1.6], "axis": "y", "at": [1.0, 1.0, 1.0], "color": "#9a9a9a" }
+      ] },
+    { "node": "launcher", "source": "proc", "parent": "body", "pivot": [-1.1, 0.0, 0], "arc": [-2.6, 2.6], "speed": 1.6, "elev": [0, 0.5],
+      "shapes": [
+        { "cyl": [0.6, 0.25], "axis": "y", "at": [0, 0.12, 0], "color": "#3d7fd1" },
+        { "box": [1.5, 0.55, 1.1], "at": [0.1, 0.6, 0], "color": "#3fae5c" },
+        { "cyl": [0.12, 0.2], "axis": "x", "at": [0.9, 0.72, -0.28], "color": "#e8c53a" },
+        { "cyl": [0.12, 0.2], "axis": "x", "at": [0.9, 0.72, 0.28], "color": "#e8c53a" }
+      ] },
+    { "node": "muzzle", "parent": "launcher", "pivot": [1.0, 0.72, 0], "weapon": "missile" },
+    { "node": "hitch_rear", "pivot": [-3.0, 0.9, 0],
+      "shapes": [ { "cyl": [0.18, 0.12], "axis": "y", "color": "#f2d25c" } ] },
+    { "node": "fx_exhaust_0", "parent": "body", "pivot": [1.0, 1.85, 1.0] },
+    { "node": "fx_smoke", "parent": "body", "pivot": [2.6, 0.6, 0] },
+    { "node": "exit_L", "parent": "body", "pivot": [1.9, -0.95, -1.5] },
+    { "node": "wheel", "source": "proc", "width": 0.4, "axles": [
+        { "x": 2.1, "track": 0.98, "steer": true, "drive": false, "max": 0.5, "radius": 0.52, "travel": [-0.08, 0.12] },
+        { "x": -1.1, "track": 0.98, "steer": false, "drive": true, "radius": 0.52, "travel": [-0.08, 0.12] },
+        { "x": -2.2, "track": 0.98, "steer": false, "drive": true, "radius": 0.52, "travel": [-0.08, 0.12] }
+      ] }
+  ]
+}

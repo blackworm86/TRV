@@ -1,4 +1,8 @@
-// The players' bubbles at the top (redrawn as asked by the user, 2026-11-18): avatar, the player's
+// The players' strip at the top (asked by the user, 2026-11-19: the bubbles took too much of the 3D
+// scene): one thin row per player, avatar, name, dice and a pip for each car (on the road, at the
+// start, out of action, eliminated; a red mark when damaged). Pointing at a row, or a tap on it,
+// opens the player's full bubble under it, over the scene.
+// The full bubble (redrawn as asked by the user, 2026-11-18): avatar, the player's
 // name (the leader's is in the avatar's pop-up) and command tokens, the dice still to play, then the three cars as thumbnails of their 3D
 // models with their pieces under them (upgrade cards, damage tokens, ongoing effect cards, ON FIRE!).
 // Pointing at a piece shows it large, under it and centred on the pointer, like the commands'
@@ -76,11 +80,27 @@ export function bubbleHtml(p: Player, cls: string, redraw: () => void): string {
   // The Big Rig is out at six minor damage tokens (BRaFF p5): the count beside the name.
   const rigCount = p.rig ? `<span class="rigdmg" title="Danni minori del Big Rig">${p.rig.damaged.length}/${bigRig().damage.eliminated_at}</span>` : '';
   const tip = l || p.bot ? `data-tip="av" data-p="${p.id}"` : '';
-  return `<div class="bubble pl ${cls}" data-p="${p.id}" style="--c:${p.color}">`
-    + `<div class="av" ${tip}>${pic ? `<img src="${pic}" alt="${esc(l!.name)}">` : avatarSvg(p.color, p.name)}</div>`
+  const av = pic ? `<img src="${pic}" alt="${esc(l!.name)}">` : avatarSvg(p.color, p.name);
+  // The row: a pip per car, in the same order as the full bubble.
+  const pips = g!.vehicles.filter(v => v.owner === p.id).sort((a, b) => order(a) - order(b)).map(car => {
+    const v = atBeat(car), st = stateOf(v);
+    const hurt = st !== 'elim' && (v.damage.length > 0 || !!v.onFire);
+    const what = v.bike !== undefined ? 'Moto' : v.rig ? 'Big Rig' : `Auto ${SIZE[v.size]}`;
+    return `<i class="pip st-${st}${hurt ? ' hurt' : ''}" title="${esc(`${what}: ${PIP_STATE[st]}${hurt ? ', danneggiata' : ''}`)}">${st === 'elim' ? '✕' : ''}</i>`;
+  }).join('');
+  const mdice = p.bot ? '<span class="botbadge">TRV9000</span>' : dice;
+  return `<div class="bubble pl ${cls}${openBubbles.has(p.id) ? ' open' : ''}" data-p="${p.id}" style="--c:${p.color}">`
+    + `<div class="mini"><span class="mav">${av}</span><b class="gothic">${esc(p.name)}</b><span class="mdice">${mdice}</span><span class="pips">${pips}</span>${rigCount}${toks}</div>`
+    + `<div class="drop"><div class="full">`
+    + `<div class="av" ${tip}>${av}</div>`
     + `<div class="hd"><b class="gothic">${esc(p.name)}</b>${rigCount}${toks}</div>`
-    + `<div class="dice">${dice}</div><div class="cars${p.team === 'final_five' ? ' five' : ''}">${cars}</div></div>`;
+    + `<div class="dice">${dice}</div><div class="cars${p.team === 'final_five' ? ' five' : ''}">${cars}</div></div></div></div>`;
 }
+
+/** A car's state in words, for its pip. */
+const PIP_STATE: Record<ReturnType<typeof stateOf>, string> = { road: 'in strada', start: 'in partenza', inop: 'fuori uso', elim: 'eliminata' };
+/** The players whose full bubble was opened with a tap: it stays open until tapped again. */
+export const openBubbles = new Set<number>();
 
 // ---------------------------------------------------------------- the pop-ups
 
@@ -153,8 +173,13 @@ $('players').addEventListener('pointermove', e => {
   if (shown && pop.className) place(shown, e.clientX);
 });
 $('players').addEventListener('pointerleave', () => { shown = null; pop.className = ''; });
-// A click on a car takes the view to it.
+// A click on a car takes the view to it; a tap on a player's row opens or closes its full bubble.
 $('players').addEventListener('click', e => {
   const b = (e.target as HTMLElement).closest<HTMLElement>('button.car[data-vid]');
-  if (b) focusOn(carObjs.get(b.dataset.vid!), true);
+  if (b) { focusOn(carObjs.get(b.dataset.vid!), true); return; }
+  const row = (e.target as HTMLElement).closest<HTMLElement>('.mini')?.parentElement;
+  if (!row?.dataset.p) return;
+  const id = Number(row.dataset.p);
+  if (openBubbles.has(id)) openBubbles.delete(id); else { openBubbles.clear(); openBubbles.add(id); }
+  for (const el of $('players').querySelectorAll<HTMLElement>('.pl[data-p]')) el.classList.toggle('open', openBubbles.has(Number(el.dataset.p)));
 });

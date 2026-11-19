@@ -215,6 +215,17 @@ describe('match', () => {
     // Taken at any log length once player 1 is asked in that round: the card's place in the hand.
     expect(acceptable(await room(stores[0]), 1, { player: 1, options: 4, draft: { r: 0, cards: ['b', 'c', 'nitro_kit', 'd'] } })).toEqual({ uid: 'u1', choice: 2 });
   });
+  it('keeps a crew leader picked in advance until the rules ask that player, then takes that board', async () => {
+    // Arrange: everyone picks at once (asked by the user, 2026-11-19); the guest picked "abigail" while the host was being asked.
+    const stores = await seated(2);
+    await startMatch(stores[0], CODE, await room(stores[0]), SEED, COLOR);
+    await stores[1].write(roomPath(CODE, 'intents', 'u1'), { n: 0, c: 0, leader: 'abigail' });
+    // Act + Assert: not taken while player 0 decides, nor when that board is not in the player's hand.
+    expect(acceptable(await room(stores[0]), 0, { player: 0, options: 2, leader: ['abigail', 'boudreaux'] })).toBe(null);
+    expect(acceptable(await room(stores[0]), 1, { player: 1, options: 2, leader: ['boudreaux', 'vince_vamp'] })).toBe(null);
+    // Taken once player 1 is asked: the board's place among the two.
+    expect(acceptable(await room(stores[0]), 1, { player: 1, options: 2, leader: ['boudreaux', 'abigail'] })).toEqual({ uid: 'u1', choice: 1 });
+  });
   it('places the upgrade cards a player planned in advance, in their order, when the rules ask that player', async () => {
     // Arrange: the guest planned two cards while the host was placing its own.
     const stores = await seated(2);

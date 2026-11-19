@@ -15,7 +15,7 @@ import { FX_ASK } from './beats';
 import { carObjs } from './board';
 import { chase, chaseButtons } from './chase';
 import { drawDock } from './dock';
-import { canUndo, plannedFor, choose, decision, draftPick, g, hotZones, mySeat, onlineDraft, pending, undo, viewer, zoneOption } from './game';
+import { canUndo, plannedFor, choose, decision, draftPick, g, hotZones, leaderPick, mySeat, onlineDraft, onlineLeader, pending, undo, viewer, zoneOption } from './game';
 import { assignCard, cardHtml, drawHand, selCard } from './hand';
 import { CMD_LINES, DAMAGE_INFO, ONGOING_INFO, PORTRAITS, POWER_INFO, UPGRADE_INFO, boardCommands, slotText, upgradeName } from './info';
 import { focusOn } from './keys';
@@ -209,9 +209,11 @@ export function drawHud(): void {
       + d.options.map((o, i) => `<button class="pickcard" data-i="${i}">${cardHtml(o.upgrade!, who.color)}</button>`).join('') + '</div>';
     el.querySelectorAll<HTMLElement>('.pickcard').forEach(b => { b.onclick = () => choose(Number(b.dataset.i)); });
   }
-  // Choppe Shoppe setup: the two crew leaders dealt to the player, as cards to pick from.
+  // Choppe Shoppe setup: the two crew leaders dealt to the player, as cards to pick from. Online
+  // everyone picks at once from their own two (asked by the user, 2026-11-19).
+  const ol = onlineLeader();
   const pick = $('leaderpick');
-  pick.style.display = od || (d && ['leader', 'draft', 'peekResult', ...PICK_ASSETS].includes(d.kind)) ? 'grid' : 'none';
+  pick.style.display = od || ol || (d && ['leader', 'draft', 'peekResult', ...PICK_ASSETS].includes(d.kind)) ? 'grid' : 'none';
   // A choice between pieces of the game is made on the pieces themselves, face up, not on their
   // names (asked by the user, 2026-11-17): Crumple Zones' two damage tokens, Tinker's upgrade cards.
   if (d?.kind === 'pickDamage') {
@@ -239,17 +241,25 @@ export function drawHud(): void {
       + `<div class="peektile">${hazardTokenSvg(type, true)}</div><button class="peekok" data-key="Enter">Visto<kbd>↵</kbd></button>`;
     pick.querySelector<HTMLElement>('.peekok')!.onclick = () => choose(0);
   }
-  if (d?.kind === 'leader') {
+  /** A crew leader's board as a card to pick, in `color`. */
+  const leaderCard = (id: string, i: number, color: string): string => {
+    const l = leaders().find(x => x.id === id)!;
+    const [pn, pd] = POWER_INFO[l.power] ?? [l.power, ''];
+    return `<button class="leader" data-i="${i}" data-leader="${esc(id)}" style="--c:${color}"><b class="gothic">${esc(l.name)}</b><small>${esc(l.title)}</small>`
+      + `<p><i>${esc(pn)}</i> ${esc(pd)}</p><ul>`
+      + l.commands.map(s => `<li><em>${esc(slotText(s))}</em><span><b>${esc(commandName(s.id))}</b> ${esc((CMD_LINES[s.id] ?? []).join(' '))}</span></li>`).join('')
+      + `</ul><span class="stars">${l.tokens ? `<span class="ctoks">${commandTokenSvg().repeat(l.tokens)}</span> ${l.tokens === 1 ? 'segnalino comando' : 'segnalini comando'}` : 'nessun segnalino comando'}</span></button>`;
+  };
+  if (ol) {
+    const me = g.players[mySeat()];
+    pick.innerHTML = ol.chosen
+      ? `<h2 class="gothic" style="color:${me.color}">Caposquadra scelto: in attesa degli altri giocatori…</h2>`
+      : `<h2 class="gothic" style="color:${me.color}">${esc(me.name)}: scegli il caposquadra</h2><div class="pair">` + ol.hand.map((id, i) => leaderCard(id, i, me.color)).join('') + '</div>';
+    pick.querySelectorAll<HTMLElement>('.leader').forEach(b => { b.onclick = () => leaderPick(b.dataset.leader!); });
+  } else if (d?.kind === 'leader') {
     const who = g.players[d.player];
     pick.innerHTML = `<h2 class="gothic" style="color:${who.color}">${esc(who.name)}: scegli il caposquadra</h2><div class="pair">`
-      + d.options.map((o, i) => {
-        const l = leaders().find(x => x.id === o.leader)!;
-        const [pn, pd] = POWER_INFO[l.power] ?? [l.power, ''];
-        return `<button class="leader" data-i="${i}" style="--c:${who.color}"><b class="gothic">${esc(l.name)}</b><small>${esc(l.title)}</small>`
-          + `<p><i>${esc(pn)}</i> ${esc(pd)}</p><ul>`
-          + l.commands.map(s => `<li><em>${esc(slotText(s))}</em><span><b>${esc(commandName(s.id))}</b> ${esc((CMD_LINES[s.id] ?? []).join(' '))}</span></li>`).join('')
-          + `</ul><span class="stars">${l.tokens ? `<span class="ctoks">${commandTokenSvg().repeat(l.tokens)}</span> ${l.tokens === 1 ? 'segnalino comando' : 'segnalini comando'}` : 'nessun segnalino comando'}</span></button>`;
-      }).join('') + '</div>';
+      + d.options.map((o, i) => leaderCard(o.leader!, i, who.color)).join('') + '</div>';
     pick.querySelectorAll<HTMLElement>('.leader').forEach(b => { b.onclick = () => choose(Number(b.dataset.i)); });
   }
   // The question sits with its answer: over the buttons, or alone by the car or the dice.

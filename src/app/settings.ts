@@ -13,10 +13,15 @@ export type Speed = 'full' | 'fast' | 'skip';
 export type DiceThrow = 'auto' | 'hand';
 /** How a car is moved: one space per click, or a whole path planned with waypoints and run with Vai! (waypoints.ts). */
 export type MoveMode = 'step' | 'path';
-/** `director2`: the new camera director (shots.ts) films the events; off, the old fixed shots do. */
-export interface Settings { quality: Quality; speed: Speed; dice: DiceThrow; move: MoveMode; grid: boolean; actionCam: boolean; director2: boolean; effects: boolean; words: boolean; zenith: boolean }
+/**
+ * `director2`: the new camera director (shots.ts) films the events; off, the old fixed shots do.
+ * `newMotion`: the beats are played as the director's scenes, one at a time, each after the table is
+ * truly still (scenePlayer.ts; docs/piano-integrazione-veicoli.md, phase 6, on trial). `testCar`: the
+ * test car in parts (view/test-vehicles.ts) stands in for the Medium Car, to try the parts' motion.
+ */
+export interface Settings { quality: Quality; speed: Speed; dice: DiceThrow; move: MoveMode; grid: boolean; actionCam: boolean; director2: boolean; effects: boolean; words: boolean; zenith: boolean; newMotion: boolean; testCar: boolean }
 export const SETTINGS_KEY = 'trv-settings';
-export const settings: Settings = { quality: 'auto', speed: 'full', dice: 'auto', move: 'step', grid: true, actionCam: true, director2: true, effects: true, words: true, zenith: false };
+export const settings: Settings = { quality: 'auto', speed: 'full', dice: 'auto', move: 'step', grid: true, actionCam: true, director2: true, effects: true, words: true, zenith: false, newMotion: false, testCar: false };
 try { Object.assign(settings, JSON.parse(localStorage.getItem(SETTINGS_KEY) ?? '{}') as Partial<Settings>); } catch { /* defaults */ }
 export function saveSettings(): void {
   try { localStorage.setItem(SETTINGS_KEY, JSON.stringify(settings)); } catch { /* storage off */ }

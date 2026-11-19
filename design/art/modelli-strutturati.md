@@ -394,6 +394,38 @@ Fallisce, e dice perché, se trova uno di questi problemi.
 - **Equipaggio** (in seguito): un modulo a parte legge `seat_*` e `grip_*` e anima le persone sui
   fotogrammi delle regole, senza toccare le regole (ADR-0005).
 
+### 11.1 Il contratto con il Movimento dei veicoli (#36)
+
+Questi modelli sono il sistema #37 dell'indice. Chi li anima è il **Movimento dei veicoli** (#36,
+[vehicle-motion.md](../gdd/vehicle-motion.md)), non il codice dei pezzi.
+
+Il caricatore consegna a #36, per ogni veicolo:
+- **un descrittore delle parti**, con queste voci:
+
+  | Voce | Contenuto |
+  |---|---|
+  | `body` | il nodo della carrozzeria e il suo baricentro |
+  | `wheels[]` | per ogni ruota: perno (`wheel_N{L,R}`), sterzo (`steer_N{L,R}`) se c'è, sospensione (`susp_N{L,R}`) con corsa, raggio, asse (anteriore o posteriore) |
+  | `turrets[]` | torretta (`turret`), canna (`gun`, `barrel`), bocca di fuoco (`muzzle`), limiti di rotazione e di alzo |
+  | `hitches` | `hitch_front`, `hitch_rear` del Big Rig |
+  | `rotors` | `rotor_main`, `rotor_tail` dell'elicottero |
+  | `fork` | la forcella anteriore della moto |
+  | `seats`, `grips` | posti e punti di contatto dell'equipaggio (§5) |
+  | `fx` | le prese degli effetti (§6) |
+
+- **le capacità**, cioè cosa il modello sa fare: `suspension`, `steering`, `turret`, `articulated`
+  (Big Rig), `rotors`, `crew`, `detachable` (parti che si staccano in uno schianto).
+
+Regole del contratto:
+- #36 anima solo le capacità presenti.
+- **Ripiego**: per un modello vecchio, tutto d'un pezzo, il caricatore costruisce il descrittore dai tagli
+  di oggi (`WHEELS`, `GUNS`, `CHOPPER_PARTS`), con le capacità ridotte (niente sospensioni, niente sterzo
+  dove i tagli non lo permettono).
+- **Le misure** (raggi, corse, limiti di rotazione) stanno nella scheda di montaggio (§9). Il caricatore le
+  legge da lì e le passa a #36.
+- **Il controllo automatico** (§10.2) verifica anche che il descrittore sia completo per le capacità
+  dichiarate.
+
 ## 12. Il pilota
 
 Si fa sull'**Auto Media**, dall'inizio alla fine:

@@ -42,6 +42,8 @@ export interface Presentation {
   };
   /** How an FX die is thrown (view/dice-throw.ts), how long it takes, and how wide the pieces it bounces off are (road spaces). */
   diceThrow: ThrowKnobs & { seconds: number; carR: number; rockR: number; sameAction: number; farthest: number; clear: [number, number] };
+  /** The director's scenes (app/scenes.ts): see the data file. */
+  scenes: { takes: Record<string, string[]>; pushMoves: number; aloneDice: string[]; aloneLogs: string[]; prep: number; hold: Record<string, number> };
   director: {
     diceDist: number; shot: { blendIn: number; blendOut: number; wait: number; follow: number }; lift: number;
     /** The new director (shots.ts): see the data file. */
@@ -60,8 +62,37 @@ export interface Presentation {
   bubbles: { slideS: number };
   /** The "Tocca a..." splash at the start of a turn (app/turnsplash.ts). */
   turnSplash: { seconds: number };
-  burst: { aim: number; rounds: number; gap: number; speed: number; spread: number };
+  /** A gun's burst; it fires after the shooting die (aimBeat, afterDie), hitting (debris) or missing (missOffset). */
+  burst: { aim: number; rounds: number; gap: number; speed: number; spread: number; aimBeat: number; afterDie: number; missOffset: number; debris: { pieces: number; speed: number; lift: number; life: number; size: number } };
   salvo: { seconds: number; perSpace: number; stagger: number; flight: number; apex: number; mark: number };
+  /** How a vehicle moves on its springs and how a motorcycle leans (view/models-config.ts, app/cars.ts; design/gdd/vehicle-motion.md). */
+  motion: {
+    car: {
+      engine: { lift: number; roll: number; freq: number };
+      pitchPerAccel: number; rollPerTurn: number; maxTip: number;
+      maxAccel: number; maxTurnRate: number; maxSpeed: number;
+      steerGain: number; maxSteer: number;
+    };
+    spring: { body: { k: number; c: number }; susp: { k: number; c: number } };
+    aim: { speed: number; elevSpeed: number; gap: number; recoil: number; hold: number; bodyKick: number; flash: number };
+    drive: { minSpeed: number; lookAhead: number };
+    ride: { rate: number };
+    settleEps: { x: number; v: number };
+    bike: { lean: number; leanMax: number; speedCap: number; leanRate: number; drift: number; gLean: number };
+    moves: {
+      pushSpeed: number; pushHop: number; pushSettle: number; pushKick: number;
+      hitLunge: number; hitSeconds: number; hitKick: number;
+      skidAngle: number; skidSeconds: number; skidSlide: number;
+      flipSeconds: number; flipHop: number;
+      fallSeconds: number; fallDepth: number; fallTip: number;
+      spinSeconds: number; spinTurns: number; spinSwing: number;
+      slewSeconds: number; slewAngle: number;
+      quakeSeconds: number; quakeHops: number; quakeHop: number; quakeShake: number;
+      hopSeconds: number; hopHigh: number;
+    };
+    crash: { seconds: number; speed: [number, number]; up: [number, number]; gravity: number; spin: number; bounce: number; char: string };
+    tow: { maxAngle: number };
+  };
   /** The Shrapnel damage token's piece of metal (app/shrapnel.ts). */
   shrapnel: { windup: number; speed: number; minFlight: number; after: number; apex: number; height: number; hitHeight: number; size: number; spin: number; bits: number; color: string; metal: number; glint: number };
   /** A destroyed car goes to pieces, a car falls into a pit (app/wreckage.ts). */

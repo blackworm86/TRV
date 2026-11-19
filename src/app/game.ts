@@ -7,6 +7,7 @@ import { playBeats, queue } from './beats';
 import { netError } from './online';
 import { render } from './pieces';
 import { keepReplay } from './replay';
+import { resetScenes } from './scenePlayer';
 import { S } from './state';
 import { $, SAVE_KEY } from './util';
 
@@ -114,6 +115,7 @@ export function startGame(s: Saved, opening = false): void {
   S.replayFrames = null; // a replay belongs to the game it was seen in
   S.saved = s;
   S.draftSent = -1;
+  S.leaderSent = false;
   assignPlan = [];
   g = newGame(s.setup);
   S.gen = play(g);
@@ -132,6 +134,7 @@ export function startGame(s: Saved, opening = false): void {
   S.lastDecider = -1;
   S.frameSeen = g.frames.length;
   queue.length = 0;
+  resetScenes();
   S.playing = false;
   S.settleBy = 0;
   persist();
@@ -150,6 +153,28 @@ export function onlineDraft(): { round: number; hand: string[]; sent: boolean } 
   const seat = mySeat();
   if (!S.net || !g?.draft || pending?.kind !== 'draft' || seat < 0 || !g.draft.picks[seat]) return null;
   return { round: g.draft.round, hand: g.draft.hands[seat], sent: S.draftSent === g.draft.round };
+}
+
+/**
+ * Online crew leaders (asked by the user, 2026-11-19): every player sees their own two boards at
+ * once and picks, as in the upgrade draft; the pick waits at the host until the rules reach that
+ * player. `chosen`: picked (sent, or already taken by the rules), waiting for the others. Null in hot
+ * seat (one screen: the picks come one after the other) or outside that moment.
+ */
+export function onlineLeader(): { hand: string[]; chosen: boolean } | null {
+  const seat = mySeat();
+  if (!S.net || !g?.leaderHands || pending?.kind !== 'leader' || seat < 0) return null;
+  const hand = g.leaderHands[seat] ?? [];
+  if (!hand.length) return null;
+  return { hand, chosen: S.leaderSent || !!g.players[seat].leader };
+}
+
+/** Online: sends this player's crew leader pick (see onlineLeader). */
+export function leaderPick(id: string): void {
+  if (!S.net || !S.saved || !g?.leaderHands) return;
+  S.leaderSent = true;
+  void S.net.store.write(roomPath(S.net.code, 'intents', S.net.uid), { n: S.saved.choices.length, c: 0, leader: id }).catch(netError);
+  render();
 }
 
 /** Online: sends this player's draft pick for the current round (see onlineDraft). */
@@ -278,6 +303,7 @@ export function dropLocal(): void {
   g = null;
   setPending(null);
   queue.length = 0;
+  resetScenes();
   S.playing = false;
 }
 

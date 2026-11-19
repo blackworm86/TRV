@@ -106,6 +106,19 @@ regolamento, e ogni GDD li riprende con la pagina citata.*
   #22, #26. MVP = tempi, coda visiva, salto/accelerazione. **Saltare comprime, non salta
   mai** un passo della catena né una decisione pendente (CD-SYSTEMS 2). Possiede il tuning
   knob "tempo massimo di animazione obbligatoria" del budget del turno (CD-SYSTEMS 4).
+  Dal 2026-11-19 è il **Director** ([camera-director.md](camera-director.md)): raggruppa i
+  fotogrammi in **scene**, una alla volta, e sceglie la camera per ciascuna; dà i comandi
+  di movimento a #36.
+- **#36 Movimento e animazione dei veicoli** (aggiunto il 2026-11-19, richiesta dell'utente) —
+  la fisica cinematica dei veicoli: guida a traiettoria, salti, spinte, sbandate, ribaltamenti,
+  schianti, mira; assetto con molle, sospensioni, sterzo, inclinazione delle moto, cerniere del
+  Big Rig. Esegue i comandi del Director (#25) e gli restituisce durate, momenti salienti e
+  "fermo vero"; anima le parti consegnate dai Modelli strutturati (#37), con ripiego sui tagli
+  di oggi ([vehicle-motion.md](vehicle-motion.md)). Piano di integrazione dei sistemi #25, #36 e #37, con veicolo di collaudo e banco prova:
+  [piano-integrazione-veicoli.md](../../docs/piano-integrazione-veicoli.md).
+- **#37 Modelli strutturati** (aggiunto il 2026-11-19) — veicoli generati in parti con una
+  gerarchia di nomi (carrozzeria, ruote, sospensioni, torrette, cerniere, posti, prese):
+  specifica in [modelli-strutturati.md](../art/modelli-strutturati.md), contratto con #36 al §11.1.
 - **#20 Dice Presentation** — il dado fisico che si ferma sul valore del nucleo; emette
   "dado fermo"; interroga il servizio di layout per il tragitto verso il pannello.
 - **#21 Player Panels** — cruscotti e plancia comandi a schermo (decisione C1), passaggi
@@ -202,7 +215,7 @@ stanno. Le decisioni tecniche trasversali sono in `docs/architecture/` (ADR-0001
 | 22 | Cause Log & Slam Replay | UI | MVP | Implemented (no GDD) | — | `src/app/replay.ts`, registro | #1, #19, #25 |
 | 23 | Input & Selection (inferred) | UI | MVP | Implemented (no GDD) | — | `src/app/input.ts`, `keys.ts` | #1, #3, #19, #21 |
 | 24 | Menus, Match Flow & Screens (inferred; absorbs #6) | UI | MVP | Implemented (no GDD) | — (mock-up in `design/ux/`) | `src/app/menus.ts`, `screens.ts`, `home.ts` | #4, #5, #7, #9, #16 |
-| 25 | Animation & Pacing (inferred) | UI | MVP | Implemented · in revisione | [camera-director.md](camera-director.md) ([ADR-0005](../../docs/architecture/adr-0005-fotogrammi-e-regia.md)) | `src/app/beats.ts`, `shots.ts`, `effects.ts`, `wreckage.ts` | #1, #19 |
+| 25 | Director: scene e camera (Animation & Pacing) | UI | MVP | Bozza in revisione · in parte implementato (una scena alla volta, dadi accanto all'azione) | [camera-director.md](camera-director.md) ([ADR-0005](../../docs/architecture/adr-0005-fotogrammi-e-regia.md)) | `src/app/beats.ts`, `loop.ts`, `shots.ts`, `director.ts`, `effects.ts`, `rolls.ts` | #1, #19, #20, #21, #36 |
 | 26 | Audio Cues (inferred) | Audio | Full Vision | Not Started | — | — | #1, #25 |
 | 27 | Authoritative Server & Protocol | Network | Alpha | Not Started (migrazione Cloudflare in pausa) | — ([ADR-0003](../../docs/architecture/adr-0003-partite-online-host-arbitro.md)) | — | #1, #4, #7 |
 | 28 | Lobby & Rooms (inferred) | Network | Alpha | Implemented (host arbitro su Firebase, no GDD) | — ([ADR-0003](../../docs/architecture/adr-0003-partite-online-host-arbitro.md)) | `src/net/room.ts`, `social.ts`, `src/app/online.ts` | #24, #27 |
@@ -213,6 +226,8 @@ stanno. Le decisioni tecniche trasversali sono in `docs/architecture/` (ADR-0001
 | 33 | The Big Rig and the Final Five (expansion crews) | Gameplay | Alpha | In Review · Implemented | [big-rig-final-five.md](big-rig-final-five.md) | engine (`v.rig`, `v.bike`) | #9, #10, #11, #12, #13, #14, #15, #16, #24, #32 |
 | 34 | Choppe Shoppe (crew leaders, upgrades) | Gameplay | Full Vision | Bozza · Implemented | [choppe-shoppe.md](choppe-shoppe.md) | engine `chooseLeaders`, `draftUpgrades` | #7, #10, #11, #12, #13, #14, #15, #24, #32 |
 | 35 | Carnage at Devil's Run (tiles, hazards, fire) | Gameplay | Full Vision | Bozza · Implemented | [carnage-at-devils-run.md](carnage-at-devils-run.md) | engine `g.carnage`; `src/view/terrain/carnage3d.ts` | #2, #3, #7, #10, #12, #13, #15 |
+| 36 | Movimento e animazione dei veicoli (fisica cinematica: guida, salti, spinte, sospensioni, parti) | UI | MVP | Bozza (2026-11-19) · in parte implementato senza GDD (`cars.ts`, `route.ts`) | [vehicle-motion.md](vehicle-motion.md) | `src/app/cars.ts`, `route.ts`, `stunts.ts`, `wreckage.ts`; previsto `src/app/motion/` | #1, #3, #19, #25, #37 |
+| 37 | Modelli strutturati (veicoli in parti ed equipaggio) | Core | Alpha | Bozza della specifica · pilota sull'Auto Media non iniziato | [modelli-strutturati.md](../art/modelli-strutturati.md) | previsto `src/view/vehicle-rig.ts`; oggi `src/view/models-config.ts` (tagli) | #5, #19 |
 
 *#6 Match Session Flow non esiste più: assorbito da #24 (decisione dell'utente); i
 parametri di partita sono dati di #7. Numerazione lasciata stabile.*

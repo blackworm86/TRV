@@ -1,0 +1,56 @@
+{
+  "_note": "The test car of the integration plan (docs/piano-integrazione-veicoli.md): built in code from simple shapes by src/view/test-vehicles.ts, with the node names of design/art/modelli-strutturati.md §4 and the sheet layout of §9. Metres at real scale, y up, nose toward +x, left side toward -z, origin at the footprint's centre on the ground. Every pivot and at is relative to the parent node (the root when no parent). Keys other than node, source, parent, pivot, at, shapes and axles become the node's extras. Shapes: box [x, y, z]; cyl [radius, length] along axis; ring [radius, tube] around axis; sphere radius; cage [x, y, z] of bars `bar` thick. One colour per part, so a picture shows what moves.",
+  "id": "collaudo_auto",
+  "out": "assets/base/modelli/collaudo_auto.glb",
+  "length_m": 4.6,
+  "show_mm": 33,
+  "capabilities": ["suspension", "steering", "turret", "crew", "detachable"],
+  "parts": [
+    { "node": "body", "source": "proc", "pivot": [0, 0.72, 0], "mass": 1, "zones": ["paint_primary", "metal"],
+      "shapes": [
+        { "box": [4.2, 0.5, 1.6], "at": [0, -0.12, 0], "color": "#d8742c" },
+        { "box": [1.3, 0.16, 1.4], "at": [1.35, 0.21, 0], "color": "#b85f22" },
+        { "box": [0.22, 0.3, 1.75], "at": [2.19, -0.2, 0], "color": "#4a4a4a" },
+        { "box": [0.22, 0.3, 1.75], "at": [-2.19, -0.2, 0], "color": "#4a4a4a" },
+        { "box": [0.9, 0.08, 0.4], "at": [-1.75, 0.17, 0.55], "color": "#4a4a4a" }
+      ] },
+    { "node": "cockpit", "source": "proc", "parent": "body", "pivot": [0.15, 0.13, 0],
+      "shapes": [
+        { "cage": [1.7, 0.95, 1.5], "bar": 0.05, "at": [0, 0.475, 0], "color": "#2e2e2e" },
+        { "box": [0.5, 0.1, 0.5], "at": [-0.15, 0.0, -0.35], "color": "#1f1f1f" },
+        { "box": [0.1, 0.55, 0.5], "at": [-0.42, 0.27, -0.35], "color": "#1f1f1f" },
+        { "box": [0.25, 0.3, 1.4], "at": [0.7, 0.15, 0], "color": "#3a3a3a" }
+      ] },
+    { "node": "steering_wheel", "source": "proc", "parent": "cockpit", "pivot": [0.38, 0.42, -0.35],
+      "shapes": [ { "ring": [0.18, 0.025], "axis": "x", "color": "#8a5cd8" }, { "cyl": [0.02, 0.36], "axis": "z", "color": "#8a5cd8" } ] },
+    { "node": "grip_L", "parent": "steering_wheel", "pivot": [0, 0, -0.18] },
+    { "node": "grip_R", "parent": "steering_wheel", "pivot": [0, 0, 0.18] },
+    { "node": "turret", "source": "proc", "parent": "body", "pivot": [-1.25, 0.13, 0], "arc": [-3.14, 3.14], "speed": 2.5,
+      "shapes": [
+        { "cyl": [0.5, 0.18], "axis": "y", "at": [0, 0.09, 0], "color": "#3d7fd1" },
+        { "box": [0.14, 0.75, 0.14], "at": [0.15, 0.55, 0], "color": "#3d7fd1" }
+      ] },
+    { "node": "gun", "source": "proc", "parent": "turret", "pivot": [0.15, 0.95, 0], "elev": [-0.15, 0.6],
+      "shapes": [
+        { "box": [0.5, 0.2, 0.22], "at": [0.05, 0, 0], "color": "#3fae5c" },
+        { "box": [0.08, 0.16, 0.5], "at": [-0.25, 0, 0], "color": "#3fae5c" }
+      ] },
+    { "node": "grip_L", "parent": "gun", "pivot": [-0.25, 0, -0.22] },
+    { "node": "grip_R", "parent": "gun", "pivot": [-0.25, 0, 0.22] },
+    { "node": "barrel", "source": "proc", "parent": "gun", "pivot": [0.3, 0.02, 0], "kick": 0.12,
+      "shapes": [ { "cyl": [0.045, 0.9], "axis": "x", "at": [0.45, 0, 0], "color": "#e8c53a" } ] },
+    { "node": "muzzle", "parent": "barrel", "pivot": [0.92, 0, 0], "weapon": "mg" },
+    { "node": "fx_exhaust_0", "parent": "body", "pivot": [-2.3, -0.3, 0.55] },
+    { "node": "fx_smoke", "parent": "body", "pivot": [1.35, 0.35, 0] },
+    { "node": "exit_L", "parent": "body", "pivot": [0, -0.7, -1.3] },
+    { "node": "exit_R", "parent": "body", "pivot": [-1.25, -0.7, 1.3] },
+    { "node": "wheel", "source": "proc", "width": 0.32, "axles": [
+        { "x": 1.4, "track": 0.86, "steer": true, "drive": false, "max": 0.5, "radius": 0.42, "travel": [-0.08, 0.12] },
+        { "x": -1.35, "track": 0.86, "steer": false, "drive": true, "radius": 0.42, "travel": [-0.08, 0.12] }
+      ] }
+  ],
+  "seats": [
+    { "node": "seat_driver", "parent": "cockpit", "at": [-0.15, 0.08, -0.35], "role": "driver", "pose": "sit", "operates": "steering_wheel", "visible": "cage", "exit": "exit_L", "clear": [0.6, 0.95, 0.55] },
+    { "node": "seat_gunner", "parent": "turret", "at": [-0.4, 0.45, 0], "role": "gunner", "pose": "stand", "operates": "gun", "visible": "open", "exit": "exit_R", "clear": [0.5, 0.9, 0.55] }
+  ]
+}

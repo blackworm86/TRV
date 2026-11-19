@@ -6,6 +6,7 @@ import * as THREE from 'three';
 import type { SpinPart, Tint, WheelSpec } from './models3d';
 import type { RigModelSpec } from './rigmodel';
 import type { WormSpec } from './worm';
+import { P } from '../app/presentation';
 
 // Imported through the bundler, so a build (GitHub Pages) ships the files and gets their real address.
 // Each game keeps its own models (assets/<game>/modelli/), found here by file name.
@@ -160,21 +161,15 @@ export const BIKE_BACK = { at: [0.16, 0.16, 0] as [number, number, number], norm
  * How a motorcycle rides (asked by the user, 2026-11-18): `lean` radians of lean per radian per second
  * of turning per unit of speed (up to `speedCap`), at most `maxLean`, reached at `leanRate` per second;
  * `drift`: how much further than its path its heading swings when it changes lane.
+ * From the `motion.bike` block of data/trv/presentation_base.json.
  */
-export const BIKE = { lean: 0.055, maxLean: 0.6, speedCap: 6, leanRate: 7, drift: 1.35 };
+export const BIKE = { ...P.motion.bike, maxLean: P.motion.bike.leanMax };
 
-/** Engine and suspension feel. Angles in radians, lengths as a fraction of the car's height. */
-export const RIG = {
-  /** Engine running: a fast, small shake of the body. */
-  engine: { lift: 0.006, roll: 0.004, freq: 46 },
-  /** Body on its springs: how much it tips per unit of acceleration and turn, and the spring. */
-  pitchPerAccel: 0.012, rollPerTurn: 0.05, maxTip: 0.12,
-  /** Input limits (world units, seconds). */
-  maxAccel: 12, maxTurnRate: 6, maxSpeed: 10,
-  stiffness: 140, damping: 9,
-  /** Steering: wheel angle per unit of turn still to make, and its limit. */
-  steerGain: 1.4, maxSteer: 0.5,
-};
+/**
+ * Engine and suspension feel. Angles in radians, lengths as a fraction of the car's height.
+ * From the `motion.car` and `motion.spring.body` blocks of data/trv/presentation_base.json.
+ */
+export const RIG = { ...P.motion.car, stiffness: P.motion.spring.body.k, damping: P.motion.spring.body.c };
 
 /** Hover of the chopper: slow bob and sway. */
 export const HOVER = { lift: 0.07, pitch: 0.05, roll: 0.06, speed: 1.7 };
@@ -216,6 +211,12 @@ export class CarRig {
     this.body = body;
     this.rest = body ? { pos: (body as THREE.Object3D).position.clone(), rot: (body as THREE.Object3D).rotation.clone() } : null;
   }
+
+  /** The body's springs, for the true stop (motion/plan.ts springStill): pitch and roll. */
+  springs(): Spring[] { return [this.pitch, this.roll]; }
+
+  /** A blow to the body (a push, a spin): its springs take these speeds, pitch and roll (radians per second). */
+  jolt(pitch: number, roll: number): void { this.pitch.s += pitch; this.roll.s += roll; }
 
   /**
    * One frame. `forward`: distance driven this frame (world units, negative when reversing);

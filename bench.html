@@ -1,0 +1,78 @@
+<!doctype html>
+<!-- Test bench of the Vehicle Motion system (docs/piano-integrazione-veicoli.md): the test vehicles on a test tile. -->
+<html lang="it">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>TRV — banco prova</title>
+<style>
+  :root { --bg: #2a2019; --panel: #17110dee; --ink: #f1e6d4; --muted: #b8a88f; --accent: #ec9230; --line: #ffffff22; }
+  body { margin: 0; background: var(--bg); overflow: hidden; font: 13px/1.45 system-ui, sans-serif; color: var(--ink); }
+  canvas { display: block; }
+  #panel { position: fixed; left: 10px; top: 10px; bottom: 10px; width: 300px; overflow-y: auto; background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 10px 12px; box-sizing: border-box; }
+  h1 { font-size: 16px; margin: 0 0 2px; }
+  h2 { font-size: 12px; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); margin: 14px 0 6px; border-top: 1px solid var(--line); padding-top: 10px; }
+  .row { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; margin: 4px 0; }
+  button { font: inherit; color: var(--ink); background: #ffffff14; border: 1px solid var(--line); border-radius: 6px; padding: 4px 9px; cursor: pointer; min-height: 30px; }
+  button:hover { background: #ffffff24; }
+  button.on { background: var(--accent); color: #1a120b; border-color: var(--accent); }
+  button:disabled { opacity: .45; cursor: default; }
+  label.slider { display: grid; grid-template-columns: 112px 1fr 44px; gap: 6px; align-items: center; margin: 2px 0; }
+  label.slider input { width: 100%; }
+  label.slider output { text-align: right; color: var(--muted); font-variant-numeric: tabular-nums; }
+  label.check { display: flex; gap: 6px; align-items: center; margin: 3px 0; }
+  select { font: inherit; color: var(--ink); background: #ffffff14; border: 1px solid var(--line); border-radius: 6px; padding: 3px 6px; min-height: 30px; }
+  select option { background: #17110d; }
+  #timeline { white-space: pre-wrap; font: 12px/1.5 ui-monospace, monospace; color: var(--ink); }
+  ol#scenari li button { min-height: 26px; padding: 2px 9px; }
+  #desc { white-space: pre-wrap; font: 12px/1.45 ui-monospace, monospace; color: var(--muted); }
+  #desc .ok { color: #8fd18b; } #desc .bad { color: #ff8a7a; }
+  ol#scenari { margin: 0; padding-left: 0; list-style: none; }
+  ol#scenari li { display: flex; justify-content: space-between; gap: 6px; padding: 3px 0; border-bottom: 1px solid #ffffff0d; }
+  ol#scenari li span.phase { color: var(--muted); white-space: nowrap; }
+  #clock { position: fixed; right: 12px; bottom: 10px; background: #0009; padding: 6px 10px; border-radius: 8px; font-variant-numeric: tabular-nums; }
+  #back { color: var(--accent); }
+</style>
+</head>
+<body>
+<aside id="panel">
+  <h1>Banco prova</h1>
+  <div style="color:var(--muted)">Movimento dei veicoli · fase 5 · <a id="back" href="./admin.html">pannello admin</a></div>
+
+  <h2>Veicolo</h2>
+  <div class="row" id="vehicles"></div>
+
+  <h2>Parti</h2>
+  <div class="row"><button id="mDemo" class="on">Dimostrazione</button><button id="mHand">A mano</button></div>
+  <div id="sliders"></div>
+
+  <h2>Riproduzione</h2>
+  <div class="row"><button data-speed="1" class="on">1×</button><button data-speed="0.25">0,25×</button><button data-speed="0.1">0,1×</button></div>
+  <div class="row"><button id="pause">Pausa</button><button id="step">Avanti di un fotogramma</button><button id="restart">Ricomincia</button></div>
+
+  <h2>Mostra</h2>
+  <label class="check"><input type="checkbox" id="oAxes"> Perni (assi locali)</label>
+  <label class="check"><input type="checkbox" id="oSockets" checked> Prese, uscite e spazi dei posti</label>
+  <label class="check"><input type="checkbox" id="oCrew" checked> Manichini</label>
+  <label class="check"><input type="checkbox" id="oGhost"> Carrozzeria trasparente</label>
+  <label class="check"><input type="checkbox" id="oPath" checked> Percorso degli scenari</label>
+  <label class="check"><input type="checkbox" id="oFollow" checked> La camera segue il veicolo</label>
+
+  <h2>Descrittore delle parti</h2>
+  <div id="desc">…</div>
+
+  <h2>Modello</h2>
+  <div class="row"><button id="export">Esporta GLB</button><button id="frame">Inquadra</button></div>
+  <div id="exportNote" style="color:var(--muted)"></div>
+
+  <h2>Scenari</h2>
+  <div class="row">Salto: <select id="jumpN"></select> <select id="jumpStunt"></select></div>
+  <ol id="scenari"></ol>
+
+  <h2>Linea del tempo</h2>
+  <div id="timeline"></div>
+</aside>
+<div id="clock">t = 0,00 s</div>
+<script type="module" src="./src/tools/bench.ts"></script>
+</body>
+</html>

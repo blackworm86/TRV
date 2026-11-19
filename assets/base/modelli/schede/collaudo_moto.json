@@ -1,0 +1,39 @@
+{
+  "_note": "The test motorcycle of the integration plan (docs/piano-integrazione-veicoli.md, phase 4): same conventions as collaudo_auto.json. The fork hangs from the root and steers about y with the front wheel on it (its axle has parent fork); both wheels are on the middle line (side C). The rider sits astride (pose ride), hands on the fork's grips, feet on foot_L and foot_R.",
+  "id": "collaudo_moto",
+  "out": "assets/base/modelli/collaudo_moto.glb",
+  "length_m": 2.2,
+  "show_mm": 24,
+  "capabilities": ["suspension", "steering", "crew", "detachable"],
+  "parts": [
+    { "node": "body", "source": "proc", "pivot": [0, 0.62, 0], "mass": 1, "zones": ["paint_primary", "metal"],
+      "shapes": [
+        { "box": [1.25, 0.32, 0.34], "at": [0.05, 0, 0], "color": "#d8742c" },
+        { "box": [0.5, 0.26, 0.38], "at": [0.35, 0.2, 0], "color": "#b85f22" },
+        { "box": [0.72, 0.1, 0.3], "at": [-0.35, 0.21, 0], "color": "#1f1f1f" },
+        { "box": [0.45, 0.06, 0.22], "at": [-0.85, 0.12, 0], "color": "#4a4a4a" },
+        { "cyl": [0.06, 0.7], "axis": "x", "at": [-0.45, -0.22, 0.2], "color": "#9a9a9a" }
+      ] },
+    { "node": "fork", "source": "proc", "pivot": [0.68, 0.82, 0], "max": 0.5,
+      "shapes": [
+        { "cyl": [0.03, 0.62], "axis": "y", "at": [0.08, -0.3, -0.11], "color": "#8a5cd8" },
+        { "cyl": [0.03, 0.62], "axis": "y", "at": [0.08, -0.3, 0.11], "color": "#8a5cd8" },
+        { "cyl": [0.022, 0.7], "axis": "z", "at": [-0.02, 0.14, 0], "color": "#8a5cd8" },
+        { "box": [0.12, 0.14, 0.22], "at": [0.06, 0.02, 0], "color": "#e8c53a" }
+      ] },
+    { "node": "grip_L", "parent": "fork", "pivot": [-0.06, 0.14, -0.32] },
+    { "node": "grip_R", "parent": "fork", "pivot": [-0.06, 0.14, 0.32] },
+    { "node": "foot_L", "parent": "body", "pivot": [-0.12, -0.3, -0.24] },
+    { "node": "foot_R", "parent": "body", "pivot": [-0.12, -0.3, 0.24] },
+    { "node": "fx_exhaust_0", "parent": "body", "pivot": [-0.82, -0.22, 0.2] },
+    { "node": "fx_smoke", "parent": "body", "pivot": [0.3, 0.1, 0] },
+    { "node": "exit_L", "parent": "body", "pivot": [0, -0.6, -0.8] },
+    { "node": "wheel", "source": "proc", "width": 0.16, "axles": [
+        { "x": 0.78, "track": 0, "steer": false, "drive": false, "radius": 0.32, "travel": [-0.06, 0.1], "sides": ["C"], "parent": "fork" },
+        { "x": -0.72, "track": 0, "steer": false, "drive": true, "radius": 0.33, "travel": [-0.06, 0.1], "sides": ["C"] }
+      ] }
+  ],
+  "seats": [
+    { "node": "seat_rider", "parent": "body", "at": [-0.3, 0.3, 0], "role": "rider", "pose": "ride", "operates": "fork", "visible": "open", "exit": "exit_L", "clear": [0.6, 0.9, 0.5] }
+  ]
+}

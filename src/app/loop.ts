@@ -5,7 +5,8 @@ import { tickFlames } from '../view/terrain/carnage3d';
 import { ROTOR_SPEED, hover } from '../view/models-config';
 import { SETTLE_MAX, applyBeat, beatLength, effects, finishBeats, queue, settled } from './beats';
 import { carObjs, chopperObjs, fxSupply, hazardObjs } from './board';
-import { carTimeScale, drive, hitchTrains } from './cars';
+import { carTimeScale, drive, hitchTrains, track } from './cars';
+import { planDrive } from './motion/drive';
 import { chaseCamera, clearSight } from './chase';
 import { SHOT, actionSince, directorCamera } from './director';
 import { placeActions, placeDock } from './dock';
@@ -30,6 +31,7 @@ import { SPEED_SCALE, settings } from './settings';
 import { shotsTick } from './shots';
 import { TILE_W, camera, controls, renderer, scene, tileSlots, world } from './stage';
 import { holdForHand, tickHand } from './handroll';
+import { sceneMode, tickScenes } from './scenePlayer';
 import { S } from './state';
 import { animTableDice } from './tableDice';
 import { $, menuOpen } from './util';
@@ -53,15 +55,18 @@ function startRoute(f: Frame): boolean {
   if (cur?.frames.includes(f)) return true;
   // Forward only: each space ahead of the one before (a lane change goes half a space forward).
   const ahead = (from: THREE.Vector3, x: Frame): boolean => world(x.at!).x > from.x + TILE_W / 8 * 0.2;
-  if (o.userData.hitch || !ahead(o.position, f)) { delete o.userData.route; return false; }
+  // A move it did not drive (pushed, spun, shaken: f.why) is not a route: beats.ts gives it its own motion.
+  if (o.userData.hitch || f.why || !ahead(o.position, f)) { delete o.userData.route; return false; }
   const frames = [f];
   for (const x of queue) {
     if (x.kind === 'log') continue;
-    if (x.kind === 'move' && x.vehicleId === f.vehicleId && x.at && ahead(world(frames[frames.length - 1].at!), x)) frames.push(x); else break;
+    if (x.kind === 'move' && !x.why && x.vehicleId === f.vehicleId && x.at && ahead(world(frames[frames.length - 1].at!), x)) frames.push(x); else break;
   }
   // The Big Rig may stop at a slant; cars and motorcycles end along their lane.
   const rig = f.snap.vehicles.find(v => v.id === f.vehicleId)?.rig !== undefined;
-  o.userData.route = makeRoute(o.position, frames.map(x => world(x.at!)), frames, frames.map(ground), P.route, !rig);
+  const route = makeRoute(o.position, frames.map(x => world(x.at!)), frames, frames.map(ground), P.route, !rig);
+  o.userData.route = route;
+  track(o).begin(planDrive(route));
   return true;
 }
 
@@ -123,7 +128,9 @@ renderer.setAnimationLoop(t => {
   if (S.playing && S.shot && now < actionSince + SHOT.wait) S.nextBeatAt = Math.max(S.nextBeatAt, now);
   // Dice to throw by hand: the playback waits for TIRA (handroll.ts).
   tickHand(now);
-  while (S.playing && now >= S.nextBeatAt && !holdForHand(queue)) {
+  // "Movimento nuovo": the beats are the director's scenes, one at a time (scenePlayer.ts).
+  if (sceneMode()) tickScenes(dt);
+  while (!sceneMode() && S.playing && now >= S.nextBeatAt && !holdForHand(queue)) {
     // A car driving a route: each step's beat waits for the car to get there, the others for the end.
     if (queue.length && waitRoute(queue[0])) break;
     // One scene at a time (asked by the user, 2026-11-19): a beat starts only when what the last one set

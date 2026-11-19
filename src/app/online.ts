@@ -127,8 +127,9 @@ export function referee(): void {
     const back = undoable(S.net.room, S.saved.choices.length, S.saved.lock ?? 0, deciders);
     if (back) { takeBack(back); return; }
     const draft = pending?.kind === 'draft' && g?.draft ? { r: g.draft.round, cards: pending.options.map(o => o.upgrade!) } : undefined;
+    const leader = pending?.kind === 'leader' ? pending.options.map(o => o.leader!) : undefined;
     const assign = pending?.kind === 'upgradeAssign' ? pending.options.map(o => ({ card: o.upgrade!, car: o.carId! })) : undefined;
-    const ok = acceptable(S.net.room, S.saved.choices.length, pending && { player: pending.player, options: pending.options.length, ...(draft ? { draft } : {}), ...(assign ? { assign } : {}) });
+    const ok = acceptable(S.net.room, S.saved.choices.length, pending && { player: pending.player, options: pending.options.length, ...(draft ? { draft } : {}), ...(assign ? { assign } : {}), ...(leader ? { leader } : {}) });
     if (!ok) return;
     const n = S.saved.choices.length;
     applyChoice(ok.choice);

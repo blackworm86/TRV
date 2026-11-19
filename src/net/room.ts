@@ -77,6 +77,8 @@ export interface Intent {
    * length `n`, `c` being the first. Each is taken while the log is still inside the path.
    */
   path?: number[];
+  /** A crew leader picked in advance (everyone picks at once): taken when the rules ask that player. */
+  leader?: string;
 }
 
 /** The shared record of a room, as read from the store and tidied by {@link readRoom}. */
@@ -323,6 +325,8 @@ export function undoable(room: Room, logLength: number, lock: number, deciders: 
  */
 export interface Pending {
   player: number; options: number; draft?: { r: number; cards: string[] };
+  /** Picking a crew leader: each option's leader. */
+  leader?: string[];
   /** Placing an upgrade card: each option's card and car. */
   assign?: { card: string; car: string }[];
 }
@@ -339,6 +343,11 @@ export function acceptable(room: Room, logLength: number, pending: Pending | nul
   if (intent?.draft && pending.draft) {
     if (intent.draft.r !== pending.draft.r) return null;
     const c = pending.draft.cards.indexOf(intent.draft.card);
+    return c < 0 ? null : { uid: uid!, choice: c };
+  }
+  // A crew leader picked in advance: taken when the rules reach that player.
+  if (intent?.leader && pending.leader) {
+    const c = pending.leader.indexOf(intent.leader);
     return c < 0 ? null : { uid: uid!, choice: c };
   }
   // Upgrade cards placed in advance: the first placement still to make among the options.

@@ -3,7 +3,7 @@
 //                         inlined, which every check opens from disk
 // npm run build:pages  -> dist-pages/: the site published on GitHub Pages: the game
 //                         (index.html), its gallery and the admin asset inspector
-//                         (admin.html); tools/pages/finish.mjs adds the old addresses
+//                         (admin.html) and the vehicle test bench (bench.html); tools/pages/finish.mjs adds the old addresses
 //                         (prototypes/trv-play-spike/) as redirects.
 // Vitest reads the test block; Playwright has its own config.
 import { execSync } from 'node:child_process';
@@ -33,7 +33,7 @@ export default defineConfig(({ mode }) => ({
     outDir: mode === 'single' ? 'dist-single' : mode === 'pages' ? 'dist-pages' : 'dist',
     emptyOutDir: true,
     rolldownOptions: {
-      ...(mode === 'pages' ? { input: ['index.html', 'gallery.html', 'admin.html'] } : {}),
+      ...(mode === 'pages' ? { input: ['index.html', 'gallery.html', 'admin.html', 'bench.html'] } : {}),
       // three.js in a file of its own (asked by the user, 2026-11-18: lighten the game): it changes
       // only when the library is upgraded, so a browser keeps it across updates of the game.
       ...(mode === 'single' ? {} : { output: { codeSplitting: { groups: [{ name: 'three', test: /node_modules[\\/]three[\\/]/ }] } } }),
