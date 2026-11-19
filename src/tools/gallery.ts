@@ -37,7 +37,10 @@ const $ = (id: string): HTMLElement => document.getElementById(id)!;
 // ---------------------------------------------------------------- 3D items
 
 type Build = () => THREE.Object3D;
-const builders = new Map<string, { title: string; build: Build; top?: boolean }>();
+/** `paint`: a model the viewer can repaint in any crew colour (the build reads {@link paint}). */
+const builders = new Map<string, { title: string; build: Build; top?: boolean; paint?: boolean }>();
+/** The colour the paintable models are shown in (the viewer's colour bar sets it; orange to start). */
+let paint = (CATALOG.crews.find(c => c.id === 'orange') ?? CATALOG.crews[0]).color;
 const pieces = new Pieces(MM, new TextureBank(4));
 /**
  * Puts the game's model in place of a stand-in piece once it has loaded, tinted and at its table
@@ -52,12 +55,6 @@ function real(stand: THREE.Group, url: string, lengthMm: number, tint: Tint): TH
     stand.add(d);
   }));
   return stand;
-}
-/** Lays the pieces of the crews out three to a row (`dx`, `dz`: the spacing in mm), so they stay big in the thumbnail. */
-function grid(o: THREE.Object3D, i: number, dx: number, dz: number): void {
-  const n = Math.ceil(Math.sqrt(CREWS.length));
-  o.position.x = (i % n - (n - 1) / 2) * dx * MM;
-  o.position.z = (Math.floor(i / n) - (n - 1) / 2) * dz * MM;
 }
 /** The model loads under way, for a thumbnail to wait for before it is drawn. */
 const loading: Promise<void>[] = [];
@@ -133,9 +130,12 @@ const orbit = new OrbitControls(viewCam, viewRenderer.domElement);
 orbit.enableDamping = true;
 let shown: THREE.Object3D | null = null;
 
+let shownKey = '';
 function showIn3D(key: string): void {
   const item = builders.get(key);
   if (!item) return;
+  shownKey = key;
+  $('paint').hidden = !item.paint;
   if (shown) viewScene.remove(shown);
   shown = item.build();
   viewScene.add(shown);
@@ -143,6 +143,18 @@ function showIn3D(key: string): void {
   $('viewer-title').textContent = item.title;
   for (const b of document.querySelectorAll<HTMLElement>('[data-show]')) b.classList.toggle('on', b.dataset.show === key);
 }
+
+// The colour bar: the nine crew colours and a free one (a first taste of "paint your models").
+$('paint').innerHTML = CREWS.map(cr => `<button data-paint="${cr.color}" title="${esc(cr.name)}" style="background:${cr.color}"></button>`).join('')
+  + `<label title="Colore libero"><input type="color" id="paint-free" value="${paint}"></label>`;
+function repaint(color: string): void {
+  paint = color;
+  for (const b of document.querySelectorAll<HTMLElement>('[data-paint]')) b.classList.toggle('on', b.dataset.paint === color);
+  if (builders.get(shownKey)?.paint) showIn3D(shownKey);
+}
+$('paint').addEventListener('click', e => { const b = (e.target as Element).closest<HTMLElement>('[data-paint]'); if (b) repaint(b.dataset.paint!); });
+$('paint-free').addEventListener('input', e => repaint((e.target as HTMLInputElement).value));
+repaint(paint);
 
 function fitViewer(): void {
   const w = view.clientWidth, h = view.clientHeight;
@@ -264,15 +276,12 @@ section('plance', 'Cruscotti e plancia comandi', 'Tre cruscotti e una plancia pe
 ]);
 
 // Vehicles
-section('veicoli', 'Veicoli e altri pezzi', 'Auto in tre misure per crew, elicottero e relitti: i modelli 3D del gioco, con i colori delle crew.', [
+section('veicoli', 'Veicoli e altri pezzi', 'Un modello 3D per pezzo, come nel gioco: il colore della crew si dà al modello mentre il gioco gira. Nel visore si sceglie il colore.', [
   ...(['S', 'M', 'L'] as const).map(size => {
     const key = `car-${size}`;
     builders.set(key, {
-      title: `Auto ${SIZE_NAMES[size]}, quattro crew`, build: () => {
-        const g = new THREE.Group();
-        CREWS.forEach((cr, i) => { const c = real(pieces.car(comp(`car_${size}`).size_mm as [number, number, number], cr.color, false), MODEL.car[size], SHOW_LENGTH_MM[size], crewTint(cr.color)); grid(c, i, 60, 32); g.add(c); });
-        return g;
-      },
+      title: `Auto ${SIZE_NAMES[size]}`, paint: true,
+      build: () => real(pieces.car(comp(`car_${size}`).size_mm as [number, number, number], paint, false), MODEL.car[size], SHOW_LENGTH_MM[size], crewTint(paint)),
     });
     return { key, title: `Auto ${SIZE_NAMES[size]}`, meta: `1 per crew · ${mm(`car_${size}`)}`, flat: CREWS.map(cr => `<i class="car">${carSvg(size, cr.color)}</i>`) };
   }),
@@ -282,13 +291,19 @@ section('veicoli', 'Veicoli e altri pezzi', 'Auto in tre misure per crew, elicot
   })(),
   (() => {
     builders.set('chopper', {
-      title: 'Elicotteri, quattro crew', build: () => {
-        const g = new THREE.Group();
-        CREWS.forEach((cr, i) => { const c = real(pieces.chopper(comp('chopper').size_mm as [number, number, number], cr.color), MODEL.chopper, SHOW_LENGTH_MM.chopper, crewTint(cr.color, true)); grid(c, i, 70, 70); g.add(c); });
-        return g;
-      },
+      title: 'Elicottero', paint: true,
+      build: () => real(pieces.chopper(comp('chopper').size_mm as [number, number, number], paint), MODEL.chopper, SHOW_LENGTH_MM.chopper, crewTint(paint, true)),
     });
     return { key: 'chopper', title: 'Elicottero', meta: `1 per crew · ${mm('chopper')}`, flat: CREWS.map(cr => `<i class="icon">${chopperSvg(cr.color)}</i>`) };
+  })(),
+  (() => {
+    builders.set('bike', { title: 'Moto delle Final Five', paint: true, build: () => real(new THREE.Group(), MODEL.motorcycle, SHOW_LENGTH_MM.bike, crewTint(paint)) });
+    return { key: 'bike', title: 'Moto delle Final Five', meta: '5 per la squadra · una casella', flat: [] };
+  })(),
+  (() => {
+    // The whole road train, three spaces long (a space: an eighth of a road tile's length).
+    builders.set('big-rig', { title: 'Big Rig', paint: true, build: () => real(new THREE.Group(), MODEL.bigRig, 3 * comp('road_tile_1').size_mm[0] / 8, crewTint(paint)) });
+    return { key: 'big-rig', title: 'Big Rig', meta: 'Motrice e due rimorchi · tre caselle', flat: [] };
   })(),
   { title: 'Avatar dei giocatori', meta: 'Colore della crew e iniziale', flat: CREWS.map(cr => `<i class="icon">${avatarSvg(cr.color, cr.name)}</i>`) },
   { title: 'Traguardi', meta: `${mm('finish_line')} · quattro, dal foglio ufficiale, ritagliati sulla sua sagoma: The Cliff, The Wall, The Grid, The Dome`,
