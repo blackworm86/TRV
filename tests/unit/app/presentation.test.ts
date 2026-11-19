@@ -22,6 +22,12 @@ describe('presentation data', () => {
     expect(P.replay.camera).toHaveLength(3);
   });
 
+  it('names only looks that exist for every ground, and gives mud and slime their wet drops', () => {
+    for (const looks of Object.values(P.trail.ground)) for (const name of looks) expect(P.trail.looks[name]).toBeDefined();
+    for (const g of ['M', 'G']) expect(P.trail.liquids[g].gravity).toBeGreaterThan(0);
+    expect(P.route.top).toBeGreaterThan(P.route.crawl);
+  });
+
   it('has jump odds that add up to one for every length from one to four spaces', () => {
     for (const n of [1, 2, 3, 4]) {
       const sum = Object.values(P.jump.odds[n]).reduce((a, b) => a + (b ?? 0), 0);

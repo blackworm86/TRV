@@ -4,6 +4,7 @@
 
 import RAW from '../../data/trv/presentation_base.json';
 import type { ThrowKnobs } from '../view/dice-throw';
+import type { RouteKnobs } from './route';
 
 /** snake_case -> camelCase. */
 const camel = (k: string): string => k.replace(/_([a-z0-9])/g, (_, c: string) => c.toUpperCase());
@@ -20,10 +21,18 @@ export function camelKeys(v: unknown): unknown {
 }
 
 type Stunt = 'flat' | 'oneWheel' | 'barrel' | 'backflip';
+/** A soft sprite a moving car throws up (app/trail.ts): see the data file. */
+export interface TrailLook { color: string; rate: number; size: [number, number]; life: number; alpha: number; up: number; grav: number; spread: number; glow?: boolean }
+/** Wet drops a car throws up from mud or slime (app/trail.ts): see the data file. */
+export interface TrailLiquid { color: string; rate: number; size: [number, number]; life: number; up: [number, number]; kick: number; spread: number; gravity: number; gloss: number; glow: number; splat: number }
 /** The presentation values, as the modules use them (see the data file for what each one means). */
 export interface Presentation {
   beats: { seconds: Record<string, number>; speedScale: { full: number; fast: number; skip: number }; settleMaxS: number };
   drive: { speed: number; turnRate: number; parkTurnRate: number; maxYaw: number };
+  /** How a car drives forward through spaces (app/route.ts). */
+  route: RouteKnobs;
+  /** What a moving car throws up (app/trail.ts): looks by name, the looks of each ground, the liquids of mud and slime. */
+  trail: { pool: number; drops: number; looks: Record<string, TrailLook>; ground: Record<string, string[]>; liquids: Record<string, TrailLiquid> };
   jump: {
     climb: number; land: number; gravity: number; minAngle: number; maxAngle: number; short: number; minFlight: number; maxDive: number;
     bySpaces: Record<number, { follow: number; tail: number }>;

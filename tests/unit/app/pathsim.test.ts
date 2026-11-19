@@ -77,6 +77,25 @@ describe('path simulator', () => {
     expect(steps[1].at).toEqual(steps[0].at); // the car stays where it is while the die is taken
   });
 
+  it('never shows what the dice will do: on a ramp or an oil slick the path ends on the space entered', () => {
+    // Arrange: a step onto a ramp (straight on) or an oil slick, whose outcome a die decides.
+    const random = /: rampa$|olio/i;
+    let found: { s: number; choices: number[]; d: Decision; c: number } | null = null;
+    for (let s = 1; s <= 120 && !found; s++) {
+      const at = reach(setupOf(s), d => d.kind === 'step' && d.options.some(o => random.test(o.label) && !o.danger));
+      if (at) found = { s, ...at, c: at.d.options.findIndex(o => random.test(o.label) && !o.danger) };
+    }
+    expect(found).not.toBeNull();
+    const { s, choices, d, c } = found!;
+    // Act
+    const { steps } = simulatePath(setupOf(s), choices, [c, 0, 0]);
+    // Assert: the arrow stops on the space as the rules name it, and nothing after the roll is told.
+    expect(steps).toHaveLength(1);
+    expect(steps[0].kind).toBe('stop');
+    expect(steps[0].at).toEqual(d.options[c].pos);
+    expect(steps[0].next).toBeNull();
+  });
+
   it('cuts the path at a choice that is not an option', () => {
     const at = reach(setupOf(3), d => d.kind === 'step');
     expect(at).not.toBeNull();

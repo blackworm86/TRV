@@ -19,6 +19,7 @@ import { placeBikePick } from './bikepick';
 import { placePath } from './waypoints';
 import { onBoard, terrainAt, type Frame } from '../game/trv/engine';
 import { g } from './game';
+import { P } from './presentation';
 import { makeRoute, type Route } from './route';
 import { updateTrail } from './trail';
 import { groundTick, render } from './pieces';
@@ -27,7 +28,7 @@ import { timeScale } from './replay';
 import { fxGoHome } from './rolls';
 import { SPEED_SCALE, settings } from './settings';
 import { shotsTick } from './shots';
-import { camera, controls, renderer, scene, tileSlots, world } from './stage';
+import { TILE_W, camera, controls, renderer, scene, tileSlots, world } from './stage';
 import { holdForHand, tickHand } from './handroll';
 import { S } from './state';
 import { animTableDice } from './tableDice';
@@ -36,9 +37,10 @@ import { $, menuOpen } from './util';
 export const timer = new THREE.Timer();
 timer.connect(document);
 /**
- * A move beat followed by more moves of the same car (a waypoint path run with Vai!, a slide on
- * desert glass): the car drives one curve through all those spaces (route.ts). Every move beat
- * also notes the ground the car drives on, for its dust (trail.ts).
+ * A car driving forward (asked by the user, 2026-11-19): the move beat, and the moves of the same
+ * car right after it (a waypoint path run with Vai!, a slide on desert glass), are driven as one
+ * route, as a driver would (route.ts). A car pushed back or sideways (a slam, a bump) slides to its
+ * space as before. Every move beat also notes the ground the car drives on (trail.ts).
  * @returns true when the beat belongs to a route: its timing is the car's, not the beat's length.
  */
 function startRoute(f: Frame): boolean {
@@ -49,13 +51,17 @@ function startRoute(f: Frame): boolean {
   o.userData.ground = ground(f);
   const cur = o.userData.route as Route | undefined;
   if (cur?.frames.includes(f)) return true;
+  // Forward only: each space ahead of the one before (a lane change goes half a space forward).
+  const ahead = (from: THREE.Vector3, x: Frame): boolean => world(x.at!).x > from.x + TILE_W / 8 * 0.2;
+  if (o.userData.hitch || !ahead(o.position, f)) { delete o.userData.route; return false; }
   const frames = [f];
   for (const x of queue) {
     if (x.kind === 'log') continue;
-    if (x.kind === 'move' && x.vehicleId === f.vehicleId && x.at) frames.push(x); else break;
+    if (x.kind === 'move' && x.vehicleId === f.vehicleId && x.at && ahead(world(frames[frames.length - 1].at!), x)) frames.push(x); else break;
   }
-  if (frames.length < 2) { delete o.userData.route; return false; }
-  o.userData.route = makeRoute(o.position, frames.map(x => world(x.at!)), frames, frames.map(ground));
+  // The Big Rig may stop at a slant; cars and motorcycles end along their lane.
+  const rig = f.snap.vehicles.find(v => v.id === f.vehicleId)?.rig !== undefined;
+  o.userData.route = makeRoute(o.position, frames.map(x => world(x.at!)), frames, frames.map(ground), P.route, !rig);
   return true;
 }
 

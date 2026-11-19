@@ -17,11 +17,14 @@ export interface SimStep {
   /** The option chosen in the decision. */
   choice: number;
   kind: StepKind;
-  /** Where the car is after this step (a slide on desert glass included); null before it enters. */
+  /**
+   * Where the car is after this step: a slide the rules make certain (no die) included; after a
+   * step that draws on the dice or a pile, only the space entered. Null before it enters.
+   */
   at: Pos | null;
   /** Moves left after this step, when the car moves on. */
   left: number | null;
-  /** The decision asked after this step (null once the game is over). */
+  /** The decision asked after this step (null once the game is over, and after a stop: it could tell a die). */
   next: Decision | null;
   /** The option's label: what the space is, as the rules name it before entering. */
   label: string;
@@ -59,14 +62,19 @@ export function simulatePath(setup: Setup, choices: readonly number[], path: rea
   let d = start;
   for (const c of path) {
     if (!d || !plannable(d) || !Number.isInteger(c) || c < 0 || c >= d.options.length) break;
-    const seen = g.frames.length, car = g.activeCar, opt = d.options[c];
+    const seen = g.frames.length, car = g.activeCar, opt = d.options[c], luck = g.rng;
     r = it.next(c);
-    const next = r.done ? null : r.value;
     const fresh = g.frames.slice(seen);
+    // The simulation runs on the real seed, so it knows every die before it is rolled. A step that
+    // draws on the dice or a pile (a ramp, an oil slick, a slam, a hazard turned up...) is a stop,
+    // and of it only what the rules say before entering is told: the space entered, nothing after.
+    const blind = g.rng !== luck || fresh.some(f => STOP_FRAMES.has(f.kind));
+    const next = r.done || blind ? null : r.value;
     const moved = fresh.filter(f => f.kind === 'move' && f.at && (!car || f.vehicleId === car));
-    const at = moved.length ? moved[moved.length - 1].at! : opt.pos ?? steps[steps.length - 1]?.at ?? null;
+    const before = opt.pos ?? steps[steps.length - 1]?.at ?? null;
+    const at = blind ? before : moved.length ? moved[moved.length - 1].at! : before;
     const same = !!next && next.player === d.player && g.activeCar === car;
-    const kind: StepKind = fresh.some(f => STOP_FRAMES.has(f.kind)) ? 'stop'
+    const kind: StepKind = blind ? 'stop'
       : same && next.kind === 'step' ? 'go'
       : same && next.kind === 'roadDie' ? 'road' : 'end';
     steps.push({ choice: c, kind, at, left: kind === 'go' ? movesLeft(next) : null, next, label: opt.label });

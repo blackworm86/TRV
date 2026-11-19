@@ -215,16 +215,20 @@ export function drive(o: THREE.Object3D, dt: number, k: number, now: number): vo
   const before = o.position.clone();
   // A Big Rig trailer on its hitch does not drive itself: the section ahead pulls it (hitchTrains).
   const hitched = !!o.userData.hitch;
-  // A route through several spaces (route.ts): along its curve, speeding up at the start and slowing
-  // down only at the end. Skipped beats (no playback) leave it, and the car goes to its target.
+  // Driving forward on a route (route.ts): at the speed the route sets there, the nose along the way,
+  // the front wheels steered to where the route goes next. Skipped beats (no playback) leave it, and
+  // the car goes to its target.
   const rt = o.userData.route as Route | undefined;
   if (rt && !S.playing) delete o.userData.route;
+  let routeYaw: number | null = null, routeSteer = 0;
   if (rt && S.playing) {
-    const v = DRIVE.speed * Math.min(1, 0.35 + rt.s * 1.5, 0.35 + (rt.len - rt.s) * 1.5);
-    rt.s = Math.min(rt.len, rt.s + v * dt);
+    rt.s = Math.min(rt.len, rt.s + Math.max(routeAt(rt, rt.s).v, 0.05) * dt);
     const at = routeAt(rt, rt.s);
     o.position.x = at.pos.x; o.position.z = at.pos.z;
     o.userData.ground = rt.ground[at.seg];
+    routeYaw = at.yaw;
+    const ahead = routeAt(rt, rt.s + TILE_W / 8 * 0.5).yaw;
+    routeSteer = Math.atan2(Math.sin(ahead - at.yaw), Math.cos(ahead - at.yaw));
     if (rt.s >= rt.len) delete o.userData.route;
   } else if (tg && !hitched) {
     const dx = tg.x - o.position.x, dz = tg.z - o.position.z;
@@ -245,15 +249,15 @@ export function drive(o: THREE.Object3D, dt: number, k: number, now: number): vo
     // A lane change is a diagonal step: the car steers into it, it does not turn sideways.
     // (A Big Rig section only goes forward or into the next lane: it follows its step as it is.)
     // A motorcycle swings its rear out further than its path: it drifts into the lane (BIKE.drift).
-    // On a route the curve already steers it: the nose follows the way and a motorcycle leans into it.
-    const drift = o.userData.bike && !rt;
+    const drift = o.userData.bike;
     const reach = DRIVE.maxYaw * (drift ? BIKE.drift : 1);
     if (drift) want *= BIKE.drift;
     if (o.userData.restYaw === undefined) want = Math.max(-reach, Math.min(reach, want));
   }
   const rate = speed > 0.4 ? DRIVE.turnRate * (hitched ? TRAILER_TURN : 1) : DRIVE.parkTurnRate;
-  const turn = want - yaw;
-  const newYaw = yaw + turn * Math.min(1, dt * rate);
+  // On a route the nose is the route's; the wheels look ahead along it.
+  const turn = routeYaw !== null ? routeSteer : want - yaw;
+  const newYaw = routeYaw ?? yaw + turn * Math.min(1, dt * rate);
   o.userData.yaw = newYaw;
   driveGun(o, newYaw, dt);
   // Tip over the long axis onto one side; while tipping it hops.
