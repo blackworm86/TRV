@@ -14,9 +14,11 @@ import {
 } from '../view/vector/art';
 import { buildTile, hazardToken, type TileData } from '../view/board3d';
 import { tickFlames, useRampModel } from '../view/terrain/carnage3d';
-import { ModelBank } from '../view/models3d';
-import { MODEL } from '../view/models-config';
-void useRampModel(MODEL.ramp, u => new ModelBank().load(u));
+import { ModelBank, dressed, fitToLength, type Tint } from '../view/models3d';
+import { MODEL, MODEL_YAW, SHOW_LENGTH_MM, WRECK_TINT, crewTint, wreckLength, wreckModel } from '../view/models-config';
+/** The game's own 3D models (the modelli folders of assets), loaded once for every item of the page. */
+const bank = new ModelBank();
+void useRampModel(MODEL.ramp, u => bank.load(u));
 import { makeDie, type DiceFaces } from '../view/dice3d';
 import { Pieces, TextureBank } from '../view/pieces3d';
 import { texturesReady } from '../view/texture';
@@ -37,6 +39,28 @@ const $ = (id: string): HTMLElement => document.getElementById(id)!;
 type Build = () => THREE.Object3D;
 const builders = new Map<string, { title: string; build: Build; top?: boolean }>();
 const pieces = new Pieces(MM, new TextureBank(4));
+/**
+ * Puts the game's model in place of a stand-in piece once it has loaded, tinted and at its table
+ * length as in the game (src/app/pieces.ts); the stand-in stays if the model cannot load.
+ */
+function real(stand: THREE.Group, url: string, lengthMm: number, tint: Tint): THREE.Group {
+  loading.push(bank.load(url).then(m => {
+    if (!m) return;
+    const d = dressed(m, tint);
+    fitToLength(d, lengthMm * MM, MODEL_YAW);
+    for (const c of stand.children) c.visible = false;
+    stand.add(d);
+  }));
+  return stand;
+}
+/** Lays the pieces of the crews out three to a row (`dx`, `dz`: the spacing in mm), so they stay big in the thumbnail. */
+function grid(o: THREE.Object3D, i: number, dx: number, dz: number): void {
+  const n = Math.ceil(Math.sqrt(CREWS.length));
+  o.position.x = (i % n - (n - 1) / 2) * dx * MM;
+  o.position.z = (Math.floor(i / n) - (n - 1) / 2) * dz * MM;
+}
+/** The model loads under way, for a thumbnail to wait for before it is drawn. */
+const loading: Promise<void>[] = [];
 
 function dieGroup(kind: string, color?: string): THREE.Object3D {
   const g = new THREE.Group();
@@ -87,6 +111,7 @@ async function thumb(key: string): Promise<string> {
   lights(scene);
   const obj = item.build();
   scene.add(obj);
+  await Promise.all(loading.splice(0));
   await texturesReady();
   const cam = new THREE.PerspectiveCamera(30, 1.5, 0.01, 100);
   frame(obj, cam, item.top);
@@ -239,27 +264,27 @@ section('plance', 'Cruscotti e plancia comandi', 'Tre cruscotti e una plancia pe
 ]);
 
 // Vehicles
-section('veicoli', 'Veicoli e altri pezzi', 'Auto in tre misure per crew, elicottero e relitti: modelli provvisori, da sostituire con asset 3D veri.', [
+section('veicoli', 'Veicoli e altri pezzi', 'Auto in tre misure per crew, elicottero e relitti: i modelli 3D del gioco, con i colori delle crew.', [
   ...(['S', 'M', 'L'] as const).map(size => {
     const key = `car-${size}`;
     builders.set(key, {
       title: `Auto ${SIZE_NAMES[size]}, quattro crew`, build: () => {
         const g = new THREE.Group();
-        CREWS.forEach((cr, i) => { const c = pieces.car(comp(`car_${size}`).size_mm as [number, number, number], cr.color, false); c.position.z = (i - 1.5) * 32 * MM; g.add(c); });
+        CREWS.forEach((cr, i) => { const c = real(pieces.car(comp(`car_${size}`).size_mm as [number, number, number], cr.color, false), MODEL.car[size], SHOW_LENGTH_MM[size], crewTint(cr.color)); grid(c, i, 60, 32); g.add(c); });
         return g;
       },
     });
     return { key, title: `Auto ${SIZE_NAMES[size]}`, meta: `1 per crew · ${mm(`car_${size}`)}`, flat: CREWS.map(cr => `<i class="car">${carSvg(size, cr.color)}</i>`) };
   }),
   (() => {
-    builders.set('wreck', { title: 'Relitto', build: () => pieces.car(comp('wreck').size_mm as [number, number, number], '#333', true) });
+    builders.set('wreck', { title: 'Relitto', build: () => real(pieces.car(comp('wreck').size_mm as [number, number, number], '#333', true), wreckModel('wreck'), wreckLength('wreck'), WRECK_TINT) });
     return { key: 'wreck', title: 'Relitto', meta: `Quantità: ${comp('wreck').count} · ${mm('wreck')}`, flat: [`<i class="car">${carSvg('S', '#3b342e')}</i>`] };
   })(),
   (() => {
     builders.set('chopper', {
       title: 'Elicotteri, quattro crew', build: () => {
         const g = new THREE.Group();
-        CREWS.forEach((cr, i) => { const c = pieces.chopper(comp('chopper').size_mm as [number, number, number], cr.color); c.position.x = (i - 1.5) * 60 * MM; g.add(c); });
+        CREWS.forEach((cr, i) => { const c = real(pieces.chopper(comp('chopper').size_mm as [number, number, number], cr.color), MODEL.chopper, SHOW_LENGTH_MM.chopper, crewTint(cr.color, true)); grid(c, i, 70, 70); g.add(c); });
         return g;
       },
     });

@@ -34,6 +34,11 @@ const GAME_PORT = 5199;
 export default defineConfig({
   testDir: 'tests/integration',
   forbidOnly: !!process.env.CI,
+  // Every test opens its own page and storage, so they can run side by side (PW_WORKERS=n), also
+  // within one file. One at a time by default: each draws its table in software (SwiftShader), and
+  // with 3 or 4 at once (tried 2026-11-19, 5 minutes instead of 9) a few tests ran out of time.
+  fullyParallel: true,
+  workers: process.env.PW_WORKERS ? Number(process.env.PW_WORKERS) : 1,
   // The game draws its 3D table in software here: slow, so roomy timeouts.
   timeout: 120_000,
   expect: { timeout: 20_000 },

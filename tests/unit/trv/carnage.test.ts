@@ -9,7 +9,7 @@ const SEED = 'c4'.repeat(32);
 const PLAYERS = [{ name: 'Rosso', color: '#d33' }, { name: 'Blu', color: '#36c' }];
 
 /**
- * Test numbers for what the rulebook does not give (data/trv/carnage.json `_missing`): one token of
+ * Test numbers for what the rulebook does not give (in data/trv/carnage.json from the summary sheet and the card scans): one token of
  * each kind, a fire die chosen per test, a two-card ongoing effect deck. Not the real components.
  */
 function fixture(fireDie: FireFace[] = ['+1', '+1', '+2', 'out', 'out', 'eliminated']): CarnageNumbers {

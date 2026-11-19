@@ -39,8 +39,8 @@ export type FireFace = '+1' | '+2' | 'out' | 'eliminated';
 export type CarnageHazard = 'quake' | 'sand_worm' | 'desert_glass' | 'ramp' | 'fire' | 'pit_trap';
 
 /**
- * The numbers of Carnage at Devil's Run that the rulebook does not give (data/trv/carnage.json
- * `_missing`): how many tokens of each kind, the fire die's faces, the ongoing effect deck. Read from
+ * The numbers of Carnage at Devil's Run that the rulebook does not give (data/trv/carnage.json:
+ * from the summary sheet and the card scans): how many tokens of each kind, the fire die's faces, the ongoing effect deck. Read from
  * the data file; a test can pass its own (Setup.carnage).
  */
 export interface CarnageNumbers {
@@ -1286,7 +1286,7 @@ function* damageEffect(g: Game, v: Vehicle, t: DamageToken): Gen<void> {
 
 /**
  * The expansion's numbers from data/trv/carnage.json. Throws, naming them, while some are still
- * missing there (the rulebook does not give them: see the file's `_missing`).
+ * missing there (the rulebook does not give them; a value still unknown is listed in the file's `_missing`).
  */
 export function carnageNumbers(): CarnageNumbers {
   const d = carnageData as unknown as {

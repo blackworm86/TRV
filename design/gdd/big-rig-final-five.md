@@ -274,7 +274,7 @@ Ogni valore viene da `data/trv/big_rig_final_five.json`; nessun numero nel codic
 | #10 Movement | movimento a treno, spostamenti laterali con sterzo, drift delle moto attraverso tutti, ingresso in casella guardando solo la sezione anteriore | engine `enter`, `move` |
 | #11 Command Board | plancia delle sezioni (un dado per sezione per round), sterzo della motrice, plancia delle Final Five con un comando per round | engine e `src/app/dock.ts` |
 | #13 Slam Resolution | tamponamenti solo con il dado direzione, senza ritiri, con il veicolo che si sposta deciso dalla regola | engine `slam` |
-| #14 Shooting | arco posteriore, sezioni come bersagli grandi, scelta del comando prima del tiro, Targeting Computer | engine `shoot` |
+| #14 Shooting | arco posteriore, sezioni come bersagli grandi, scelta del comando prima del tiro, Targeting Computer | engine `shootFrom` |
 | #15 Damage & Repair | danni minori, danni sul comando scelto, eliminazione a 6, moto fuori uso al primo danno | engine `damage` |
 | #12 Hazards & Wrecks | caselle che diventano fuoristrada, Hazard Dispenser, invalicabili e fuoco attraversati | engine, `src/view/terrain` |
 | #16 Road Advance & Endgame | Big Rig scaricato solo con tutte le sezioni dietro, traguardo subito alla sua eliminazione | engine `advanceBoard`, `checkPlayers` |

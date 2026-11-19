@@ -2,7 +2,7 @@
 
 > **Status**: Draft
 > **Created**: 2026-11-15
-> **Last Updated**: 2026-11-15
+> **Last Updated**: 2026-11-19 (stato dei sistemi allineato al codice; espansioni aggiunte)
 > **Source Concept**: design/gdd/game-concept.md
 > **Rules authority**: reference/rulebook/ (gioco base)
 
@@ -151,9 +151,14 @@ regolamento, e ogni GDD li riprende con la pagina citata.*
 - **#31 In-game Rules Reference** — promemoria delle regole consultabile in gioco, con le
   voci del registro delle interpretazioni (decisione dell'utente).
 
-**Non enumerati, per scelta**: bot (decisione rinviata), tutorial guidato, account e
-classifiche, hosting operativo. Le espansioni non sono sistemi nuovi: sono pacchetti e
-moduli di #4 (Tier 4).
+**Non enumerati, per scelta**: tutorial guidato, account e classifiche, hosting operativo.
+I bot sono poi entrati come #32. Le espansioni sono pacchetti di dati e moduli del motore
+(ADR-0004), ciascuna con il suo GDD: #33, #34, #35.
+
+**Stato al 2026-11-19.** Il gioco è stato scritto prima di molti GDD: quasi tutti i sistemi
+MVP sono implementati e provati da test (`tests/unit/`, `tests/integration/`) senza un GDD
+proprio. La colonna *Status* lo dice ("Implemented (no GDD)"); la colonna *Code* dice dove
+stanno. Le decisioni tecniche trasversali sono in `docs/architecture/` (ADR-0001…0005).
 
 ### Note di processo (decisioni dell'utente)
 
@@ -172,40 +177,42 @@ moduli di #4 (Tier 4).
 
 ## Systems Enumeration
 
-| # | System Name | Category | Priority | Status | Design Doc | Depends On |
-|---|-------------|----------|----------|--------|------------|------------|
-| 1 | Rules Core & Event Log (inferred) | Core | MVP | Not Started | — | #2 |
-| 2 | Dice & Seeded RNG | Core | MVP | In Review | [dice-seeded-rng.md](dice-seeded-rng.md) | — |
-| 3 | Board, Terrain & Front Arc | Core | MVP | Not Started | — | #4 |
-| 4 | Content Pack & Rule Modules (inferred) | Core | MVP | Not Started | — | #1 |
-| 5 | Asset Manifest & Pipeline (inferred) | Core | MVP | Not Started | — | #4 |
-| 7 | Match Setup & Road Deck | Gameplay | MVP | Not Started | — | #1, #2, #3, #4, #9 |
-| 8 | Turn & Round Flow | Gameplay | MVP | Not Started | — | #1, #2, #7, #9 |
-| 9 | Vehicles, Crews & Status | Gameplay | MVP | Not Started | — | #1, #3, #4 |
-| 10 | Movement (move / enter-space primitive) | Gameplay | MVP | Not Started | — | #2, #3, #8, #9 |
-| 11 | Command Board | Gameplay | MVP | Not Started | — | #8, #9, #10, #13, #14, #15 |
-| 12 | Hazards & Wrecks | Gameplay | MVP | Not Started | — | #3, #4, #9, #10, #13, #15 |
-| 13 | Slam Resolution | Gameplay | MVP | Not Started | — | #1, #2, #3, #9, #10 |
-| 14 | Shooting | Gameplay | MVP | Not Started | — | #2, #3, #8, #9, #15 |
-| 15 | Damage & Repair | Gameplay | MVP | Not Started | — | #1, #2, #3, #9, #10 |
-| 16 | Road Advance & Endgame | Gameplay | MVP | Not Started | — | #3, #7, #8, #9, #10, #12 |
-| 17 | Interpretations Log | Meta | MVP | Designed | [interpretations-log.md](interpretations-log.md) | — |
-| 18 | Settings & Accessibility (inferred) | Persistence | Full Vision | Not Started | — | #23, #24, #25, #26 |
-| 19 | Table Renderer 3D (inferred) | UI | MVP | Not Started | — | #1, #3, #5, #9, #12 |
-| 20 | Dice Presentation (inferred) | UI | MVP | Not Started | — | #2, #19, #25 |
-| 21 | Player Panels (inferred) | UI | MVP | Not Started | — | #9, #10, #11, #15, #25 |
-| 22 | Cause Log & Slam Replay | UI | MVP | Not Started | — | #1, #19, #25 |
-| 23 | Input & Selection (inferred) | UI | MVP | Not Started | — | #1, #3, #19, #21 |
-| 24 | Menus, Match Flow & Screens (inferred; absorbs #6) | UI | MVP | Not Started | — | #4, #5, #7, #9, #16 |
-| 25 | Animation & Pacing (inferred) | UI | MVP | Not Started | — | #1, #19 |
-| 26 | Audio Cues (inferred) | Audio | Full Vision | Not Started | — | #1, #25 |
-| 27 | Authoritative Server & Protocol | Network | Alpha | Not Started | — | #1, #4, #7 |
-| 28 | Lobby & Rooms (inferred) | Network | Alpha | Not Started | — | #24, #27 |
-| 29 | Reconnection & Resilience (inferred) | Network | Alpha | Not Started | — | #1, #27 |
-| 30 | Save & Resume Match (inferred) | Persistence | MVP (autosave + resume last match); full save Alpha | Not Started | — | #1, #4, #24 |
-| 31 | In-game Rules Reference (inferred) | Meta | Full Vision | Not Started | — | #17, #24 |
-| 32 | TRV9000 Bots (fan-made, card-driven) | Gameplay | Alpha | In Review | [trv9000-bots.md](trv9000-bots.md) | #1, #2, #8, #10, #13, #14, #15 |
-| 33 | The Big Rig and the Final Five (expansion crews) | Gameplay | Alpha | In Review | [big-rig-final-five.md](big-rig-final-five.md) | #9, #10, #11, #12, #13, #14, #15, #16, #24, #32 |
+| # | System Name | Category | Priority | Status | Design Doc | Code | Depends On |
+|---|-------------|----------|----------|--------|------------|------|------------|
+| 1 | Rules Core & Event Log (inferred) | Core | MVP | In Design · Implemented | [rules-core.md](rules-core.md) | `src/game/trv/engine.ts` (ADR-0002) | #2 |
+| 2 | Dice & Seeded RNG | Core | MVP | In Review · Implemented | [dice-seeded-rng.md](dice-seeded-rng.md) | `src/core/rng/` | — |
+| 3 | Board, Terrain & Front Arc | Core | MVP | Implemented (no GDD) | — (terreno 3D: [terrain-generation.md](terrain-generation.md)) | engine `terrainAt`, `neighbor`; `src/view/terrain/` | #4 |
+| 4 | Content Pack & Rule Modules (inferred) | Core | MVP | Implemented (forma semplificata, no GDD) | — ([ADR-0004](../../docs/architecture/adr-0004-espansioni-come-dati-e-moduli.md)) | `data/trv/*.json` | #1 |
+| 5 | Asset Manifest & Pipeline (inferred) | Core | MVP | Implemented (no GDD) | — | `assets/`, `tools/art/`, `src/admin/` | #4 |
+| 7 | Match Setup & Road Deck | Gameplay | MVP | Implemented (no GDD) | — | engine `newGame`, `play` | #1, #2, #3, #4, #9 |
+| 8 | Turn & Round Flow | Gameplay | MVP | Implemented (no GDD) | — | engine `play` | #1, #2, #7, #9 |
+| 9 | Vehicles, Crews & Status | Gameplay | MVP | Implemented (no GDD) | — | engine `Vehicle`, `Player` | #1, #3, #4 |
+| 10 | Movement (move / enter-space primitive) | Gameplay | MVP | Implemented (no GDD) | — | engine `enter`, `moveCar` | #2, #3, #8, #9 |
+| 11 | Command Board | Gameplay | MVP | Implemented (no GDD) | — | engine `commandsOf`; `src/app/dock.ts` | #8, #9, #10, #13, #14, #15 |
+| 12 | Hazards & Wrecks | Gameplay | MVP | Implemented (no GDD) | — | engine `enter` (pericoli rivelati), `placeHazards` | #3, #4, #9, #10, #13, #15 |
+| 13 | Slam Resolution | Gameplay | MVP | Implemented (no GDD) | — | engine `slam` | #1, #2, #3, #9, #10 |
+| 14 | Shooting | Gameplay | MVP | Implemented (no GDD) | — | engine `shootFrom` | #2, #3, #8, #9, #15 |
+| 15 | Damage & Repair | Gameplay | MVP | Implemented (no GDD) | — | engine `damage`, `repair` | #1, #2, #3, #9, #10 |
+| 16 | Road Advance & Endgame | Gameplay | MVP | Implemented (no GDD) | — | engine `advanceBoard`, `checkPlayers` | #3, #7, #8, #9, #10, #12 |
+| 17 | Interpretations Log | Meta | MVP | Designed | [interpretations-log.md](interpretations-log.md) | `_rulings` nei file di `data/trv/` | — |
+| 18 | Settings & Accessibility (inferred) | Persistence | Full Vision | Partial (opzioni, no GDD) | — | `src/app/settings.ts`, menu Opzioni | #23, #24, #25, #26 |
+| 19 | Table Renderer 3D (inferred) | UI | MVP | Implemented (no GDD) | — | `src/app/stage.ts`, `pieces.ts`, `src/view/` | #1, #3, #5, #9, #12 |
+| 20 | Dice Presentation (inferred) | UI | MVP | Implemented (no GDD) | — (tiro a mano: `design/ux/tiro-a-mano/`) | `src/app/rolls.ts`, `handroll.ts`, `src/view/dice3d.ts` | #2, #19, #25 |
+| 21 | Player Panels (inferred) | UI | MVP | Implemented (no GDD) | — | `src/app/hud.ts`, `dock.ts`, `bubbles.ts` | #9, #10, #11, #15, #25 |
+| 22 | Cause Log & Slam Replay | UI | MVP | Implemented (no GDD) | — | `src/app/replay.ts`, registro | #1, #19, #25 |
+| 23 | Input & Selection (inferred) | UI | MVP | Implemented (no GDD) | — | `src/app/input.ts`, `keys.ts` | #1, #3, #19, #21 |
+| 24 | Menus, Match Flow & Screens (inferred; absorbs #6) | UI | MVP | Implemented (no GDD) | — (mock-up in `design/ux/`) | `src/app/menus.ts`, `screens.ts`, `home.ts` | #4, #5, #7, #9, #16 |
+| 25 | Animation & Pacing (inferred) | UI | MVP | Implemented · in revisione | [camera-director.md](camera-director.md) ([ADR-0005](../../docs/architecture/adr-0005-fotogrammi-e-regia.md)) | `src/app/beats.ts`, `shots.ts`, `effects.ts`, `wreckage.ts` | #1, #19 |
+| 26 | Audio Cues (inferred) | Audio | Full Vision | Not Started | — | — | #1, #25 |
+| 27 | Authoritative Server & Protocol | Network | Alpha | Not Started (migrazione Cloudflare in pausa) | — ([ADR-0003](../../docs/architecture/adr-0003-partite-online-host-arbitro.md)) | — | #1, #4, #7 |
+| 28 | Lobby & Rooms (inferred) | Network | Alpha | Implemented (host arbitro su Firebase, no GDD) | — ([ADR-0003](../../docs/architecture/adr-0003-partite-online-host-arbitro.md)) | `src/net/room.ts`, `social.ts`, `src/app/online.ts` | #24, #27 |
+| 29 | Reconnection & Resilience (inferred) | Network | Alpha | Implemented (rigioco del registro) | — | `src/app/game.ts` `startGame` | #1, #27 |
+| 30 | Save & Resume Match (inferred) | Persistence | MVP (autosave + resume last match); full save Alpha | Implemented (ultima partita; niente slot multipli) | — | `src/app/game.ts` (localStorage), stanze online | #1, #4, #24 |
+| 31 | In-game Rules Reference (inferred) | Meta | Full Vision | Partial (spiegazioni di carte e comandi) | — | `src/app/info.ts`, `inspect.ts`, `cmdtip.ts` | #17, #24 |
+| 32 | TRV9000 Bots (fan-made, card-driven) | Gameplay | Alpha | In Review · Implemented | [trv9000-bots.md](trv9000-bots.md) | engine `botChoice` | #1, #2, #8, #10, #13, #14, #15 |
+| 33 | The Big Rig and the Final Five (expansion crews) | Gameplay | Alpha | In Review · Implemented | [big-rig-final-five.md](big-rig-final-five.md) | engine (`v.rig`, `v.bike`) | #9, #10, #11, #12, #13, #14, #15, #16, #24, #32 |
+| 34 | Choppe Shoppe (crew leaders, upgrades) | Gameplay | Full Vision | Bozza · Implemented | [choppe-shoppe.md](choppe-shoppe.md) | engine `chooseLeaders`, `draftUpgrades` | #7, #10, #11, #12, #13, #14, #15, #24, #32 |
+| 35 | Carnage at Devil's Run (tiles, hazards, fire) | Gameplay | Full Vision | Bozza · Implemented | [carnage-at-devils-run.md](carnage-at-devils-run.md) | engine `g.carnage`; `src/view/terrain/carnage3d.ts` | #2, #3, #7, #10, #12, #13, #15 |
 
 *#6 Match Session Flow non esiste più: assorbito da #24 (decisione dell'utente); i
 parametri di partita sono dati di #7. Numerazione lasciata stabile.*
@@ -423,11 +430,13 @@ catena mina → Skid → slam.
 
 | Metric | Count |
 |--------|-------|
-| Total systems identified | 30 |
-| Design docs started | 2 |
-| Design docs reviewed | 0 |
+| Total systems identified | 34 |
+| Systems implemented (anche in parte) | 32 |
+| Design docs started | 9 (rules-core, dice-seeded-rng, interpretations-log, camera-director, terrain-generation, trv9000-bots, big-rig-final-five, choppe-shoppe, carnage-at-devils-run) |
+| Design docs reviewed | 1 (dice-seeded-rng, revisioni applicate) |
 | Design docs approved | 0 |
-| MVP systems designed | 2/24 |
+| MVP systems designed | 3/24 |
+| ADR | 5 |
 | Vertical Slice systems designed | 0/0 (nessun sistema proprio) |
 
 ---
@@ -435,6 +444,8 @@ catena mina → Skid → slam.
 ## Next Steps
 
 - [ ] Review and approve this systems enumeration
+- [ ] Revisione dell'utente dei GDD in bozza: #33, #34, #35, `camera-director`, `terrain-generation`, `trv9000-bots`
+- [ ] GDD a posteriori (`/reverse-document`) dei moduli di regole #7-#16, se l'utente li vuole
 - [ ] Gruppo A: `/design-system` per #2, #17, #1 + #10, #4, #3, #5; `/ux-design accessibility`
 - [ ] Run `/design-review` on each completed GDD
 - [ ] Cronometrare #2, #17, #1 (trigger di ritaratura PR-SCOPE)

@@ -1,8 +1,7 @@
 {
   "_note": "Thunder Road: Vendetta, Part 3: Carnage at Devil's Run. Transcribed from the official rulebook supplied by the user (TRV-CDR_Rulebook.pdf, 4 pages). Values marked null are NOT in the rulebook and must come from the user (component scans or confirmation); the engine refuses to deal what it does not know. Page numbers: p1 cover, p2 parts list and setup, p3 terrain, hazards and ON FIRE!, p4 damage tokens and credits.",
-  "_missing": [
-    "tiles: the layout of the 5 new double-sided road tiles, both sides (names on p2: Drifts, Salty Dogleg, Zag, Scorcher, Glass Oasis); a game with the expansion cannot start without them"
-  ],
+  "_missing": [],
+  "_missing_note": "Nothing missing since 2026-11-16: the 10 tile faces are in \"tiles\" (from photos), the token counts and the fire die from the summary sheet, the ongoing effect cards from their scans. A value the rulebook does not give goes back here, and the engine refuses to deal it.",
   "_rulings": {
     "_source": "Rules owner (the user), 2026-11-16, and the official FAQ where noted.",
     "ramp": "A ramp can only be jumped forward: entered from the space directly behind it (moving forward). A car entering a ramp from its sides is destroyed.",
@@ -242,7 +241,7 @@
       "move": 3
     }
   ],
-  "_engine": "Implemented in src/game/trv/engine.ts (Setup.carnage; tests in tests/unit/trv/carnage.test.ts with test numbers). Until the _missing values are filled in, a game cannot start with the expansion.",
+  "_engine": "Implemented in src/game/trv/engine.ts (Setup.carnage; tests in tests/unit/trv/carnage.test.ts with test numbers). Rules design: design/gdd/carnage-at-devils-run.md.",
   "_conflicts": [],
   "_ongoing_note": "21 cards (rulebook p2): 2 of each, but Cracked Flywheel (1). Texts from the card scans, which win over the summary sheet.",
   "tiles": [
