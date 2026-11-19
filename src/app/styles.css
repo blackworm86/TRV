@@ -657,25 +657,29 @@
   #bikepick .bike .gothic { font-size: 17px; letter-spacing: 1px; }
   #bikepick .bike:hover { background: #2e2016; box-shadow: 0 0 0 3px #f6c46a, 0 6px 16px rgba(0,0,0,.6); }
   @keyframes bikebob { 50% { margin-top: -5px; } }
-  /* Waypoint movement (waypoints.ts, mock-up in design/ux/movimento-waypoint/): the path's line, points, tag and warning. */
-  #wppath svg { position: fixed; inset: 0; width: 100%; height: 100%; overflow: visible; }
-  #wppath path { fill: none; stroke-linecap: round; stroke-linejoin: round; }
-  #wppath path.under { stroke: #16100b; stroke-width: 9; opacity: .7; }
-  #wppath path.own { stroke: var(--c); stroke-width: 4.5; }
-  #wppath path.blue { stroke: #9fd3ff; stroke-width: 4.5; stroke-dasharray: 2 10; }
-  #wppath path.red { stroke: #ff3b30; stroke-width: 4.5; }
-  #wppath .wpdot { position: fixed; transform: translate(-50%, -50%); width: 30px; height: 30px; padding: 0; border-radius: 50%; border: 3px solid #16100b;
-    background: var(--c); color: #16100b; font: 400 21px/1 'League Gothic', Impact, sans-serif; pointer-events: auto; cursor: pointer; display: grid; place-items: center; }
-  #wppath .wpdot.road { background: #9fd3ff; }
-  #wppath .wpdot.stop { background: #ff3b30; color: #fff; }
-  #wppath .wpdot:hover { box-shadow: 0 0 0 3px #f3e6d0; }
-  #wppath .wptag { position: fixed; transform: translate(22px, -50%); display: flex; align-items: baseline; gap: 6px; padding: 3px 12px; border-radius: 999px; white-space: nowrap;
-    background: var(--card); border: 2px solid var(--c); font: 400 19px/1.1 'League Gothic', Impact, sans-serif; letter-spacing: .5px; color: var(--ink); }
-  #wppath .wptag.go { border-color: var(--hot); color: var(--hot); }
-  #wppath .wptag small { font: 600 12px system-ui, sans-serif; color: #c9b9a0; letter-spacing: 0; }
-  #wppath .wpwarn { position: fixed; transform: translate(-30px, 0); width: 290px; background: var(--card); border: 2px solid #ff3b30; border-radius: 14px; padding: 10px 14px; box-shadow: 0 10px 30px rgba(0,0,0,.6); margin-top: 8px; }
-  #wppath .wpwarn p { margin: 0 0 4px; font: 400 23px/1.05 'League Gothic', Impact, sans-serif; color: #ff8a7a; letter-spacing: .5px; }
-  #wppath .wpwarn small { display: block; font: 500 14px/1.3 system-ui, sans-serif; color: var(--ink); opacity: .9; }
+  /* Waypoint movement (waypoints.ts, mock-up design/ux/movimento-waypoint/mockup-v2.html): the window at the arrow's
+     head, grown from the motorcycle badge (#bikepick .bike), and the hit areas of the arrow's studs. */
+  /* It opens up and to the left of the head, over the stretch already traced: the spaces lit ahead stay free. */
+  #wpwin { position: fixed; transform: translate(calc(-100% + 30px), -100%); margin-top: -24px; display: flex; flex-direction: column; align-items: stretch; gap: 5px; min-width: 150px;
+    padding: 7px 8px 8px; border: 3px solid var(--c); border-radius: 14px; background: rgba(20, 14, 10, .94); color: #f3e9d2; box-shadow: 0 6px 16px rgba(0,0,0,.6); pointer-events: auto; }
+  #wpwin::after { content: ''; position: absolute; bottom: -11px; right: 22px; border: 8px solid transparent; border-top-color: var(--c); border-bottom: 0; }
+  #wpwin.below { transform: translate(calc(-100% + 30px), 0); margin-top: 26px; }
+  #wpwin.below::after { bottom: auto; top: -11px; border-top-color: transparent; border-bottom: 8px solid var(--c); }
+  #wpwin.danger { --c: #ff3b30 !important; }
+  #wpwin h4 { margin: 0; text-align: center; font: 400 21px/1.05 'League Gothic', Impact, sans-serif; letter-spacing: .6px; }
+  #wpwin.danger h4 { color: #ff8a7a; }
+  #wpwin h4 small { display: block; font: 600 12.5px/1.25 system-ui, sans-serif; letter-spacing: 0; color: #c9b9a0; }
+  #wpwin .row { display: flex; gap: 5px; }
+  #wpwin button { flex: 1; display: inline-flex; align-items: center; justify-content: center; gap: 5px; min-height: 30px; padding: 3px 10px; border: 0; border-radius: 9px;
+    font: 700 14px system-ui, sans-serif; background: #f3e6d0; color: #17120e; white-space: nowrap; cursor: pointer; }
+  #wpwin button:hover { filter: brightness(1.12); }
+  #wpwin button.quiet { background: transparent; color: #f3e6d0; font-weight: 600; box-shadow: inset 0 0 0 1.5px rgba(243,230,208,.5); }
+  #wpwin button.go { background: var(--hot); color: #0d2a12; font: 400 22px/1 'League Gothic', Impact, sans-serif; letter-spacing: 1px; }
+  #wpwin button.road { background: #9fd3ff; color: #0b2233; }
+  #wpwin button.bad { background: #ff3b30; color: #fff; }
+  #wpwin kbd { padding: 0 4px; border-radius: 4px; background: rgba(0,0,0,.18); font: 600 10px system-ui, sans-serif; opacity: .75; }
+  .wpstud { position: fixed; transform: translate(-50%, -50%); width: 26px; height: 26px; padding: 0; border: 0; border-radius: 50%; background: transparent; cursor: pointer; pointer-events: auto; }
+  .wpstud:hover { box-shadow: 0 0 0 3px #f3e6d0; }
   #actions .q em { font-style: normal; color: var(--acc); }
   #actions button.go { background: var(--hot); color: #0d2a12; font: 400 21px/1 'League Gothic', Impact, sans-serif; letter-spacing: 1px; padding: 4px 20px; }
   #actions .sep { width: 1px; height: 24px; background: #ffffff22; margin: 0 2px; }

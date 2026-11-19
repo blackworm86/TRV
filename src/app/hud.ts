@@ -280,7 +280,8 @@ export function drawHud(): void {
   actions.dataset.car = g.activeCar ?? '';
   // A question about dice just rolled sits beside those dice; the others by the car, or the bar.
   const aboutFx = !!d && FX_ASK.has(d.kind) && S.trayDice.length > 0;
-  actions.dataset.anchor = d?.kind === 'command' || d?.kind === 'token' ? 'dice' : aboutFx ? 'fx' : g.activeCar ? 'car' : 'bar';
+  // Planning a path the window at the arrow's head has the commands: the pill keeps out of its way, in the bar.
+  actions.dataset.anchor = planning() ? 'bar' : d?.kind === 'command' || d?.kind === 'token' ? 'dice' : aboutFx ? 'fx' : g.activeCar ? 'car' : 'bar';
   if ($('drawer').style.display === 'block') drawDrawer();
 
   // The four steps of a turn (rulebook p. 8), the current one lit.

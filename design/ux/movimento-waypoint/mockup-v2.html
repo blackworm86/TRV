@@ -1,0 +1,209 @@
+<!doctype html><html lang="it"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Percorso a freccia</title>
+<link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700&family=League+Gothic&display=swap" rel="stylesheet">
+<style>
+/* Seconda versione (richiesta dell'utente, 2026-11-19): il percorso è un'unica freccia 3D nel colore del
+   giocatore, e i comandi stanno in una finestrella alla fine della freccia, come quella che sceglie la moto
+   che parte per prima (#bikepick .bike in src/app/styles.css). */
+:root{--ink:#f3e6d0;--bg:#1a120c;--card:#24180f;--acc:#f6c46a;--hot:#4cff7a;--who:#e8742a;--danger:#ff3b30;--line:#4a3523;--dim:#b9a990}
+*{box-sizing:border-box}
+body{margin:0;background:#0e0a07;color:var(--ink);font:500 16px/1.3 'Barlow Condensed',system-ui,sans-serif;padding:18px 22px 40px}
+h1{font:400 34px 'League Gothic',Impact,sans-serif;margin:0 0 4px;letter-spacing:.5px;color:var(--acc)}
+.lead{color:var(--dim);margin:0 0 16px;max-width:1180px;font-size:17px}.lead b{color:var(--ink)}
+.scene{display:grid;grid-template-columns:900px 1fr;gap:22px;margin:0 0 26px;align-items:start}
+.cap{font:400 24px 'League Gothic',Impact,sans-serif;color:var(--acc);margin:0 0 6px;letter-spacing:.5px}
+.notes{color:var(--dim);font-size:16px;margin:0;padding-left:18px}
+.notes li{margin:0 0 6px}.notes b{color:var(--ink)}
+.frame{position:relative;width:900px;height:420px;border-radius:12px;overflow:hidden;border:1px solid var(--line);background:#2b1b10}
+.bar{position:absolute;left:0;right:0;top:0;height:50px;display:flex;align-items:center;gap:12px;padding:0 12px;background:#140e0a;border-bottom:1px solid #000}
+.bar .round{font:400 30px/1 'League Gothic';color:var(--acc);text-align:center;width:42px}
+.bar .round small{display:block;font:600 9px system-ui;letter-spacing:1.5px;color:var(--dim)}
+.steps{display:flex;align-items:center}
+.steps i{display:flex;align-items:center;gap:6px;height:34px;padding:0 18px 0 14px;margin-right:-6px;background:#3a332d;color:#ccc;font:400 22px 'League Gothic';font-style:normal;
+  clip-path:polygon(0 0,calc(100% - 12px) 0,100% 50%,calc(100% - 12px) 100%,0 100%,12px 50%)}
+.steps i.on{background:#e8e2d6;color:#16100b}
+.steps i b{display:inline-grid;place-items:center;width:20px;height:20px;border-radius:50%;background:#16100b;color:#e8e2d6;font:700 12px system-ui}
+.bar .q{font:400 24px 'League Gothic';color:var(--ink)}.bar .q span{font:500 18px system-ui;color:var(--ink);opacity:.9}
+.board{position:absolute;left:0;top:50px}
+/* The little pill that stays under the table: only the count and the switch to single steps. */
+.pill{position:absolute;left:50%;transform:translateX(-50%);bottom:14px;display:flex;align-items:center;gap:8px;padding:4px 4px 4px 14px;border-radius:999px;white-space:nowrap;
+  background:rgba(18,14,11,.85);border:1px solid rgba(255,255,255,.07);box-shadow:0 0 0 1.5px var(--who),0 8px 22px rgba(0,0,0,.45)}
+.pill .q{font:400 19px/1 'League Gothic';letter-spacing:.5px}.pill .q em{font-style:normal;color:var(--acc)}
+.pill button{width:30px;height:30px;border-radius:50%;border:0;background:transparent;color:var(--ink);box-shadow:inset 0 0 0 1.5px rgba(243,230,208,.55);font-size:15px}
+/* The window at the arrow's end: the motorcycle badge (#bikepick .bike), grown into a small card. */
+.win{position:absolute;transform:translate(-50%,-100%);margin-top:-22px;display:flex;flex-direction:column;align-items:stretch;gap:5px;min-width:150px;
+  padding:7px 8px 8px;border:3px solid var(--c,var(--who));border-radius:14px;background:rgba(20,14,10,.94);color:#f3e9d2;box-shadow:0 6px 16px rgba(0,0,0,.6)}
+.win::after{content:'';position:absolute;bottom:-11px;left:50%;margin-left:-8px;border:8px solid transparent;border-top-color:var(--c,var(--who));border-bottom:0}
+.win h4{margin:0;text-align:center;font:400 21px/1.05 'League Gothic';letter-spacing:.6px}
+.win h4 small{display:block;font:600 12.5px/1.25 'Barlow Condensed';letter-spacing:0;color:var(--dim)}
+.win .row{display:flex;gap:5px}
+.win button{flex:1;display:inline-flex;align-items:center;justify-content:center;gap:5px;min-height:30px;padding:3px 10px;border:0;border-radius:9px;font:700 14px system-ui;background:#f3e6d0;color:#17120e;white-space:nowrap}
+.win button.quiet{background:transparent;color:#f3e6d0;font-weight:600;box-shadow:inset 0 0 0 1.5px rgba(243,230,208,.5)}
+.win button.go{background:var(--hot);color:#0d2a12;font:400 22px/1 'League Gothic';letter-spacing:1px}
+.win button.road{background:#9fd3ff;color:#0b2233}
+.win button.bad{background:var(--danger);color:#fff}
+.win kbd{padding:0 4px;border-radius:4px;background:rgba(0,0,0,.18);font:600 10px system-ui;opacity:.75}
+.win.danger{--c:var(--danger)}
+/* Near the top of the view the window opens under the head instead, its pointer upward. */
+.win.below{transform:translate(-50%,0);margin-top:24px}
+.win.below::after{bottom:auto;top:-11px;border-top-color:transparent;border-bottom:8px solid var(--c,var(--who))}
+.win.danger h4{color:#ff8a7a}
+</style></head><body>
+
+<h1>Percorso a freccia — mock-up (seconda versione)</h1>
+<p class="lead">Il percorso diventa <b>un'unica freccia sinuosa in 3D</b>, nel colore del giocatore, posata sul tavolo: parte dall'auto, curva come curverà l'auto e finisce con la punta sull'ultimo spazio. <b>Tutti i comandi</b> stanno in una <b>finestrella alla punta della freccia</b>, la stessa che oggi sceglie la moto che parte per prima: segue la punta mentre il percorso cresce. Sotto il tavolo resta solo una pillola piccola con il conteggio e il pulsante per tornare ai passi singoli. Nel gioco la freccia è un nastro 3D illuminato dalla luce del tavolo, con un bordo in rilievo e l'ombra; qui è disegnata in piano.</p>
+
+<div class="scene"><div class="frame" id="s1"></div><div>
+  <p class="cap">1 · Si traccia</p>
+  <ul class="notes">
+    <li>Ogni tocco su una casella verde <b>allunga la freccia</b> fino a lì: la curva è quella che farà l'auto, così si vede già la corsa.</li>
+    <li>Sulla freccia restano dei <b>piccoli bottoni</b> dove passa per gli spazi: un tocco taglia il percorso da lì. Niente numeri.</li>
+    <li>La finestrella alla punta dice <b>quanti movimenti restano</b> e ha <b>Togli l'ultimo</b> (anche Backspace) e <b>VAI!</b> (Invio: si può partire anche prima di finire i movimenti).</li>
+  </ul></div></div>
+
+<div class="scene"><div class="frame" id="s2"></div><div>
+  <p class="cap">2 · Movimenti finiti: dado strada</p>
+  <ul class="notes">
+    <li>Se il percorso è tutto su strada, la finestrella offre il <b>dado strada</b> (+2) accanto a VAI!. Con il dado la freccia si allunga ancora; il tratto del dado ha una <b>fascia azzurra</b> sul dorso, ma resta la stessa freccia.</li>
+    <li>VAI! senza dado vuol dire "no, grazie" al dado strada.</li>
+  </ul></div></div>
+
+<div class="scene"><div class="frame" id="s3"></div><div>
+  <p class="cap">3 · Uno spazio pericoloso: si conferma lì</p>
+  <ul class="notes">
+    <li>Toccando uno spazio dove l'auto si ferma (<b>pericolo coperto, altro veicolo, olio, rampa…</b>) la freccia ci arriva con la <b>punta rossa</b> e la finestrella diventa rossa e chiede conferma: <b>Entra</b> o <b>Annulla</b>.</li>
+    <li>È la domanda di oggi "Vuoi entrare nella tessera pericolo?", spostata alla punta del percorso.</li>
+  </ul></div></div>
+
+<div class="scene"><div class="frame" id="s4"></div><div>
+  <p class="cap">4 · Confermato: Vai fin qui</p>
+  <ul class="notes">
+    <li>Dopo <b>Entra</b> la freccia si ferma lì: oltre non si può tracciare. La finestrella ha <b>VAI FIN QUI</b> e Togli l'ultimo.</li>
+    <li>Qui il percorso ha usato anche il dado strada: la fascia azzurra segna i suoi due spazi.</li>
+    <li>Se dopo la fermata l'auto può ancora muovere, la freccia riparte da dove si è fermata.</li>
+    <li>Con lo <b>Skull Shift Knob</b> la finestrella ha anche <b>Fermati qui</b>.</li>
+  </ul></div></div>
+
+<div class="scene"><div class="frame" id="s5"></div><div>
+  <p class="cap">5 · Uno spazio che elimina l'auto</p>
+  <ul class="notes">
+    <li>Fuori dal bordo, invalicabile, rampa di traverso: la freccia punta rossa verso lo spazio e la finestrella chiede conferma con le parole chiare, <b>"l'auto viene eliminata"</b>: <b>Elimina e vai</b> o <b>Annulla</b>.</li>
+  </ul></div></div>
+
+<script>
+const W = 62, H = 52, K = 13, ROWS = 6, COLS = 14, X0 = 18, Y0 = 26;
+const GROUND = [
+  'RRRRSSRRRRSSRR',
+  'RRRRRRMMRRRRRR',
+  'RRRRRRRRRSSRRR',
+  'SSRRRRRRRRRRRR',
+  'RRRRMMRRRRRRSS',
+  'SSRRRRRRRRSSRR'];
+const FILL = { R: '#5d564e', S: '#d9b47a', M: '#5a3a22' };
+const STROKE = { R: '#47413b', S: '#b8935a', M: '#3f2716' };
+const pos = (r, c) => ({ x: X0 + c * W + (r % 2 ? W / 2 : 0), y: Y0 + r * H });
+const mid = (r, c) => { const p = pos(r, c); return { x: p.x + W / 2 + K / 2, y: p.y + H / 2 }; };
+function chevron(r, c, attrs = '') {
+  const { x, y } = pos(r, c);
+  const pts = [[x, y], [x + W, y], [x + W + K, y + H / 2], [x + W, y + H], [x, y + H], [x + K, y + H / 2]].map(p => p.join(',')).join(' ');
+  return `<polygon points="${pts}" ${attrs}/>`;
+}
+function hazard(r, c) {
+  const m = mid(r, c);
+  return `<g>${chevron(r, c, `fill="#c8282a" stroke="#6e1213" stroke-width="2" transform="translate(${m.x} ${m.y}) scale(.78) translate(${-m.x} ${-m.y})"`)}
+    <path d="M${m.x - 9} ${m.y - 10} L${m.x + 11} ${m.y} L${m.x - 9} ${m.y + 10} Z" fill="none" stroke="#f3e6d0" stroke-width="2.5"/></g>`;
+}
+function car(r, c, color) {
+  const m = mid(r, c);
+  return `<g transform="translate(${m.x} ${m.y})"><rect x="-22" y="-12" width="44" height="24" rx="7" fill="${color}" stroke="#16100b" stroke-width="2"/>
+    <rect x="2" y="-8" width="12" height="16" rx="3" fill="#16100b88"/><rect x="-18" y="-15" width="10" height="5" rx="2" fill="#111"/><rect x="8" y="-15" width="10" height="5" rx="2" fill="#111"/>
+    <rect x="-18" y="10" width="10" height="5" rx="2" fill="#111"/><rect x="8" y="10" width="10" height="5" rx="2" fill="#111"/></g>`;
+}
+const arc = (r, c) => [[r - 1, r % 2 ? c + 1 : c], [r, c + 1], [r + 1, r % 2 ? c + 1 : c]].filter(([rr]) => rr >= 0 && rr < ROWS);
+const reach = (r, c) => arc(r, c).map(([rr, cc]) => chevron(rr, cc, 'fill="#4cff7a22" stroke="#4cff7a" stroke-width="3"')).join('');
+function board(cells = '') {
+  let g = '';
+  for (let r = 0; r < ROWS; r++) for (let c = -1; c < COLS; c++) {
+    const t = GROUND[r][Math.max(0, c)] ?? 'R';
+    g += chevron(r, c, `fill="${FILL[t]}" stroke="${STROKE[t]}" stroke-width="1.5"`);
+  }
+  return `<svg class="board" width="900" height="370" viewBox="0 0 900 370"><defs>
+    <linearGradient id="sheen" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#fff" stop-opacity=".45"/><stop offset=".5" stop-color="#fff" stop-opacity="0"/></linearGradient>
+    <filter id="soft"><feGaussianBlur stdDeviation="3"/></filter></defs>${g}${cells}</svg>`;
+}
+// The curve through the spaces: Catmull-Rom as cubic Béziers (the car drives the same curve, route.ts).
+function curve(pts) {
+  const p = pts.map(([r, c]) => mid(r, c));
+  let d = `M${p[0].x} ${p[0].y}`;
+  for (let i = 0; i < p.length - 1; i++) {
+    const a = p[Math.max(0, i - 1)], b = p[i], c = p[i + 1], e = p[Math.min(p.length - 1, i + 2)];
+    d += ` C${b.x + (c.x - a.x) / 6} ${b.y + (c.y - a.y) / 6} ${c.x - (e.x - b.x) / 6} ${c.y - (e.y - b.y) / 6} ${c.x} ${c.y}`;
+  }
+  return { d, p };
+}
+/**
+ * The 3D arrow: a ribbon in the player's colour with a raised dark edge, a light sheen on top and its
+ * shadow on the table; a wedge head on the last space. `road`: from which point the road die's stripe
+ * runs. `tip`: the head's colour (red when the car stops or is eliminated there).
+ */
+function arrow(pts, { color = '#e8742a', road = -1, tip = null } = {}) {
+  const { d, p } = curve(pts);
+  const end = p[p.length - 1], prev = p[p.length - 2];
+  const ang = Math.atan2(end.y - prev.y, end.x - prev.x) * 180 / Math.PI;
+  const head = (fill, dy = 0) => `<g transform="translate(${end.x} ${end.y + dy}) rotate(${ang})"><path d="M-4 -19 L22 0 L-4 19 L2 0 Z" fill="${fill}" stroke="#16100b" stroke-width="2.5" stroke-linejoin="round"/></g>`;
+  const roadPart = road >= 0 ? curve(pts.slice(road)).d : '';
+  const studs = p.slice(1, -1).map(q => `<circle cx="${q.x}" cy="${q.y}" r="6.5" fill="#16100b" stroke="${color}" stroke-width="2.5"/>`).join('');
+  return `<path d="${d}" fill="none" stroke="#000" stroke-opacity=".45" stroke-width="18" stroke-linecap="round" filter="url(#soft)" transform="translate(4 8)"/>
+    <path d="${d}" fill="none" stroke="#16100b" stroke-width="19" stroke-linecap="round" transform="translate(0 4)"/>
+    <path d="${d}" fill="none" stroke="#16100b" stroke-width="19" stroke-linecap="round"/>
+    <path d="${d}" fill="none" stroke="${color}" stroke-width="13" stroke-linecap="round"/>
+    ${roadPart ? `<path d="${roadPart}" fill="none" stroke="#9fd3ff" stroke-width="5" stroke-linecap="round"/>` : ''}
+    <path d="${d}" fill="none" stroke="url(#sheen)" stroke-width="13" stroke-linecap="round" transform="translate(0 -1.5)"/>
+    ${head('#16100b', 4)}${head(tip ?? color)}${studs}`;
+}
+const bar = detail => `<div class="bar"><div class="round"><small>ROUND</small>2</div>
+  <div class="steps"><i><b>✓</b></i><i><b>✓</b></i><i class="on"><b>3</b> Movimento</i><i><b>4</b></i></div>
+  <div class="q">Arancio <span>${detail}</span></div></div>`;
+const pill = q => `<div class="pill"><span class="q">Percorso <em>${q}</em></span><button title="Passa ai passi singoli">⇥</button></div>`;
+const win = (r, c, html, cls = '') => { const m = mid(r, c); return `<div class="win ${cls}" style="left:${m.x}px;top:${m.y + 50}px">${html}</div>`; };
+const START = [2, 1], ME = '#e8742a', OTHER = '#5b7a52';
+
+// 1 · Three spaces down: the arrow, the window at its head.
+document.getElementById('s1').innerHTML = board(
+  hazard(1, 6) + hazard(4, 7) + car(4, 3, OTHER) + reach(1, 3)
+  + arrow([START, [2, 2], [1, 2], [1, 3]]) + car(...START, ME))
+  + bar("traccia il percorso dell'auto piccola — 5 movimenti")
+  + win(1, 3, `<h4>restano 2 <small>di 5 movimenti</small></h4><div class="row"><button class="quiet">↶ Togli <kbd>⌫</kbd></button><button class="go">VAI! <kbd>↵</kbd></button></div>`)
+  + pill('3 di 5');
+
+// 2 · All five on the road: the road die is offered at the head.
+document.getElementById('s2').innerHTML = board(
+  hazard(1, 6) + hazard(4, 7) + car(4, 3, OTHER) + arrow([START, [2, 2], [2, 3], [2, 4], [2, 5], [2, 6]]) + car(...START, ME))
+  + bar('movimenti finiti, tutti su strada')
+  + win(2, 6, `<h4>Tutto su strada! <small>usi il dado strada?</small></h4><div class="row"><button class="road">+2 dado strada</button></div><div class="row"><button class="quiet">↶ Togli</button><button class="go">VAI! <kbd>↵</kbd></button></div>`)
+  + pill('5 di 5');
+
+// 3 · A face-down hazard tapped: red head, the window asks.
+document.getElementById('s3').innerHTML = board(
+  hazard(1, 4) + hazard(4, 7) + car(4, 3, OTHER) + arrow([START, [2, 2], [1, 2], [1, 3], [1, 4]], { tip: '#ff3b30' }) + car(...START, ME))
+  + bar('il percorso arriva su un pericolo coperto')
+  + win(1, 4, `<h4>Pericolo coperto <small>entrando si gira: l'auto si ferma qui<br>e la mossa non si potrà annullare</small></h4><div class="row"><button class="quiet">Annulla <kbd>Esc</kbd></button><button class="bad">Entra <kbd>↵</kbd></button></div>`, 'danger below')
+  + pill('4 di 5');
+
+// 4 · Confirmed: the path ends there, Vai fin qui. With the road die's stretch shown too.
+document.getElementById('s4').innerHTML = board(
+  hazard(1, 7) + hazard(4, 7) + car(4, 3, OTHER) + arrow([START, [2, 2], [2, 3], [2, 4], [2, 5], [2, 6], [1, 6], [1, 7]], { road: 5, tip: '#ff3b30' }) + car(...START, ME))
+  + bar('percorso pronto — si ferma sul pericolo')
+  + win(1, 7, `<h4>Si ferma qui <small>5 + 2 di dado strada</small></h4><div class="row"><button class="quiet">↶ Togli</button><button class="go">VAI FIN QUI</button></div>`)
+  + pill('7 di 7 · fermata');
+
+// 5 · Off the board: the arrow points out of the road, the window says the car is eliminated.
+document.getElementById('s5').innerHTML = board(
+  hazard(1, 6) + hazard(4, 7) + car(4, 3, OTHER) 
+  + `<g opacity=".9">${chevron(-1, 3, 'fill="#ff3b3033" stroke="#ff3b30" stroke-width="3" stroke-dasharray="6 5"')}</g>`
+  + arrow([START, [1, 2], [0, 2], [-1, 3]], { tip: '#ff3b30' }) + car(...START, ME))
+  + bar("l'ultimo spazio è fuori dal bordo")
+  + win(-1, 3, `<h4>Fuori dal bordo <small>l'auto viene eliminata</small></h4><div class="row"><button class="quiet">Annulla <kbd>Esc</kbd></button><button class="bad">Elimina e vai</button></div>`, 'danger below')
+  + pill('3 di 5');
+</script>
+</body></html>

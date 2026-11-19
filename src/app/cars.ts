@@ -11,6 +11,7 @@ import { applyGlow, driveGun } from './pieces';
 import { P } from './presentation';
 import { TILE_T, TILE_W, scene } from './stage';
 import { S } from './state';
+import { routeAt, type Route } from './route';
 import type { JumpStunt } from './stunts';
 
 /**
@@ -214,11 +215,21 @@ export function drive(o: THREE.Object3D, dt: number, k: number, now: number): vo
   const before = o.position.clone();
   // A Big Rig trailer on its hitch does not drive itself: the section ahead pulls it (hitchTrains).
   const hitched = !!o.userData.hitch;
-  if (tg && !hitched) {
+  // A route through several spaces (route.ts): along its curve, speeding up at the start and slowing
+  // down only at the end. Skipped beats (no playback) leave it, and the car goes to its target.
+  const rt = o.userData.route as Route | undefined;
+  if (rt && !S.playing) delete o.userData.route;
+  if (rt && S.playing) {
+    const v = DRIVE.speed * Math.min(1, 0.35 + rt.s * 1.5, 0.35 + (rt.len - rt.s) * 1.5);
+    rt.s = Math.min(rt.len, rt.s + v * dt);
+    const at = routeAt(rt, rt.s);
+    o.position.x = at.pos.x; o.position.z = at.pos.z;
+    o.userData.ground = rt.ground[at.seg];
+    if (rt.s >= rt.len) delete o.userData.route;
+  } else if (tg && !hitched) {
     const dx = tg.x - o.position.x, dz = tg.z - o.position.z;
     const dist = Math.hypot(dx, dz);
-    // It slows down coming to a space, unless it drives on through it (a path run in one go: loop.ts).
-    const step = Math.min(dist, DRIVE.speed * dt * (o.userData.through ? 1 : Math.min(1, 0.35 + dist * 1.5)));
+    const step = Math.min(dist, DRIVE.speed * dt * Math.min(1, 0.35 + dist * 1.5));
     if (dist > 1e-4) { o.position.x += dx / dist * step; o.position.z += dz / dist * step; }
   }
   const vx = (o.position.x - before.x) / Math.max(dt, 1e-4), vz = (o.position.z - before.z) / Math.max(dt, 1e-4);
@@ -234,8 +245,10 @@ export function drive(o: THREE.Object3D, dt: number, k: number, now: number): vo
     // A lane change is a diagonal step: the car steers into it, it does not turn sideways.
     // (A Big Rig section only goes forward or into the next lane: it follows its step as it is.)
     // A motorcycle swings its rear out further than its path: it drifts into the lane (BIKE.drift).
-    const reach = DRIVE.maxYaw * (o.userData.bike ? BIKE.drift : 1);
-    if (o.userData.bike) want *= BIKE.drift;
+    // On a route the curve already steers it: the nose follows the way and a motorcycle leans into it.
+    const drift = o.userData.bike && !rt;
+    const reach = DRIVE.maxYaw * (drift ? BIKE.drift : 1);
+    if (drift) want *= BIKE.drift;
     if (o.userData.restYaw === undefined) want = Math.max(-reach, Math.min(reach, want));
   }
   const rate = speed > 0.4 ? DRIVE.turnRate * (hitched ? TRAILER_TURN : 1) : DRIVE.parkTurnRate;

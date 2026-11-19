@@ -5,7 +5,7 @@ import { tickFlames } from '../view/terrain/carnage3d';
 import { ROTOR_SPEED, hover } from '../view/models-config';
 import { SETTLE_MAX, applyBeat, beatLength, effects, finishBeats, queue, settled } from './beats';
 import { carObjs, chopperObjs, fxSupply, hazardObjs } from './board';
-import { DRIVE, carTimeScale, drive, hitchTrains } from './cars';
+import { carTimeScale, drive, hitchTrains } from './cars';
 import { chaseCamera, clearSight } from './chase';
 import { SHOT, actionSince, directorCamera } from './director';
 import { placeActions, placeDock } from './dock';
@@ -17,14 +17,17 @@ import { placeBlockTips } from './markers';
 import { placeRigPick } from './rigpick';
 import { placeBikePick } from './bikepick';
 import { placePath } from './waypoints';
-import type { Frame } from '../game/trv/engine';
+import { onBoard, terrainAt, type Frame } from '../game/trv/engine';
+import { g } from './game';
+import { makeRoute, type Route } from './route';
+import { updateTrail } from './trail';
 import { groundTick, render } from './pieces';
 import { frameTimes } from './quality';
 import { timeScale } from './replay';
 import { fxGoHome } from './rolls';
 import { SPEED_SCALE, settings } from './settings';
 import { shotsTick } from './shots';
-import { camera, controls, renderer, scene, tileSlots } from './stage';
+import { camera, controls, renderer, scene, tileSlots, world } from './stage';
 import { holdForHand, tickHand } from './handroll';
 import { S } from './state';
 import { animTableDice } from './tableDice';
@@ -33,19 +36,39 @@ import { $, menuOpen } from './util';
 export const timer = new THREE.Timer();
 timer.connect(document);
 /**
- * A car moving on through several spaces in a row (a waypoint path run with Vai!, a slide on desert
- * glass): it does not slow down at each space but drives through, and the next step starts as it
- * gets there. Returns the beat's length in that case (the time to drive the step), else null.
+ * A move beat followed by more moves of the same car (a waypoint path run with Vai!, a slide on
+ * desert glass): the car drives one curve through all those spaces (route.ts). Every move beat
+ * also notes the ground the car drives on, for its dust (trail.ts).
+ * @returns true when the beat belongs to a route: its timing is the car's, not the beat's length.
  */
-function driveThrough(f: Frame): number | null {
-  if (f.kind !== 'move' || !f.vehicleId) return null;
+function startRoute(f: Frame): boolean {
+  if (f.kind !== 'move' || !f.vehicleId || !f.at || !g) return false;
   const o = carObjs.get(f.vehicleId);
-  if (!o) return null;
-  const next = queue.find(x => x.kind !== 'log');
-  o.userData.through = next?.kind === 'move' && next.vehicleId === f.vehicleId;
-  const tg = o.userData.target as THREE.Vector3 | undefined;
-  if (!o.userData.through || !tg) return null;
-  return Math.max(0.08, Math.hypot(tg.x - o.position.x, tg.z - o.position.z) / DRIVE.speed * 0.92);
+  if (!o) return false;
+  const ground = (x: Frame): ReturnType<typeof terrainAt> => (onBoard(x.at!) ? terrainAt(g!, x.at!) : 'R');
+  o.userData.ground = ground(f);
+  const cur = o.userData.route as Route | undefined;
+  if (cur?.frames.includes(f)) return true;
+  const frames = [f];
+  for (const x of queue) {
+    if (x.kind === 'log') continue;
+    if (x.kind === 'move' && x.vehicleId === f.vehicleId && x.at) frames.push(x); else break;
+  }
+  if (frames.length < 2) { delete o.userData.route; return false; }
+  o.userData.route = makeRoute(o.position, frames.map(x => world(x.at!)), frames, frames.map(ground));
+  return true;
+}
+
+/** Whether beat `f` waits: a car on a route has not got to the space it starts from, or is still driving. */
+function waitRoute(f: Frame): boolean {
+  for (const o of carObjs.values()) {
+    const r = o.userData.route as Route | undefined;
+    if (!r || r.s >= r.len) continue;
+    const k = r.frames.indexOf(f);
+    if (k >= 0) return r.s < r.marks[k];
+    if (f.kind !== 'log') return true;
+  }
+  return false;
 }
 
 renderer.setAnimationLoop(t => {
@@ -59,6 +82,7 @@ renderer.setAnimationLoop(t => {
   const now = performance.now() / 1000;
   const carDt = dt * carTimeScale();
   for (const o of carObjs.values()) drive(o, carDt, 1 - Math.exp(-carDt * 10), now);
+  updateTrail(carDt);
   hitchTrains(carObjs.values(), carDt);
   moveCamera(rawDt);
   for (const o of chopperObjs.values()) {
@@ -85,6 +109,8 @@ renderer.setAnimationLoop(t => {
   // Dice to throw by hand: the playback waits for TIRA (handroll.ts).
   tickHand(now);
   while (S.playing && now >= S.nextBeatAt && !holdForHand(queue)) {
+    // A car driving a route: each step's beat waits for the car to get there, the others for the end.
+    if (queue.length && waitRoute(queue[0])) break;
     const f = queue.shift();
     if (!f) {
       // The last beat is out: the table comes to rest before the next choice or the end of the game.
@@ -97,7 +123,7 @@ renderer.setAnimationLoop(t => {
     }
     S.settleBy = 0;
     applyBeat(f, now);
-    S.nextBeatAt = Math.max(S.nextBeatAt, now - 0.5) + (driveThrough(f) ?? beatLength(f)) / (timeScale * SPEED_SCALE[settings.speed]);
+    S.nextBeatAt = Math.max(S.nextBeatAt, now - 0.5) + (startRoute(f) ? 0 : beatLength(f)) / (timeScale * SPEED_SCALE[settings.speed]);
   }
   for (let i = effects.length - 1; i >= 0; i--) {
     const e = effects[i];
