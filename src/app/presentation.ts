@@ -41,7 +41,7 @@ export interface Presentation {
     slowMotion: { from: number; to: number; speed: number };
   };
   /** How an FX die is thrown (view/dice-throw.ts), how long it takes, and how wide the pieces it bounces off are (road spaces). */
-  diceThrow: ThrowKnobs & { seconds: number; carR: number; rockR: number };
+  diceThrow: ThrowKnobs & { seconds: number; carR: number; rockR: number; sameAction: number; farthest: number; clear: [number, number] };
   director: {
     diceDist: number; shot: { blendIn: number; blendOut: number; wait: number; follow: number }; lift: number;
     /** The new director (shots.ts): see the data file. */

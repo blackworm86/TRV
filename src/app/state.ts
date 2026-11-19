@@ -63,6 +63,10 @@ export const S = {
   shotBack: null as { t0: number; from: { pos: THREE.Vector3; look: THREE.Vector3 } } | null,
   trayDice: [] as TableDie[],
   trayFresh: true,
+  /** Where the action of the FX dice on the road is: a roll elsewhere sends them home first (rolls.ts). */
+  trayAt: null as THREE.Vector3 | null,
+  /** One scene at a time: until when (performance.now seconds) the next beat may still wait for the last one's show. */
+  calmBy: 0,
   winShown: false,
 };
 

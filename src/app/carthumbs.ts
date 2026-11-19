@@ -33,9 +33,16 @@ function draw(model: THREE.Object3D): string {
   const box = new THREE.Box3().setFromObject(c), size = box.getSize(new THREE.Vector3());
   c.position.sub(box.getCenter(new THREE.Vector3()));
   const scene = new THREE.Scene();
-  const sun = new THREE.DirectionalLight(0xffffff, 2.2);
+  // Bright, as in a photo of the piece: a key light, a fill from the other side and a light from
+  // behind that draws the outline, so a dark weathered model reads on the dark bubble (asked by the
+  // user, 2026-11-19: the cars in the bubbles were hard to see).
+  const sun = new THREE.DirectionalLight(0xffffff, 3.2);
   sun.position.set(2, 6, 4);
-  scene.add(c, new THREE.HemisphereLight(0xffffff, 0x3a2a1a, 2.4), sun);
+  const fill = new THREE.DirectionalLight(0xfff1dc, 1.4);
+  fill.position.set(-5, 2, 3);
+  const rim = new THREE.DirectionalLight(0xffffff, 2.6);
+  rim.position.set(1, 3, -6);
+  scene.add(c, new THREE.HemisphereLight(0xffffff, 0x6a5440, 3.0), sun, fill, rim);
   // Seen from three quarters; the frame is fitted to the whole model as the camera sees it (the
   // eight corners of its box), with a margin, so nothing is cut (asked by the user, 2026-11-18).
   const m = Math.max(size.x, size.y, size.z);

@@ -66,6 +66,15 @@ function startRoute(f: Frame): boolean {
 }
 
 /** Whether beat `f` waits: a car on a route has not got to the space it starts from, or is still driving. */
+/** True while a car drives a route (its beats are paced by waitRoute). */
+function driving(): boolean {
+  for (const o of carObjs.values()) {
+    const r = o.userData.route as Route | undefined;
+    if (r && r.s < r.len) return true;
+  }
+  return false;
+}
+
 function waitRoute(f: Frame): boolean {
   for (const o of carObjs.values()) {
     const r = o.userData.route as Route | undefined;
@@ -117,6 +126,16 @@ renderer.setAnimationLoop(t => {
   while (S.playing && now >= S.nextBeatAt && !holdForHand(queue)) {
     // A car driving a route: each step's beat waits for the car to get there, the others for the end.
     if (queue.length && waitRoute(queue[0])) break;
+    // One scene at a time (asked by the user, 2026-11-19): a beat starts only when what the last one set
+    // going is over: cars parked, dice still, effects and words gone. A car driving its route is
+    // waited for above, step by step. At most settle_max_s, in case something never stops.
+    if (queue.length && !driving()) {
+      if (!settled()) {
+        if (!S.calmBy) S.calmBy = now + SETTLE_MAX;
+        if (now < S.calmBy) break;
+      }
+      S.calmBy = 0;
+    }
     const f = queue.shift();
     if (!f) {
       // The last beat is out: the table comes to rest before the next choice or the end of the game.

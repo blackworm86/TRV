@@ -71,13 +71,19 @@ export function fxGoHome(): void {
  */
 export function rollOnTable(f: Frame): void {
   if (!f.die) return;
-  if (S.trayFresh) { fxGoHome(); S.trayFresh = false; }
-  S.fxHomeAt = null;
-  const td = fxDie(f.die.die);
-  td.d.mesh.visible = true;
   const car = f.snap.vehicles.find(v => v.id === f.snap.activeCar);
   const cell = f.at ?? car?.pos ?? null;
   const at = cell ? world(cell) : null;
+  // A new action (a new turn, or a roll somewhere else on the road): the dice of the last one go back
+  // to the tray first, so every die of this action lands by it (asked by the user, 2026-11-19: a slam's
+  // dice fell at the two ends of the board, by the dice of earlier actions).
+  const space = GRID.pitch * KX;
+  const elsewhere = !!at && !!S.trayAt && Math.hypot(at.x - S.trayAt.x, at.z - S.trayAt.z) > P.diceThrow.sameAction * space;
+  if (S.trayFresh || elsewhere) { fxGoHome(); S.trayFresh = false; }
+  S.trayAt = at ?? S.trayAt;
+  S.fxHomeAt = null;
+  const td = fxDie(f.die.die);
+  td.d.mesh.visible = true;
   // Never on the action's space or the six around it (asked by the user, 2026-11-17): the dice
   // must not hide what happens there, a slam's push, a car going off. Nor on the spaces the car whose
   // turn it is may drive onto next, two steps ahead (asked by the user, 2026-11-19).
@@ -86,7 +92,10 @@ export function rollOnTable(f: Frame): void {
   // A die already out stays where it is and is rolled again there, unless it lies in that ring.
   let to = S.trayDice.includes(td) ? td.to.clone() : null;
   if (to && zone.some(z => onSpace(z, to!))) to = null;
-  if (!to && at) to = fxSpot(at, S.trayDice.filter(t => t !== td).map(t => t.to), f.snap, zone);
+  const others = S.trayDice.filter(t => t !== td).map(t => t.to);
+  if (!to && at) to = fxSpot(at, others, f.snap, zone);
+  // No room clear of the spaces ahead: by the action all the same, clear of its own seven spaces.
+  if (!to && at && cell) to = fxSpot(at, others, f.snap, actionZone(cell), P.diceThrow.farthest);
   to ??= fxRestSpot(f.die.die).add(new THREE.Vector3(0, 0, -1.2));
   if (!S.trayDice.includes(td)) S.trayDice.push(td);
   td.from = td.d.mesh.position.clone();
@@ -95,7 +104,6 @@ export function rollOnTable(f: Frame): void {
   td.q0 = td.d.mesh.quaternion.clone();
   // The throw: the die flies, bounces, glances off a vehicle or a rock by its way, and tumbles to a stop
   // on the spot chosen above, showing its face (view/dice-throw.ts). Where it lands is not the throw's to choose.
-  const space = GRID.pitch * KX;
   const bumpers: Bumper[] = f.snap.vehicles.filter(v => v.pos && v.status !== 'elim').map(v => { const w = world(v.pos!); return { x: w.x, z: w.z, r: P.diceThrow.carR * space }; });
   for (const grp of tileSlots) {
     for (const b of (grp?.userData.blockers as ObstacleBlocker[] | undefined) ?? []) {
@@ -151,7 +159,7 @@ function hiddenByRock(p: THREE.Vector3, list: Rock[]): boolean {
  * rocks, and no rock stands between it and the camera (asked by the user, 2026-11-19: the dice fell
  * among the rocks and were lost from sight).
  */
-export function fxSpot(c: THREE.Vector3, dice: THREE.Vector3[], snap: Frame['snap'], zone: THREE.Vector3[] = []): THREE.Vector3 | null {
+export function fxSpot(c: THREE.Vector3, dice: THREE.Vector3[], snap: Frame['snap'], zone: THREE.Vector3[] = [], farthest = 3.0): THREE.Vector3 | null {
   const space = GRID.pitch * KX; // one road space, in world units
   const gap = DIE_W * FX_SCALE * 1.45;
   const half = DIE_W * FX_SCALE / 2;
@@ -165,11 +173,14 @@ export function fxSpot(c: THREE.Vector3, dice: THREE.Vector3[], snap: Frame['sna
     && !blocked.some(z => onSpace(z, p))
     && !stones.some(k => Math.hypot(k.x - p.x, k.z - p.z) < k.r + half * 1.4)
     && !cars.some(v => Math.hypot(v.x - p.x, v.z - p.z) < space * 0.75)
+    // Not behind a vehicle, nor in front of one, as the action's shot sees the road (from its near side,
+    // +z): the die hides no car and no car hides it (asked by the user, 2026-11-19).
+    && !cars.some(v => Math.abs(v.x - p.x) < space * P.diceThrow.clear[0] && Math.abs(v.z - p.z) < space * P.diceThrow.clear[1])
     && !S.markers.some(m => Math.hypot(m.at.x - p.x, m.at.z - p.z) < space * 0.6)
     && !dice.some(q => Math.hypot(q.x - p.x, q.z - p.z) < gap * 0.95)
     && !hiddenByRock(p, stones);
   if (dice.length) {
-    // In the row of the first die: right beside the last one, then on either end.
+    // In the row of the first die of this action: right beside the last one, then on either end.
     const row = dice[0];
     const xs = dice.map(q => q.x);
     for (const x of [Math.max(...xs) + gap, Math.min(...xs) - gap, Math.max(...xs) + 2 * gap, Math.min(...xs) - 2 * gap]) {
@@ -178,7 +189,7 @@ export function fxSpot(c: THREE.Vector3, dice: THREE.Vector3[], snap: Frame['sna
     }
   }
   let best: THREE.Vector3 | null = null, bestScore = Infinity;
-  for (const r of [0.95, 1.25, 1.5, 1.8, 2.1, 2.4, 2.7, 3.0]) {
+  for (const r of [0.95, 1.25, 1.5, 1.8, 2.1, 2.4, 2.7, 3.0, 3.4, 3.8, 4.2].filter(x => x <= farthest)) {
     for (let a = 0; a < 24; a++) {
       const ang = (a / 24) * Math.PI * 2;
       const p = new THREE.Vector3(c.x + Math.cos(ang) * r * space, c.y + DIE_W * FX_SCALE / 2, c.z + Math.sin(ang) * r * space);

@@ -129,3 +129,5 @@ più il passaggio dall'host.
 ## Related
 
 ADR-0002; `src/net/room.ts`, `src/net/firebase-store.ts`, `src/net/social.ts`, `database.rules.json`.
+
+La procedura della migrazione a Cloudflare (server autorevole, accesso nuovo, sito su Pages), in pausa: [migrazione-cloudflare.md](../migrazione-cloudflare.md).
