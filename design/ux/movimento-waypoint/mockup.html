@@ -1,0 +1,228 @@
+<!doctype html><html lang="it"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Movimento a percorso</title>
+<link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700&family=League+Gothic&display=swap" rel="stylesheet">
+<style>
+/* Colours and shapes taken from src/app/styles.css: --ink, --acc, --card, #actions (the pill), .fxtag, #hzask, .pop .seg. */
+:root{--ink:#f3e6d0;--bg:#1a120c;--card:#24180f;--acc:#f6c46a;--hot:#4cff7a;--who:#c9c8c2;--danger:#ff3b30;--line:#4a3523;--dim:#b9a990}
+*{box-sizing:border-box}
+body{margin:0;background:#0e0a07;color:var(--ink);font:500 16px/1.3 'Barlow Condensed',system-ui,sans-serif;padding:18px 22px 40px}
+h1{font:400 34px 'League Gothic',Impact,sans-serif;margin:0 0 4px;letter-spacing:.5px;color:var(--acc)}
+.lead{color:var(--dim);margin:0 0 10px;max-width:1180px;font-size:17px}.lead b{color:var(--ink)}
+.scene{display:grid;grid-template-columns:900px 1fr;gap:22px;margin:0 0 26px;align-items:start}
+.cap{font:400 24px 'League Gothic',Impact,sans-serif;color:var(--acc);margin:0 0 6px;letter-spacing:.5px}
+.notes{color:var(--dim);font-size:16px;margin:0;padding-left:18px}
+.notes li{margin:0 0 6px}.notes b{color:var(--ink)}
+.frame{position:relative;width:900px;height:420px;border-radius:12px;overflow:hidden;border:1px solid var(--line);background:#2b1b10}
+/* The game's bar, cut down: round, the step chevrons, the question. */
+.bar{position:absolute;left:0;right:0;top:0;height:50px;display:flex;align-items:center;gap:12px;padding:0 12px;background:#140e0a;border-bottom:1px solid #000}
+.bar .round{font:400 30px/1 'League Gothic';color:var(--acc);text-align:center;width:42px}
+.bar .round small{display:block;font:600 9px system-ui;letter-spacing:1.5px;color:var(--dim)}
+.steps{display:flex;align-items:center}
+.steps i{display:flex;align-items:center;gap:6px;height:34px;padding:0 18px 0 14px;margin-right:-6px;background:#3a332d;color:#ccc;font:400 22px 'League Gothic';font-style:normal;
+  clip-path:polygon(0 0,calc(100% - 12px) 0,100% 50%,calc(100% - 12px) 100%,0 100%,12px 50%)}
+.steps i.on{background:#e8e2d6;color:#16100b}
+.steps i b{display:inline-grid;place-items:center;width:20px;height:20px;border-radius:50%;background:#16100b;color:#e8e2d6;font:700 12px system-ui}
+.bar .q{font:400 24px 'League Gothic';color:var(--ink)}.bar .q span{font:500 18px system-ui;color:var(--ink);opacity:.9}
+.board{position:absolute;left:0;top:50px}
+/* The pill under the table (#actions). */
+.pill{position:absolute;left:50%;transform:translateX(-50%);bottom:14px;display:flex;align-items:center;gap:6px;padding:5px 5px 5px 14px;border-radius:999px;white-space:nowrap;
+  background:rgba(18,14,11,.85);border:1px solid rgba(255,255,255,.07);box-shadow:0 0 0 1.5px var(--who),0 8px 22px rgba(0,0,0,.45)}
+.pill .q{font:400 20px/1 'League Gothic';letter-spacing:.5px;padding-right:6px}
+.pill .q em{font-style:normal;color:var(--acc)}
+.pill button{display:inline-flex;align-items:center;gap:6px;min-height:32px;padding:4px 14px;border:0;border-radius:999px;font:700 14.5px system-ui;background:#f3e6d0;color:#17120e}
+.pill button.quiet{background:transparent;color:#f3e6d0;font-weight:600;box-shadow:inset 0 0 0 1.5px rgba(243,230,208,.55)}
+.pill button.go{background:var(--hot);color:#0d2a12;font:400 22px/1 'League Gothic';letter-spacing:1px;padding:4px 22px}
+.pill button kbd{padding:0 4px;border-radius:4px;background:rgba(0,0,0,.18);font:600 10.5px system-ui;opacity:.75}
+.pill .sep{width:1px;height:24px;background:#ffffff22;margin:0 2px}
+.pill .mode{width:32px;height:32px;padding:0;justify-content:center;font-size:16px}
+/* A label pinned over the table (.fxtag). */
+.tag{position:absolute;display:flex;align-items:center;gap:6px;padding:3px 12px;border-radius:999px;transform:translate(-50%,-100%);white-space:nowrap;
+  background:rgba(20,14,10,.92);border:2px solid var(--c,var(--acc));box-shadow:0 6px 16px rgba(0,0,0,.6);color:#fff;font:400 20px 'League Gothic';letter-spacing:.5px}
+.tag::after{content:'';position:absolute;left:50%;bottom:-9px;margin-left:-7px;border:7px solid transparent;border-top-color:var(--c,var(--acc));border-bottom:0}
+.tag small{font:600 12px system-ui;color:var(--dim);letter-spacing:0}
+/* The stop warning: the same card as #hzask, pinned by the point instead of over the whole table. */
+.warn{position:absolute;width:300px;background:var(--card);border:2px solid var(--danger);border-radius:14px;padding:12px 16px;box-shadow:0 10px 30px rgba(0,0,0,.6)}
+.warn p{margin:0 0 4px;font:400 24px/1.05 'League Gothic';color:#ff8a7a;letter-spacing:.5px}
+.warn small{display:block;font:500 15px/1.3 'Barlow Condensed';color:var(--ink);opacity:.9}
+/* Options (.pop .seg). */
+.pop{width:400px;background:rgba(24,16,10,.97);border:2px solid var(--acc);border-radius:12px;padding:12px 14px;box-shadow:0 10px 30px #000a}
+.pop h3{font:400 20px 'League Gothic';color:var(--acc);margin:10px 0 6px;letter-spacing:.5px}.pop h3:first-child{margin-top:0}
+.seg{display:flex;gap:4px;background:#2a1d13;border-radius:10px;padding:3px}
+.seg b{flex:1;text-align:center;padding:7px 8px;border-radius:8px;font:600 15px system-ui;color:var(--ink);background:#3b2d22}
+.seg b.on{background:var(--acc);color:#16100b}
+.pop .help{font:500 14px 'Barlow Condensed';color:var(--dim);margin:6px 0 0}
+.new{outline:2px dashed var(--hot);outline-offset:5px;border-radius:10px}
+.ghost{opacity:.45}
+.legend{display:flex;gap:16px;flex-wrap:wrap;margin:6px 0 18px;color:var(--dim);font-size:15px}
+.legend span{display:inline-flex;align-items:center;gap:6px}
+.legend i{display:inline-block;width:18px;height:18px;border-radius:50%}
+</style></head><body>
+
+<h1>Movimento a percorso (waypoint) — mock-up</h1>
+<p class="lead">Si sceglie l'auto, poi si toccano una dopo l'altra le caselle in cui passerà. Ogni tocco aggiunge un punto al percorso; quando i movimenti sono finiti appare <b>Vai!</b> e l'auto fa tutto il tragitto in una sola corsa. Fino a <b>Vai!</b> il percorso si cambia come si vuole. <b>Le regole non cambiano</b>: il percorso è solo un modo più rapido di dare al gioco gli stessi passi, uno dopo l'altro. Il movimento a passi singoli resta, e si sceglie in qualunque momento.</p>
+<div class="legend">
+  <span><i style="background:var(--who);box-shadow:0 0 0 2px #16100b"></i> punto del percorso, numerato, nel colore del giocatore</span>
+  <span><i style="border:3px solid var(--hot)"></i> dove si può mettere il prossimo punto (le caselle verdi di oggi)</span>
+  <span><i style="background:#9fd3ff"></i> movimenti del dado strada</span>
+  <span><i style="background:var(--danger)"></i> qui l'auto si ferma</span>
+</div>
+
+<div class="scene"><div class="frame" id="s1"></div><div>
+  <p class="cap">1 · Si traccia il percorso</p>
+  <ul class="notes">
+    <li><b>Si sceglie l'auto</b> come oggi, sulla plancia o sul tavolo. Con il percorso attivo l'auto non parte subito: si accendono in verde le tre caselle davanti a lei.</li>
+    <li><b>Ogni tocco</b> su una casella verde aggiunge un punto numerato. La linea del percorso lo unisce al precedente e le caselle verdi si spostano davanti al nuovo punto.</li>
+    <li>L'etichetta sopra l'ultimo punto dice <b>quanti movimenti restano</b>.</li>
+    <li><b>Togli l'ultimo</b> (o Backspace, o un tocco sull'ultimo punto) toglie un punto. Un tocco su un punto più indietro <b>taglia il percorso da lì</b>, per cambiare strada.</li>
+    <li>Il pulsante tondo in fondo alla pillola passa ai <b>passi singoli</b> senza aprire le Opzioni.</li>
+  </ul></div></div>
+
+<div class="scene"><div class="frame" id="s2"></div><div>
+  <p class="cap">2 · Dado strada, poi Vai!</p>
+  <ul class="notes">
+    <li>Finiti i movimenti, se il percorso è rimasto <b>tutto su strada</b>, la pillola chiede il <b>dado strada</b> come oggi. Con <b>Sì</b> si aggiungono altri punti, in azzurro, e vanno usati tutti.</li>
+    <li>Un punto su una casella di <b>fango</b> mostra <b>−2</b>: costa due movimenti, come dice la regola. Il conteggio dei movimenti rimasti ne tiene conto.</li>
+    <li>Quando il percorso è completo appare <b>Vai!</b>: nella pillola e come etichetta sull'ultimo punto (anche Invio).</li>
+    <li>Prima di Vai! niente è deciso: nessun pericolo rivelato, il percorso si cambia ancora tutto.</li>
+  </ul></div></div>
+
+<div class="scene"><div class="frame" id="s3"></div><div>
+  <p class="cap">3 · Una casella dove l'auto si ferma</p>
+  <ul class="notes">
+    <li>Se un punto cade dove il movimento può fermarsi il punto diventa rosso e compare l'avviso <b>l'auto si ferma qui</b>. Succede con:
+      <ul>
+        <li>un <b>altro veicolo</b> (slam);</li>
+        <li>un <b>pericolo coperto</b>;</li>
+        <li>una <b>chiazza d'olio</b>;</li>
+        <li>una <b>rampa</b>;</li>
+        <li>la <b>melma tossica</b>, e simili.</li>
+      </ul></li>
+    <li>Il percorso non va oltre: si può togliere il punto o premere <b>Vai fin qui</b>. L'avviso prende il posto della domanda di oggi "Vuoi entrare nella tessera pericolo?": Vai è la conferma.</li>
+    <li>Le caselle che <b>eliminano</b> l'auto (fuori bordo, invalicabile, rampa di traverso) restano rosse come oggi e chiedono conferma prima di diventare un punto.</li>
+  </ul></div></div>
+
+<div class="scene"><div class="frame" id="s4"></div><div>
+  <p class="cap">4 · Vai!: una corsa sola, poi si riprende</p>
+  <ul class="notes">
+    <li>L'auto percorre tutti i punti <b>in un'unica animazione fluida</b>, curvando tra un punto e l'altro. Il director la segue come una scena sola.</li>
+    <li>Arrivata alla fermata si risolve quello che c'è (qui il pericolo si gira).</li>
+    <li>Se l'auto <b>può ancora muovere</b>, la pillola lo dice e il percorso riparte da dove è ferma, con i movimenti rimasti.</li>
+    <li>Dopo Vai! la mossa si annulla come oggi: finché nessun pericolo è stato rivelato.</li>
+  </ul></div></div>
+
+<div class="scene" style="grid-template-columns:440px 1fr"><div class="pop">
+  <h3>Grafica</h3><div class="seg ghost"><b>Alta</b><b class="on">Media</b><b>Bassa</b><b>Auto</b></div>
+  <h3>Tiro dei dadi</h3><div class="seg ghost"><b class="on">Automatico</b><b>A mano</b></div>
+  <div class="new"><h3>Movimento delle auto</h3><div class="seg"><b class="on">Un passo alla volta</b><b>Percorso</b></div>
+  <p class="help">Percorso: tocchi le caselle una dopo l'altra, poi Vai!. Si cambia anche durante il turno, dal pulsante tondo accanto alle scelte.</p></div>
+</div><div>
+  <p class="cap">5 · Opzioni</p>
+  <ul class="notes">
+    <li>Una voce nuova nelle <b>Opzioni</b>, accanto a "Tiro dei dadi". Si salva con le altre impostazioni del giocatore, sul suo dispositivo.</li>
+    <li>Online ognuno sceglie per sé. Agli altri arriva lo stesso movimento, e vedono la corsa come un'animazione sola.</li>
+    <li>Il valore di partenza è <b>Un passo alla volta</b> (decisione dell'utente, 2026-11-19): il percorso si accende dalle Opzioni o dal pulsante tondo.</li>
+  </ul></div></div>
+
+<script>
+// A hand-drawn stretch of road in the game's look: chevron spaces, odd rows half a space forward (game_base.json).
+const W = 62, H = 52, K = 13, ROWS = 6, COLS = 14, X0 = 18, Y0 = 26;
+const GROUND = [
+  'RRRRSSRRRRSSRR',
+  'RRRRRRMMRRRRRR',
+  'RRRRRRRRRSSRRR',
+  'SSRRRRRRRRRRRR',
+  'RRRRMMRRRRRRSS',
+  'SSRRRRRRRRSSRR'];
+const FILL = { R: '#5d564e', S: '#d9b47a', M: '#5a3a22' };
+const STROKE = { R: '#47413b', S: '#b8935a', M: '#3f2716' };
+const pos = (r, c) => ({ x: X0 + c * W + (r % 2 ? W / 2 : 0), y: Y0 + r * H });
+const mid = (r, c) => { const p = pos(r, c); return { x: p.x + W / 2 + K / 2, y: p.y + H / 2 }; };
+function chevron(r, c, attrs = '') {
+  const { x, y } = pos(r, c);
+  const pts = [[x, y], [x + W, y], [x + W + K, y + H / 2], [x + W, y + H], [x, y + H], [x + K, y + H / 2]].map(p => p.join(',')).join(' ');
+  return `<polygon points="${pts}" ${attrs}/>`;
+}
+function hazard(r, c) {
+  const m = mid(r, c);
+  return `<g>${chevron(r, c, `fill="#c8282a" stroke="#6e1213" stroke-width="2" transform="translate(${m.x} ${m.y}) scale(.78) translate(${-m.x} ${-m.y})"`)}
+    <path d="M${m.x - 9} ${m.y - 10} L${m.x + 11} ${m.y} L${m.x - 9} ${m.y + 10} Z" fill="none" stroke="#f3e6d0" stroke-width="2.5"/></g>`;
+}
+function car(r, c, color, alpha = 1) {
+  const m = mid(r, c);
+  return `<g opacity="${alpha}" transform="translate(${m.x} ${m.y})"><rect x="-22" y="-12" width="44" height="24" rx="7" fill="${color}" stroke="#16100b" stroke-width="2"/>
+    <rect x="2" y="-8" width="12" height="16" rx="3" fill="#16100b88"/><rect x="-18" y="-15" width="10" height="5" rx="2" fill="#111"/><rect x="8" y="-15" width="10" height="5" rx="2" fill="#111"/>
+    <rect x="-18" y="10" width="10" height="5" rx="2" fill="#111"/><rect x="8" y="10" width="10" height="5" rx="2" fill="#111"/></g>`;
+}
+// The front arc (engine.ts frontArc): straight on, and the space ahead in each row beside.
+const arc = (r, c) => [[r - 1, r % 2 ? c + 1 : c], [r, c + 1], [r + 1, r % 2 ? c + 1 : c]].filter(([rr]) => rr >= 0 && rr < ROWS);
+const reach = (r, c) => arc(r, c).map(([rr, cc]) => chevron(rr, cc, 'fill="#4cff7a22" stroke="#4cff7a" stroke-width="3"')).join('');
+const dim = (r, c) => arc(r, c).map(([rr, cc]) => chevron(rr, cc, 'fill="#000a" stroke="none"')).join('');
+function line(points, color, dash = '') {
+  const d = points.map(([r, c], i) => { const m = mid(r, c); return `${i ? 'L' : 'M'}${m.x} ${m.y}`; }).join(' ');
+  return `<path d="${d}" fill="none" stroke="#16100b" stroke-width="9" stroke-linecap="round" stroke-linejoin="round" opacity=".7"/>
+    <path d="${d}" fill="none" stroke="${color}" stroke-width="4.5" stroke-linecap="round" stroke-linejoin="round" ${dash ? `stroke-dasharray="${dash}"` : ''}/>`;
+}
+function dot(r, c, n, fill = 'var(--who)', ink = '#16100b', extra = '') {
+  const m = mid(r, c);
+  return `<g transform="translate(${m.x} ${m.y})"><circle r="15" fill="${fill}" stroke="#16100b" stroke-width="3"/>
+    <text y="7" text-anchor="middle" font-family="League Gothic,Impact" font-size="22" fill="${ink}">${n}</text>${extra}</g>`;
+}
+function board(cells = '') {
+  let g = '';
+  for (let r = 0; r < ROWS; r++) for (let c = -1; c < COLS; c++) {
+    const t = GROUND[r][Math.max(0, c)] ?? 'R';
+    g += chevron(r, c, `fill="${FILL[t]}" stroke="${STROKE[t]}" stroke-width="1.5"`);
+  }
+  return `<svg class="board" width="900" height="370" viewBox="0 0 900 370">${g}${cells}</svg>`;
+}
+const bar = detail => `<div class="bar"><div class="round"><small>ROUND</small>2</div>
+  <div class="steps"><i><b>✓</b></i><i><b>✓</b></i><i class="on"><b>3</b> Movimento</i><i><b>4</b></i></div>
+  <div class="q">Grigio <span>${detail}</span></div></div>`;
+const at = (r, c, dy) => { const m = mid(r, c); return `left:${m.x}px;top:${m.y + 50 + dy}px`; };
+const pill = (q, buttons) => `<div class="pill"><span class="q">Percorso <em>${q}</em></span>${buttons}<span class="sep"></span><button class="quiet mode" title="Passa ai passi singoli">⇥</button></div>`;
+const START = [2, 1], ME = '#c9c8c2', OTHER = '#5b7a52';
+// Each point is in the front arc of the one before it.
+
+// 1 · Two points down, the next three spaces lit.
+document.getElementById('s1').innerHTML = board(
+  hazard(1, 6) + hazard(4, 7) + car(4, 3, OTHER)
+  + line([START, [2, 2], [1, 2]], 'var(--who)') + reach(1, 2) + car(...START, ME)
+  + dot(2, 2, 1) + dot(1, 2, 2))
+  + bar("traccia il percorso dell'auto piccola — 5 movimenti")
+  + `<div class="tag" style="${at(1, 2, -24)}">restano 3 <small>di 5</small></div>`
+  + pill('2 di 5', '<button class="quiet">↶ Togli l\'ultimo <kbd>⌫</kbd></button><button class="quiet">Ricomincia</button>');
+
+// 2 · Five on the road, then the road die's two (dashed, blue): Vai!
+document.getElementById('s2').innerHTML = board(
+  hazard(1, 6) + hazard(4, 7) + car(4, 3, OTHER)
+  + line([START, [2, 2], [2, 3], [2, 4], [2, 5], [2, 6]], 'var(--who)') + line([[2, 6], [2, 7], [2, 8]], '#9fd3ff', '2 10')
+  + car(...START, ME)
+  + dot(2, 2, 1) + dot(2, 3, 2) + dot(2, 4, 3) + dot(2, 5, 4) + dot(2, 6, 5) + dot(2, 7, 6, '#9fd3ff') + dot(2, 8, 7, '#9fd3ff'))
+  + bar('percorso pronto — 5 movimenti e il dado strada (+2)')
+  + `<div class="tag" style="${at(2, 8, -24)};--c:var(--hot)">Vai! <small>Invio</small></div>`
+  + pill('5 + 2 di dado strada', '<button class="quiet">↶ Togli l\'ultimo</button><button class="go">VAI!</button>');
+
+// 3 · The fourth point is a face-down hazard: the car stops there; the spaces beyond are dark.
+document.getElementById('s3').innerHTML = board(
+  hazard(1, 4) + hazard(4, 7) + car(4, 3, OTHER)
+  + line([START, [2, 2], [1, 2], [1, 3]], 'var(--who)') + line([[1, 3], [1, 4]], '#ff3b30')
+  + car(...START, ME) + dim(1, 4)
+  + dot(2, 2, 1) + dot(1, 2, 2) + dot(1, 3, 3)
+  + dot(1, 4, 4, '#ff3b30', '#fff', '<text y="34" text-anchor="middle" font-family="League Gothic" font-size="17" fill="#ff8a7a">STOP</text>'))
+  + bar('il percorso finisce su un pericolo coperto')
+  + `<div class="warn" style="left:${mid(1, 4).x + 46}px;top:${mid(1, 4).y + 70}px"><p>L'auto si ferma qui</p><small>Pericolo coperto: entrando si gira, e la mossa non si potrà più annullare. Se il pericolo la lascia andare, il percorso riparte da qui con l'ultimo movimento.</small></div>`
+  + pill('4 di 5 · fermata', '<button class="quiet">↶ Togli l\'ultimo</button><button class="go">VAI FIN QUI</button>');
+
+// 4 · The run: the car leaves a trail along its points, stops on the hazard (turned up), and may go on.
+const run = [START, [2, 2], [1, 2], [1, 3], [1, 4]];
+document.getElementById('s4').innerHTML = board(
+  hazard(4, 7) + car(4, 3, OTHER)
+  + line(run, '#ffffff55')
+  + run.slice(0, 4).map(([r, c], i) => car(r, c, ME, 0.12 + i * 0.12)).join('')
+  + car(1, 4, ME) + reach(1, 4)
+  + `<g transform="translate(${mid(1, 4).x} ${mid(1, 4).y - 34})"><rect x="-44" y="-14" width="88" height="22" rx="4" fill="#e9dcc2" stroke="#16100b" stroke-width="2"/><text y="3" text-anchor="middle" font-family="League Gothic" font-size="16" fill="#16100b">PERICOLO GIRATO</text></g>`)
+  + bar("l'auto piccola può ancora muovere — 1 movimento")
+  + `<div class="tag" style="${at(1, 4, -86)};--c:var(--hot)">ancora 1 <small>movimento</small></div>`
+  + pill('0 di 1', '<button class="quiet">Ricomincia</button>');
+</script>
+</body></html>

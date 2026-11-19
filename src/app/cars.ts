@@ -217,7 +217,8 @@ export function drive(o: THREE.Object3D, dt: number, k: number, now: number): vo
   if (tg && !hitched) {
     const dx = tg.x - o.position.x, dz = tg.z - o.position.z;
     const dist = Math.hypot(dx, dz);
-    const step = Math.min(dist, DRIVE.speed * dt * Math.min(1, 0.35 + dist * 1.5));
+    // It slows down coming to a space, unless it drives on through it (a path run in one go: loop.ts).
+    const step = Math.min(dist, DRIVE.speed * dt * (o.userData.through ? 1 : Math.min(1, 0.35 + dist * 1.5)));
     if (dist > 1e-4) { o.position.x += dx / dist * step; o.position.z += dz / dist * step; }
   }
   const vx = (o.position.x - before.x) / Math.max(dt, 1e-4), vz = (o.position.z - before.z) / Math.max(dt, 1e-4);

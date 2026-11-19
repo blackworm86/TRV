@@ -179,6 +179,25 @@ export function choose(i: number, sure = false): void {
   if (S.net) void S.net.store.write(roomPath(S.net.code, 'log', String(n)), i).catch(netError);
 }
 
+/**
+ * The player at this device runs a path planned with waypoints (waypoints.ts): the choices one
+ * after the other. Online, a guest sends the whole path to the host, which takes it a choice at a time.
+ */
+export function choosePath(path: number[]): void {
+  if (!S.gen || !decision || !S.saved || !path.length) return;
+  if (S.net && !S.net.host) {
+    void S.net.store.write(roomPath(S.net.code, 'intents', S.net.uid), { n: S.saved.choices.length, c: path[0], path }).catch(netError);
+    decision = null; // asked: wait for the host's log
+    S.selDie = null;
+    render();
+    return;
+  }
+  for (const c of path) {
+    if (!decision) break;
+    choose(c, true);
+  }
+}
+
 /** Feeds an accepted choice to the rules and plays what it produced. */
 export function applyChoice(i: number): void {
   if (!S.gen || !pending || !S.saved) return;

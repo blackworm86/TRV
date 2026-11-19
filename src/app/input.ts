@@ -8,6 +8,7 @@ import { dieHtml, drawHud } from './hud';
 import { markerAt } from './inspect';
 import { typing } from './keys';
 import { drawMarkers } from './markers';
+import { addPoint, planDecision, planning } from './waypoints';
 import { renderer } from './stage';
 import { S } from './state';
 import { tableDieAt } from './tableDice';
@@ -110,7 +111,8 @@ renderer.domElement.addEventListener('pointerdown', e => { downAt = { x: e.clien
 renderer.domElement.addEventListener('pointerup', e => {
   if (e.button !== 0 || drag || Math.hypot(e.clientX - downAt.x, e.clientY - downAt.y) > 6 || !decision) return;
   const m = markerAt(e);
-  if (m) choose(m.option);
+  if (m && planning()) addPoint(m.option);
+  else if (m) choose(m.option);
 });
 export let hovered = -1;
 renderer.domElement.addEventListener('pointermove', e => {
@@ -123,6 +125,6 @@ renderer.domElement.addEventListener('pointermove', e => {
   if (decision && g) {
     const nm = g.players[decision.player].name;
     $('prompt').innerHTML = `<b style="color:${g.players[decision.player].color}">${esc(nm)}</b>` +
-      esc(m ? decision.options[m.option].label : decision.prompt.replace(`${nm}: `, ''));
+      esc(m ? ((planDecision() ?? decision).options[m.option]?.label ?? '') : decision.prompt.replace(`${nm}: `, ''));
   }
 });

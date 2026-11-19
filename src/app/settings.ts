@@ -11,10 +11,12 @@ export type Level = Exclude<Quality, 'auto'>;
 export type Speed = 'full' | 'fast' | 'skip';
 /** How the dice rolled during a turn are thrown: by the game, or by the player with TIRA (handroll.ts). */
 export type DiceThrow = 'auto' | 'hand';
+/** How a car is moved: one space per click, or a whole path planned with waypoints and run with Vai! (waypoints.ts). */
+export type MoveMode = 'step' | 'path';
 /** `director2`: the new camera director (shots.ts) films the events; off, the old fixed shots do. */
-export interface Settings { quality: Quality; speed: Speed; dice: DiceThrow; grid: boolean; actionCam: boolean; director2: boolean; effects: boolean; words: boolean; zenith: boolean }
+export interface Settings { quality: Quality; speed: Speed; dice: DiceThrow; move: MoveMode; grid: boolean; actionCam: boolean; director2: boolean; effects: boolean; words: boolean; zenith: boolean }
 export const SETTINGS_KEY = 'trv-settings';
-export const settings: Settings = { quality: 'auto', speed: 'full', dice: 'auto', grid: true, actionCam: true, director2: true, effects: true, words: true, zenith: false };
+export const settings: Settings = { quality: 'auto', speed: 'full', dice: 'auto', move: 'step', grid: true, actionCam: true, director2: true, effects: true, words: true, zenith: false };
 try { Object.assign(settings, JSON.parse(localStorage.getItem(SETTINGS_KEY) ?? '{}') as Partial<Settings>); } catch { /* defaults */ }
 export function saveSettings(): void {
   try { localStorage.setItem(SETTINGS_KEY, JSON.stringify(settings)); } catch { /* storage off */ }

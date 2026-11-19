@@ -72,6 +72,11 @@ export interface Intent {
   n: number; c: number; draft?: { r: number; card: string }; undo?: boolean;
   /** The upgrade cards placed in advance, card on car, in the order they were placed. */
   assign?: { card: string; car: string }[];
+  /**
+   * A path planned with waypoints (waypoints.ts): the choices to make one after the other from log
+   * length `n`, `c` being the first. Each is taken while the log is still inside the path.
+   */
+  path?: number[];
 }
 
 /** The shared record of a room, as read from the store and tidied by {@link readRoom}. */
@@ -344,7 +349,15 @@ export function acceptable(room: Room, logLength: number, pending: Pending | nul
     }
     return null;
   }
-  if (!intent || intent.n !== logLength) return null;
+  if (!intent) return null;
+  // A planned path: the choice for the place the log has reached in it.
+  if (intent.path) {
+    const path = list<number>(intent.path), k = logLength - intent.n;
+    if (!Number.isInteger(intent.n) || k < 0 || k >= path.length) return null;
+    const c = path[k];
+    return Number.isInteger(c) && c >= 0 && c < pending.options ? { uid: uid!, choice: c } : null;
+  }
+  if (intent.n !== logLength) return null;
   if (!Number.isInteger(intent.c) || intent.c < 0 || intent.c >= pending.options) return null;
   return { uid, choice: intent.c };
 }

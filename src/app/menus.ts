@@ -1,8 +1,9 @@
 // The options and menu popovers.
 
 import { applyLevel, fpsNow } from './quality';
-import { DiceThrow, Level, Quality, Speed, saveSettings, settings } from './settings';
+import { DiceThrow, Level, MoveMode, Quality, Speed, saveSettings, settings } from './settings';
 import { S } from './state';
+import { setMoveMode } from './waypoints';
 import { $ } from './util';
 
 export const LEVEL_NAME: Record<Level, string> = { high: 'alta', medium: 'media', low: 'bassa' };
@@ -10,7 +11,7 @@ export const LEVEL_NAME: Record<Level, string> = { high: 'alta', medium: 'media'
 export function syncOptions(): void {
   const pop = $('optspop');
   for (const seg of pop.querySelectorAll<HTMLElement>('.seg')) {
-    const key = seg.dataset.set as 'quality' | 'speed' | 'dice';
+    const key = seg.dataset.set as 'quality' | 'speed' | 'dice' | 'move';
     for (const b of seg.querySelectorAll<HTMLButtonElement>('button')) b.classList.toggle('on', b.dataset.v === settings[key]);
   }
   for (const box of pop.querySelectorAll<HTMLInputElement>('input[data-set]')) box.checked = !!settings[box.dataset.set as 'grid' | 'actionCam' | 'director2' | 'effects' | 'words'];
@@ -25,6 +26,7 @@ for (const seg of $('optspop').querySelectorAll<HTMLElement>('.seg')) {
       S.fpsSlow = 0;
       applyLevel(settings.quality === 'auto' ? 'high' : settings.quality);
     } else if (seg.dataset.set === 'dice') settings.dice = b.dataset.v as DiceThrow;
+    else if (seg.dataset.set === 'move') setMoveMode(b.dataset.v as MoveMode);
     else settings.speed = b.dataset.v as Speed;
     saveSettings();
     syncOptions();

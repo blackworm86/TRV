@@ -5,7 +5,7 @@ import { tickFlames } from '../view/terrain/carnage3d';
 import { ROTOR_SPEED, hover } from '../view/models-config';
 import { SETTLE_MAX, applyBeat, beatLength, effects, finishBeats, queue, settled } from './beats';
 import { carObjs, chopperObjs, fxSupply, hazardObjs } from './board';
-import { carTimeScale, drive, hitchTrains } from './cars';
+import { DRIVE, carTimeScale, drive, hitchTrains } from './cars';
 import { chaseCamera, clearSight } from './chase';
 import { SHOT, actionSince, directorCamera } from './director';
 import { placeActions, placeDock } from './dock';
@@ -16,6 +16,8 @@ import { tiltView } from './mapView';
 import { placeBlockTips } from './markers';
 import { placeRigPick } from './rigpick';
 import { placeBikePick } from './bikepick';
+import { placePath } from './waypoints';
+import type { Frame } from '../game/trv/engine';
 import { groundTick, render } from './pieces';
 import { frameTimes } from './quality';
 import { timeScale } from './replay';
@@ -30,6 +32,22 @@ import { $, menuOpen } from './util';
 
 export const timer = new THREE.Timer();
 timer.connect(document);
+/**
+ * A car moving on through several spaces in a row (a waypoint path run with Vai!, a slide on desert
+ * glass): it does not slow down at each space but drives through, and the next step starts as it
+ * gets there. Returns the beat's length in that case (the time to drive the step), else null.
+ */
+function driveThrough(f: Frame): number | null {
+  if (f.kind !== 'move' || !f.vehicleId) return null;
+  const o = carObjs.get(f.vehicleId);
+  if (!o) return null;
+  const next = queue.find(x => x.kind !== 'log');
+  o.userData.through = next?.kind === 'move' && next.vehicleId === f.vehicleId;
+  const tg = o.userData.target as THREE.Vector3 | undefined;
+  if (!o.userData.through || !tg) return null;
+  return Math.max(0.08, Math.hypot(tg.x - o.position.x, tg.z - o.position.z) / DRIVE.speed * 0.92);
+}
+
 renderer.setAnimationLoop(t => {
   timer.update(t);
   // Behind the first screen nothing is drawn: it is a screen of its own, and the computer rests.
@@ -79,7 +97,7 @@ renderer.setAnimationLoop(t => {
     }
     S.settleBy = 0;
     applyBeat(f, now);
-    S.nextBeatAt = Math.max(S.nextBeatAt, now - 0.5) + beatLength(f) / (timeScale * SPEED_SCALE[settings.speed]);
+    S.nextBeatAt = Math.max(S.nextBeatAt, now - 0.5) + (driveThrough(f) ?? beatLength(f)) / (timeScale * SPEED_SCALE[settings.speed]);
   }
   for (let i = effects.length - 1; i >= 0; i--) {
     const e = effects[i];
@@ -137,5 +155,6 @@ renderer.setAnimationLoop(t => {
   placeBlockTips();
   placeRigPick();
   placeBikePick();
+  placePath();
   hudRenderer.render(hudScene, hudCam);
 });

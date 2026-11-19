@@ -9,7 +9,9 @@ import { g, viewer } from './game';
 import { fitDist, homeView, toggleGrid, toggleZenith } from './mapView';
 import { startReplay } from './replay';
 import { camera, controls } from './stage';
+import { settings } from './settings';
 import { S } from './state';
+import { setMoveMode } from './waypoints';
 import { menuOpen } from './util';
 
 export const held = new Set<string>();
@@ -56,6 +58,8 @@ addEventListener('keydown', e => {
     homeView();
   } else if (key === 'g') {
     toggleGrid();
+  } else if (key === 'p') {
+    setMoveMode(settings.move === 'path' ? 'step' : 'path');
   } else if (key === 'r') {
     startReplay();
   } else if (key === 'f') {

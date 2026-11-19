@@ -187,6 +187,22 @@ describe('match', () => {
     expect(acceptable(await room(stores[0]), 0, pending)).toEqual({ uid: 'u1', choice: 2 });
     expect(acceptable(await room(stores[0]), 0, null)).toBe(null);
   });
+  it('takes a planned path one choice at a time while the log is inside it', async () => {
+    // Arrange: the guest planned three steps from log length 5.
+    const stores = await seated(2);
+    await startMatch(stores[0], CODE, await room(stores[0]), SEED, COLOR);
+    await stores[1].write(roomPath(CODE, 'intents', 'u1'), { n: 5, c: 2, path: [2, 0, 1] });
+    const asked = { player: 1, options: 3 };
+    // Act + Assert: before the path, nothing; inside it, the choice for that place; after it, nothing.
+    expect(acceptable(await room(stores[0]), 4, asked)).toBe(null);
+    expect(acceptable(await room(stores[0]), 5, asked)).toEqual({ uid: 'u1', choice: 2 });
+    expect(acceptable(await room(stores[0]), 6, asked)).toEqual({ uid: 'u1', choice: 0 });
+    expect(acceptable(await room(stores[0]), 7, asked)).toEqual({ uid: 'u1', choice: 1 });
+    expect(acceptable(await room(stores[0]), 8, asked)).toBe(null);
+    // Another player asked, or an option that does not exist there: not taken.
+    expect(acceptable(await room(stores[0]), 6, { player: 0, options: 3 })).toBe(null);
+    expect(acceptable(await room(stores[0]), 5, { player: 1, options: 2 })).toBe(null);
+  });
   it('keeps a draft pick made in advance until the rules ask that player, then takes its card', async () => {
     // Arrange: everyone picks at once; the guest picked "nitro_kit" in round 0 while the host was being asked.
     const stores = await seated(2);

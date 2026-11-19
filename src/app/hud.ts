@@ -21,6 +21,7 @@ import { CMD_LINES, DAMAGE_INFO, ONGOING_INFO, PORTRAITS, POWER_INFO, UPGRADE_IN
 import { focusOn } from './keys';
 import { fit } from './mapView';
 import { drawMarkers } from './markers';
+import { drawPath, pathPill, pathToggle, planning } from './waypoints';
 import { syncFxSupply } from './rolls';
 import { P } from './presentation';
 import { S } from './state';
@@ -173,7 +174,9 @@ export function drawHud(): void {
       b.onclick = () => choose(i);
       actions.appendChild(b);
     };
-    if (d.kind === 'command' || d.kind === 'token' || d.kind === 'endTurn') { /* on the command board's tab: see drawDock */ }
+    // Waypoint movement: the path's own pill (waypoints.ts).
+    if (planning()) pathPill(actions);
+    else if (d.kind === 'command' || d.kind === 'token' || d.kind === 'endTurn') { /* on the command board's tab: see drawDock */ }
     else if (d.kind === 'shoot') btn(0, 'Non sparare', 'quiet'); // the targets are lit on the table
     else if (d.kind === 'roadDie') { btn(1, `+${g.roadDie} movimenti`, 'road'); btn(0, 'Fermati', 'quiet'); }
     else if (d.kind === 'slamReroll') { btn(0, 'Tieni', 'quiet'); btn(1, 'Ritira i dadi'); }
@@ -181,7 +184,8 @@ export function drawHud(): void {
     // Choices on the table with a way out: the spaces are lit, the button says no.
     else if (['plow', 'rollCage', 'dispense', 'radar'].includes(d.kind)) btn(0, d.options[0].label, d.options[0].danger ? 'danger' : 'quiet');
     // Skull Shift Knob: the one step choice that is not a space.
-    else if (d.kind === 'step') d.options.forEach((o, i) => { if (!o.pos) btn(i, o.label, 'quiet'); });
+    // and the round button that switches to the waypoint path.
+    else if (d.kind === 'step') { d.options.forEach((o, i) => { if (!o.pos) btn(i, o.label, 'quiet'); }); pathToggle(actions); }
     // The Big Rig's choices are made on the board, on the table or on the rig itself (asked by the
     // user, 2026-11-18): the steering diamond, the cow catcher's spaces, the aims round the section
     // hit (rigpick.ts), the systems lit in red for a minor damage.
@@ -260,16 +264,16 @@ export function drawHud(): void {
     rigDamage: 'Scegli il sistema da coprire con il danno minore',
   };
   // The upgrades' own questions are asked in full: they name the card.
-  const asked = d && (d.kind === 'command' || d.kind === 'token') ? '' : d ? ASK[d.kind] ?? (['plow', 'rollCage', 'dispense', 'radar', 'swap', 'redButton'].includes(d.kind) ? d.prompt.replace(/^[^:]+: /, '') : '') : '';
+  const asked = planning() ? '' : d && (d.kind === 'command' || d.kind === 'token') ? '' : d ? ASK[d.kind] ?? (['plow', 'rollCage', 'dispense', 'radar', 'swap', 'redButton'].includes(d.kind) ? d.prompt.replace(/^[^:]+: /, '') : '') : '';
   if (asked) actions.insertAdjacentHTML('afterbegin', `<span class="q">${esc(asked)}</span>`);
   actions.classList.toggle('only', !actions.querySelector('button'));
   // More than three answers, or a long question: the question on its own line, the answers under it.
-  actions.classList.toggle('many', actions.querySelectorAll('button').length > 3 || (!!actions.querySelector('button') && asked.length > 34));
+  actions.classList.toggle('many', !planning() && actions.querySelectorAll('button').length > 3 || (!!actions.querySelector('button') && asked.length > 34));
   // A new question finds its place again; the same one keeps it (see placeActions).
   const asking = d ? `${S.saved?.choices.length ?? 0}:${d.kind}:${d.prompt}` : '';
   if (actions.dataset.dec !== asking) { actions.dataset.dec = asking; delete actions.dataset.spot; }
   // Keys: Enter for the main choice, Esc for the quiet one (no, keep, stop), shown on the buttons.
-  const btns = [...actions.querySelectorAll<HTMLButtonElement>('button')];
+  const btns = planning() ? [] : [...actions.querySelectorAll<HTMLButtonElement>('button:not(.mode)')];
   const main = btns.find(b => !b.classList.contains('quiet')), quiet = btns.find(b => b.classList.contains('quiet'));
   if (main && btns.length <= 3) { main.dataset.key = 'Enter'; main.insertAdjacentHTML('beforeend', '<kbd>↵</kbd>'); }
   if (quiet && btns.length <= 3) { quiet.dataset.key = 'Escape'; quiet.insertAdjacentHTML('beforeend', '<kbd>Esc</kbd>'); }
@@ -292,6 +296,7 @@ export function drawHud(): void {
   const mine = d && d.player === me.id;
   drawRigPick(S.playing ? null : d, !!mine);
   drawBikePick(S.playing ? null : d, !!mine);
+  drawPath();
   syncTableDice(me, !!mine);
   syncFxSupply();
   const lead = leaderOf(me);
