@@ -45,7 +45,7 @@
       "$name": {
         ".read": "auth != null",
         ".write": "auth != null && auth.token.firebase.sign_in_provider !== 'anonymous' && !data.exists() && newData.val() === auth.uid",
-        ".validate": "$name.matches(/^[a-z0-9_]([a-z0-9_.]{1,18})[a-z0-9_]$/)"
+        ".validate": "$name.length >= 3 && $name.length <= 20 && $name.matches(/^[a-z0-9_][a-z0-9_.]*[a-z0-9_]$/)"
       }
     },
     "friendCodes": {
