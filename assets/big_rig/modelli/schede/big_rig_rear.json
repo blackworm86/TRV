@@ -1,0 +1,118 @@
+{
+  "_note": "The Big Rig's rear section (see big_rig_front.json for the conventions): the wagon with the radar dish and the hazard chute. 6.04 m per unit of its model, so its body is as wide as the tractor's; the ring of its tow bar is its hitch_front, 3 m ahead of its middle, which is 0.042 units ahead of the model's. The ground is 0.325 units under the model's middle. The radar is part of the body for now. The machine gun on the roof plate is the node turret, mounted facing backward (extra facing = pi: its zero is the rear, it fires in the rear arc), so its model is not turned half round.",
+  "id": "big_rig_rear",
+  "length_m": 6.0,
+  "show_mm": 46,
+  "capabilities": [
+    "suspension",
+    "turret",
+    "articulated",
+    "detachable"
+  ],
+  "parts": [
+    {
+      "node": "body",
+      "source": "big_rig_rear_body.glb",
+      "pivot": [
+        0,
+        0.9,
+        0
+      ],
+      "mass": 2,
+      "zones": [
+        "paint_primary",
+        "metal"
+      ],
+      "mesh": {
+        "scale": 6.04,
+        "yaw": 3.14159265,
+        "at": [
+          0.254,
+          1.063,
+          0
+        ]
+      }
+    },
+    {
+      "node": "hitch_front",
+      "pivot": [
+        3.0,
+        0.6,
+        0
+      ]
+    },
+    {
+      "node": "turret",
+      "source": "big_rig_gun.glb",
+      "parent": "body",
+      "pivot": [
+        -0.743,
+        1.305,
+        0
+      ],
+      "arc": [
+        -1.3,
+        1.3
+      ],
+      "speed": 2.5,
+      "facing": 3.14159265,
+      "mesh": {
+        "scale": 1.7,
+        "yaw": 0,
+        "at": [
+          -0.068,
+          0.357,
+          0
+        ]
+      }
+    },
+    {
+      "node": "muzzle",
+      "parent": "turret",
+      "pivot": [
+        -0.882,
+        0.569,
+        0
+      ],
+      "weapon": "mg"
+    },
+    {
+      "node": "fx_smoke",
+      "parent": "body",
+      "pivot": [
+        0,
+        1.2,
+        0
+      ]
+    },
+    {
+      "node": "wheel",
+      "source": "big_rig_wheel.glb",
+      "width": 0.37,
+      "axles": [
+        {
+          "x": 0.616,
+          "track": 1.15,
+          "steer": false,
+          "drive": false,
+          "radius": 0.453,
+          "travel": [
+            -0.06,
+            0.1
+          ]
+        },
+        {
+          "x": -0.471,
+          "track": 1.15,
+          "steer": false,
+          "drive": false,
+          "radius": 0.453,
+          "travel": [
+            -0.06,
+            0.1
+          ]
+        }
+      ]
+    }
+  ]
+}

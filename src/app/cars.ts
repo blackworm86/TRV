@@ -82,13 +82,15 @@ export function nearRamp(p: THREE.Vector3, now: number): boolean {
 
 /**
  * Turns a model's turret toward the car's target (`userData.aim`, a world heading, null at rest),
- * at the turret's own speed (its `speed` extra, radians per second), within its arc.
+ * at the turret's own speed (its `speed` extra, radians per second), within its arc. A turret mounted
+ * facing another way (its `facing` extra, radians from the nose: the Big Rig's rear gun faces
+ * backward) has its zero and its arc there.
  */
 function aimTurret(o: THREE.Object3D, carYaw: number, dt: number): void {
   const t = (o.userData.model as THREE.Object3D | undefined)?.getObjectByName('turret');
   if (!t) return;
   const aim = o.userData.aim as number | null | undefined;
-  let want = aim === null || aim === undefined ? 0 : aim - carYaw;
+  let want = aim === null || aim === undefined ? 0 : aim - carYaw - ((t.userData.facing as number | undefined) ?? 0);
   const arc = t.userData.arc as [number, number] | undefined;
   want = Math.atan2(Math.sin(want), Math.cos(want));
   if (arc) want = Math.max(arc[0], Math.min(arc[1], want));

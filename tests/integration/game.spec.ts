@@ -204,14 +204,17 @@ test.describe('game', () => {
   });
 
   test('the action camera takes a shot for an event and gives the view back', async ({ page }) => {
+    test.setTimeout(300_000);
     const errors = await open(page, { save: [], settings: { speed: 'full', actionCam: true } });
     await page.evaluate(() => {
       const t = window.trv!;
       const car = t.game!.vehicles.find(v => v.owner === 0)!;
       t.playBeats([{ kind: 'damage', vehicleId: car.id, snap: t.snapshot() }]);
     });
-    await expect.poll(() => page.evaluate(() => window.trv!.cam.action)).toBe(true);
-    await expect.poll(() => page.evaluate(() => !window.trv!.cam.action && !window.trv!.cam.back), { timeout: 15_000 }).toBe(true);
+    // The beat is a scene: it starts once the table is still, and the playback clock runs slowly when
+    // the table is drawn in software, hence the roomy waits.
+    await expect.poll(() => page.evaluate(() => window.trv!.cam.action), { timeout: 120_000 }).toBe(true);
+    await expect.poll(() => page.evaluate(() => !window.trv!.cam.action && !window.trv!.cam.back), { timeout: 120_000 }).toBe(true);
     expect(errors).toEqual([]);
   });
 
@@ -345,7 +348,7 @@ test.describe('game', () => {
     // A Carnage game with three teams, chosen by a fixed chooser that avoids the options marked as
     // dangerous: it holds a slam, a shot that deals damage, a ramp jump and an elimination.
     const players = [...PLAYERS, { name: 'Arancio', color: '#ec9230', crew: 'orange' }];
-    const errors = await open(page, { save: [], setup: { seed: '06'.repeat(32), startSide: 'a', players, carnage: true }, settings: { speed: 'fast', newMotion: true } });
+    const errors = await open(page, { save: [], setup: { seed: '06'.repeat(32), startSide: 'a', players, carnage: true }, settings: { speed: 'fast' } });
     // Every animation frame: while the beats play, once a choice's first frame is shown the table shows the
     // state of the last frame shown, never a later one (before it, the state before the choice).
     await page.evaluate(() => {
@@ -481,7 +484,7 @@ test.describe('game', () => {
   });
 
   test('a waypoint path ending with "no road die" before a shot is asked: the car drives its path once, never back', async ({ page }) => {
-    test.setTimeout(300_000);
+    test.setTimeout(600_000);
     // The bug (2026-11-19): declining the road die shows nothing when a shot is asked right after; the
     // table was then drawn as the rules had it, the car slid straight to its last space while its
     // moves were still queued, went back to the first and drove the path.
@@ -543,7 +546,7 @@ test.describe('game', () => {
       requestAnimationFrame(look);
       dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true, cancelable: true }));
     }, mine!);
-    await expect.poll(() => page.evaluate(() => !window.trv!.playing && !!window.trv!.decision), { timeout: 90_000 }).toBe(true);
+    await expect.poll(() => page.evaluate(() => !window.trv!.playing && !!window.trv!.decision), { timeout: 300_000 }).toBe(true);
     // Assert: it never went back along the road (a road space is about 1.5 units long).
     expect(await page.evaluate(() => (window as unknown as { trvBack: number }).trvBack)).toBeLessThan(0.2);
     expect(errors).toEqual([]);

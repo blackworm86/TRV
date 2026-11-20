@@ -15,13 +15,14 @@ export type DiceThrow = 'auto' | 'hand';
 export type MoveMode = 'step' | 'path';
 /**
  * `director2`: the new camera director (shots.ts) films the events; off, the old fixed shots do.
- * `newMotion`: the beats are played as the director's scenes, one at a time, each after the table is
- * truly still (scenePlayer.ts; docs/piano-integrazione-veicoli.md, phase 6, on trial). `testCar`: the
- * test car in parts (view/test-vehicles.ts) stands in for the Medium Car, to try the parts' motion.
+ * The beats are always played as the director's scenes, one at a time, each after the table is truly
+ * still (scenePlayer.ts): the option that chose it, `newMotion`, is gone (asked by the user,
+ * 2026-11-20: everything on the new motion); a stored value of it is ignored. So is `testCar`, the
+ * test car standing in for the Medium Car: the Medium Car itself is now mounted from its parts.
  */
-export interface Settings { quality: Quality; speed: Speed; dice: DiceThrow; move: MoveMode; grid: boolean; actionCam: boolean; director2: boolean; effects: boolean; words: boolean; zenith: boolean; newMotion: boolean; testCar: boolean }
+export interface Settings { quality: Quality; speed: Speed; dice: DiceThrow; move: MoveMode; grid: boolean; actionCam: boolean; director2: boolean; effects: boolean; words: boolean; zenith: boolean }
 export const SETTINGS_KEY = 'trv-settings';
-export const settings: Settings = { quality: 'auto', speed: 'full', dice: 'auto', move: 'step', grid: true, actionCam: true, director2: true, effects: true, words: true, zenith: false, newMotion: false, testCar: false };
+export const settings: Settings = { quality: 'auto', speed: 'full', dice: 'auto', move: 'step', grid: true, actionCam: true, director2: true, effects: true, words: true, zenith: false };
 try { Object.assign(settings, JSON.parse(localStorage.getItem(SETTINGS_KEY) ?? '{}') as Partial<Settings>); } catch { /* defaults */ }
 export function saveSettings(): void {
   try { localStorage.setItem(SETTINGS_KEY, JSON.stringify(settings)); } catch { /* storage off */ }

@@ -1,7 +1,8 @@
 // The game's beats played as the director's scenes (docs/piano-integrazione-veicoli.md, phase 6),
-// behind the option "Movimento nuovo" (settings.newMotion): the frames of a choice are grouped into
-// scenes (scenes.ts) and played one at a time, each starting only once the table is truly still, the
-// camera taking one shot per scene. Off, the beats play as before (loop.ts, beats.ts).
+// the only way they are played since 2026-11-20 (asked by the user: everything on the new motion;
+// before, the option "Movimento nuovo"): the frames of a choice are grouped into scenes (scenes.ts)
+// and played one at a time, each starting only once the table is truly still, the camera taking one
+// shot per scene. Only the instant replay still plays the beats from the old queue (loop.ts, beats.ts).
 // Each frame is shown by the same code as before (beats.ts applyBeat); what changes is when.
 
 import { onBoard, terrainAt, type Frame } from '../game/trv/engine';
@@ -20,8 +21,8 @@ import { settings } from './settings';
 import { TILE_W, world } from './stage';
 import { S } from './state';
 
-/** True when the beats are played as scenes: the option is on and this is not the instant replay. */
-export function sceneMode(): boolean { return settings.newMotion && !replaying; }
+/** True when the beats are played as scenes: always, but in the instant replay. */
+export function sceneMode(): boolean { return !replaying; }
 
 /** A drive scene's route: the moves driven as one (route.ts), and when the car gets to each. */
 interface Drive { route: Route; frames: Frame[]; at: number[] }

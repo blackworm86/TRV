@@ -1,0 +1,90 @@
+{
+  "_note": "The Big Rig's middle section (see big_rig_front.json for the conventions): the wagon with the helipad, the crane and the exhaust stacks. 6.617 m per unit of its model, so its body is as wide as the tractor's; the ring of its tow bar is its hitch_front, 3 m ahead of its middle, and the next trailer hooks 3 m behind. The ground is 0.28 units under the model's middle.",
+  "id": "big_rig_mid",
+  "length_m": 6.0,
+  "show_mm": 46,
+  "capabilities": [
+    "suspension",
+    "articulated",
+    "detachable"
+  ],
+  "parts": [
+    {
+      "node": "body",
+      "source": "big_rig_mid_body.glb",
+      "pivot": [
+        0,
+        0.9,
+        0
+      ],
+      "mass": 2,
+      "zones": [
+        "paint_primary",
+        "metal"
+      ],
+      "mesh": {
+        "scale": 6.617,
+        "yaw": 3.14159265,
+        "at": [
+          0,
+          0.953,
+          0
+        ]
+      }
+    },
+    {
+      "node": "hitch_front",
+      "pivot": [
+        3.0,
+        0.5,
+        0
+      ]
+    },
+    {
+      "node": "hitch_rear",
+      "pivot": [
+        -3.0,
+        0.9,
+        0
+      ]
+    },
+    {
+      "node": "fx_smoke",
+      "parent": "body",
+      "pivot": [
+        0,
+        1.2,
+        0
+      ]
+    },
+    {
+      "node": "wheel",
+      "source": "big_rig_wheel.glb",
+      "width": 0.4,
+      "axles": [
+        {
+          "x": 0.165,
+          "track": 0.99,
+          "steer": false,
+          "drive": true,
+          "radius": 0.496,
+          "travel": [
+            -0.06,
+            0.1
+          ]
+        },
+        {
+          "x": -1.952,
+          "track": 0.99,
+          "steer": false,
+          "drive": true,
+          "radius": 0.496,
+          "travel": [
+            -0.06,
+            0.1
+          ]
+        }
+      ]
+    }
+  ]
+}

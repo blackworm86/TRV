@@ -264,6 +264,9 @@ export function burst(from: THREE.Vector3, to: THREE.Vector3, targetId?: string,
   const turret = shooter?.userData.turret as THREE.Object3D | undefined;
   const muzzleAt = (): THREE.Vector3 => {
     if (turret) return (turret.userData.muzzle as THREE.Object3D).getWorldPosition(new THREE.Vector3());
+    // A model mounted from its sheet (pieces.ts useSheetModel) names its muzzle itself.
+    const muzzle = shooter?.userData.muzzle as THREE.Object3D | undefined;
+    if (muzzle) return muzzle.getWorldPosition(new THREE.Vector3());
     const p = (shooter?.position ?? from).clone();
     return p.add(new THREE.Vector3(Math.cos(yaw), 0, -Math.sin(yaw)).multiplyScalar(0.6)).setY(p.y + (flying ? -0.1 : 0.45));
   };

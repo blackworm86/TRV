@@ -12,6 +12,8 @@ import { P } from '../app/presentation';
 // Each game keeps its own models (assets/<game>/modelli/), found here by file name.
 const FILES = import.meta.glob<string>('/assets/*/modelli/*.glb', { eager: true, query: '?url', import: 'default' });
 const file = (name: string): string => Object.entries(FILES).find(([p]) => p.endsWith(`/${name}`))?.[1] ?? '';
+/** The address of a model by its file name, as an assembly sheet names the models of its parts (`source`). */
+export const modelFile = file;
 export const MODEL = {
   car: { S: file('Car_Small.glb'), M: file('Car_Medium.glb'), L: file('Car_Large.glb') },
   chopper: file('Chopper.glb'),

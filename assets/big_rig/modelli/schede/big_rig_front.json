@@ -1,0 +1,173 @@
+{
+  "_note": "The Big Rig's tractor, its front section (design/art/big-rig-prompts.md, redrawn 2026-11-20): body, wheel and missile launcher are models of their own (Meshy), mounted here. Metres, nose toward +x, 6 m = one space from the plow to the rear pin. The models have their nose toward -x, hence yaw pi. Measures taken on the models: 6.424 m per unit of the body model, its middle 0.012 units behind the model's, the ground 0.215 units under it. The machine gun on the hood plate is the node turret (it fires in the front arc); the same model is on the rear section. Its model: 1.7 m per unit, its base 0.04 units behind the model's middle, its foot 0.21 units under it.",
+  "id": "big_rig_front",
+  "length_m": 6.0,
+  "show_mm": 46,
+  "capabilities": [
+    "suspension",
+    "steering",
+    "turret",
+    "articulated",
+    "detachable"
+  ],
+  "parts": [
+    {
+      "node": "body",
+      "source": "big_rig_front_body.glb",
+      "pivot": [
+        0,
+        0.9,
+        0
+      ],
+      "mass": 2,
+      "zones": [
+        "paint_primary",
+        "metal"
+      ],
+      "mesh": {
+        "scale": 6.424,
+        "yaw": 3.14159265,
+        "at": [
+          -0.077,
+          0.481,
+          0
+        ]
+      }
+    },
+    {
+      "node": "launcher",
+      "source": "big_rig_launcher.glb",
+      "parent": "body",
+      "pivot": [
+        -1.844,
+        1.605,
+        0
+      ],
+      "arc": [
+        -2.6,
+        2.6
+      ],
+      "speed": 1.6,
+      "mesh": {
+        "scale": 1.67,
+        "yaw": 3.14159265,
+        "at": [
+          0.134,
+          0.746,
+          0
+        ]
+      }
+    },
+    {
+      "node": "muzzle",
+      "parent": "launcher",
+      "pivot": [
+        0.925,
+        1.08,
+        0
+      ],
+      "weapon": "missile"
+    },
+    {
+      "node": "turret",
+      "source": "big_rig_gun.glb",
+      "parent": "body",
+      "pivot": [
+        1.143,
+        0.834,
+        0
+      ],
+      "arc": [
+        -1.3,
+        1.3
+      ],
+      "speed": 2.5,
+      "mesh": {
+        "scale": 1.7,
+        "yaw": 3.14159265,
+        "at": [
+          0.068,
+          0.357,
+          0
+        ]
+      }
+    },
+    {
+      "node": "muzzle",
+      "parent": "turret",
+      "pivot": [
+        0.882,
+        0.569,
+        0
+      ],
+      "weapon": "mg"
+    },
+    {
+      "node": "hitch_rear",
+      "pivot": [
+        -3.0,
+        1.1,
+        0
+      ]
+    },
+    {
+      "node": "fx_smoke",
+      "parent": "body",
+      "pivot": [
+        1.3,
+        0.85,
+        0
+      ]
+    },
+    {
+      "node": "exit_L",
+      "parent": "body",
+      "pivot": [
+        0.6,
+        -0.9,
+        -1.6
+      ]
+    },
+    {
+      "node": "wheel",
+      "source": "big_rig_wheel.glb",
+      "width": 0.39,
+      "axles": [
+        {
+          "x": 1.176,
+          "track": 1.22,
+          "steer": true,
+          "drive": false,
+          "radius": 0.482,
+          "travel": [
+            -0.06,
+            0.1
+          ],
+          "max": 0.45
+        },
+        {
+          "x": -0.848,
+          "track": 1.22,
+          "steer": false,
+          "drive": true,
+          "radius": 0.482,
+          "travel": [
+            -0.06,
+            0.1
+          ]
+        },
+        {
+          "x": -1.94,
+          "track": 1.22,
+          "steer": false,
+          "drive": true,
+          "radius": 0.482,
+          "travel": [
+            -0.06,
+            0.1
+          ]
+        }
+      ]
+    }
+  ]
+}

@@ -177,9 +177,33 @@ Valgono per il sistema di oggi e per "Movimento nuovo".
   percorso erano ancora in coda. Ora `playBeats` aggiorna solo l'HUD se qualcosa sta ancora andando
   (`beats.ts`). Test di regressione in `game.spec.ts`, visto fallire senza la correzione (0,52 indietro).
 
+### Dopo la fase 6 (2026-11-20)
+- **Movimento nuovo per tutti** (chiesto dall'utente: i video non bastavano a giudicare): l'opzione
+  "Movimento nuovo" non c'è più, i fotogrammi si giocano sempre a scene (`scenePlayer.ts`). Solo il
+  replay istantaneo usa ancora la coda di prima.
+- **Big Rig vero**: i pezzi di Meshy (tre carrozzerie, ruota, lanciamissili) si montano nel gioco dalle
+  schede `assets/big_rig/modelli/schede/big_rig_{front,mid,rear}.json`. Lo stesso costruttore delle
+  auto di collaudo (`buildTestVehicle`) prende il modello di una parte quando la scheda ne dà il file
+  (`source`) e dove metterlo (`mesh`: scala, mezzo giro, posizione). Le ruote sono copie di un solo
+  modello, grandi quanto il raggio dell'asse. Il vecchio modello unico tagliato ai giunti non si usa più.
+  - Le due mitragliatrici (stesso modello): una sul cofano della motrice, una sul tetto del rimorchio
+    posteriore montata all'indietro (`facing` nella scheda: il suo zero e il suo arco sono verso dietro).
+  - Mancano: il radar che gira, il portellone.
+  - Il banco prova usa ancora il Big Rig di collaudo.
+
 ### Fase 7: il pilota vero
 - L'Auto Media da Meshy, montata con la sua scheda (specifica §12), prende il posto dell'auto di collaudo.
 - Gli stessi scenari e gli stessi test devono passare senza cambiare il codice del movimento.
+
+**Esito (2026-11-20).** L'Avenger (carrozzeria, ruota, mitragliatrice da Meshy) è l'Auto Media del gioco,
+montato dalla scheda `assets/base/modelli/schede/car_m.json` con `useSheetModel` (`pieces.ts`), lo stesso
+montaggio del Big Rig. Il codice del movimento non è cambiato: ruote, sterzo, sospensioni e mira le muove
+`PartsRig` come sull'auto di collaudo. L'opzione "Auto di collaudo" è tolta; l'auto di collaudo resta sul
+banco prova.
+- Solo le parti con zone colore (la carrozzeria) prendono il colore della squadra.
+- I colpi partono dal `muzzle` del modello (`effects.ts`).
+- Da fare rispetto al §12: lo script di Blender e l'esportazione in un solo GLB (oggi il montaggio avviene
+  nel gioco, dai pezzi), i posti con il manichino, l'ADR del formato, e le altre auto (piccola e grande).
 
 ## Test: riepilogo
 

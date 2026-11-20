@@ -8,8 +8,7 @@ import { flameCluster, useRampModel, rampPiece } from '../view/terrain/carnage3d
 import { pitPiece } from '../view/terrain/pit3d';
 import { buildTile, hazardToken, GRID } from '../view/board3d';
 import { ModelBank, dressed, fitToLength, splitParts, splitWheels, type Tint } from '../view/models3d';
-import { MODEL, SHOW_LENGTH_MM, MODEL_YAW, CHOPPER_PARTS, WHEELS, GUNS, BIG_RIG, BIKE_BACK, type GunSpec, crewTint, WRECK_TINT, wreckModel, wreckLength, phaseOf, CarRig } from '../view/models-config';
-import { cutRig, rigSectionLength, rigSectionMiddle } from '../view/rigmodel';
+import { MODEL, SHOW_LENGTH_MM, MODEL_YAW, CHOPPER_PARTS, WHEELS, GUNS, BIKE_BACK, type GunSpec, crewTint, WRECK_TINT, wreckModel, wreckLength, phaseOf, CarRig, modelFile } from '../view/models-config';
 import { DecalGeometry } from 'three/addons/geometries/DecalGeometry.js';
 import { effects } from './beats';
 import { HAZ_SIZE, carObjs, chopperObjs, hazardObjs, showFinish } from './board';
@@ -27,9 +26,12 @@ import { S } from './state';
 import { $ } from './util';
 import { settings } from './settings';
 import { PartsRig } from './motion/rig';
-import { buildTestVehicle, toTable, type VehicleSheet } from '../view/test-vehicles';
+import { buildTestVehicle, sheetSources, type VehicleSheet } from '../view/test-vehicles';
 import { describeVehicle } from '../view/vehicle-rig';
-import TEST_CAR from '../../assets/base/modelli/schede/collaudo_auto.json';
+import CAR_M from '../../assets/base/modelli/schede/car_m.json';
+import RIG_FRONT from '../../assets/big_rig/modelli/schede/big_rig_front.json';
+import RIG_MID from '../../assets/big_rig/modelli/schede/big_rig_mid.json';
+import RIG_REAR from '../../assets/big_rig/modelli/schede/big_rig_rear.json';
 
 /**
  * Revealed hazards that stay on the board as terrain, and the terrain code each one draws in 3D on
@@ -206,56 +208,51 @@ export function useModel(o: THREE.Group, url: string, lengthMm: number, tint: Ti
   });
 }
 
-/**
- * The test car in parts (view/test-vehicles.ts, docs/piano-integrazione-veicoli.md phase 6) in place of
- * the Medium Car's model, with the option "Auto di collaudo": its body in the crew's colour, its parts
- * moved by the parts rig (motion/rig.ts) instead of the one-piece CarRig.
- */
-function useTestCar(o: THREE.Group, color: string): void {
-  const sheet = TEST_CAR as unknown as VehicleSheet;
-  const d = buildTestVehicle(sheet);
-  toTable(d, sheet, MM);
-  // The crew's colour on the bodywork, so the cars of the crews stay apart.
-  const paint = new THREE.Color(color);
-  d.getObjectByName('body_mesh')?.traverse(m => {
-    const mesh = m as THREE.Mesh;
-    if (!mesh.isMesh) return;
-    const mat = (mesh.material as THREE.MeshStandardMaterial).clone();
-    mat.color.copy(paint);
-    mesh.material = mat;
-  });
-  d.updateMatrixWorld(true);
-  const size = new THREE.Box3().setFromObject(d).getSize(new THREE.Vector3());
-  o.userData.parts = new PartsRig(describeVehicle(d), d.scale.x);
-  o.userData.mats = collectMaterials(d);
-  for (const c of o.children) if (c !== o.userData.flames && c !== o.userData.marking) c.visible = false;
-  o.add(d);
-  o.userData.modelHeight = size.y;
-  o.userData.modelSize = size;
-  o.userData.model = d;
-}
+/** The assembly sheet of each Big Rig section (assets/big_rig/modelli/schede/, design/art/big-rig-prompts.md). */
+const RIG_SHEETS = { front: RIG_FRONT, mid: RIG_MID, rear: RIG_REAR } as unknown as Record<RigSection, VehicleSheet>;
 
 /**
- * Swaps a stand-in Big Rig section for its piece of the one-piece model (view/rigmodel.ts): one space
- * long hitch to hitch, its middle on the stand-in's place, nose along +x, wheels that roll. The cab
- * has its engine running; a trailer has none.
+ * Swaps a stand-in Big Rig section for its model, mounted from its parts as its sheet says (asked by
+ * the user, 2026-11-20: the rig redrawn as three full sections, bodies, wheel and launcher each a
+ * model of its own): one space long hitch to hitch, its middle on the stand-in's place, nose along
+ * +x; wheels that roll and ride their suspensions, the tractor's front axle steering, its launcher
+ * turning to its target. The parts take the crew's colour as every model does.
  */
 function useRigModel(o: THREE.Group, part: RigSection, tint: Tint, id: string): void {
-  awaitModel(o, models.load(MODEL.bigRig));
-  void models.load(MODEL.bigRig).then(m => {
-    if (!m) return;
-    const piece = cutRig(m, BIG_RIG)[part];
-    registerTextures(piece);
-    const d = dressed(piece, tint);
-    const s = 2 * rigHalf() / rigSectionLength(BIG_RIG);
-    const ground = new THREE.Box3().setFromObject(m).min.y;
-    d.rotation.set(0, MODEL_YAW, 0);
-    d.scale.setScalar(s);
-    // Turned half round, a point at x of the model lands at -x: the section's middle goes on the piece's place.
-    d.position.set(rigSectionMiddle(BIG_RIG, part) * s, -ground * s, 0);
+  // One space from hitch to hitch, whatever the table's measures.
+  useSheetModel(o, RIG_SHEETS[part], tint, id, 2 * rigHalf() / RIG_SHEETS[part].length_m, part !== 'front');
+}
+
+/** The Medium Car's assembly sheet (assets/base/modelli/schede/car_m.json). */
+const MEDIUM_CAR = CAR_M as unknown as VehicleSheet;
+
+/**
+ * Swaps a stand-in piece for the vehicle its assembly sheet describes, mounted from the models of
+ * its parts (view/test-vehicles.ts), `scale` world units per metre of the sheet: nose along +x, its
+ * parts moved by the parts rig (motion/rig.ts), its shots leaving from its muzzle. `trailer`: a
+ * towed section, which has no engine running.
+ */
+function useSheetModel(o: THREE.Group, sheet: VehicleSheet, tint: Tint, id: string, scale: number, trailer = false): void {
+  const files = sheetSources(sheet);
+  const load = Promise.all(files.map(f => models.load(modelFile(f))));
+  awaitModel(o, load.then(ms => (ms.every(Boolean) ? ms[0] : null)));
+  void load.then(ms => {
+    if (o.userData.model || ms.some(m => !m)) return;
+    const sources: Record<string, THREE.Object3D> = {};
+    // Only the parts with paint zones (the bodywork) take the crew's colour: dusty tyres and worn
+    // gun metal are light enough to be painted over by mistake.
+    const painted = new Set(sheet.parts.filter(p => Array.isArray(p.zones)).map(p => p.source));
+    files.forEach((f, i) => { registerTextures(ms[i]!); sources[f] = painted.has(f) ? dressed(ms[i]!, tint) : ms[i]!; });
+    const d = buildTestVehicle(sheet, { crew: false, sources });
+    d.traverse(x => { if ((x as THREE.Mesh).isMesh) x.castShadow = true; });
+    d.scale.setScalar(scale);
+    d.updateMatrixWorld(true);
     const size = new THREE.Box3().setFromObject(d).getSize(new THREE.Vector3());
-    o.userData.rig = new CarRig(d, s, size.y, phaseOf(id));
-    o.userData.trailer = part !== 'front';
+    const parts = describeVehicle(d);
+    o.userData.parts = new PartsRig(parts, d.scale.x);
+    // The gun it fires from: its machine gun when it has one, otherwise its launcher.
+    o.userData.muzzle = (parts.turrets.find(t => t.turret?.name === 'turret') ?? parts.turrets[0])?.muzzle ?? undefined;
+    o.userData.trailer = trailer;
     o.userData.mats = collectMaterials(d);
     for (const c of o.children) if (c !== o.userData.flames && c !== o.userData.marking) c.visible = false;
     o.add(d);
@@ -426,7 +423,8 @@ export function drawTable(s: Snapshot): void {
         useModel(o, MODEL.motorcycle, SHOW_LENGTH_MM.bike, crewTint(g.players[v.owner!].color), v.id, d => printMarking(d, k));
         o.userData.bike = true;
       } else if (v.rig) useRigModel(o, v.rig, crewTint(g.players[v.owner!].color), v.id);
-      else if (settings.testCar && v.size === 'M') useTestCar(o, g.players[v.owner!].color);
+      // The Medium Car is mounted from its parts (the pilot of the structured models, phase 7).
+      else if (v.size === 'M') useSheetModel(o, MEDIUM_CAR, crewTint(g.players[v.owner!].color), v.id, SHOW_LENGTH_MM.M * MM / MEDIUM_CAR.length_m);
       else useModel(o, MODEL.car[v.size], SHOW_LENGTH_MM[v.size], crewTint(g.players[v.owner!].color), v.id);
       carObjs.set(v.id, o);
       scene.add(o);

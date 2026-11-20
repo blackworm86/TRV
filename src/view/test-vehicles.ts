@@ -2,6 +2,8 @@
 // code from simple shapes, one colour per part, with the node names of the naming contract
 // (design/art/modelli-strutturati.md §4), so the parts descriptor (vehicle-rig.ts) reads them as it
 // will read a real GLB. Each one is described by its assembly sheet (§9) in assets/<game>/modelli/schede/.
+// The same builder mounts a real vehicle from its parts (2026-11-20, the Big Rig): a part whose
+// `source` is a model file takes that model, placed by the sheet's `mesh`, instead of simple shapes.
 
 import * as THREE from 'three';
 
@@ -31,13 +33,21 @@ export interface SheetShape {
  */
 export interface SheetAxle { x: number; track: number; steer: boolean; drive?: boolean; max?: number; radius: number; travel: [number, number]; sides?: ('L' | 'R' | 'C')[]; parent?: string }
 
+/**
+ * How a part's own model sits in its node: scaled (model units to the sheet's metres), turned about y
+ * (the generated models have their nose toward -x, the sheets toward +x), then moved.
+ */
+export interface SheetMesh { scale: number; yaw?: number; at?: V3 }
+
 /** A part of a sheet: a node, where it hangs, its shapes; any other key becomes the node's extras. */
 export interface SheetPart {
   node: string;
+  /** `proc`: built from `shapes`; a file name: that model, when the builder is given it (`sources`). */
   source?: string;
   parent?: string;
   pivot?: V3;
   shapes?: SheetShape[];
+  mesh?: SheetMesh;
   /** Only on the `wheel` entry: tyre width and the axles. */
   width?: number;
   axles?: SheetAxle[];
@@ -61,7 +71,7 @@ export interface VehicleSheet {
 }
 
 /** Keys of a part that are not extras. */
-const RESERVED = new Set(['node', 'source', 'parent', 'pivot', 'at', 'shapes', 'axles', 'width']);
+const RESERVED = new Set(['node', 'source', 'parent', 'pivot', 'at', 'shapes', 'axles', 'width', 'mesh']);
 const TYRE = '#262626', HUB = '#b9b9b9', STRIPE = '#f2d25c', STRUT = '#d83c3c', KNUCKLE = '#8a5cd8', DUMMY = '#d9d4cc';
 
 /** One material per colour, shared by the whole vehicle. */
@@ -121,8 +131,34 @@ function pivotNode(name: string, pivot: V3 | undefined, extras: Record<string, u
   return n;
 }
 
+/** A copy of a part's model placed as its sheet says, in a group named `<node>_mesh`. */
+function modelMesh(name: string, src: THREE.Object3D, m: SheetMesh): THREE.Group {
+  const g = new THREE.Group();
+  g.name = `${name}_mesh`;
+  const held = new THREE.Group();
+  held.add(src.clone(true));
+  held.scale.setScalar(m.scale);
+  held.rotation.y = m.yaw ?? 0;
+  held.position.set(...(m.at ?? [0, 0, 0]));
+  g.add(held);
+  return g;
+}
+
+/**
+ * A copy of the wheel model for one wheel: its middle on the wheel's node, as large as `radius`,
+ * its hub outward (the model's hub faces +z, the right side of a vehicle with its nose toward +x).
+ */
+function wheelMesh(name: string, src: THREE.Object3D, radius: number, side: 'L' | 'R' | 'C'): THREE.Group {
+  const box = new THREE.Box3().setFromObject(src);
+  const size = box.getSize(new THREE.Vector3()), mid = box.getCenter(new THREE.Vector3());
+  const k = radius / (Math.max(size.x, size.y) / 2);
+  const copy = src.clone(true);
+  copy.position.copy(mid).multiplyScalar(-1);
+  return modelMesh(name, new THREE.Group().add(copy), { scale: k, yaw: side === 'L' ? Math.PI : 0 });
+}
+
 /** The wheels of a sheet: axle_N → susp_N{L,R} → steer_N{L,R} (steering axles) → wheel_N{L,R}. */
-function wheels(root: THREE.Object3D, part: SheetPart, mat: (c: string) => THREE.MeshStandardMaterial): void {
+function wheels(root: THREE.Object3D, part: SheetPart, mat: (c: string) => THREE.MeshStandardMaterial, src?: THREE.Object3D): void {
   const w = part.width ?? 0.3;
   (part.axles ?? []).forEach((a, i) => {
     const axle = pivotNode(`axle_${i}`, [a.x, a.radius, 0], { steer: a.steer, drive: a.drive ?? false }, undefined, mat);
@@ -137,21 +173,23 @@ function wheels(root: THREE.Object3D, part: SheetPart, mat: (c: string) => THREE
       const z = side === 'L' ? -a.track : side === 'R' ? a.track : 0;
       // The strut on the inner side of the wheel (on a middle wheel, on its left).
       const inSide = side === 'R' ? -1 : 1;
+      // A real wheel has no coloured strut, knuckle or stripe: those show what moves on a test vehicle.
       const susp = pivotNode(`susp_${i}${side}`, [0, 0, z], { travel: a.travel },
-        [{ box: [0.06, 0.4, 0.06], at: [0, 0.22, inSide * w * 0.7 * (side === 'C' ? -1 : 1)], color: STRUT }], mat);
+        src ? undefined : [{ box: [0.06, 0.4, 0.06], at: [0, 0.22, inSide * w * 0.7 * (side === 'C' ? -1 : 1)], color: STRUT }], mat);
       axle.add(susp);
       let inner: THREE.Object3D = susp;
       if (a.steer) {
         const steer = pivotNode(`steer_${i}${side}`, undefined, { max: a.max ?? 0.5 },
-          [{ box: [0.14, 0.14, 0.08], at: [0, 0, side === 'R' ? -w * 0.62 : w * 0.62], color: KNUCKLE }], mat);
+          src ? undefined : [{ box: [0.14, 0.14, 0.08], at: [0, 0, side === 'R' ? -w * 0.62 : w * 0.62], color: KNUCKLE }], mat);
         susp.add(steer);
         inner = steer;
       }
-      const wheel = pivotNode(`wheel_${i}${side}`, undefined, { radius: a.radius }, [
+      const wheel = pivotNode(`wheel_${i}${side}`, undefined, { radius: a.radius }, src ? undefined : [
         { cyl: [a.radius, w], axis: 'z', color: TYRE },
         { cyl: [a.radius * 0.55, w + 0.02], axis: 'z', color: HUB },
         { box: [0.09, a.radius * 1.92, w + 0.04], color: STRIPE },
       ], mat);
+      if (src) wheel.add(wheelMesh(wheel.name, src, a.radius, side));
       inner.add(wheel);
     }
   });
@@ -204,8 +242,17 @@ function dummy(seat: THREE.Object3D, s: SheetSeat, root: THREE.Object3D, mat: (c
   }
 }
 
-/** Builds a test vehicle from its sheet, at real scale (metres). `crew: false` leaves the dummies out. */
-export function buildTestVehicle(sheet: VehicleSheet, opts: { crew?: boolean } = {}): THREE.Group {
+/** The model files a sheet's parts are made of (every `source` that is not `proc`), each once. */
+export function sheetSources(sheet: VehicleSheet): string[] {
+  return [...new Set(sheet.parts.map(p => p.source).filter((s): s is string => !!s && s !== 'proc'))];
+}
+
+/**
+ * Builds a vehicle from its sheet, at real scale (metres). `crew: false` leaves the dummies out.
+ * `sources`: the loaded models of its parts, by file name; a part whose model is not given is built
+ * from its shapes, as on a test vehicle.
+ */
+export function buildTestVehicle(sheet: VehicleSheet, opts: { crew?: boolean; sources?: Record<string, THREE.Object3D> } = {}): THREE.Group {
   const mat = materials();
   const root = new THREE.Group();
   root.name = 'vehicle';
@@ -217,9 +264,12 @@ export function buildTestVehicle(sheet: VehicleSheet, opts: { crew?: boolean } =
     return p;
   };
   for (const part of sheet.parts) {
-    if (part.axles) { wheels(root, part, mat); continue; }
+    const src = part.source ? opts.sources?.[part.source] : undefined;
+    if (part.axles) { wheels(root, part, mat, src); continue; }
     const extras = Object.fromEntries(Object.entries(part).filter(([k]) => !RESERVED.has(k)));
-    parentOf(part.parent).add(pivotNode(part.node, part.pivot ?? (part.at as V3 | undefined), extras, part.shapes, mat));
+    const node = pivotNode(part.node, part.pivot ?? (part.at as V3 | undefined), extras, src && part.mesh ? undefined : part.shapes, mat);
+    if (src && part.mesh) node.add(modelMesh(part.node, src, part.mesh));
+    parentOf(part.parent).add(node);
   }
   for (const s of sheet.seats ?? []) {
     const { node, parent, at, ...extras } = s;
