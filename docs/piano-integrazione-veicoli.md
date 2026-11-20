@@ -267,3 +267,8 @@ Richieste dell'utente dello stesso giorno.
 - Ruote: quelle del Big Rig (`big_rig_wheel.glb`), perché la ruota generata da Meshy era sfaccettata; sei ruote su tre assi, sterzano solo le anteriori, raggio 0,47 m come gli archi.
 - Mitragliatrice sull'anello del cassone, divisa in supporto e arma; carrozzeria con il 29% non dipinto, colorato da `tools/art/fill_black_faces.py`.
 - Con l'Eliminator tutte e tre le auto del gioco base sono montate dai pezzi.
+
+### Big Rig: partita bloccata fino a Invio, danno su Ripara (2026-11-20)
+
+- **Blocco**: con il movimento a treno i rimorchi si fermano dove li mette la scia, ma il loro punto d'arrivo restava quello di `layRig`; il tavolo non risultava mai fermo e ogni scena aspettava il massimo (`settle_max_s`, 6 s, prima e dopo). Ora `hitchTrains` aggiorna il punto d'arrivo dei rimorchi agganciati. Misurato sulla stessa partita (seme 7…7, 40 scelte): tavolo "non fermo" al più 72 s prima, 5,9 s dopo, nessun veicolo coinvolto.
+- **Ripara**: un danno minore scelto dal giocatore va solo sui sei comandi con la X sbiadita (BRaFF p5: "Repair may NOT be targeted"); test di regressione in `tests/unit/trv/big_rig.test.ts`.

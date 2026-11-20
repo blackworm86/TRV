@@ -162,6 +162,22 @@ describe('Big Rig on the road', () => {
     expect(terrainAt(g, { r: row, c: col + 3 })).toBe('o');
   });
 
+  it('a minor damage of its own choosing goes only on the commands a shot may hit: never on Repair (BRaFF p5)', () => {
+    // Arrange: an oil slick ahead, so Sturdy gives a minor damage its player places.
+    const { g, p, row, col } = table();
+    p.rig!.steer = 0;
+    g.hazards.set(key({ r: row, c: col + 3 }), { type: 'oil', faceUp: true });
+    dice(p, [2]);
+    const asked: Decision[] = [];
+    // Act
+    drive(__test.turn(g, p), d => (d.kind === 'assign' ? on(d, 'front:cow_catcher', 2) : 0), asked);
+    // Assert: the six commands with the faded X, one damage on one of them.
+    const where = asked.find(d => d.kind === 'rigDamage')!.options.map(o => o.rig!);
+    expect(where).toHaveLength(6);
+    expect(where.some(k => k.endsWith(':repair'))).toBe(false);
+    expect(p.rig!.damaged.every(k => !k.endsWith(':repair'))).toBe(true);
+  });
+
   it('is Dependable: a pit trap gives a minor damage, never an elimination', () => {
     const { g, p, parts, row, col } = table();
     p.rig!.steer = 0;

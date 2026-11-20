@@ -2117,14 +2117,15 @@ function rigAims(g: Game, v: Vehicle): string[] {
 
 /**
  * One minor damage token on the Big Rig (BRaFF p5): on command `aim` (a shot), or on the command its
- * player chooses. Six of them and the rig is out.
+ * player chooses, one of those with the faded X a shot may hit: never on Repair (seen by the user,
+ * 2026-11-20). Six of them and the rig is out.
  */
 function* rigHit(g: Game, p: Player, cause: string, aim?: string): Gen<void> {
   const r = p.rig;
   if (!r || p.out || g.winner !== null) return;
   let k = aim;
   if (!k) {
-    const free = RIG_BOARD.flatMap(sec => BR.sections[sec].map(c => `${sec}:${c.id}`)).filter(x => !r.damaged.includes(x));
+    const free = RIG_BOARD.flatMap(sec => BR.sections[sec].filter(c => c.targetable).map(c => `${sec}:${c.id}`)).filter(x => !r.damaged.includes(x));
     if (!free.length) return;
     const i = yield* ask(g, {
       kind: 'rigDamage', player: p.id, prompt: `${p.name}: il Big Rig prende un danno minore (${cause}). Su quale comando?`,

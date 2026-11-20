@@ -79,6 +79,11 @@ export function hitchTrains(objs: Iterable<THREE.Object3D>, dt: number): void {
       const yo = (o.userData.yaw ?? 0) as number;
       o.userData.yaw = yo + Math.atan2(Math.sin(p.yaw - yo), Math.cos(p.yaw - yo)) * k;
       o.rotation.y = o.userData.yaw as number;
+      // Where it rests is where the train puts it: the table counts as still (beats.ts settled) once it
+      // is there. Left on the place laid out before (pieces.ts), it never was, and every scene waited
+      // its longest (seen by the user, 2026-11-20: the game froze until Enter).
+      const t = o.userData.target as THREE.Vector3 | undefined;
+      if (t) { t.x = p.x; t.z = p.z; }
       // How fast it was pulled: the next frame's drive spins its wheels with it.
       o.userData.hitchSpeed = jumped ? 0 : Math.hypot(mx, mz) / Math.max(dt, 1e-4);
     });
