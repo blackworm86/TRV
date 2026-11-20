@@ -147,13 +147,27 @@
     </div>
     <div class="pane" id="pFriends">
       <div class="bar"><button class="back" data-back>← Menu</button><h2>Amici</h2></div>
-      <div class="cols2 rev">
+      <div class="panel narrow" id="fguest">
+        <h3>Per avere amici serve un account</h3>
+        <p class="hint">Accedi con Google e scegli il tuo nome utente: avrai un codice amico e ritroverai amici e partite su ogni dispositivo. Senza account puoi comunque giocare online con il link o il codice di una stanza.</p>
+        <button class="go" id="fguestlogin">Accedi con Google</button>
+      </div>
+      <div class="cols2 rev" id="fmain">
         <div class="stack">
           <div class="panel"><h3>Il tuo codice amico</h3><div class="fcode" id="fcode">—</div><p class="hint">Dallo a chi vuoi aggiungere, oppure manda il link.</p><button class="tool" id="fcopy">Copia il link</button></div>
           <div class="panel"><h3>Aggiungi un amico</h3><div class="row"><input id="faddcode" placeholder="TRV-XXXXXX" autocomplete="off" spellcheck="false"><button class="go small" id="fadd">Aggiungi</button></div><p class="hint" id="faddmsg">Oppure dalla stanza: “+ amico” accanto a chi gioca con te.</p></div>
           <div class="panel"><h3>Richieste</h3><div id="frequests"></div></div>
         </div>
         <div class="panel"><h3 id="fcount">I tuoi amici</h3><div id="flist"></div></div>
+      </div>
+    </div>
+    <div class="pane" id="pUser">
+      <div class="bar"><button class="back" data-back>← Menu</button><h2>Scegli il tuo nome utente</h2></div>
+      <div class="panel narrow">
+        <p class="hint">È il nome con cui ti registri: unico e per sempre. Da 3 a 20 caratteri: lettere minuscole, cifre, “_” e “.”.</p>
+        <label for="uname">Nome utente</label>
+        <div class="row"><input id="uname" maxlength="20" placeholder="es. ada_92" autocomplete="username" spellcheck="false" autocapitalize="none"><button class="go small" id="usave">Conferma</button></div>
+        <p class="hint" id="umsg">Gli altri giocatori vedono il tuo nome visualizzato, che all’inizio è il nome utente: lo cambi quando vuoi in alto.</p>
       </div>
     </div>
     <div class="pane" id="pJoin">

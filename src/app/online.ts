@@ -16,7 +16,7 @@ import { forgetGame, lobbyEntry, publishLobby, rememberGame } from '../net/socia
 import { FIREBASE_CONFIG } from '../net/firebase-config';
 import qrcode from 'qrcode-generator';
 import { applyChoice, deciders, g, pending, setPending, startGame, takeBack } from './game';
-import { checkedFriends, drawOnline, friendState, invite, myName, roomFriendsHtml, segValue, socialOn, typedCode } from './home';
+import { checkedFriends, drawOnline, friendState, friendsOn, invite, myName, roomFriendsHtml, segValue, socialOn, typedCode } from './home';
 import { render } from './pieces';
 import { clearTable, openSetup, showPane } from './screens';
 import { S } from './state';
@@ -46,6 +46,22 @@ export function openStore(): Promise<RoomStore> {
     return createFirebaseStore(FIREBASE_CONFIG!);
   })();
   return storePromise;
+}
+/**
+ * Whether the player has an account (signed in with Google), which friends need. On the local store of
+ * the checks (`?net=local`) a player is a guest unless the page says `&account`; on the emulator it has one.
+ */
+export async function hasAccount(): Promise<boolean> {
+  const mode = netMode();
+  if (mode === 'local') return new URLSearchParams(location.search).has('account');
+  if (mode === 'emulator') return true;
+  if (!FIREBASE_CONFIG) return false;
+  const { createAdminAuth } = await import('../net/admin-auth');
+  const auth = createAdminAuth(FIREBASE_CONFIG);
+  return new Promise(resolve => {
+    let stop: (() => void) | null = null;
+    stop = auth.onUser(u => { if (!u) return; resolve(!u.anonymous); stop?.(); });
+  });
 }
 /** The link that brings a guest straight to the room. */
 export function inviteUrl(code: string): string {
@@ -204,7 +220,7 @@ export function drawLobby(): void {
       : s.team ? `<small>${s.team === 'big_rig' ? 'Big Rig' : 'Final Five'}</small>` : '';
     const tag = bot ? `<small class="bottag">TRV9000 · livello ${r.options.botLevel ?? 1}</small>` : '';
     const drop = bot && n.host && !inGame ? `<button class="ldrop" data-seat="${esc(id)}" title="Togli questa squadra TRV9000">✕</button>` : '';
-    const fs = !bot && !mine && socialOn() ? friendState(id) : 'friend';
+    const fs = !bot && !mine && friendsOn() ? friendState(id) : 'friend';
     const befriend = fs === 'none' ? `<button class="lfriend" data-uid="${esc(id)}" title="Chiedi di diventare amici">+ amico</button>` : fs === 'asked' ? '<small>richiesta mandata</small>' : '';
     return `<div class="seat ${bot ? 'bot' : ''}" style="--c:${crewColor(s.crew)}" data-i="${i}"><i></i><b>${esc(s.name)}</b>${id === r.host ? '<small>host</small>' : ''}${mine ? '<small>tu</small>' : ''}${tag}${befriend}${crew}${team}${drop}</div>`;
   }).join('') + (inGame ? '' : Array.from({ length: Math.max(0, roomSeats(r.options) - ids.length) }, () =>
@@ -244,7 +260,7 @@ export function drawLobby(): void {
     const exp = [o.leaders ? 'capisquadra' : '', o.upgrades ? 'carte potenziamento' : '', o.carnage ? 'Carnage at Devil’s Run' : '', teamsOn ? 'Big Rig e Final Five' : ''].filter(Boolean).join(', ');
     $('lopts').innerHTML = `<p class="hint">Partenza: tessera 1${o.startSide}. Espansioni: ${exp || 'nessuna'}.${bots.length ? ` TRV9000: livello ${o.botLevel ?? 1}.` : ''}</p>`;
   }
-  $('lfriends').innerHTML = socialOn() && !inGame ? roomFriendsHtml(n.code, ids) : '';
+  $('lfriends').innerHTML = friendsOn() && !inGame ? roomFriendsHtml(n.code, ids) : '';
   const problem = startProblem(r);
   $('lstate').textContent = inGame ? 'Partita in corso.'
     : !n.host ? 'In attesa che l’host inizi la partita…'
@@ -299,7 +315,8 @@ $('lleave').onclick = () => {
 function nameOrAsk(): string | null {
   const name = myName();
   if (name) {
-    try { localStorage.setItem(NAME_KEY, name); } catch { /* storage off */ }
+    // What was typed is kept; an account's user name, used when the field is blank, is not.
+    try { localStorage.setItem(NAME_KEY, ($('myname') as HTMLInputElement).value.trim()); } catch { /* storage off */ }
     return name;
   }
   $('oerr').textContent = 'Scrivi il tuo nome in alto: è quello che vedono gli altri.';

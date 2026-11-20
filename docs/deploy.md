@@ -76,9 +76,22 @@ restano nel browser, e la scheda **Confronta con la fonte** mostra le scansioni 
    partite restano vuoti e la console del browser dice "regole del database da
    aggiornare".
 
+8. **Account e nome utente** (dal 2026-11-20): `database.rules.json` ha la sezione
+   `usernames` e richiede un account (non anonimo) per profilo, codici amico,
+   richieste e inviti. Incolla di nuovo il file nella scheda **Regole** e
+   **Pubblica**. I profili di prima non hanno un nome utente: chi ha già un
+   account Google lo sceglie alla prossima visita, e i vecchi profili anonimi
+   restano nel database senza più comparire.
+
 ## Come si gioca online
 
-- In alto ognuno scrive il proprio nome; sotto c'è il suo **codice amico** (`TRV-XXXXXX`).
+- Gli amici richiedono un **account** (accesso con Google). Al primo accesso si
+  sceglie il **nome utente**: unico e per sempre (3–20 caratteri: lettere
+  minuscole, cifre, `_` e `.`). Il **nome visualizzato** dagli altri parte uguale
+  al nome utente e si cambia quando si vuole, in alto. Sotto compaiono
+  `@nomeutente` e il **codice amico** (`TRV-XXXXXX`).
+- Senza account (ospite) si gioca online lo stesso con il link o il codice di una
+  stanza, scrivendo un nome in alto; non si hanno amici.
 - **Gioca online** apre la lobby: le partite pubbliche non ancora iniziate (quelle
   degli amici in cima), un campo per entrare con un codice e **+ Crea partita**.
 - **Crea partita**: chi può entrare (tutti in lobby, solo amici, solo su invito),

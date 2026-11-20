@@ -3,15 +3,20 @@
  * invitations to a room, the public lobby, the list of one's games and who is online.
  *
  * Everything lives in the same {@link RoomStore} as the rooms, at these paths:
- * - `users/<uid>/profile`: name and friend code, readable by everyone signed in;
+ * - `users/<uid>/profile`: user name, shown name and friend code, readable by everyone signed in;
  * - `users/<uid>/friends/<other>`: whom `uid` counts as a friend (written by `uid`). Two people are
  *   friends when each has the other here; one side only is a request still waiting;
  * - `users/<uid>/requests/<from>`: a friend request to `uid` (written by `from`);
  * - `users/<uid>/invites/<room>`: an invitation to a room (written by a friend);
  * - `users/<uid>/games/<room>`: the rooms `uid` sits in (written by `uid`);
  * - `friendCodes/<code>`: the uid behind a friend code;
+ * - `usernames/<name>`: the uid that registered a user name (each name once, for good);
  * - `presence/<uid>`: when `uid` was last seen, and in which room;
  * - `lobby/<room>`: a short card of each room open to the lobby (written by its host).
+ *
+ * Friends need an account (asked by the user, 2026-11-20): a player signed in with Google, who has
+ * chosen a user name at registration. Its shown name, which the others see, can change at any time;
+ * it starts as the user name. A guest (no account) plays in rooms but has no profile and no friends.
  *
  * Nothing here touches the page; the database rules (database.rules.json) say who may write what.
  */
@@ -30,10 +35,15 @@ export const userPath = (uid: string, ...rest: string[]): string => ['users', ui
 /** Path of a room's card in the lobby, or of the whole lobby. */
 export const lobbyPath = (code?: string): string => code ? `lobby/${code}` : 'lobby';
 const codePath = (code: string): string => `friendCodes/${code}`;
+const usernamePath = (name: string): string => `usernames/${name}`;
+
+/** How long a user name may be, and the characters it is made of (lower case). */
+export const USERNAME_MIN = 3, USERNAME_MAX = 20;
+const USERNAME_RE = /^[a-z0-9_.]+$/;
 const presencePath = (uid: string): string => `presence/${uid}`;
 
-/** A player's public card. */
-export interface Profile { name: string; code: string; at: number }
+/** A player's public card: the user name chosen at registration, the shown name, the friend code. */
+export interface Profile { user: string; name: string; code: string; at: number }
 /** Someone named in one's lists, with when it was written. */
 export interface Named { name: string; at: number }
 /** An invitation to room `code` (the key), from `from`. */
@@ -63,6 +73,35 @@ export function cleanFriendCode(text: string): string {
   return code.length === FRIEND_CODE_LENGTH && [...code].every(ch => CODE_ALPHABET.includes(ch)) ? code : '';
 }
 
+/**
+ * Tidies a typed user name: lower case, no spaces around; '' when it cannot be one (too short or
+ * long, other characters than letters, digits, `_` and `.`, or a dot at either end).
+ * Example: `cleanUsername(' Ada.L ')` → `ada.l`.
+ */
+export function cleanUsername(text: string): string {
+  const name = text.trim().toLowerCase();
+  if (name.length < USERNAME_MIN || name.length > USERNAME_MAX || !USERNAME_RE.test(name)) return '';
+  return name.startsWith('.') || name.endsWith('.') ? '' : name;
+}
+
+/** What came of asking for a user name. */
+export type ClaimResult = 'ok' | 'taken' | 'invalid';
+
+/**
+ * Registers user name `typed` to this client, once: a name another player has is refused, one this
+ * client already holds is fine. A client keeps its first name (the rules forbid a second).
+ */
+export async function claimUsername(store: RoomStore, typed: string): Promise<ClaimResult> {
+  const name = cleanUsername(typed);
+  if (!name) return 'invalid';
+  const uid = await store.uid();
+  const owner = await store.read(usernamePath(name));
+  if (owner === uid) return 'ok';
+  if (owner !== null) return 'taken';
+  await store.write(usernamePath(name), uid);
+  return 'ok';
+}
+
 /** A friend code as players see it. Example: `showFriendCode('7K4QZP')` → `TRV-7K4QZP`. */
 export const showFriendCode = (code: string): string => `TRV-${code}`;
 
@@ -80,7 +119,11 @@ function records<T>(raw: unknown, read: (v: unknown) => T | null): Record<string
 /** Reads a profile from a raw store value; null when there is none. */
 export function readProfile(raw: unknown): Profile | null {
   const r = obj(raw);
-  return typeof r.code === 'string' && cleanFriendCode(r.code) ? { name: typeof r.name === 'string' ? r.name.slice(0, NAME_MAX) : '', code: r.code, at: Number(r.at) || 0 } : null;
+  const user = typeof r.user === 'string' ? cleanUsername(r.user) : '';
+  // A profile from before user names (2026-11-20) has none: its owner chooses one at the next visit.
+  if (!user || typeof r.code !== 'string' || !cleanFriendCode(r.code)) return null;
+  const name = typeof r.name === 'string' ? r.name.trim().slice(0, NAME_MAX) : '';
+  return { user, name: name || user, code: r.code, at: Number(r.at) || 0 };
 }
 
 /** Reads what is under `users/<uid>`. */
@@ -96,13 +139,26 @@ export function readSocial(raw: unknown): Social {
 }
 
 /**
- * Makes sure this client has a profile with a friend code, and sets its name. A code already
- * owned is kept; a new one is drawn until a free one is found.
+ * The shown name of a profile as it was stored, even one from before user names (which
+ * {@link readProfile} does not take): what a player registered then keeps when it chooses its user
+ * name. '' when there is none.
  */
-export async function ensureProfile(store: RoomStore, name: string, fill: (bytes: Uint8Array) => Uint8Array, now: number): Promise<Profile> {
+export function earlierName(raw: unknown): string {
+  const name = obj(raw).name;
+  return typeof name === 'string' ? name.trim().slice(0, NAME_MAX) : '';
+}
+
+/**
+ * Makes sure this client has a profile with a friend code, under the user name `me.user` it has
+ * registered ({@link claimUsername}), and sets its shown name (the user name when `me.name` is
+ * blank). A code already owned is kept; a new one is drawn until a free one is found.
+ */
+export async function ensureProfile(store: RoomStore, me: { user: string; name: string }, fill: (bytes: Uint8Array) => Uint8Array, now: number): Promise<Profile> {
   const uid = await store.uid();
-  const had = readProfile(await store.read(userPath(uid, 'profile')));
-  let code = had?.code ?? '';
+  const user = cleanUsername(me.user);
+  if (!user || await store.read(usernamePath(user)) !== uid) throw new Error(`User name not registered to this player: ${me.user}`);
+  const had = obj(await store.read(userPath(uid, 'profile')));
+  let code = typeof had.code === 'string' ? cleanFriendCode(had.code) : '';
   for (let tries = 0; !code && tries < 8; tries++) {
     const c = newFriendCode(fill);
     if (await store.read(codePath(c)) !== null) continue;
@@ -110,9 +166,16 @@ export async function ensureProfile(store: RoomStore, name: string, fill: (bytes
     code = c;
   }
   if (!code) throw new Error('No free friend code found.');
-  const profile: Profile = { name: name.trim().slice(0, NAME_MAX), code, at: now };
+  const profile: Profile = { user, name: me.name.trim().slice(0, NAME_MAX) || user, code, at: now };
   await store.write(userPath(uid, 'profile'), profile);
   return profile;
+}
+
+/** A name others will see: never blank (an account always has at least its user name). */
+function shownName(name: string): string {
+  const n = name.trim().slice(0, NAME_MAX);
+  if (!n) throw new Error('A name is needed to write to another player.');
+  return n;
 }
 
 /** What came of asking for a friendship. */
@@ -129,12 +192,13 @@ export async function addFriend(store: RoomStore, code: string, myName: string, 
   if (typeof other !== 'string') return 'not-found';
   if (other === uid) return 'self';
   const them = readProfile(await store.read(userPath(other, 'profile')));
-  await store.write(userPath(uid, 'friends', other), { name: them?.name || 'Giocatore', at: now } satisfies Named);
+  if (!them) return 'not-found';
+  await store.write(userPath(uid, 'friends', other), { name: them.name, at: now } satisfies Named);
   if (named(await store.read(userPath(uid, 'requests', other)))) {
     await store.write(userPath(uid, 'requests', other), null);
     return 'friends';
   }
-  await store.write(userPath(other, 'requests', uid), { name: myName.trim().slice(0, NAME_MAX) || 'Giocatore', at: now } satisfies Named);
+  await store.write(userPath(other, 'requests', uid), { name: shownName(myName), at: now } satisfies Named);
   return 'sent';
 }
 
@@ -276,7 +340,7 @@ export function gameRow(code: string, room: Room, uid: string): GameRow {
 
 /** Invites friend `to` into room `code`. */
 export async function inviteFriend(store: RoomStore, to: string, code: string, myName: string, now: number): Promise<void> {
-  await store.write(userPath(to, 'invites', code), { from: await store.uid(), name: myName.trim().slice(0, NAME_MAX) || 'Giocatore', at: now } satisfies Invite);
+  await store.write(userPath(to, 'invites', code), { from: await store.uid(), name: shownName(myName), at: now } satisfies Invite);
 }
 
 /** Drops this client's invitation into room `code` (taken or turned down). */

@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { addBot, createRoom, joinRoom, readRoom, roomPath, startMatch, type Room, type RoomStore } from '../../../src/net/room';
 import {
-  FRIEND_CODE_LENGTH, ONLINE_MS, acceptFriend, addFriend, cleanFriendCode, declineFriend, dropInvite, ensureProfile, forgetGame, gameRow, heartbeat,
+  FRIEND_CODE_LENGTH, ONLINE_MS, acceptFriend, claimUsername, cleanUsername, earlierName, readProfile, addFriend, cleanFriendCode, declineFriend, dropInvite, ensureProfile, forgetGame, gameRow, heartbeat,
   inviteFriend, isOnline, lobbyEntry, lobbyPath, mutualFriends, newFriendCode, publishLobby, readLobby, readPresence, readSocial, rememberGame,
   removeFriend, showFriendCode, userPath,
 } from '../../../src/net/social';
@@ -19,6 +19,12 @@ function clients(n: number): RoomStore[] {
   return Array.from({ length: n }, (_, i) => createTreeStore(backing, `u${i}`));
 }
 const social = async (s: RoomStore) => readSocial(await s.read(userPath(await s.uid())));
+/** Registers a player with an account: its user name (the first word of `name`, lower case, at least 3 long), then its profile. */
+async function register(s: RoomStore, name: string, fill: (bytes: Uint8Array) => Uint8Array, now: number) {
+  const user = name.trim().split(' ')[0].toLowerCase().padEnd(3, '_');
+  expect(await claimUsername(s, user)).toBe('ok');
+  return ensureProfile(s, { user, name }, fill, now);
+}
 const OPTIONS = { startSide: 'a' as const, leaders: true, upgrades: false };
 
 describe('friend codes', () => {
@@ -39,23 +45,68 @@ describe('friend codes', () => {
 describe('profiles', () => {
   it('keeps the friend code across renames and skips a code already taken', async () => {
     const [a, b] = clients(2);
-    const pa = await ensureProfile(a, '  Ada ', filler(3), NOW);
+    const pa = await register(a, '  Ada ', filler(3), NOW);
     expect(pa.name).toBe('Ada');
     // The same bytes give the same code: b must draw again and gets the next one.
-    const pb = await ensureProfile(b, 'Bo', filler(3, 1), NOW);
+    const pb = await register(b, 'Bo', filler(3, 1), NOW);
     expect(pb.code).not.toBe(pa.code);
-    const again = await ensureProfile(a, 'Ada Lovelace', filler(9), NOW + 1);
+    const again = await register(a, 'Ada Lovelace', filler(9), NOW + 1);
     expect(again.code).toBe(pa.code);
     expect((await social(a)).profile?.name).toBe('Ada Lovelace');
   });
 });
 
+describe('user names', () => {
+  it('are tidied to lower case and refused when too short, too long or with other characters', () => {
+    expect(cleanUsername(' Ada.L ')).toBe('ada.l');
+    expect(cleanUsername('bo_99')).toBe('bo_99');
+    expect(cleanUsername('ab')).toBe('');
+    expect(cleanUsername('a'.repeat(21))).toBe('');
+    expect(cleanUsername('ada lovelace')).toBe('');
+    expect(cleanUsername('.ada')).toBe('');
+    expect(cleanUsername('àda')).toBe('');
+  });
+  it('belong to the first who registers them; the owner may claim its own again', async () => {
+    const [a, b] = clients(2);
+    expect(await claimUsername(a, 'Ada')).toBe('ok');
+    expect(await claimUsername(b, 'ada')).toBe('taken');
+    expect(await claimUsername(a, 'ada')).toBe('ok');
+    expect(await claimUsername(b, 'x')).toBe('invalid');
+  });
+  it('are needed for a profile, whose shown name starts as the user name and can change', async () => {
+    const [a, b] = clients(2);
+    await expect(ensureProfile(a, { user: 'ada', name: 'Ada' }, filler(1), NOW)).rejects.toThrow();
+    await claimUsername(a, 'ada');
+    // Someone else's user name is not one's own.
+    await expect(ensureProfile(b, { user: 'ada', name: 'Bo' }, filler(2), NOW)).rejects.toThrow();
+    expect((await ensureProfile(a, { user: 'ada', name: '  ' }, filler(1), NOW)).name).toBe('ada');
+    expect((await ensureProfile(a, { user: 'ada', name: 'Ada L.' }, filler(1), NOW + 1)).name).toBe('Ada L.');
+    expect((await social(a)).profile).toMatchObject({ user: 'ada', name: 'Ada L.' });
+  });
+  it('are missing from a profile made before them, which then reads as none but keeps its shown name', () => {
+    const old = { name: ' Riccardo ', code: 'ABCDEF', at: 1 };
+    expect(readProfile(old)).toBeNull();
+    expect(earlierName(old)).toBe('Riccardo');
+    expect(earlierName(null)).toBe('');
+  });
+});
+
 describe('friends', () => {
+  it('cannot be asked of a player without an account profile, and never under a blank name', async () => {
+    const [a, b] = clients(2);
+    const pa = await register(a, 'Ada', filler(1), NOW);
+    // b has a friend code from before user names, but no profile with one.
+    await b.write('friendCodes/WWWWWW', await b.uid());
+    expect(await addFriend(a, 'WWWWWW', 'Ada', NOW)).toBe('not-found');
+    await register(b, 'Bo', filler(2), NOW);
+    await expect(addFriend(b, pa.code, '  ', NOW)).rejects.toThrow();
+  });
+
   it('are friends once both sides have asked, and a request can be accepted or declined', async () => {
     const [a, b, c] = clients(3);
-    await ensureProfile(a, 'Ada', filler(1), NOW);
-    const pb = await ensureProfile(b, 'Bo', filler(2), NOW);
-    const pc = await ensureProfile(c, 'Cy', filler(3), NOW);
+    await register(a, 'Ada', filler(1), NOW);
+    const pb = await register(b, 'Bo', filler(2), NOW);
+    const pc = await register(c, 'Cy', filler(3), NOW);
 
     expect(await addFriend(a, pb.code, 'Ada', NOW)).toBe('sent');
     expect(await mutualFriends(a, ['u1'])).toEqual(new Set());
@@ -75,8 +126,8 @@ describe('friends', () => {
   });
   it('become friends at once when the other had already asked', async () => {
     const [a, b] = clients(2);
-    const pa = await ensureProfile(a, 'Ada', filler(1), NOW);
-    const pb = await ensureProfile(b, 'Bo', filler(2), NOW);
+    const pa = await register(a, 'Ada', filler(1), NOW);
+    const pb = await register(b, 'Bo', filler(2), NOW);
     await addFriend(a, pb.code, 'Ada', NOW);
     expect(await addFriend(b, pa.code, 'Bo', NOW)).toBe('friends');
     expect((await social(b)).requests).toEqual({});
@@ -84,7 +135,7 @@ describe('friends', () => {
   });
   it('cannot be oneself or an unknown code', async () => {
     const [a] = clients(1);
-    const pa = await ensureProfile(a, 'Ada', filler(1), NOW);
+    const pa = await register(a, 'Ada', filler(1), NOW);
     expect(await addFriend(a, pa.code, 'Ada', NOW)).toBe('self');
     expect(await addFriend(a, newFriendCode(filler(20)), 'Ada', NOW)).toBe('not-found');
   });

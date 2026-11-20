@@ -293,27 +293,48 @@ test.describe('game', () => {
     expect(errors).toEqual([]);
   });
 
-  test('friends: a friend link, a request accepted, an invitation, the lobby and one’s games', async ({ page, context }) => {
+  test('friends: an account with its user name, a friend link, a request accepted, an invitation, the lobby and one’s games', async ({ page, context }) => {
     test.setTimeout(120_000);
-    const errors = await open(page, { query: '?net=local' });
+    // Ada has an account: she chooses her user name first (asked by the user, 2026-11-20), then her shown name.
+    const errors = await open(page, { query: '?net=local&account' });
+    await expect(page.locator('#pUser')).toHaveClass(/on/);
+    await page.locator('#uname').fill('Ada_92');
+    await page.locator('#usave').click();
+    await expect(page.locator('#mecode')).toHaveText(/^@ada_92 · TRV-[A-Z0-9]{6}$/);
     await page.locator('#myname').fill('Ada');
     await page.locator('#myname').press('Tab');
-    await expect(page.locator('#mecode')).toHaveText(/^TRV-[A-Z0-9]{6}$/);
-    const friendCode = (await page.locator('#mecode').textContent())!.slice(4);
+    const friendCode = (await page.locator('#mecode').textContent())!.slice(-6);
 
-    // Bo opens Ada's friend link and asks to be friends; Ada accepts.
+    // A guest (no account) is asked to sign in before having friends.
+    const guest = await context.newPage();
+    await guest.goto(`${GAME}?net=local`);
+    await guest.locator('#mFriends').click();
+    await expect(guest.locator('#fguest')).toBeVisible();
+    await expect(guest.locator('#fmain')).toBeHidden();
+    await guest.close();
+
+    // Bo opens Ada's friend link: he registers (a user name already taken is refused), and asks to be friends; Ada accepts.
     const bo = await context.newPage();
     const boErrors = watchErrors(bo);
-    await bo.goto(`${GAME}?net=local&friend=${friendCode}`);
+    await bo.goto(`${GAME}?net=local&account&friend=${friendCode}`);
+    await expect(bo.locator('#pUser')).toHaveClass(/on/);
+    await bo.locator('#uname').fill('ada_92');
+    await bo.locator('#usave').click();
+    await expect(bo.locator('#umsg')).toContainText('già preso');
+    await bo.locator('#uname').fill('bo');
+    await bo.locator('#usave').click();
+    await expect(bo.locator('#umsg')).toContainText('Da 3 a 20');
+    await bo.locator('#uname').fill('bo.rossi');
+    await bo.locator('#usave').click();
     await expect(bo.locator('#pFriends')).toHaveClass(/on/);
-    await bo.locator('#myname').fill('Bo');
-    await bo.locator('#myname').press('Tab');
+    await expect(bo.locator('#faddcode')).toHaveValue(`TRV-${friendCode}`);
     await bo.locator('#fadd').click();
     await expect(bo.locator('#faddmsg')).toContainText('Richiesta mandata');
     await page.locator('#mFriends').click();
-    await expect(page.locator('#frequests')).toContainText('Bo');
+    // Bo wrote no shown name: the others see his user name, never "Giocatore".
+    await expect(page.locator('#frequests')).toContainText('bo.rossi');
     await page.locator('#frequests .facc').click();
-    await expect(page.locator('#flist')).toContainText('Bo');
+    await expect(page.locator('#flist')).toContainText('bo.rossi');
 
     // Ada invites Bo from the friends' list into a new public room.
     await page.locator('#flist .fplay').click();
@@ -332,7 +353,7 @@ test.describe('game', () => {
     await bo.locator('#mMine').click();
     await expect(bo.locator('#invites')).toContainText(code);
     await bo.locator('#invites .ijoin').click();
-    await expect(page.locator('#lseats')).toContainText('Bo');
+    await expect(page.locator('#lseats')).toContainText('bo.rossi');
 
     // Started: the room leaves the lobby, and Bo's list says whose turn it is.
     await page.locator('#lstart').click();

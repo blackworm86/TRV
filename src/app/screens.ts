@@ -76,7 +76,7 @@ syncNames();
 // The first screen: the home and its panes (design/ux/menu-lobby/mockup.html); the online
 // panes are filled by home.ts.
 
-export type Pane = 'pMain' | 'pHot' | 'pLobby' | 'pCreate' | 'pMine' | 'pFriends' | 'pJoin';
+export type Pane = 'pMain' | 'pHot' | 'pLobby' | 'pCreate' | 'pMine' | 'pFriends' | 'pJoin' | 'pUser';
 export function showPane(id: Pane): void {
   for (const el of document.querySelectorAll<HTMLElement>('#setup .pane')) el.classList.toggle('on', el.id === id);
   $('oerr').textContent = '';

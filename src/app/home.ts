@@ -4,11 +4,11 @@
 
 import { NAME_MAX, cleanCode, closeRoom, readRoom, roomPath, type RoomStore } from '../net/room';
 import {
-  HEARTBEAT_MS, acceptFriend, addFriend, cleanFriendCode, declineFriend, dropInvite, ensureProfile, forgetGame, gameRow, heartbeat, inviteFriend, isOnline,
+  HEARTBEAT_MS, acceptFriend, addFriend, claimUsername, cleanFriendCode, cleanUsername, declineFriend, earlierName, dropInvite, ensureProfile, forgetGame, gameRow, heartbeat, inviteFriend, isOnline,
   lobbyPath, mutualFriends, publishLobby, readLobby, readPresence, readProfile, readSocial, removeFriend, showFriendCode, userPath,
   type GameRow, type LobbyEntry, type Presence,
 } from '../net/social';
-import { NAME_KEY, crewColor, joinByCode, netError, openStore, randomBytes } from './online';
+import { NAME_KEY, crewColor, hasAccount, joinByCode, netError, openStore, randomBytes } from './online';
 import { showPane, type Pane } from './screens';
 import { S } from './state';
 import { $, esc, sure } from './util';
@@ -32,6 +32,10 @@ export const H = {
   broken: false,
   /** Online play is off on this page (no Firebase project). */
   off: false,
+  /** Signed in with an account (Google): only then friends (asked by the user, 2026-11-20). */
+  account: false,
+  /** An account still without a user name: it chooses one before it has friends. */
+  needUser: false,
 };
 
 /** What an online list says while it has nothing to show because the store is not there (yet). */
@@ -39,9 +43,12 @@ const noStore = (): string => H.off ? 'Il gioco online non è attivo qui.' : 'Co
 
 const roomWatch = new Map<string, () => void>();
 
-/** The name the player goes by online (the header's field), remembered on this browser. */
+/**
+ * The name the player goes by online: the header's field (its shown name, remembered on this
+ * browser), or with an account and the field blank, its user name. '' only for a guest who wrote none.
+ */
 export function myName(): string {
-  return ($('myname') as HTMLInputElement).value.trim().slice(0, NAME_MAX);
+  return ($('myname') as HTMLInputElement).value.trim().slice(0, NAME_MAX) || H.social.profile?.user || '';
 }
 
 /** "4 min fa", "2 ore fa", "ieri"... for a time in ms since the epoch. */
@@ -61,12 +68,15 @@ const expTags = (e: { leaders: boolean; upgrades: boolean; carnage: boolean; tea
   return t.length ? `<span class="exp">${t.map(x => `<span>${x}</span>`).join('')}</span>` : '<small>solo base</small>';
 };
 
-/** Shows the player's card in the header: initial, name and friend code. */
+/** Shows the player's card in the header: initial, name, user name and friend code. */
 function drawMe(): void {
   const p = H.social.profile, name = myName();
   $('meav').textContent = (name[0] ?? '?').toUpperCase();
-  $('mecode').textContent = p ? showFriendCode(p.code) : H.store ? '' : 'solo in locale';
+  $('mecode').textContent = p ? `@${p.user} · ${showFriendCode(p.code)}` : H.needUser ? 'scegli il nome utente' : H.store && !H.account ? 'ospite' : H.store ? '' : 'solo in locale';
   $('fcode').textContent = p ? showFriendCode(p.code) : '—';
+  const field = $('myname') as HTMLInputElement;
+  field.placeholder = p ? p.user : 'Il tuo nome';
+  field.title = p ? 'Il nome visualizzato dagli altri giocatori: lo cambi quando vuoi' : 'Il nome con cui ti vedono gli altri giocatori';
 }
 
 /** The friends who count this player back, online first. */
@@ -83,8 +93,12 @@ export function friendState(uid: string): 'friend' | 'asked' | 'none' {
   return H.social.friends[uid] ? 'asked' : 'none';
 }
 
-/** Whether the social side (friends, lobby, games) is usable on this page. */
+/** Whether the social side (lobby, one's games) is usable on this page. */
 export const socialOn = (): boolean => !!H.store && !H.broken;
+/** Whether this player can have friends: an account with its user name chosen. */
+export const friendsOn = (): boolean => socialOn() && H.account && !!H.social.profile;
+/** What a friends' list says when friends are not for this player (yet). */
+const noFriends = (): string => !H.account ? 'Per avere amici accedi con Google.' : 'Scegli il tuo nome utente per avere amici.';
 
 /** Asks the player seated as `uid` to be friends (from a room, where only the uid is known). */
 export async function befriend(uid: string): Promise<void> {
@@ -128,7 +142,7 @@ function homeGames(): string {
 function drawHome(): void {
   $('homeGames').innerHTML = homeGames();
   const fr = friends(), on = fr.filter(f => f.online), asks = Object.keys(H.social.requests).length;
-  $('homeFriends').innerHTML = !H.store ? `<p class="empty-note">${noStore()}</p>` : !fr.length ? '<p class="empty-note">Ancora nessun amico: aggiungili dalla voce Amici.</p>'
+  $('homeFriends').innerHTML = !H.store ? `<p class="empty-note">${noStore()}</p>` : !friendsOn() ? `<p class="empty-note">${noFriends()}</p>` : !fr.length ? '<p class="empty-note">Ancora nessun amico: aggiungili dalla voce Amici.</p>'
     : fr.slice(0, 5).map(f => `<div class="prow">${avatar(f.name)}<span class="t"><b>${esc(f.name)}</b><small>${f.online ? f.room ? `in stanza ${esc(f.room)}` : 'nel menu' : 'non in linea'}</small></span>${f.online && !f.room ? `<button class="tool fplay" data-uid="${esc(f.uid)}">Invita</button>` : ''}</div>`).join('');
   const turns = Object.values(H.rows).filter(r => r?.state === 'turn').length;
   $('mineBadge').textContent = turns ? `${turns} tocca a te` : '';
@@ -182,6 +196,9 @@ function drawMine(): void {
 
 /** Draws the friends' pane: requests and the list with who is online. */
 function drawFriends(): void {
+  // A guest is asked to sign in; an account sees its code, its requests and its friends.
+  $('fguest').style.display = H.account ? 'none' : '';
+  $('fmain').style.display = H.account ? '' : 'none';
   const req = Object.entries(H.social.requests);
   $('frequests').innerHTML = req.length ? req.map(([uid, r]) => `<div class="prow">${avatar(r.name)}<span class="t"><b>${esc(r.name)}</b><small>${ago(r.at)}</small></span>
     <button class="tool facc" data-uid="${esc(uid)}">Accetta</button><button class="tool danger fdec" data-uid="${esc(uid)}" title="Rifiuta">✕</button></div>`).join('') : '<p class="empty-note">Nessuna richiesta.</p>';
@@ -197,7 +214,7 @@ function drawFriends(): void {
 /** Draws the create pane's friends to invite. */
 function drawCreateFriends(): void {
   const fr = friends();
-  $('ofriends').innerHTML = fr.length ? fr.map(f => `<label class="check prow"><input type="checkbox" value="${esc(f.uid)}">${avatar(f.name)}<span class="t"><b>${esc(f.name)}</b><small>${f.online ? 'online' : 'non in linea'}</small></span></label>`).join('')
+  $('ofriends').innerHTML = !friendsOn() ? `<p class="empty-note">${noFriends()} Puoi invitare chiunque con il link o il codice della stanza.</p>` : fr.length ? fr.map(f => `<label class="check prow"><input type="checkbox" value="${esc(f.uid)}">${avatar(f.name)}<span class="t"><b>${esc(f.name)}</b><small>${f.online ? 'online' : 'non in linea'}</small></span></label>`).join('')
     : '<p class="empty-note">Nessun amico ancora: potrai invitare chiunque con il link o il codice della stanza.</p>';
 }
 
@@ -242,12 +259,21 @@ export async function refresh(): Promise<void> {
   drawOnline();
 }
 
-/** Writes the player's name to the profile (and keeps it on this browser). */
+/** Writes the player's shown name to the profile, with an account (and keeps it on this browser). */
 async function saveName(): Promise<void> {
-  const name = myName();
-  try { localStorage.setItem(NAME_KEY, name); } catch { /* storage off */ }
+  const typed = ($('myname') as HTMLInputElement).value.trim().slice(0, NAME_MAX);
+  try { localStorage.setItem(NAME_KEY, typed); } catch { /* storage off */ }
   drawMe();
-  if (H.store && !H.broken && name) await ensureProfile(H.store, name, randomBytes, Date.now()).catch(e => { H.broken = true; console.warn('Profilo non salvato', e); });
+  const p = H.social.profile;
+  if (H.store && !H.broken && p) await ensureProfile(H.store, { user: p.user, name: typed }, randomBytes, Date.now()).catch(e => { H.broken = true; console.warn('Profilo non salvato', e); });
+}
+
+/** The player with an account and no user name yet: the pane where it chooses one. */
+function askUser(): void {
+  ($('uname') as HTMLInputElement).value = '';
+  $('umsg').textContent = 'Gli altri giocatori vedono il tuo nome visualizzato, che all’inizio è il nome utente: lo cambi quando vuoi in alto.';
+  showPane('pUser');
+  ($('uname') as HTMLInputElement).focus();
 }
 
 /** Starts the online side of the first screen: profile, lists, presence. Online only. */
@@ -255,8 +281,20 @@ export async function bootHome(): Promise<void> {
   const store = await openStore();
   H.store = store;
   H.uid = await store.uid();
+  H.account = await hasAccount();
   try {
-    await ensureProfile(store, myName(), randomBytes, Date.now());
+    // An account keeps its profile, under the user name chosen at registration; one without a user
+    // name (new, or from before user names) chooses it now. A guest has no profile.
+    const had = readProfile(await store.read(userPath(H.uid, 'profile')));
+    if (H.account && had) {
+      const field = $('myname') as HTMLInputElement;
+      // The profile's shown name holds on every device; blank in the field when it is the user name.
+      field.value = had.name === had.user ? '' : had.name;
+      await ensureProfile(store, { user: had.user, name: field.value }, randomBytes, Date.now());
+    } else if (H.account) {
+      H.needUser = true;
+      if (!S.net && !new URLSearchParams(location.search).get('room')) askUser();
+    }
   } catch (e) {
     // The rules for profiles and friends are not published yet: rooms still work, the rest waits.
     H.broken = true;
@@ -265,6 +303,8 @@ export async function bootHome(): Promise<void> {
   store.watch(userPath(H.uid), raw => {
     const before = Object.keys(H.social.friends).join();
     H.social = readSocial(raw);
+    // Without an account there is no profile, even one this identity once had.
+    if (!H.account) H.social.profile = null;
     followGames();
     if (Object.keys(H.social.friends).join() !== before) void refresh().catch(() => {});
     drawOnline();
@@ -275,7 +315,7 @@ export async function bootHome(): Promise<void> {
   setInterval(beat, HEARTBEAT_MS);
   // The friend link (?friend=CODE) opens the friends' pane with the code ready.
   const fc = cleanFriendCode(new URLSearchParams(location.search).get('friend') ?? '');
-  if (fc && !S.net) { ($('faddcode') as HTMLInputElement).value = showFriendCode(fc); showPane('pFriends'); }
+  if (fc && !S.net) { ($('faddcode') as HTMLInputElement).value = showFriendCode(fc); if (!H.needUser) showPane('pFriends'); }
 }
 
 /** Sets the online buttons for a page where online is off. */
@@ -294,7 +334,12 @@ export const typedCode = (): string => cleanCode(($('ocode') as HTMLInputElement
 
 // ---- Buttons ----
 
-const go = (p: Pane) => (): void => { showPane(p); void refresh().catch(() => {}); };
+const go = (p: Pane) => (): void => {
+  // Friends first need a user name.
+  if (p === 'pFriends' && H.needUser) { askUser(); return; }
+  showPane(p);
+  void refresh().catch(() => {});
+};
 $('mPlay').onclick = go('pLobby');
 $('mMine').onclick = go('pMine');
 $('mFriends').onclick = go('pFriends');
@@ -341,7 +386,7 @@ $('setup').addEventListener('click', e => {
         await forgetGame(store, code);
         await closeRoom(store, code);
       }).catch(fail);
-  } else if (b.classList.contains('facc')) void acceptFriend(store, uid, H.social.requests[uid]?.name ?? 'Giocatore', Date.now()).then(refresh).catch(fail);
+  } else if (b.classList.contains('facc')) void acceptFriend(store, uid, H.social.requests[uid]?.name ?? '', Date.now()).then(refresh).catch(fail);
   else if (b.classList.contains('fdec')) void declineFriend(store, uid).catch(fail);
   else if (b.classList.contains('fdel')) { if (confirm('Togliere questa persona dagli amici?')) void removeFriend(store, uid).then(refresh).catch(fail); }
   else if (b.classList.contains('fplay')) {
@@ -358,8 +403,7 @@ $('fadd').onclick = async () => {
   const code = cleanFriendCode(($('faddcode') as HTMLInputElement).value);
   const msg = $('faddmsg');
   if (!code) { msg.textContent = 'Il codice amico è TRV- seguito da sei caratteri.'; return; }
-  if (!H.store) return;
-  if (!myName()) { msg.textContent = 'Scrivi prima il tuo nome in alto.'; ($('myname') as HTMLInputElement).focus(); return; }
+  if (!H.store || !friendsOn()) return;
   try {
     const res = await addFriend(H.store, code, myName(), Date.now());
     msg.textContent = { sent: 'Richiesta mandata: diventate amici quando la accetta.', friends: 'Ora siete amici.', self: 'È il tuo codice.', 'not-found': 'Nessun giocatore con questo codice.' }[res];
@@ -376,6 +420,35 @@ $('fcopy').onclick = () => {
   u.searchParams.set('friend', p.code);
   void navigator.clipboard?.writeText(u.toString()).then(() => { $('fcopy').textContent = 'Copiato!'; setTimeout(() => { $('fcopy').textContent = 'Copia il link'; }, 1500); }).catch(() => {});
 };
+
+// Registration: the user name, once and for good, then the profile with its friend code.
+$('usave').onclick = async () => {
+  const store = H.store, msg = $('umsg'), typed = ($('uname') as HTMLInputElement).value;
+  if (!store) return;
+  ($('usave') as HTMLButtonElement).disabled = true;
+  try {
+    const res = await claimUsername(store, typed);
+    if (res !== 'ok') {
+      msg.textContent = res === 'taken' ? 'Questo nome utente è già preso: scegline un altro.' : 'Da 3 a 20 caratteri: lettere minuscole, cifre, “_” e “.” (non all’inizio né alla fine).';
+      return;
+    }
+    // A new player's shown name starts as the user name (changed afterwards, in the header); one
+    // registered before user names (2026-11-20) keeps the name the others already knew it by.
+    const old = earlierName(await store.read(userPath(H.uid, 'profile')));
+    await ensureProfile(store, { user: cleanUsername(typed), name: old }, randomBytes, Date.now());
+    const shown = old === cleanUsername(typed) ? '' : old;
+    ($('myname') as HTMLInputElement).value = shown;
+    try { localStorage.setItem(NAME_KEY, shown); } catch { /* storage off */ }
+    H.needUser = false;
+    H.broken = false;
+    const fc = cleanFriendCode(new URLSearchParams(location.search).get('friend') ?? '');
+    showPane(fc ? 'pFriends' : 'pMain');
+    await refresh();
+  } catch (e) { msg.textContent = 'Non riuscito: riprova.'; console.error(e); }
+  finally { ($('usave') as HTMLButtonElement).disabled = false; }
+};
+($('uname') as HTMLInputElement).addEventListener('keydown', e => { if (e.key === 'Enter') $('usave').click(); });
+$('fguestlogin').onclick = () => $('acclogin').click();
 
 // The room's card: invite a friend, or ask a player of the room to be friends.
 $('lobby').addEventListener('click', e => {
