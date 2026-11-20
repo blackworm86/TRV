@@ -113,11 +113,16 @@ export function collectMaterials(root: THREE.Object3D): THREE.MeshStandardMateri
   return out;
 }
 /**
+ * How strongly the vehicles of the crew whose turn it is glow in their colour. Low, since the crews'
+ * colours are vivid (2026-11-20): at the earlier 0.55 the glow painted wheels and guns too.
+ */
+const ACTIVE_GLOW = 0.3;
+/**
  * The player-colour light on a car (`o.userData.glow`): cars that can still take a die, and the
  * car that is moving. It lights the model itself, no rings on the table.
  */
 export function applyGlow(o: THREE.Object3D, now: number): void {
-  const glow = (o.userData.active && o.userData.ownerColor ? { color: o.userData.ownerColor, strength: 0.55 } : o.userData.glow) as { color: string; strength: number } | null | undefined;
+  const glow = (o.userData.active && o.userData.ownerColor ? { color: o.userData.ownerColor, strength: ACTIVE_GLOW } : o.userData.glow) as { color: string; strength: number } | null | undefined;
   const mats = (o.userData.mats ?? []) as THREE.MeshStandardMaterial[];
   const s = glow ? glow.strength * (0.75 + 0.25 * Math.sin(now * 4)) : 0;
   for (const m of mats) {
@@ -249,7 +254,10 @@ function useSheetModel(o: THREE.Group, sheet: VehicleSheet, tint: Tint, id: stri
     d.updateMatrixWorld(true);
     const size = new THREE.Box3().setFromObject(d).getSize(new THREE.Vector3());
     const parts = describeVehicle(d);
-    o.userData.parts = new PartsRig(parts, d.scale.x);
+    const rig = new PartsRig(parts, d.scale.x);
+    // Its engine runs (a trailer has none): the body shakes, out of step with the others.
+    if (!trailer) rig.engine = { on: true, phase: phaseOf(id) };
+    o.userData.parts = rig;
     // The gun it fires from: its machine gun when it has one, otherwise its launcher.
     o.userData.muzzle = (parts.turrets.find(t => t.turret?.name === 'turret') ?? parts.turrets[0])?.muzzle ?? undefined;
     o.userData.trailer = trailer;

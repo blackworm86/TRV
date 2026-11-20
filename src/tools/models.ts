@@ -10,7 +10,8 @@ import { MODEL, SHOW_LENGTH_MM, MODEL_YAW, CHOPPER_PARTS, ROTOR_SPEED, crewTint,
 
 const TILE_MM = sizeOf(CAT, 'road_tile');
 const MM = 13.14 / TILE_MM[0];
-const CREWS = ['#c9c8c2', '#5b7a52', '#ec9230', '#a9c1dd'];
+/** The first crews' colours, as a new game deals them. */
+const CREWS = CAT.crews.slice(0, 4).map(c => c.color);
 
 const renderer = new THREE.WebGLRenderer({ antialias: true, stencil: true });
 renderer.setPixelRatio(Math.min(devicePixelRatio, 2));

@@ -133,7 +133,8 @@ export function drawMarkers(): void {
       done.add(o.carId);
       const obj = carObjs.get(o.carId);
       if (!obj) return;
-      obj.userData.glow = { color: p.color, strength: v === null ? 0.35 : 0.75 };
+      // Lower than before the vivid crew colours (2026-11-20: 0.35 and 0.75 painted wheels and guns too).
+      obj.userData.glow = { color: p.color, strength: v === null ? 0.16 : 0.42 };
       if (v === null) return;
       // An invisible marker: it only makes the car a drop target.
       const at = (obj.userData.target as THREE.Vector3).clone();

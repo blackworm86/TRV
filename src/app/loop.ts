@@ -2,7 +2,7 @@
 
 import * as THREE from 'three';
 import { tickFlames } from '../view/terrain/carnage3d';
-import { ROTOR_SPEED, hover } from '../view/models-config';
+import { HOVER, ROTOR_SPEED, hover } from '../view/models-config';
 import { SETTLE_MAX, applyBeat, beatLength, effects, finishBeats, queue, settled } from './beats';
 import { carObjs, chopperObjs, fxSupply, hazardObjs } from './board';
 import { carTimeScale, drive, hitchTrains, track } from './cars';
@@ -118,7 +118,10 @@ renderer.setAnimationLoop(t => {
     const idle = o.userData.parked && tg && o.position.distanceTo(tg) < 0.1 ? 0.08 : 1;
     const r = o.getObjectByName('rotor'); if (r) r.rotation.y += dt * 18 * idle;
     const model = o.userData.model as THREE.Object3D | undefined;
-    if (model) hover(model, idle < 1 ? 0 : now, idle < 1 ? 0 : o.userData.phase ?? 0, idle < 1 ? 0 : o.userData.modelHeight ?? 0.5);
+    // It takes up its hover as it leaves the ground and gives it up as it sets down, never at once.
+    const air = (o.userData.hoverAmt as number | undefined) ?? 0;
+    o.userData.hoverAmt = air + ((idle < 1 ? 0 : 1) - air) * Math.min(1, dt * HOVER.ease);
+    if (model) hover(model, now, o.userData.phase ?? 0, o.userData.modelHeight ?? 0.5, o.userData.hoverAmt);
     for (const p of (o.userData.spin ?? []) as THREE.Object3D[]) {
       if (p.name === 'rotorMain') p.rotation.y += dt * ROTOR_SPEED.rotorMain * idle; else p.rotation.z += dt * ROTOR_SPEED.rotorTail * idle;
     }

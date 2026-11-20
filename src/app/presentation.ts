@@ -81,6 +81,8 @@ export interface Presentation {
     ride: { rate: number };
     settleEps: { x: number; v: number };
     bike: { lean: number; leanMax: number; speedCap: number; leanRate: number; drift: number; gLean: number };
+    /** A helicopter holding its place in the air (app/motion/hover.ts). */
+    hover: import('./motion/hover').HoverTuning;
     /** The motorcycle's rider (app/motion/rider.ts). */
     rider: import('./motion/rider').RiderTuning;
     moves: {

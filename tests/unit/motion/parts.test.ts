@@ -8,6 +8,7 @@ import { P } from '../../../src/app/presentation';
 import { makeRoute } from '../../../src/app/route';
 import { stepDrive } from '../../../src/app/motion/drive';
 import { PartsRig, type Ground } from '../../../src/app/motion/rig';
+import { RIG } from '../../../src/view/models-config';
 import { clampPointing, elevationTo, makeAim, planAim, pointingAt, rigShooter, stepAim } from '../../../src/app/motion/aim';
 import { MotionTrack } from '../../../src/app/motion/plan';
 import { buildTestVehicle, type VehicleSheet } from '../../../src/view/test-vehicles';
@@ -117,6 +118,32 @@ describe('suspensions on the ground', () => {
     sit(rig, car, { heightAt: () => null, base: 0 }, 1);
     // Assert
     expect(rig.travel().every(y => Math.abs(y) < 1e-9)).toBe(true);
+  });
+});
+
+describe('the engine', () => {
+  it('shakes the body a little while it runs, and leaves it still when off or when there is none', () => {
+    // Arrange
+    const { rig, d } = testCar();
+    const rest = d.body!.position.y;
+    const span = (): number => {
+      let lo = Infinity, hi = -Infinity;
+      for (let i = 0; i < 60; i++) { rig.update(DT, 0, 0, 0, 0); lo = Math.min(lo, d.body!.position.y); hi = Math.max(hi, d.body!.position.y); }
+      return hi - lo;
+    };
+    // Act
+    const none = span();
+    rig.engine = { on: true, phase: 0 };
+    const running = span();
+    rig.engine.on = false;
+    const off = span();
+    // Assert: a shake well under the body's height (RIG.engine.lift of it each way), none otherwise.
+    const height = new THREE.Box3().setFromObject(d.body!).getSize(new THREE.Vector3()).y;
+    expect(none).toBe(0);
+    expect(running).toBeGreaterThan(0);
+    expect(running).toBeLessThan(height * RIG.engine.lift * 2.01);
+    expect(off).toBe(0);
+    expect(d.body!.position.y).toBe(rest);
   });
 });
 

@@ -4,16 +4,17 @@
   "module": "base",
   "name": "Gioco base",
   "image_root": "assets/estratti/base",
+  "_crews": "The crews' colours on the digital table (asked by the user, 2026-11-20: easy to see in play and told apart at once, for up to 5 players). Nine hues, none dull and none glaring; the first five, which a new game deals in this order, are the furthest apart (red, blue, yellow, green, white). The ids are kept from the earlier palette, so saved games and open rooms still read: an id is a key, not the colour's name (lime is now pink, grey is white, blue is light blue).",
   "crews": [
-    { "id": "grey", "name": "Grigio", "color": "#c9c8c2" },
-    { "id": "green", "name": "Verde", "color": "#5b7a52" },
-    { "id": "orange", "name": "Arancio", "color": "#ec9230" },
-    { "id": "blue", "name": "Azzurro", "color": "#a9c1dd" },
-    { "id": "crimson", "name": "Rosso", "color": "#d42f30" },
-    { "id": "royal", "name": "Blu", "color": "#2f6bd4" },
-    { "id": "lime", "name": "Verde acceso", "color": "#4cc23a" },
-    { "id": "yellow", "name": "Giallo", "color": "#f2c014" },
-    { "id": "purple", "name": "Viola", "color": "#8a3fd1" }
+    { "id": "crimson", "name": "Rosso", "color": "#d23a30" },
+    { "id": "royal", "name": "Blu", "color": "#2f6fd6" },
+    { "id": "yellow", "name": "Giallo", "color": "#efc11f" },
+    { "id": "green", "name": "Verde", "color": "#43a047" },
+    { "id": "grey", "name": "Bianco", "color": "#e4e0d4" },
+    { "id": "purple", "name": "Viola", "color": "#9455d3" },
+    { "id": "orange", "name": "Arancio", "color": "#ea7a1c" },
+    { "id": "blue", "name": "Azzurro", "color": "#36b3d9" },
+    { "id": "lime", "name": "Rosa", "color": "#e55c9f" }
   ],
   "components": [
     { "id": "road_tile_1", "kind": "road_tile", "count": 1, "tile": 1, "size_mm": [368, 280, 2], "measured": false,

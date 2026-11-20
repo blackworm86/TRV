@@ -7,6 +7,7 @@ import type { SpinPart, Tint, WheelSpec } from './models3d';
 import type { RigModelSpec } from './rigmodel';
 import type { WormSpec } from './worm';
 import { P } from '../app/presentation';
+import { hoverPose } from '../app/motion/hover';
 
 // Imported through the bundler, so a build (GitHub Pages) ships the files and gets their real address.
 // Each game keeps its own models (assets/<game>/modelli/), found here by file name.
@@ -173,15 +174,19 @@ export const BIKE = { ...P.motion.bike, maxLean: P.motion.bike.leanMax };
  */
 export const RIG = { ...P.motion.car, stiffness: P.motion.spring.body.k, damping: P.motion.spring.body.c };
 
-/** Hover of the chopper: slow bob and sway. */
-export const HOVER = { lift: 0.07, pitch: 0.05, roll: 0.06, speed: 1.7 };
+/** Hover of the chopper (the `motion.hover` block of data/trv/presentation_base.json). */
+export const HOVER = P.motion.hover;
 
-/** Slow bob and sway of a hovering chopper around its rest pose (stored on first call). */
-export function hover(model: THREE.Object3D, t: number, phase: number, height: number): void {
+/**
+ * Puts a chopper `model` (nose along +x, `height` tall) in its hovering pose at time `t` around its
+ * rest pose (stored on first call): app/motion/hover.ts. `amount`: 1 in the air, 0 on the ground
+ * (exactly at rest), in between while it takes off or sets down.
+ */
+export function hover(model: THREE.Object3D, t: number, phase: number, height: number, amount = 1): void {
   const rest = (model.userData.rest ??= { pos: model.position.clone(), rot: model.rotation.clone() }) as { pos: THREE.Vector3; rot: THREE.Euler };
-  const w = t * HOVER.speed + phase;
-  model.position.set(rest.pos.x, rest.pos.y + (Math.sin(w) * 0.6 + Math.sin(w * 1.73 + 1.1) * 0.4) * HOVER.lift * height, rest.pos.z);
-  model.rotation.set(rest.rot.x + Math.sin(w * 1.21 + 2) * HOVER.roll, rest.rot.y, rest.rot.z + Math.sin(w * 0.87 + 0.4) * HOVER.pitch);
+  const p = hoverPose(t, phase, amount, HOVER);
+  model.position.set(rest.pos.x + p.surge * height, rest.pos.y + p.lift * height, rest.pos.z + p.sway * height);
+  model.rotation.set(rest.rot.x + p.roll, rest.rot.y + p.yaw, rest.rot.z + p.pitch);
 }
 
 /** A spring toward a target: value and speed. */

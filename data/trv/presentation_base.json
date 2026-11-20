@@ -225,6 +225,10 @@
       "_g_lean": "app/motion/drive.ts bikeLean (design/gdd/vehicle-motion.md): lean = atan(v * yaw_rate / g_lean), at most lean_max; world units per second squared",
       "g_lean": 9.8
     },
+    "hover": {
+      "_note": "app/motion/hover.ts, a helicopter holding its place in the air (asked by the user, 2026-11-20: it rises and sinks and rolls like a real one, without overdoing it). Lengths as a share of the helicopter's height, angles in radians. lift: how far it rises and sinks; roll, pitch, yaw: how far it tips and turns its nose; sway, surge: how far it slides sideways with its roll and along its length with its pitch; speed: the pace (radians per second of the slowest swing); ease: how fast it takes up or gives up its hover on leaving or touching the ground (per second)",
+      "lift": 0.11, "roll": 0.07, "pitch": 0.045, "yaw": 0.05, "sway": 0.1, "surge": 0.06, "speed": 1.5, "ease": 2
+    },
     "rider": {
       "_note": "app/motion/rider.ts, the motorcycle's rider (asked by the user, 2026-11-20). Metres at real scale, angles in radians. torso, head, shoulder and hip (half-widths), upper_arm, lower_arm, thigh, shin: its measures. ride: forward bend of the back to reach the grips; lean_in: its extra lean as a share of the bike's; level: share of the tilt the head takes back to keep its eyes level; twist: chest turn toward the path in a drift as a share of the drift, look: the head's, times the chest's; wheelie_bend and wheelie_shift (m): forward bend and shift of the hips per radian of wheelie; stand, absorb (m): up on the pegs in a jump, down on the landing; crouch: extra bend behind the mounted gun; reach: how far the uzi arm stretches toward the target, a share of its length.",
       "torso": 0.5, "head": 0.3, "shoulder": 0.2, "hip": 0.1, "upper_arm": 0.33, "lower_arm": 0.33, "thigh": 0.45, "shin": 0.45,

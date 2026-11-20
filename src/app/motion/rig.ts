@@ -45,6 +45,16 @@ export class PartsRig {
   readonly roll: SpringState = { v: 0, s: 0 };
   /** The front wheels' angle now (radians, + = left). */
   steer = 0;
+  /**
+   * The engine: while `on`, the body shakes fast and small (RIG.engine), each vehicle out of step by
+   * its `phase` (asked by the user, 2026-11-20: the models in parts shake like the old ones). Set by
+   * who drives the rig; null (a trailer, the bench, the checks) never shakes.
+   */
+  engine: { on: boolean; phase: number } | null = null;
+  /** Seconds of updates so far: the engine's clock. */
+  private clock = 0;
+  /** The body's height (model units): the engine's lift is a share of it. */
+  private readonly height: number;
   private readonly rest: { rot: THREE.Euler; pos: THREE.Vector3 } | null;
   private readonly wheel: THREE.Object3D | null;
   private readonly susp: Susp[];
@@ -54,6 +64,7 @@ export class PartsRig {
 
   constructor(private readonly d: PartsDescriptor, private readonly scale: number) {
     this.rest = d.body ? { rot: d.body.rotation.clone(), pos: d.body.position.clone() } : null;
+    this.height = d.body ? new THREE.Box3().setFromObject(d.body).getSize(new THREE.Vector3()).y / Math.max(scale, 1e-9) : 0;
     let w: THREE.Object3D | null = null;
     d.body?.traverse(o => { if (o.name === 'steering_wheel' && !w) w = o; });
     this.wheel = w;
@@ -90,6 +101,7 @@ export class PartsRig {
    * `ground`: the ground under the wheels (without it the suspensions rest).
    */
   update(dt: number, forward: number, accel: number, turn: number, turnRate: number, ground?: Ground): void {
+    this.clock += dt;
     accel = Math.max(-RIG.maxAccel, Math.min(RIG.maxAccel, accel));
     turnRate = Math.max(-RIG.maxTurnRate, Math.min(RIG.maxTurnRate, turnRate));
     const speed = Math.min(RIG.maxSpeed, Math.abs(forward) / Math.max(dt, 1e-3));
@@ -156,10 +168,14 @@ export class PartsRig {
   private place(): void {
     for (const s of this.susp) s.w.susp!.position.y = s.rest.y + s.spring.v;
     if (!this.d.body || !this.rest) return;
-    this.d.body.rotation.set(this.rest.rot.x + this.roll.v, this.rest.rot.y, this.rest.rot.z + this.pitch.v);
+    // The running engine: two sines out of tune for the lift, a slower one for the roll (as CarRig).
+    const w = this.clock * RIG.engine.freq + (this.engine?.phase ?? 0), e = this.engine?.on ? 1 : 0;
+    const shake = (Math.sin(w) * 0.6 + Math.sin(w * 1.53 + 1.3) * 0.4) * RIG.engine.lift * this.height * e;
+    const rollShake = Math.sin(w * 0.71 + 0.5) * RIG.engine.roll * e;
+    this.d.body.rotation.set(this.rest.rot.x + this.roll.v + rollShake, this.rest.rot.y, this.rest.rot.z + this.pitch.v);
     // Lifted by where the suspensions are now (their springs), not where they are going.
     const lift = this.susp.length ? this.susp.reduce((a, s) => a + s.spring.v, 0) / this.susp.length : 0;
-    this.d.body.position.y = this.rest.pos.y + lift;
+    this.d.body.position.y = this.rest.pos.y + lift + shake;
   }
 
   /**

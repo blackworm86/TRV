@@ -96,10 +96,12 @@ export function tintedMaterial(src: THREE.MeshStandardMaterial, tint: Tint): THR
     // Glass: light pixels inside the cockpit ellipsoid; the dark ones there are the frame.
     float inGlass = 1.0 - smoothstep(0.85, 1.0, length((vModelPos - glassCenter) / glassRadius));
     teamGlass = glassOn * inGlass * smoothstep(glassLum.x, glassLum.y, lum);
-    float panel = smoothstep(0.05, 0.22, lum) * (1.0 - smoothstep(0.25, 0.5, sat)) * teamPanels * (1.0 - teamGlass);
+    // The paint reaches into the texture's own baked shade (dark grey, not black) and keeps a floor of
+    // brightness there: on a vivid colour those faces read as black holes otherwise (2026-11-20).
+    float panel = smoothstep(0.02, 0.12, lum) * (1.0 - smoothstep(0.25, 0.5, sat)) * teamPanels * (1.0 - teamGlass);
     float orange = smoothstep(0.012, 0.035, hue) * (1.0 - smoothstep(0.13, 0.17, hue)) * smoothstep(0.45, 0.65, sat)
       * smoothstep(0.03, 0.08, lum) * teamOrange;
-    vec3 onPanel = teamColor * clamp(lum * 2.6, 0.25, 1.25);
+    vec3 onPanel = teamColor * clamp(0.2 + lum * 2.4, 0.3, 1.25);
     vec3 onOrange = teamColor * clamp(lum / 0.36, 0.2, 1.4);
     c = mix(c, onPanel, panel);
     c = mix(c, onOrange, orange);

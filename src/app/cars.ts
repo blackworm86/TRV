@@ -298,6 +298,8 @@ export function drive(o: THREE.Object3D, dt: number, k: number, now: number): vo
     const accel = (v - (o.userData.lastV ?? 0)) / Math.max(dt, 1e-4);
     o.userData.lastV = v;
     o.updateMatrixWorld(true);
+    // A wreck and a car on its side have their engine off.
+    if (parts.engine) parts.engine.on = !o.userData.wreck && f < 0.3;
     parts.update(dt, fwd, accel, turn, (newYaw - yaw) / Math.max(dt, 1e-4));
     aimTurret(o, newYaw, dt);
   }
