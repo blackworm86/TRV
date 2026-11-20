@@ -8,7 +8,7 @@ import { P } from '../../../src/app/presentation';
 import { makeRoute } from '../../../src/app/route';
 import { stepDrive } from '../../../src/app/motion/drive';
 import { PartsRig, type Ground } from '../../../src/app/motion/rig';
-import { clampPointing, makeAim, planAim, pointingAt, stepAim } from '../../../src/app/motion/aim';
+import { clampPointing, makeAim, planAim, pointingAt, rigShooter, stepAim } from '../../../src/app/motion/aim';
 import { MotionTrack } from '../../../src/app/motion/plan';
 import { buildTestVehicle, type VehicleSheet } from '../../../src/view/test-vehicles';
 import { describeVehicle, type TurretPart } from '../../../src/view/vehicle-rig';
@@ -201,5 +201,32 @@ describe('aiming and firing', () => {
     const p = clampPointing(t, { yaw: 3, elev: 1 });
     // Assert
     expect(p).toEqual({ yaw: Math.PI / 2, elev: 0.3 });
+  });
+});
+
+describe('Big Rig: which section fires', () => {
+  // A rig three spaces long along x: the tractor ahead, the rear section two spaces behind.
+  const SPACE = 1.5;
+  const front = { x: 2 * SPACE, z: 0 }, rear = { x: 0, z: 0 };
+
+  it('a target in the rear arc, behind the rear section, is fired at by the rear section', () => {
+    // Arrange, Act
+    const who = rigShooter(front, rear, { x: -SPACE, z: SPACE * 0.9 });
+    // Assert
+    expect(who).toBe(rear);
+  });
+
+  it('a target in the front arc, ahead of the tractor, is fired at by the tractor', () => {
+    // Arrange, Act
+    const who = rigShooter(front, rear, { x: 3 * SPACE, z: -SPACE * 0.9 });
+    // Assert
+    expect(who).toBe(front);
+  });
+
+  it('a rig that lost its rear section fires from the tractor, whatever the target', () => {
+    // Arrange, Act
+    const who = rigShooter(front, undefined, { x: -SPACE, z: 0 });
+    // Assert
+    expect(who).toBe(front);
   });
 });

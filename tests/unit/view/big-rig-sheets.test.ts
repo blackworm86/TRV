@@ -4,7 +4,7 @@
 // The real models are not loaded here: a box stands for each, nose toward -x as Meshy makes them.
 import { describe, expect, it } from 'vitest';
 import * as THREE from 'three';
-import { buildTestVehicle, sheetSources, type VehicleSheet } from '../../../src/view/test-vehicles';
+import { buildTestVehicle, sheetSources, squashed, type VehicleSheet } from '../../../src/view/test-vehicles';
 import { describeVehicle, missingParts, type Capability } from '../../../src/view/vehicle-rig';
 import FRONT from '../../../assets/big_rig/modelli/schede/big_rig_front.json';
 import MID from '../../../assets/big_rig/modelli/schede/big_rig_mid.json';
@@ -105,7 +105,8 @@ describe('Big Rig sheets', () => {
 
   it('a part model is turned half round (the models have their nose toward -x) and scaled as its sheet says', () => {
     // Arrange
-    const sheet = SHEETS.mid, body = sheet.parts.find(p => p.node === 'body')!;
+    // The tractor: its body model is placed whole (a trailer's has its tow bar shortened).
+    const sheet = SHEETS.front, body = sheet.parts.find(p => p.node === 'body')!;
     const sources = standIns(sheet);
     // A mark on the nose of the stand-in, at -x.
     const mark = new THREE.Object3D();
@@ -118,6 +119,49 @@ describe('Big Rig sheets', () => {
     // Assert
     expect(at(v.getObjectByName('nose')!).x).toBeCloseTo(PART_BOX[0] / 2 * body.mesh!.scale + (body.mesh!.at?.[0] ?? 0), 5);
     expect(box.max.x - box.min.x).toBeCloseTo(PART_BOX[0] * body.mesh!.scale, 5);
+  });
+
+  it('a shortened stretch draws its points toward its start; what is beyond follows in one piece, raised', () => {
+    // Arrange: a tow bar from -0.2 to -0.4, halved, its far end raised by 0.1.
+    const q = { from: -0.2, to: -0.4, scale: 0.5, lift: 0.1 };
+    // Act
+    const body = squashed(0.3, 0, q), start = squashed(-0.2, 0, q), half = squashed(-0.3, 0, q), end = squashed(-0.4, 0, q), ring = squashed(-0.45, 0.02, q);
+    // Assert
+    expect(body).toEqual([0.3, 0]);
+    expect(start).toEqual([-0.2, 0]);
+    expect(half[0]).toBeCloseTo(-0.25, 9);
+    expect(half[1]).toBeCloseTo(0.05, 9);
+    expect(end[0]).toBeCloseTo(-0.3, 9);
+    // The ring, 0.05 beyond the end, is still 0.05 beyond it: its shape is kept.
+    expect(ring[0] - end[0]).toBeCloseTo(-0.05, 9);
+    expect(ring[1]).toBeCloseTo(0.12, 9);
+  });
+
+  it.each(['mid', 'rear'])('%s: the ring of its tow bar, shortened, is on its front hitch, and its body in the middle of its space', name => {
+    // Arrange: where the ring's middle and the body's ends are on the real model (model units, nose toward -x).
+    const RING_X = -0.455;
+    const ENDS: Record<string, [number, number]> = { mid: [-0.165, 0.43], rear: [-0.245, 0.47] };
+    const sheet = SHEETS[name], mesh = sheet.parts.find(p => p.node === 'body')!.mesh!;
+    // Act: a model point to the sheet's metres, as the builder places it (turned half round about y).
+    const toSheet = (x: number): number => -squashed(x, 0, mesh.squash!)[0] * mesh.scale + (mesh.at?.[0] ?? 0);
+    const front = toSheet(ENDS[name][0]), back = toSheet(ENDS[name][1]);
+    // Assert
+    expect(toSheet(RING_X)).toBeCloseTo(HALF_SPACE, 1);
+    expect((front + back) / 2).toBeCloseTo(0, 1);
+    expect(front).toBeLessThan(HALF_SPACE);
+    expect(back).toBeGreaterThan(-HALF_SPACE);
+  });
+
+  it('the Medium Car wheels are inside its bodywork, as large as its wheel arches', () => {
+    // Arrange: the body model is 0.388 units wide and its arches 0.17 units across (measured on the model).
+    const HALF_WIDTH = 0.194, ARCH = 0.17;
+    const sheet = SHEETS.car_m, k = sheet.parts.find(p => p.node === 'body')!.mesh!.scale;
+    const wheel = sheet.parts.find(p => p.axles)!;
+    // Act, Assert
+    for (const a of wheel.axles!) {
+      expect(2 * a.radius).toBeLessThanOrEqual(ARCH * k + 1e-6);
+      expect(a.track + (wheel.width ?? 0) / 2).toBeLessThanOrEqual(HALF_WIDTH * k);
+    }
   });
 
   it('a sheet built without its models falls back to shapes, and names no model for a shape part', () => {

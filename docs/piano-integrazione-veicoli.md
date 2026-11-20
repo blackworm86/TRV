@@ -188,6 +188,12 @@ Valgono per il sistema di oggi e per "Movimento nuovo".
   modello, grandi quanto il raggio dell'asse. Il vecchio modello unico tagliato ai giunti non si usa più.
   - Le due mitragliatrici (stesso modello): una sul cofano della motrice, una sul tetto del rimorchio
     posteriore montata all'indietro (`facing` nella scheda: il suo zero e il suo arco sono verso dietro).
+  - Timoni (2026-11-20): Meshy li ha fatti troppo lunghi. La scheda li accorcia (`mesh.squash`: il tratto
+    tra carrozzeria e occhiello si comprime, l'occhiello segue intero e sale al perno), così ogni
+    rimorchio sta al centro della sua casella. Il rimorchio centrale non ha gancio dietro nel modello:
+    la scheda gli dà un braccio e un perno semplici.
+  - Arco posteriore: per le regole ogni sparo parte dalla casella della motrice; sul tavolo spara la
+    sezione posteriore quando il bersaglio è più vicino a lei (`rigShooter` in `motion/aim.ts`).
   - Mancano: il radar che gira, il portellone.
   - Il banco prova usa ancora il Big Rig di collaudo.
 
@@ -201,6 +207,8 @@ montaggio del Big Rig. Il codice del movimento non è cambiato: ruote, sterzo, s
 `PartsRig` come sull'auto di collaudo. L'opzione "Auto di collaudo" è tolta; l'auto di collaudo resta sul
 banco prova.
 - Solo le parti con zone colore (la carrozzeria) prendono il colore della squadra.
+- Le ruote stanno negli archi della carrozzeria: raggio 0,4 m, grande quanto l'arco, e dentro la larghezza
+  della carrozzeria (corretto il 2026-11-20: prima erano troppo grandi e compenetravano il modello).
 - I colpi partono dal `muzzle` del modello (`effects.ts`).
 - Da fare rispetto al §12: lo script di Blender e l'esportazione in un solo GLB (oggi il montaggio avviene
   nel gioco, dai pezzi), i posti con il manichino, l'ADR del formato, e le altre auto (piccola e grande).

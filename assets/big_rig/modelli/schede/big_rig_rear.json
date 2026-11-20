@@ -1,5 +1,5 @@
 {
-  "_note": "The Big Rig's rear section (see big_rig_front.json for the conventions): the wagon with the radar dish and the hazard chute. 6.04 m per unit of its model, so its body is as wide as the tractor's; the ring of its tow bar is its hitch_front, 3 m ahead of its middle, which is 0.042 units ahead of the model's. The ground is 0.325 units under the model's middle. The radar is part of the body for now. The machine gun on the roof plate is the node turret, mounted facing backward (extra facing = pi: its zero is the rear, it fires in the rear arc), so its model is not turned half round.",
+  "_note": "The Big Rig's rear section (see big_rig_front.json for the conventions): the wagon with the radar dish and the hazard chute. 6.04 m per unit of its model, so its body is as wide as the tractor's; body and chute are in the middle of its space; its tow bar, generated too long, is shortened (mesh.squash) so its ring is the hitch_front 3 m ahead, on the middle section's pin. The ground is 0.325 units under the model's middle. The radar is part of the body for now. The machine gun on the roof plate is the node turret, mounted facing backward (extra facing = pi: its zero is the rear, it fires in the rear arc), so its model is not turned half round.",
   "id": "big_rig_rear",
   "length_m": 6.0,
   "show_mm": 46,
@@ -27,10 +27,15 @@
         "scale": 6.04,
         "yaw": 3.14159265,
         "at": [
-          0.254,
+          0.679,
           1.063,
           0
-        ]
+        ],
+        "squash": {
+          "from": -0.245,
+          "to": -0.43,
+          "scale": 0.617
+        }
       }
     },
     {
@@ -46,7 +51,7 @@
       "source": "big_rig_gun.glb",
       "parent": "body",
       "pivot": [
-        -0.743,
+        -0.318,
         1.305,
         0
       ],
@@ -91,7 +96,7 @@
       "width": 0.37,
       "axles": [
         {
-          "x": 0.616,
+          "x": 1.041,
           "track": 1.15,
           "steer": false,
           "drive": false,
@@ -102,7 +107,7 @@
           ]
         },
         {
-          "x": -0.471,
+          "x": -0.046,
           "track": 1.15,
           "steer": false,
           "drive": false,

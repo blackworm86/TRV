@@ -1,5 +1,5 @@
 {
-  "_note": "The Big Rig's middle section (see big_rig_front.json for the conventions): the wagon with the helipad, the crane and the exhaust stacks. 6.617 m per unit of its model, so its body is as wide as the tractor's; the ring of its tow bar is its hitch_front, 3 m ahead of its middle, and the next trailer hooks 3 m behind. The ground is 0.28 units under the model's middle.",
+  "_note": "The Big Rig's middle section (see big_rig_front.json for the conventions): the wagon with the helipad, the crane and the exhaust stacks. 6.617 m per unit of its model, so its body is as wide as the tractor's; its body is in the middle of its space; its tow bar, generated too long, is shortened (mesh.squash) so its ring, raised to the tractor's pin, is the hitch_front 3 m ahead; the model has no rear hook, so the hitch_rear 3 m behind carries a plain arm and pin. The ground is 0.28 units under the model's middle.",
   "id": "big_rig_mid",
   "length_m": 6.0,
   "show_mm": 46,
@@ -26,17 +26,23 @@
         "scale": 6.617,
         "yaw": 3.14159265,
         "at": [
-          0,
+          0.877,
           0.953,
           0
-        ]
+        ],
+        "squash": {
+          "from": -0.165,
+          "to": -0.43,
+          "scale": 0.494,
+          "lift": 0.081
+        }
       }
     },
     {
       "node": "hitch_front",
       "pivot": [
         3.0,
-        0.5,
+        1.0,
         0
       ]
     },
@@ -44,8 +50,36 @@
       "node": "hitch_rear",
       "pivot": [
         -3.0,
-        0.9,
+        0.6,
         0
+      ],
+      "shapes": [
+        {
+          "box": [
+            1.131,
+            0.1,
+            0.16
+          ],
+          "at": [
+            0.566,
+            -0.02,
+            0
+          ],
+          "color": "#5b4334"
+        },
+        {
+          "cyl": [
+            0.07,
+            0.36
+          ],
+          "axis": "y",
+          "at": [
+            0,
+            0.13,
+            0
+          ],
+          "color": "#5b4334"
+        }
       ]
     },
     {
@@ -63,7 +97,7 @@
       "width": 0.4,
       "axles": [
         {
-          "x": 0.165,
+          "x": 1.042,
           "track": 0.99,
           "steer": false,
           "drive": true,
@@ -74,7 +108,7 @@
           ]
         },
         {
-          "x": -1.952,
+          "x": -1.075,
           "track": 0.99,
           "steer": false,
           "drive": true,

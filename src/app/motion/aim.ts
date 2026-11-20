@@ -13,6 +13,17 @@ import type { Moment, MotionPlan } from './plan';
 
 const A = P.motion.aim;
 
+/**
+ * Which piece of a Big Rig fires at a target. The rules count every shot of the rig from its
+ * tractor's space, over the tractor's front arc and the rear section's rear arc; on the table the
+ * rear arc is the rear gun's: the rear section fires when the target is nearer to it than to the tractor.
+ */
+export function rigShooter<T extends { x: number; z: number }>(front: T, rear: T | undefined, to: { x: number; z: number }): T {
+  if (!rear) return front;
+  const d = (a: T): number => Math.hypot(a.x - to.x, a.z - to.z);
+  return d(rear) < d(front) ? rear : front;
+}
+
 /** Heading difference wrapped to (-π, π]. */
 const wrap = (a: number): number => Math.atan2(Math.sin(a), Math.cos(a));
 /** Eases 0..1 in and out. */

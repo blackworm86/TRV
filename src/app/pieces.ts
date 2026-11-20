@@ -431,6 +431,9 @@ export function drawTable(s: Snapshot): void {
       o.position.copy(v.pos ? world(v.pos) : startSpot(v));
     }
     o.userData.id = v.id;
+    // Its Big Rig section and its crew, for the gun that fires (effects.ts: the rear arc is the rear gun's).
+    o.userData.rigSection = v.rig;
+    o.userData.owner = v.owner;
     o.userData.wreck = v.isWreck;
     // ON FIRE! (Carnage at Devil's Run): flames ride on the car while it burns.
     const flames = o.userData.flames as THREE.Object3D | undefined;

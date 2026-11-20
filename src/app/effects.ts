@@ -9,6 +9,7 @@ import { pitFall, shatter } from './wreckage';
 import { carObjs, chopperObjs } from './board';
 import { collectMaterials } from './pieces';
 import { P } from './presentation';
+import { rigShooter } from './motion/aim';
 import { settings } from './settings';
 import { TILE_T, TILE_W, camera, renderer, scene } from './stage';
 import { S } from './state';
@@ -222,8 +223,12 @@ export const bulletGeo = new THREE.CylinderGeometry(0.022, 0.022, 1, 6);
  * and fires a burst. Every round has a muzzle flash, a recoil, a tracer that flies to the target
  * and sparks where it lands. The die that follows says whether it did any damage.
  */
-/** Who fires from `from` at `targetId`: a chopper standing over that spot, else the nearest car to it. */
-function shooterAt(from: THREE.Vector3, targetId?: string): { shooter: THREE.Object3D | undefined; flying: boolean } {
+/**
+ * Who fires from `from` at `targetId`: a chopper standing over that spot, else the nearest car to it.
+ * A Big Rig's tractor hands the shot to its rear section when the target, at `to`, is in the rear
+ * arc (asked by the user, 2026-11-20: the rear arc is fired by the rear machine gun).
+ */
+function shooterAt(from: THREE.Vector3, targetId?: string, to?: THREE.Vector3): { shooter: THREE.Object3D | undefined; flying: boolean } {
   let shooter: THREE.Object3D | undefined, flying = false;
   for (const o of chopperObjs.values()) {
     const tg = o.userData.target as THREE.Vector3 | undefined;
@@ -236,13 +241,18 @@ function shooterAt(from: THREE.Vector3, targetId?: string): { shooter: THREE.Obj
       const d = Math.hypot(o.position.x - from.x, o.position.z - from.z);
       if (d < best) { best = d; shooter = o; }
     }
+    if (shooter?.userData.rigSection === 'front' && to) {
+      const owner = shooter.userData.owner as number | null;
+      const rear = [...carObjs.values()].find(o => o.userData.rigSection === 'rear' && o.userData.owner === owner && o.visible);
+      shooter = rigShooter(shooter.position, rear?.position, to) === rear?.position ? rear : shooter;
+    }
   }
   return { shooter, flying };
 }
 
 /** The shooter turns its gun on the target and holds it there, before the die says how the burst goes. */
 export function aimAt(from: THREE.Vector3, to: THREE.Vector3, targetId?: string): void {
-  const { shooter } = shooterAt(from, targetId);
+  const { shooter } = shooterAt(from, targetId, to);
   if (shooter) shooter.userData.aim = Math.atan2(-(to.z - shooter.position.z), to.x - shooter.position.x);
 }
 
@@ -252,7 +262,7 @@ export function aimAt(from: THREE.Vector3, to: THREE.Vector3, targetId?: string)
  * sends them wide and past, raising dust where they land.
  */
 export function burst(from: THREE.Vector3, to: THREE.Vector3, targetId?: string, hit = true): void {
-  const { shooter, flying } = shooterAt(from, targetId);
+  const { shooter, flying } = shooterAt(from, targetId, to);
   const origin = (shooter?.position ?? from).clone();
   const yaw = Math.atan2(-(to.z - origin.z), to.x - origin.x);
   if (shooter) shooter.userData.aim = yaw;

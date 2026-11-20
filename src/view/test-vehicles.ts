@@ -37,7 +37,25 @@ export interface SheetAxle { x: number; track: number; steer: boolean; drive?: b
  * How a part's own model sits in its node: scaled (model units to the sheet's metres), turned about y
  * (the generated models have their nose toward -x, the sheets toward +x), then moved.
  */
-export interface SheetMesh { scale: number; yaw?: number; at?: V3 }
+export interface SheetMesh { scale: number; yaw?: number; at?: V3; squash?: SheetSquash }
+
+/**
+ * Shortens a stretch of a part's model along its own x (model units, before `scale` and `yaw`): the
+ * points between `from` and `to` are drawn toward `from` by `scale` (0.5 halves the stretch), those
+ * beyond `to` follow in one piece, keeping their shape. `lift` raises the far end by that much, the
+ * stretch sloping up to it. For a tow bar generated too long: its ring keeps its shape and comes
+ * nearer, and up to the pin it hooks on.
+ */
+export interface SheetSquash { from: number; to: number; scale: number; lift?: number }
+
+/** Where `squash` puts a point of the model (x and y; z never changes). */
+export function squashed(x: number, y: number, q: SheetSquash): [number, number] {
+  const t = (x - q.from) / (q.to - q.from);
+  if (t <= 0) return [x, y];
+  const lift = q.lift ?? 0;
+  if (t >= 1) return [x + (q.to - q.from) * (q.scale - 1), y + lift];
+  return [q.from + (x - q.from) * q.scale, y + lift * t];
+}
 
 /** A part of a sheet: a node, where it hangs, its shapes; any other key becomes the node's extras. */
 export interface SheetPart {
@@ -136,7 +154,23 @@ function modelMesh(name: string, src: THREE.Object3D, m: SheetMesh): THREE.Group
   const g = new THREE.Group();
   g.name = `${name}_mesh`;
   const held = new THREE.Group();
-  held.add(src.clone(true));
+  const copy = src.clone(true);
+  const q = m.squash;
+  // Its own geometry: the model it is copied from is shared by every vehicle made of it.
+  if (q) copy.traverse(o => {
+    const mesh = o as THREE.Mesh;
+    if (!mesh.isMesh) return;
+    const geo = mesh.geometry.clone(), pos = geo.getAttribute('position');
+    for (let i = 0; i < pos.count; i++) {
+      const [x, y] = squashed(pos.getX(i), pos.getY(i), q);
+      pos.setXY(i, x, y);
+    }
+    pos.needsUpdate = true;
+    geo.computeBoundingBox();
+    geo.computeBoundingSphere();
+    mesh.geometry = geo;
+  });
+  held.add(copy);
   held.scale.setScalar(m.scale);
   held.rotation.y = m.yaw ?? 0;
   held.position.set(...(m.at ?? [0, 0, 0]));
