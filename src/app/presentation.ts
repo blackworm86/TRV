@@ -63,7 +63,9 @@ export interface Presentation {
   /** The "Tocca a..." splash at the start of a turn (app/turnsplash.ts). */
   turnSplash: { seconds: number };
   /** A gun's burst; it fires after the shooting die (aimBeat, afterDie), hitting (debris) or missing (missOffset). */
-  burst: { aim: number; rounds: number; gap: number; speed: number; spread: number; aimBeat: number; afterDie: number; missOffset: number; debris: { pieces: number; speed: number; lift: number; life: number; size: number } };
+  burst: { aim: number; rounds: number; gap: number; speed: number; spread: number; aimBeat: number; afterDie: number; missOffset: number; debris: { pieces: number; speed: number; lift: number; life: number; size: number };
+    /** The spent casings thrown out at every round (app/motion/casing.ts). */
+    casings: { breech: number; side: number; up: number; back: number; gravity: number; bounce: number; life: number; fade: number; length: number; radius: number; spin: number; color: string } };
   salvo: { seconds: number; perSpace: number; stagger: number; flight: number; apex: number; mark: number };
   /** How a vehicle moves on its springs and how a motorcycle leans (view/models-config.ts, app/cars.ts; design/gdd/vehicle-motion.md). */
   motion: {
@@ -79,6 +81,8 @@ export interface Presentation {
     ride: { rate: number };
     settleEps: { x: number; v: number };
     bike: { lean: number; leanMax: number; speedCap: number; leanRate: number; drift: number; gLean: number };
+    /** The motorcycle's rider (app/motion/rider.ts). */
+    rider: import('./motion/rider').RiderTuning;
     moves: {
       pushSpeed: number; pushHop: number; pushSettle: number; pushKick: number;
       hitLunge: number; hitSeconds: number; hitKick: number;

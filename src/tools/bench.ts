@@ -21,6 +21,8 @@ import { makeAim, planAim, pointingAt, stepAim, type Aim } from '../app/motion/a
 import { MotionTrack, type Moment, type MotionPlan } from '../app/motion/plan';
 import { PartsRig, rideHeight, type Ground } from '../app/motion/rig';
 import { springStill } from '../app/motion/plan';
+import { riderDemo, riderJoints, riderPose, type P3, type RiderState } from '../app/motion/rider';
+import { buildRider, placeRider } from '../view/rider-figure';
 import { SceneQueue, type Scene, type SceneTimes } from '../app/scenes';
 import { CameraOwner } from '../app/camera-owner';
 import { chooseShot, frame as framePose, freeRect, shotDir, toFrame, type Pose as CamPose, type ShotSpec, type Subject } from '../view/camera/framing';
@@ -221,6 +223,12 @@ let vehicle: THREE.Group;
 let desc: PartsDescriptor;
 let rest: Rest;
 let rig: PartsRig;
+/** The motorcycle's rider (app/motion/rider.ts), on its seat, with the grips and footrests it holds. */
+let rider: { figure: THREE.Group; seat: THREE.Object3D; holds: Record<'gripL' | 'gripR' | 'footL' | 'footR', THREE.Object3D> } | null = null;
+/** What the rider is doing now, shown by the clock. */
+let riderLabel = '';
+/** Where the rider's uzi points in the rider's show, in its seat's frame (ahead and to the left). */
+const UZI_TARGET: P3 = { x: 3, y: 0.4, z: -2.5 };
 const overlays: { axes: THREE.Object3D[]; sockets: THREE.Object3D[] } = { axes: [], sockets: [] };
 const ghostMats = new Map<THREE.Mesh, THREE.Material | THREE.Material[]>();
 const HOME: Space = [2, 3];
@@ -244,6 +252,7 @@ function mount(i: number): void {
   toTable(bare, s, MM);
   vehicle.userData.modelSize = new THREE.Box3().setFromObject(bare).getSize(new THREE.Vector3());
   scene.add(vehicle);
+  mountRider(i);
   desc = describeVehicle(vehicle);
   rest = {
     susp: new Map(desc.wheels.filter(w => w.susp).map(w => [w.susp!, w.susp!.position.y])),
@@ -340,6 +349,55 @@ function showDescriptor(): void {
   verdict.className = problems.length ? 'bad' : 'ok';
   verdict.textContent = problems.length ? `problemi:\n- ${problems.join('\n- ')}` : `la scheda dichiara: ${sheet.capabilities.join(', ')} — nessun pezzo mancante`;
   el.appendChild(verdict);
+}
+
+/**
+ * On the motorcycle the dummy gives way to the jointed rider (asked by the user, 2026-11-20). Its grips
+ * and footrests are found before the figure is added, whose pieces have bone names of their own.
+ */
+function mountRider(i: number): void {
+  rider = null;
+  if (!VEHICLES[i].bike) return;
+  const seat = vehicle.getObjectByName('seat_rider');
+  const node = (n: string): THREE.Object3D | undefined => vehicle.getObjectByName(n);
+  const gripL = node('grip_L'), gripR = node('grip_R'), footL = node('foot_L'), footR = node('foot_R');
+  if (!seat || !gripL || !gripR || !footL || !footR) return;
+  vehicle.getObjectByName('dummy_rider')?.removeFromParent();
+  const figure = buildRider('#c8552d');
+  seat.add(figure);
+  rider = { figure, seat, holds: { gripL, gripR, footL, footR } };
+}
+
+/** One frame of the rider: its pose for what the bike does (`s`), its limbs on the grips and footrests. */
+function poseRider(s: RiderState): void {
+  if (!rider) return;
+  vehicle.updateMatrixWorld(true);
+  const local = (o: THREE.Object3D): P3 => { const p = rider!.seat.worldToLocal(o.getWorldPosition(new THREE.Vector3())); return { x: p.x, y: p.y, z: p.z }; };
+  const h = rider.holds;
+  const p = riderPose(s, P.motion.rider);
+  const aim = s.fire?.weapon === 'uzi' ? s.fire.target : undefined;
+  placeRider(rider.figure, riderJoints(p, { gripL: local(h.gripL), gripR: local(h.gripR), footL: local(h.footL), footR: local(h.footR) }, P.motion.rider, aim), p, aim);
+}
+
+/** The rider in the demo: the bike leans, drifts, pulls a wheelie, jumps, fires its gun and the uzi. */
+function riderShow(time: number): void {
+  if (!rider) return;
+  const d = riderDemo(time, UZI_TARGET);
+  const k = sheet.show_mm * MM / sheet.length_m;
+  // A wheelie turns about the rear wheel, 0.72 m behind the middle (collaudo_moto.json).
+  vehicle.rotation.set(d.bike.roll, d.bike.slip, d.bike.pitch);
+  vehicle.position.y = spaceWorld(HOME).y + (Math.sin(d.bike.pitch) * 0.72 + d.bike.lift) * k;
+  riderLabel = d.label;
+  poseRider(d.state);
+}
+
+/** The rider on a scenario or by hand: it follows the bike's lean and pitch, a jump and the mounted gun. */
+function riderFollow(): void {
+  if (!rider) return;
+  const body = desc.body?.rotation;
+  const lean = vehicle.rotation.x + (body ? body.x - rest.body.x : 0), pitch = vehicle.rotation.z + (body ? body.z - rest.body.z : 0);
+  riderLabel = run?.aim ? 'mitragliatrice' : run?.jump ? 'salto' : '';
+  poseRider({ lean, slip: 0, pitch, air: run?.jump ? 1 : 0, land: 0, fire: run?.aim ? { weapon: 'mount' } : null });
 }
 
 // ---- moving the parts by hand or in the demo ----
@@ -1067,7 +1125,8 @@ renderer.setAnimationLoop(() => {
     spinAngle -= hand.spin * Math.PI * 2 * dt;
     pose(mode === 'demo' ? demoPose(t) : { ...hand, spin: spinAngle });
   }
-  $('clock').textContent = `t = ${fmt(t)} s · ${String(speed).replace('.', ',')}×${paused ? ' · in pausa' : ''}`;
+  if (mode === 'demo' && !run) riderShow(t); else riderFollow();
+  $('clock').textContent = `t = ${fmt(t)} s · ${String(speed).replace('.', ',')}×${paused ? ' · in pausa' : ''}${riderLabel ? ' · pilota: ' + riderLabel : ''}`;
   controls.update();
   renderer.render(scene, camera);
 });
@@ -1075,6 +1134,7 @@ renderer.setAnimationLoop(() => {
 /** For the bench's browser checks (tests/integration). */
 (window as unknown as { __bench: unknown }).__bench = {
   get t() { return t; }, get desc() { return desc; }, get vehicle() { return vehicle; }, get run() { return run; },
+  get rider() { return rider; }, get riderLabel() { return riderLabel; },
   get train() { return train; }, get cast() { return cast; }, get camOwner() { return camOwner; },
   setPaused, setTime: (v: number) => { t = v; }, exportGlb, groundAt,
   play: (id: string) => { const sc = SCENARIOS.find(s => s.id === id); if (sc) startScenario(sc); },

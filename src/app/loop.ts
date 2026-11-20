@@ -96,7 +96,8 @@ renderer.setAnimationLoop(t => {
   timer.update(t);
   // Behind the first screen nothing is drawn: it is a screen of its own, and the computer rests.
   if (menuOpen()) { $('cmdwrap').classList.remove('on'); return; }
-  const rawDt = Math.min(timer.getDelta(), 0.1);
+  // A slow frame still moves the clock on (up to 0.2 s), so a slow computer does not play in slow motion.
+  const rawDt = Math.min(timer.getDelta(), 0.2);
   frameTimes(rawDt);
   const dt = rawDt * timeScale * (S.playing ? SPEED_SCALE[settings.speed] : 1);
   const k = 1 - Math.exp(-dt * 10);

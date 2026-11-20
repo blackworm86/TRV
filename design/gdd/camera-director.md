@@ -238,6 +238,9 @@ L'ordine di integrazione con #25 e #37, il veicolo di collaudo e il banco prova 
    (`src/app/camera-owner.ts`) e usato sul banco; vista mappa, zoom e replay lo useranno con la fase 6.
 5. **Registrazioni di prova** per ogni tipo di scena, giudicate dall'utente.
 
+Il piano dei passi successivi (stacchi, camera viva, ostacoli sfumati, peso dei veicoli, equipaggi, replay) è in
+[piano-regia-animazioni.md](../../docs/piano-regia-animazioni.md) (2026-11-20).
+
 ## Non ancora fatto
 
 - Dissolvenza di rocce e veicoli che coprono: oggi il director li evita scegliendo un'altra candidata, e

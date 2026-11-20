@@ -3,9 +3,9 @@
   "beats": {
     "_module": "beats.ts: how long each beat of the rules lasts before the next one",
     "seconds": { "order": 2.4, "move": 0.32, "roll": 1.15, "slam": 1.0, "shot": 1.7, "damage": 1.9, "elim": 1.5, "reveal": 0.8, "tile": 1.1, "round": 2.6, "chopper": 0.8, "jump": 1.4, "fire": 1.0 },
-    "speed_scale": { "full": 0.6, "fast": 1.15, "skip": 1 },
+    "speed_scale": { "full": 1.0, "fast": 1.8, "skip": 1 },
     "_settle": "After the last beat the table must come to rest (cars parked, dice landed, effects and the worm over) before the next choice or the end of the game; settle_max_s: the longest wait, in seconds of real time, in case something never stops.",
-    "settle_max_s": 6
+    "settle_max_s": 4
   },
   "scenes": {
     "_module": "app/scenes.ts, the director's scenes (design/gdd/camera-director.md §A): how the rules' frames are grouped into scenes and how long each phase lasts. takes: for each kind of scene, the kinds of frame that join it after the one that starts it (a log line joins whatever scene it falls in; moves of the same vehicle make one drive scene; a ramp's stunt die starts the jump scene it belongs to). push_moves: the most moves a slam scene takes after its direction die (the push, and Assault Bumper's extra space). prep: seconds for the camera to come onto the scene before its action (none for log lines); hold: seconds the scene stays on screen once its action is over, by kind (other: any kind not listed). Seconds at normal speed, scaled by beats.speed_scale.",
@@ -184,7 +184,9 @@
     "aim": 0.32, "rounds": 8, "gap": 0.085, "speed": 26, "spread": 0.22,
     "_after_die": "The burst comes after the shooting die (asked by the user, 2026-11-19): the shot's own beat only aims (aim_beat seconds), and the burst starts after_die seconds after the die is thrown, once it has landed. A hit throws debris pieces of the target (speed and lift in world units per second, life in seconds) and sparks; a miss sends the rounds miss_offset spaces wide and past, raising dust where they land.",
     "aim_beat": 0.5, "after_die": 0.9, "miss_offset": 0.9,
-    "debris": { "pieces": 14, "speed": 2.4, "lift": 3.4, "life": 1.6, "size": 0.13 }
+    "debris": { "pieces": 14, "speed": 2.4, "lift": 3.4, "life": 1.6, "size": 0.13 },
+    "_casings": "app/motion/casing.ts: every round throws a spent casing out of the breech, back from the muzzle by breech (world units), to the gun's right (side), up and back (world units per second); it falls (gravity), bounces once on the table keeping bounce of its speed, lies there and fades in the last fade share of its life (seconds). length and radius: its size. Asked by the user, 2026-11-20, instead of a recoil; the chopper's gun too.",
+    "casings": { "breech": 0.12, "side": 1.3, "up": 1.5, "back": 0.35, "gravity": 9, "bounce": 0.35, "life": 1.4, "fade": 0.35, "length": 0.04, "radius": 0.01, "spin": 22, "color": "#c9a24a" }
   },
   "motion": {
     "_module": "view/models-config.ts (CarRig) and app/cars.ts: how a vehicle moves on its springs and how a motorcycle leans; the Vehicle Motion system (design/gdd/vehicle-motion.md, #36) grows from here",
@@ -222,6 +224,12 @@
       "lean": 0.055, "lean_max": 0.6, "speed_cap": 6, "lean_rate": 7, "drift": 1.35,
       "_g_lean": "app/motion/drive.ts bikeLean (design/gdd/vehicle-motion.md): lean = atan(v * yaw_rate / g_lean), at most lean_max; world units per second squared",
       "g_lean": 9.8
+    },
+    "rider": {
+      "_note": "app/motion/rider.ts, the motorcycle's rider (asked by the user, 2026-11-20). Metres at real scale, angles in radians. torso, head, shoulder and hip (half-widths), upper_arm, lower_arm, thigh, shin: its measures. ride: forward bend of the back to reach the grips; lean_in: its extra lean as a share of the bike's; level: share of the tilt the head takes back to keep its eyes level; twist: chest turn toward the path in a drift as a share of the drift, look: the head's, times the chest's; wheelie_bend and wheelie_shift (m): forward bend and shift of the hips per radian of wheelie; stand, absorb (m): up on the pegs in a jump, down on the landing; crouch: extra bend behind the mounted gun; reach: how far the uzi arm stretches toward the target, a share of its length.",
+      "torso": 0.5, "head": 0.3, "shoulder": 0.2, "hip": 0.1, "upper_arm": 0.33, "lower_arm": 0.33, "thigh": 0.45, "shin": 0.45,
+      "ride": 0.85, "lean_in": 0.35, "level": 0.6, "twist": 0.8, "look": 1.4, "wheelie_bend": 0.9, "wheelie_shift": 0.12,
+      "stand": 0.22, "absorb": 0.12, "crouch": 0.2, "reach": 0.95
     },
     "moves": {
       "_note": "app/motion/moves.ts. push: a vehicle pushed off its space (slam, bump) slides at push_speed road spaces per second, hopping push_hop spaces, then settles push_settle seconds; push_kick rocks its body (radians per second). hit: the one that hits lunges hit_lunge spaces in hit_seconds, its nose dipping by hit_kick. skid (Stunned): it swings skid_angle radians out of line and back in skid_seconds, sliding skid_slide spaces. flip (out of action): it tips onto its side in flip_seconds, hopping flip_hop of its height. fall (into a pit): it rolls onto the hole, then drops fall_depth spaces tipping fall_tip radians, in fall_seconds",

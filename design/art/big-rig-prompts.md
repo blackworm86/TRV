@@ -323,6 +323,9 @@ le ruote non girano e le armi non ruotano.
 
 ## 2. Moto delle Final Five
 
+> **Superato (2026-11-20)**: la moto si rifà a pezzi, moto, ruote, pilota e armi separati. I prompt nuovi
+> sono in [moto-pilota-prompts.md](moto-pilota-prompts.md).
+
 Una moto da combattimento con il **pilota in sella** (senza pilota sembrerebbe parcheggiata). Sul
 tavolo è un **veicolo piccolo**: lunga quanto l'auto piccola (circa 22 mm) ma molto più stretta.
 Ha un'**arma** davanti al manubrio, perché spara come le auto.

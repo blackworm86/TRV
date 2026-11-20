@@ -10,6 +10,7 @@ import { carObjs, chopperObjs } from './board';
 import { collectMaterials } from './pieces';
 import { P } from './presentation';
 import { rigShooter } from './motion/aim';
+import { casingAt, ejectVelocity } from './motion/casing';
 import { settings } from './settings';
 import { TILE_T, TILE_W, camera, renderer, scene } from './stage';
 import { S } from './state';
@@ -220,7 +221,7 @@ export const BURST = P.burst;
 export const bulletGeo = new THREE.CylinderGeometry(0.022, 0.022, 1, 6);
 /**
  * A shot: the shooter (the car on that spot, or a chopper over it) turns its gun on the target
- * and fires a burst. Every round has a muzzle flash, a recoil, a tracer that flies to the target
+ * and fires a burst. Every round has a muzzle flash, a spent casing, a tracer that flies to the target
  * and sparks where it lands. The die that follows says whether it did any damage.
  */
 /**
@@ -302,7 +303,7 @@ export function burst(from: THREE.Vector3, to: THREE.Vector3, targetId?: string,
   function round(n: number): void {
     const a = muzzleAt();
     const b = target.clone().add(new THREE.Vector3((Math.random() - 0.5) * 2 * BURST.spread, (Math.random() - 0.3) * BURST.spread, (Math.random() - 0.5) * 2 * BURST.spread));
-    if (turret) turret.userData.kick = 1; // the gun kicks back
+    casing(a, yaw, n);
     // Muzzle flash: a hot star at the barrel and a blink of light.
     const fl = new THREE.Sprite(new THREE.SpriteMaterial({ map: smokeTex, color: 0xffe9a0, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending }));
     fl.position.copy(a);
@@ -334,6 +335,37 @@ export function burst(from: THREE.Vector3, to: THREE.Vector3, targetId?: string,
       if (v >= 1) { scene.remove(m); (m.material as THREE.Material).dispose(); if (hit) sparks(b, dir); else dust(b); }
     } });
   }
+}
+
+/** The casings' shape and brass, shared by every casing. */
+const casingGeo = new THREE.CylinderGeometry(1, 1, 1, 6);
+const casingMat = new THREE.MeshStandardMaterial({ color: P.burst.casings.color, metalness: 0.85, roughness: 0.3, transparent: true });
+
+/**
+ * A spent casing thrown out of the breech of a gun firing along `yaw` from its muzzle `muzzle`: it flies
+ * to the gun's right, bounces once on the table and fades where it lies (app/motion/casing.ts). It never
+ * holds up the next beat (lingers).
+ */
+function casing(muzzle: THREE.Vector3, yaw: number, n: number): void {
+  if (!settings.effects) return;
+  const C = P.burst.casings, flight = { gravity: C.gravity, bounce: C.bounce, ground: TILE_T + C.radius };
+  const p0 = { x: muzzle.x - Math.cos(yaw) * C.breech, y: muzzle.y, z: muzzle.z + Math.sin(yaw) * C.breech };
+  const jitter = ((n * 7) % 5) / 2 - 1;
+  const v0 = ejectVelocity(yaw, C.side, C.up, C.back, jitter);
+  const mat = casingMat.clone();
+  const m = new THREE.Mesh(casingGeo, mat);
+  m.scale.set(C.radius, C.length, C.radius);
+  m.castShadow = true;
+  scene.add(m);
+  effects.push({ life: C.life, t: 0, lingers: true, step: v => {
+    const t = v * C.life, at = casingAt(p0, v0, flight, t);
+    m.position.set(at.x, at.y, at.z);
+    // It tumbles while it flies and lies on its side once still.
+    const still = at.y <= flight.ground + 1e-4 && t > 0.2;
+    if (!still) m.rotation.set(t * C.spin, yaw, t * C.spin * 0.6); else m.rotation.set(0, yaw + Math.PI / 2, Math.PI / 2);
+    mat.opacity = v < 1 - C.fade ? 1 : (1 - v) / C.fade;
+    if (v >= 1) { scene.remove(m); mat.dispose(); }
+  } });
 }
 
 /** Pieces of a vehicle struck by a burst: bits of its body, dark metal and hot glowing ones, thrown up and about. */

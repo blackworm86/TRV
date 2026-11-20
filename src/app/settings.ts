@@ -27,7 +27,7 @@ try { Object.assign(settings, JSON.parse(localStorage.getItem(SETTINGS_KEY) ?? '
 export function saveSettings(): void {
   try { localStorage.setItem(SETTINGS_KEY, JSON.stringify(settings)); } catch { /* storage off */ }
 }
-/** How fast the beats play for each speed setting (1 = the old pace, judged too fast by the user). */
+/** How fast the beats play for each speed setting (full: 1, back from 0.6, which the user judged too slow on 2026-11-20). */
 export const SPEED_SCALE: Record<Speed, number> = P.beats.speedScale;
 /** What each quality level changes: render resolution, the lamp's shadow, model texture size, effects. */
 export const LEVELS: Record<Level, { pixelRatio: number; shadow: number; texture: number; particles: number }> = {

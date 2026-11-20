@@ -129,7 +129,7 @@ export function applyGlow(o: THREE.Object3D, now: number): void {
 }
 /**
  * The car's own gun, cut out of the model (GUNS in models-config.ts) so it can turn on its mount.
- * It swivels toward `o.userData.aim` (a world yaw) and kicks back at every round; at rest it points
+ * It swivels toward `o.userData.aim` (a world yaw); at rest it points
  * forward. It rides on the body, so it leans and shakes with it.
  */
 export function mountGun(o: THREE.Group, model: THREE.Object3D, spec: GunSpec): void {
@@ -150,9 +150,7 @@ export function mountGun(o: THREE.Group, model: THREE.Object3D, spec: GunSpec): 
   gun.userData.restX = gun.children[0].position.x;
   o.userData.turret = gun;
 }
-/** How far a gun kicks back along its barrel at each round, in model units. */
-export const GUN_KICK = 0.02;
-/** One frame of a gun: it turns toward its aim (or back forward) and recovers from the recoil. */
+/** One frame of a gun: it turns toward its aim (or back forward). No recoil (the user, 2026-11-20): the guns throw casings instead. */
 export function driveGun(o: THREE.Object3D, carYaw: number, dt: number): void {
   const gun = o.userData.turret as THREE.Object3D | undefined;
   if (!gun) return;
@@ -160,9 +158,6 @@ export function driveGun(o: THREE.Object3D, carYaw: number, dt: number): void {
   let want = aim === null || aim === undefined ? 0 : aim - carYaw;
   want = Math.atan2(Math.sin(want - gun.rotation.y), Math.cos(want - gun.rotation.y));
   gun.rotation.y += want * Math.min(1, dt * 12);
-  const kick = ((gun.userData.kick ?? 0) as number) * Math.exp(-dt * 22);
-  gun.userData.kick = kick;
-  (gun.userData.piece as THREE.Object3D).position.x = (gun.userData.restX as number) + kick * GUN_KICK; // the barrel points to -x
 }
 
 /** Shows or hides a piece's stand-in (the flames of a burning car and its marking stay as they are). */

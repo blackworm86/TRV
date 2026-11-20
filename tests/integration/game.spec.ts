@@ -59,7 +59,8 @@ async function open(page: Page, opts: { save?: number[]; setup?: object; setting
     localStorage.setItem(settingsKey as string, JSON.stringify(settings));
   }, [SAVE_KEY, SETTINGS_KEY, opts.save ? { setup: opts.setup ?? { seed: SEED, startSide: 'a',
     ...(opts.leaders ? { players: PLAYERS.map((p, i) => ({ ...p, leader: opts.leaders![i] })), leaders: true } : { players: PLAYERS }) }, choices: opts.save } : null,
-    { quality: 'low', ...opts.settings }] as const);
+    // Fast animations unless a test checks them (asked by the user, 2026-11-20): it names its speed.
+    { quality: 'low', speed: 'fast', ...opts.settings }] as const);
   // The first screen connects to the online store at once (its home lists one's games and friends):
   // the checks use the local store, never the real Firebase project.
   await page.goto(GAME + (opts.query ?? '?net=local'));
