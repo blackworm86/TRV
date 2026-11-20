@@ -112,6 +112,20 @@ export function tintedMaterial(src: THREE.MeshStandardMaterial, tint: Tint): THR
   return m;
 }
 
+/**
+ * A copy of `model` whose meshes have materials of their own (textures still shared): a light set on
+ * one vehicle's parts (the active car's glow) does not show on another vehicle made of the same model.
+ */
+export function ownMaterials(model: THREE.Object3D): THREE.Object3D {
+  const out = model.clone(true);
+  out.traverse(o => {
+    const mesh = o as THREE.Mesh;
+    if (!mesh.isMesh) return;
+    mesh.material = Array.isArray(mesh.material) ? mesh.material.map(m => m.clone()) : mesh.material.clone();
+  });
+  return out;
+}
+
 /** Clones `model` and gives every mesh its own tinted material. */
 export function dressed(model: THREE.Object3D, tint: Tint): THREE.Object3D {
   const out = model.clone(true);

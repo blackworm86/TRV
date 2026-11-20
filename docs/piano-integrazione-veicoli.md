@@ -253,3 +253,10 @@ Richieste dell'utente dello stesso giorno.
 - **Riparazione del Big Rig**: la domanda era presa per quella delle auto; ora si sceglie il danno sulle plance (`src/app/rigchoice.ts`).
 - **Vetro del deserto**: nessuna modifica; la regola Sturdy (BRaFF p5) dà un danno minore invece dello spostamento.
 - Prove: `production/qa/evidence/trv-treno-riparazione-2026-11-20/`.
+
+### Doom Buggy (auto piccola), 2026-11-20
+
+- Montata dai pezzi come l'Avenger: `assets/base/modelli/schede/car_s.json`, modelli `car_s_*.glb` (originali in `assets/sorgenti/doom_buggy_2026-11-20/`).
+- Un solo modello di ruota, ridimensionato: dietro raggio 0,64 m (da trattore), davanti 0,47 m. I mozzi del modello sono alla stessa altezza, quindi la carrozzeria è inclinata di 4,4° in avanti (`mesh.pitch`, nuovo campo delle schede).
+- Mitragliatrice sul tetto del roll-bar, divisa in supporto e arma con `tools/art/split_gun.py`; carrozzeria con il 9% non dipinto, colorato da `tools/art/fill_black_faces.py`.
+- Corretto anche un difetto comune: le parti non verniciate (ruote, armi) condividevano i materiali fra veicoli dello stesso modello, e la luce dell'auto attiva accendeva le ruote delle altre (`ownMaterials` in `src/view/models3d.ts`).

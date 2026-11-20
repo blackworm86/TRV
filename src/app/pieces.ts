@@ -7,7 +7,7 @@ import { BASE_CATALOG as CAT, sizeOf, ofKind } from '../game/trv/catalog';
 import { flameCluster, useRampModel, rampPiece } from '../view/terrain/carnage3d';
 import { pitPiece } from '../view/terrain/pit3d';
 import { buildTile, hazardToken, GRID } from '../view/board3d';
-import { ModelBank, dressed, fitToLength, splitParts, splitWheels, type Tint } from '../view/models3d';
+import { ModelBank, dressed, fitToLength, ownMaterials, splitParts, splitWheels, type Tint } from '../view/models3d';
 import { MODEL, SHOW_LENGTH_MM, MODEL_YAW, CHOPPER_PARTS, WHEELS, GUNS, BIKE_BACK, type GunSpec, crewTint, WRECK_TINT, wreckModel, wreckLength, phaseOf, CarRig, modelFile } from '../view/models-config';
 import { DecalGeometry } from 'three/addons/geometries/DecalGeometry.js';
 import { effects } from './beats';
@@ -29,6 +29,7 @@ import { PartsRig } from './motion/rig';
 import { buildTestVehicle, sheetSources, type VehicleSheet } from '../view/test-vehicles';
 import { describeVehicle } from '../view/vehicle-rig';
 import CAR_M from '../../assets/base/modelli/schede/car_m.json';
+import CAR_S from '../../assets/base/modelli/schede/car_s.json';
 import RIG_FRONT from '../../assets/big_rig/modelli/schede/big_rig_front.json';
 import RIG_MID from '../../assets/big_rig/modelli/schede/big_rig_mid.json';
 import RIG_REAR from '../../assets/big_rig/modelli/schede/big_rig_rear.json';
@@ -225,6 +226,8 @@ function useRigModel(o: THREE.Group, part: RigSection, tint: Tint, id: string): 
 
 /** The Medium Car's assembly sheet (assets/base/modelli/schede/car_m.json). */
 const MEDIUM_CAR = CAR_M as unknown as VehicleSheet;
+/** The Small Car's assembly sheet (assets/base/modelli/schede/car_s.json). */
+const SMALL_CAR = CAR_S as unknown as VehicleSheet;
 
 /**
  * Swaps a stand-in piece for the vehicle its assembly sheet describes, mounted from the models of
@@ -240,9 +243,10 @@ function useSheetModel(o: THREE.Group, sheet: VehicleSheet, tint: Tint, id: stri
     if (o.userData.model || ms.some(m => !m)) return;
     const sources: Record<string, THREE.Object3D> = {};
     // Only the parts with paint zones (the bodywork) take the crew's colour: dusty tyres and worn
-    // gun metal are light enough to be painted over by mistake.
+    // gun metal are light enough to be painted over by mistake. The others get materials of their
+    // own, so the glow of one car does not light another car's wheels and gun.
     const painted = new Set(sheet.parts.filter(p => Array.isArray(p.zones)).map(p => p.source));
-    files.forEach((f, i) => { registerTextures(ms[i]!); sources[f] = painted.has(f) ? dressed(ms[i]!, tint) : ms[i]!; });
+    files.forEach((f, i) => { registerTextures(ms[i]!); sources[f] = painted.has(f) ? dressed(ms[i]!, tint) : ownMaterials(ms[i]!); });
     const d = buildTestVehicle(sheet, { crew: false, sources });
     d.traverse(x => { if ((x as THREE.Mesh).isMesh) x.castShadow = true; });
     d.scale.setScalar(scale);
@@ -425,6 +429,8 @@ export function drawTable(s: Snapshot): void {
       } else if (v.rig) useRigModel(o, v.rig, crewTint(g.players[v.owner!].color), v.id);
       // The Medium Car is mounted from its parts (the pilot of the structured models, phase 7).
       else if (v.size === 'M') useSheetModel(o, MEDIUM_CAR, crewTint(g.players[v.owner!].color), v.id, SHOW_LENGTH_MM.M * MM / MEDIUM_CAR.length_m);
+      // The Small Car (the Doom Buggy) too, 2026-11-20.
+      else if (v.size === 'S') useSheetModel(o, SMALL_CAR, crewTint(g.players[v.owner!].color), v.id, SHOW_LENGTH_MM.S * MM / SMALL_CAR.length_m);
       else useModel(o, MODEL.car[v.size], SHOW_LENGTH_MM[v.size], crewTint(g.players[v.owner!].color), v.id);
       carObjs.set(v.id, o);
       scene.add(o);

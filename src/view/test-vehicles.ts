@@ -35,9 +35,10 @@ export interface SheetAxle { x: number; track: number; steer: boolean; drive?: b
 
 /**
  * How a part's own model sits in its node: scaled (model units to the sheet's metres), turned about y
- * (the generated models have their nose toward -x, the sheets toward +x), then moved.
+ * (the generated models have their nose toward -x, the sheets toward +x), then moved; `pitch` then
+ * leans all of it about the node's z (+ = nose up), as a body sitting on wheels of two sizes.
  */
-export interface SheetMesh { scale: number; yaw?: number; at?: V3; squash?: SheetSquash }
+export interface SheetMesh { scale: number; yaw?: number; at?: V3; squash?: SheetSquash; pitch?: number }
 
 /**
  * Shortens a stretch of a part's model along its own x (model units, before `scale` and `yaw`): the
@@ -175,6 +176,7 @@ function modelMesh(name: string, src: THREE.Object3D, m: SheetMesh): THREE.Group
   held.rotation.y = m.yaw ?? 0;
   held.position.set(...(m.at ?? [0, 0, 0]));
   g.add(held);
+  g.rotation.z = m.pitch ?? 0;
   return g;
 }
 

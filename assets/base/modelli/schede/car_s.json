@@ -1,0 +1,152 @@
+{
+  "_note": "The Small Car (the Doom Buggy), mounted from its parts like the Medium Car (docs/piano-integrazione-veicoli.md, phase 7): body, wheel and machine gun are models of their own (Meshy). Metres, nose toward +x; the models have their nose toward -x, hence yaw pi. One wheel model for both axles, scaled: tractor wheels 0.642 m in radius behind, 0.472 m in front (asked by the user, 2026-11-20). The axle stubs are at one height on the model, so the body leans forward 4.4 degrees (mesh.pitch) to sit on both. 3.774 m per unit of the body; the gun 1.2 m per unit, on the roof plate at model point (0.12, 0.192), cut in mount (node turret, turns) and gun (node gun, rises about its pin at model point (0.045, 0.026)) by tools/art/split_gun.py.",
+  "id": "car_s",
+  "length_m": 3.6,
+  "show_mm": 22,
+  "capabilities": [
+    "suspension",
+    "steering",
+    "turret",
+    "detachable"
+  ],
+  "parts": [
+    {
+      "node": "body",
+      "source": "car_s_body.glb",
+      "pivot": [
+        0,
+        0.6,
+        0
+      ],
+      "mass": 1,
+      "zones": [
+        "paint_primary",
+        "metal"
+      ],
+      "mesh": {
+        "scale": 3.774,
+        "yaw": 3.14159265,
+        "pitch": -0.0769,
+        "at": [
+          0,
+          0.469,
+          0
+        ]
+      }
+    },
+    {
+      "node": "turret",
+      "source": "car_s_gun_mount.glb",
+      "parent": "body",
+      "pivot": [
+        -0.36,
+        1.225,
+        0
+      ],
+      "arc": [
+        -2.4,
+        2.4
+      ],
+      "speed": 2.5,
+      "mesh": {
+        "scale": 1.2,
+        "yaw": 3.14159265,
+        "at": [
+          0.096,
+          0.271,
+          0
+        ]
+      }
+    },
+    {
+      "node": "gun",
+      "source": "car_s_gun_barrel.glb",
+      "parent": "turret",
+      "pivot": [
+        0.042,
+        0.302,
+        0
+      ],
+      "elev": [
+        -0.3,
+        0.5
+      ],
+      "mesh": {
+        "scale": 1.2,
+        "yaw": 3.14159265,
+        "at": [
+          0.054,
+          -0.031,
+          0
+        ]
+      }
+    },
+    {
+      "node": "muzzle",
+      "parent": "gun",
+      "pivot": [
+        0.634,
+        0.058,
+        0
+      ],
+      "weapon": "mg"
+    },
+    {
+      "node": "fx_smoke",
+      "parent": "body",
+      "pivot": [
+        -1.078,
+        0.743,
+        0
+      ]
+    },
+    {
+      "node": "fx_exhaust_0",
+      "parent": "body",
+      "pivot": [
+        -1.747,
+        0.416,
+        0.3
+      ]
+    },
+    {
+      "node": "exit_L",
+      "parent": "body",
+      "pivot": [
+        0,
+        -0.5,
+        -1.2
+      ]
+    },
+    {
+      "node": "wheel",
+      "source": "car_s_wheel.glb",
+      "width": 0.614,
+      "axles": [
+        {
+          "x": 1.135,
+          "track": 1.147,
+          "steer": true,
+          "drive": false,
+          "max": 0.5,
+          "radius": 0.472,
+          "travel": [
+            -0.06,
+            0.1
+          ]
+        },
+        {
+          "x": -1.07,
+          "track": 1.196,
+          "steer": false,
+          "drive": true,
+          "radius": 0.642,
+          "travel": [
+            -0.06,
+            0.1
+          ]
+        }
+      ]
+    }
+  ]
+}

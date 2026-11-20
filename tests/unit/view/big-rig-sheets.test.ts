@@ -10,9 +10,10 @@ import FRONT from '../../../assets/big_rig/modelli/schede/big_rig_front.json';
 import MID from '../../../assets/big_rig/modelli/schede/big_rig_mid.json';
 import REAR from '../../../assets/big_rig/modelli/schede/big_rig_rear.json';
 import CAR_M from '../../../assets/base/modelli/schede/car_m.json';
+import CAR_S from '../../../assets/base/modelli/schede/car_s.json';
 
 /** The Big Rig's sections and the Medium Car (the pilot, phase 7): every vehicle mounted from the models of its parts. */
-const SHEETS = { front: FRONT, mid: MID, rear: REAR, car_m: CAR_M } as unknown as Record<string, VehicleSheet>;
+const SHEETS = { front: FRONT, mid: MID, rear: REAR, car_m: CAR_M, car_s: CAR_S } as unknown as Record<string, VehicleSheet>;
 /** Half a space, in the sheets' metres: where a section's hitches are from its middle. */
 const HALF_SPACE = 3;
 /** The size of the box standing for a part's model (model units) and of the one standing for the wheel. */
@@ -183,6 +184,27 @@ describe('Big Rig sheets', () => {
     expect(Math.sign(at(t.muzzle!).y - before.y)).toBe(name === 'rear' ? -1 : 1);
     expect(v.getObjectByName('turret_mesh')).toBeDefined();
     expect(v.getObjectByName('gun_mesh')).toBeDefined();
+  });
+
+  it('the Small Car: one wheel model, larger behind, and the leaning body puts its axle stubs on the hubs', () => {
+    // Arrange: where the axle stubs are on the body model (model units, nose toward -x).
+    const STUBS: [number, number][] = [[-0.3025, -0.135], [0.2835, -0.135]];
+    const sheet = SHEETS.car_s, d = describeVehicle(build(sheet));
+    const body = sheet.parts.find(p => p.node === 'body')!, mesh = body.mesh!, wheel = sheet.parts.find(p => p.axles)!;
+    // Act: a stub of the model in the sheet's metres, as the builder places it (turned half round, then leaning).
+    const stub = ([x, y]: [number, number]): [number, number] => {
+      const bx = -x * mesh.scale + (mesh.at?.[0] ?? 0), by = y * mesh.scale + (mesh.at?.[1] ?? 0), p = mesh.pitch ?? 0;
+      return [bx * Math.cos(p) - by * Math.sin(p), body.pivot![1] + bx * Math.sin(p) + by * Math.cos(p)];
+    };
+    // Assert: rear wheels larger, front ones steering; every stub on the middle of its wheel.
+    expect(wheel.axles![1].radius).toBeGreaterThan(wheel.axles![0].radius * 1.2);
+    expect(d.wheels.filter(w => w.steer).map(w => w.axle)).toEqual([0, 0]);
+    wheel.axles!.forEach((a, i) => {
+      const [x, y] = stub(STUBS[i]);
+      expect(x).toBeCloseTo(a.x, 2);
+      expect(y).toBeCloseTo(a.radius, 2);
+    });
+    expect(sheetSources(sheet).filter(f => /wheel/.test(f))).toEqual(['car_s_wheel.glb']);
   });
 
   it('a sheet built without its models falls back to shapes, and names no model for a shape part', () => {
