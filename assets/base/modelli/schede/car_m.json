@@ -1,5 +1,5 @@
 {
-  "_note": "The Medium Car (the Avenger), the pilot of the structured models (docs/piano-integrazione-veicoli.md, phase 7): body, wheel and machine gun are models of their own (Meshy), mounted here. Metres, nose toward +x; the models have their nose toward -x, hence yaw pi. Measures taken on the models: 4.737 m per unit of the body, its wheels 0.4 m in radius (0.084 units), as large as the wheel arches, their hubs 0.105 units under the model's middle and 0.155 from its middle line, inside the bodywork; so the ground is 0.19 units under its middle (0.897 m); the gun 1.47 m per unit, its post 0.23 units behind its middle, sunk 0.2 m into the engine. The gun with its mount and shield is one model: the whole of it turns (node turret).",
+  "_note": "The Medium Car (the Avenger), the pilot of the structured models (docs/piano-integrazione-veicoli.md, phase 7): body, wheel and machine gun are models of their own (Meshy), mounted here. Metres, nose toward +x; the models have their nose toward -x, hence yaw pi. Measures taken on the models: 4.737 m per unit of the body, its wheels 0.4 m in radius (0.084 units), as large as the wheel arches, their hubs 0.105 units under the model's middle and 0.155 from its middle line, inside the bodywork; so the ground is 0.19 units under its middle (0.897 m); the gun 1.47 m per unit, its post 0.23 units behind its middle, sunk 0.2 m into the engine. The gun with its mount and shield is one model: the whole of it turns (node turret). The gun model is cut in two (tools/art/split_gun.py): its mount (node turret) turns, the gun with barrel, receiver and shield (node gun) rises and falls about the pin on top of the mount, at model point (0.224, 0.028).",
   "id": "car_m",
   "length_m": 4.5,
   "show_mm": 33,
@@ -35,7 +35,7 @@
     },
     {
       "node": "turret",
-      "source": "car_m_gun.glb",
+      "source": "car_m_gun_mount.glb",
       "parent": "body",
       "pivot": [
         1.066,
@@ -58,11 +58,34 @@
       }
     },
     {
-      "node": "muzzle",
+      "node": "gun",
+      "source": "car_m_gun_barrel.glb",
       "parent": "turret",
       "pivot": [
-        1.045,
-        0.432,
+        0.009,
+        0.326,
+        0
+      ],
+      "elev": [
+        -0.3,
+        0.5
+      ],
+      "mesh": {
+        "scale": 1.47,
+        "yaw": 3.14159265,
+        "at": [
+          0.329,
+          -0.041,
+          0
+        ]
+      }
+    },
+    {
+      "node": "muzzle",
+      "parent": "gun",
+      "pivot": [
+        1.036,
+        0.106,
         0
       ],
       "weapon": "mg"

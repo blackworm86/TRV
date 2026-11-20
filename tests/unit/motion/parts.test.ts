@@ -8,7 +8,7 @@ import { P } from '../../../src/app/presentation';
 import { makeRoute } from '../../../src/app/route';
 import { stepDrive } from '../../../src/app/motion/drive';
 import { PartsRig, type Ground } from '../../../src/app/motion/rig';
-import { clampPointing, makeAim, planAim, pointingAt, rigShooter, stepAim } from '../../../src/app/motion/aim';
+import { clampPointing, elevationTo, makeAim, planAim, pointingAt, rigShooter, stepAim } from '../../../src/app/motion/aim';
 import { MotionTrack } from '../../../src/app/motion/plan';
 import { buildTestVehicle, type VehicleSheet } from '../../../src/view/test-vehicles';
 import { describeVehicle, type TurretPart } from '../../../src/view/vehicle-rig';
@@ -228,5 +228,18 @@ describe('Big Rig: which section fires', () => {
     const who = rigShooter(front, undefined, { x: -SPACE, z: 0 });
     // Assert
     expect(who).toBe(front);
+  });
+  it('a gun is raised by the slope to its target, less what its barrel is above its pin', () => {
+    // Arrange: a target 4 away; a barrel 0.3 above the pin.
+    const FLAT = 4, OFFSET = 0.3;
+    // Act
+    const level = elevationTo(OFFSET, FLAT, OFFSET), down = elevationTo(-1, FLAT, OFFSET), plain = elevationTo(1, FLAT);
+    // Assert: a target at the barrel's own height needs no rise; one below it, a barrel pointing down.
+    expect(level).toBeCloseTo(0, 2);
+    expect(down).toBeLessThan(0);
+    expect(plain).toBeCloseTo(Math.atan2(1, FLAT), 9);
+    // The barrel's line, OFFSET above the pin and tilted by `down`, passes through the target.
+    const miss = -1 * Math.cos(down) - FLAT * Math.sin(down) - OFFSET;
+    expect(miss).toBeCloseTo(0, 6);
   });
 });

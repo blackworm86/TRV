@@ -164,12 +164,33 @@ describe('Big Rig sheets', () => {
     }
   });
 
+  it.each([['car_m', 2.111, 1.519], ['front', 2.025, 2.303], ['rear', -1.2, 2.774]] as const)('%s: its machine gun rises about a pin on its mount, the muzzle on the gun where it was', (name, x, y) => {
+    // Arrange: where the muzzle was before the gun model was cut in two (sheet metres).
+    const sheet = SHEETS[name];
+    // Act
+    const v = build(sheet), d = describeVehicle(v), t = d.turrets[0];
+    const before = at(t.muzzle!);
+    t.gun!.rotation.z = 0.3;
+    v.updateMatrixWorld(true);
+    // Assert
+    expect(t.gun!.parent).toBe(t.turret);
+    expect(t.elev![0]).toBeLessThan(0);
+    expect(t.elev![1]).toBeGreaterThan(0);
+    expect(t.muzzle!.parent).toBe(t.gun);
+    expect(before.x).toBeCloseTo(x, 2);
+    expect(before.y).toBeCloseTo(y, 2);
+    // Raised about z, the muzzle of a gun pointing forward goes up; mount and gun are two models.
+    expect(Math.sign(at(t.muzzle!).y - before.y)).toBe(name === 'rear' ? -1 : 1);
+    expect(v.getObjectByName('turret_mesh')).toBeDefined();
+    expect(v.getObjectByName('gun_mesh')).toBeDefined();
+  });
+
   it('a sheet built without its models falls back to shapes, and names no model for a shape part', () => {
     // Arrange, Act
     const v = buildTestVehicle(SHEETS.front, { crew: false });
     // Assert: the nodes are there (the game can still place and tow it), with nothing drawn for the missing models.
     expect(v.getObjectByName('body')).toBeDefined();
     expect(v.getObjectByName('body_mesh')).toBeUndefined();
-    expect(sheetSources(SHEETS.front).sort()).toEqual(['big_rig_front_body.glb', 'big_rig_gun.glb', 'big_rig_launcher.glb', 'big_rig_wheel.glb']);
+    expect(sheetSources(SHEETS.front).sort()).toEqual(['big_rig_front_body.glb', 'big_rig_gun_barrel.glb', 'big_rig_gun_mount.glb', 'big_rig_launcher.glb', 'big_rig_wheel.glb']);
   });
 });

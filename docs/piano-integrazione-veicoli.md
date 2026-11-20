@@ -233,3 +233,12 @@ banco prova.
   pilota vero subito dopo la fase 6.
 - **Test che dipendono dal tempo** (Playwright lento sotto carico). *Mitigazione*: i test misurano l'ordine
   e la separazione delle scene, non i secondi; i tempi si controllano nei test unitari, con un orologio finto.
+
+### Alzo delle mitragliatrici (2026-11-20)
+
+Richiesta dell'utente: la canna ruotava soltanto, i colpi partivano verso il bersaglio ma la canna restava orizzontale.
+
+- I modelli Meshy delle mitragliatrici sono una mesh sola fatta di gusci separati: `tools/art/split_gun.py` li divide senza tagliarne nessuno. I gusci sotto una quota sono il supporto (`*_gun_mount.glb`, nodo `turret`, ruota), gli altri l'arma con canna, culatta e scudo (`*_gun_barrel.glb`, nodo `gun`, si alza attorno al perno in cima al supporto, limiti `elev`).
+- In gioco `aimTurret` (`src/app/cars.ts`) alza o abbassa l'arma sul punto mirato (`userData.aimPoint`, messo da `aimAt` e `burst`), con `elevationTo` (`src/app/motion/aim.ts`) che tiene conto di quanto la canna sta sopra il perno. A riposo torna orizzontale.
+- Limiti di alzo: da -0,3 a 0,5 rad. Un bersaglio a terra nella casella accanto chiederebbe qualche grado in più verso il basso.
+- Prove: `production/qa/evidence/trv-alzo-mitragliatrici-2026-11-20/`.

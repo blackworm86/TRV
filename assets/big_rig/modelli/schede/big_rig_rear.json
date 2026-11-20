@@ -1,5 +1,5 @@
 {
-  "_note": "The Big Rig's rear section (see big_rig_front.json for the conventions): the wagon with the radar dish and the hazard chute. 6.04 m per unit of its model, so its body is as wide as the tractor's; body and chute are in the middle of its space; its tow bar, generated too long, is shortened (mesh.squash) so its ring is the hitch_front 3 m ahead, on the middle section's pin. The ground is 0.325 units under the model's middle. The radar is part of the body for now. The machine gun on the roof plate is the node turret, mounted facing backward (extra facing = pi: its zero is the rear, it fires in the rear arc), so its model is not turned half round.",
+  "_note": "The Big Rig's rear section (see big_rig_front.json for the conventions): the wagon with the radar dish and the hazard chute. 6.04 m per unit of its model, so its body is as wide as the tractor's; body and chute are in the middle of its space; its tow bar, generated too long, is shortened (mesh.squash) so its ring is the hitch_front 3 m ahead, on the middle section's pin. The ground is 0.325 units under the model's middle. The radar is part of the body for now. The machine gun on the roof plate is the node turret, mounted facing backward (extra facing = pi: its zero is the rear, it fires in the rear arc), so its model is not turned half round. The gun model is cut in two (tools/art/split_gun.py): its mount (node turret) turns, the gun with barrel, receiver and shield (node gun) rises and falls about the pin on top of the mount, at model point (-0.022, -0.002).",
   "id": "big_rig_rear",
   "length_m": 6.0,
   "show_mm": 46,
@@ -48,7 +48,7 @@
     },
     {
       "node": "turret",
-      "source": "big_rig_gun.glb",
+      "source": "big_rig_gun_mount.glb",
       "parent": "body",
       "pivot": [
         -0.318,
@@ -72,11 +72,34 @@
       }
     },
     {
-      "node": "muzzle",
+      "node": "gun",
+      "source": "big_rig_gun_barrel.glb",
       "parent": "turret",
       "pivot": [
-        -0.882,
-        0.569,
+        -0.105,
+        0.354,
+        0
+      ],
+      "elev": [
+        -0.3,
+        0.5
+      ],
+      "mesh": {
+        "scale": 1.7,
+        "yaw": 0,
+        "at": [
+          0.037,
+          0.003,
+          0
+        ]
+      }
+    },
+    {
+      "node": "muzzle",
+      "parent": "gun",
+      "pivot": [
+        -0.777,
+        0.215,
         0
       ],
       "weapon": "mg"

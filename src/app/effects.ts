@@ -253,7 +253,10 @@ function shooterAt(from: THREE.Vector3, targetId?: string, to?: THREE.Vector3): 
 /** The shooter turns its gun on the target and holds it there, before the die says how the burst goes. */
 export function aimAt(from: THREE.Vector3, to: THREE.Vector3, targetId?: string): void {
   const { shooter } = shooterAt(from, targetId, to);
-  if (shooter) shooter.userData.aim = Math.atan2(-(to.z - shooter.position.z), to.x - shooter.position.x);
+  if (!shooter) return;
+  shooter.userData.aim = Math.atan2(-(to.z - shooter.position.z), to.x - shooter.position.x);
+  // The point its gun is raised or lowered onto (cars.ts aimTurret): the target's side, where a burst strikes.
+  shooter.userData.aimPoint = to.clone().setY(Math.max(to.y, TILE_T) + 0.3);
 }
 
 /**
@@ -271,6 +274,7 @@ export function burst(from: THREE.Vector3, to: THREE.Vector3, targetId?: string,
   const space = TILE_W / 8, wide = (targetId ? targetId.charCodeAt(targetId.length - 1) % 2 : 0) ? 1 : -1;
   const aimed = hit ? to.clone() : to.clone().addScaledVector(side, wide * BURST.missOffset * space).addScaledVector(along, BURST.missOffset * space * 0.6);
   const target = aimed.setY(hit ? Math.max(to.y, TILE_T) + 0.3 : TILE_T + 0.02);
+  if (shooter) shooter.userData.aimPoint = target.clone();
   const turret = shooter?.userData.turret as THREE.Object3D | undefined;
   const muzzleAt = (): THREE.Vector3 => {
     if (turret) return (turret.userData.muzzle as THREE.Object3D).getWorldPosition(new THREE.Vector3());
@@ -285,7 +289,7 @@ export function burst(from: THREE.Vector3, to: THREE.Vector3, targetId?: string,
   effects.push({ life: total, t: 0, step: u => {
     const t = u * total;
     while (fired < BURST.rounds && t >= BURST.aim + fired * BURST.gap) round(fired++);
-    if (u >= 1 && shooter) shooter.userData.aim = null;
+    if (u >= 1 && shooter) { shooter.userData.aim = null; shooter.userData.aimPoint = null; }
   } });
   word('RATATATA!', origin, '#ffe066');
   // A hit: when the last rounds strike, the target throws pieces about.

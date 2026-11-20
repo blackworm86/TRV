@@ -24,6 +24,16 @@ export function rigShooter<T extends { x: number; z: number }>(front: T, rear: T
   return d(rear) < d(front) ? rear : front;
 }
 
+/**
+ * The elevation (radians, + = up) that puts a target on the line of a barrel: the target is `rise`
+ * above the gun's pin and `flat` away from it along the ground; the barrel's line runs `offset`
+ * above the pin. With no offset it is the plain slope to the target.
+ */
+export function elevationTo(rise: number, flat: number, offset = 0): number {
+  const dist = Math.max(1e-6, Math.hypot(rise, flat));
+  return Math.atan2(rise, Math.max(1e-6, flat)) - Math.asin(Math.max(-1, Math.min(1, offset / dist)));
+}
+
 /** Heading difference wrapped to (-π, π]. */
 const wrap = (a: number): number => Math.atan2(Math.sin(a), Math.cos(a));
 /** Eases 0..1 in and out. */

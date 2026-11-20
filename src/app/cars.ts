@@ -12,6 +12,7 @@ import { P } from './presentation';
 import { TILE_T, TILE_W, scene } from './stage';
 import { S } from './state';
 import type { Route } from './route';
+import { elevationTo } from './motion/aim';
 import { stepDrive } from './motion/drive';
 import { JUMP, STUNT_SLOWMO, stepJump, type Jump } from './motion/jump';
 import { MotionTrack } from './motion/plan';
@@ -84,7 +85,9 @@ export function nearRamp(p: THREE.Vector3, now: number): boolean {
  * Turns a model's turret toward the car's target (`userData.aim`, a world heading, null at rest),
  * at the turret's own speed (its `speed` extra, radians per second), within its arc. A turret mounted
  * facing another way (its `facing` extra, radians from the nose: the Big Rig's rear gun faces
- * backward) has its zero and its arc there.
+ * backward) has its zero and its arc there. Its gun, when the model has one that rises (node `gun`
+ * with `elev` limits), is raised or lowered onto the point aimed at (`userData.aimPoint`, a world
+ * point), so the rounds leave along the barrel; level at rest.
  */
 function aimTurret(o: THREE.Object3D, carYaw: number, dt: number): void {
   const t = (o.userData.model as THREE.Object3D | undefined)?.getObjectByName('turret');
@@ -97,6 +100,19 @@ function aimTurret(o: THREE.Object3D, carYaw: number, dt: number): void {
   const d = Math.atan2(Math.sin(want - t.rotation.y), Math.cos(want - t.rotation.y));
   const speed = (t.userData.speed as number | undefined) ?? 2.5;
   t.rotation.y += Math.sign(d) * Math.min(Math.abs(d), speed * dt);
+  const gun = t.getObjectByName('gun'), elev = gun?.userData.elev as [number, number] | undefined;
+  if (!gun || !elev) return;
+  const at = o.userData.aimPoint as THREE.Vector3 | null | undefined;
+  let rise = 0;
+  if (at && aim !== null && aim !== undefined) {
+    const pin = gun.getWorldPosition(new THREE.Vector3()), muzzle = gun.getObjectByName('muzzle');
+    const offset = muzzle ? muzzle.position.y * gun.getWorldScale(new THREE.Vector3()).y : 0;
+    rise = Math.max(elev[0], Math.min(elev[1], elevationTo(at.y - pin.y, Math.hypot(at.x - pin.x, at.z - pin.z), offset)));
+  }
+  // A gun mounted facing backward rises the other way about the same axis.
+  const way = Math.cos((t.userData.facing as number | undefined) ?? 0) < 0 ? -1 : 1;
+  const e = rise * way - gun.rotation.z;
+  gun.rotation.z += Math.sign(e) * Math.min(Math.abs(e), P.motion.aim.elevSpeed * dt);
 }
 
 /** Car speed on the table (world units per second) and how fast it turns to face its way. */
