@@ -454,6 +454,10 @@ export function drawTable(s: Snapshot): void {
         : world(v.pos).add(new THREE.Vector3(n * 0.12, (hz.has(k) ? HAZ_SIZE.thickness : 0) + n * 0.55, n * 0.08));
     } else target = startSpot(v);
     o.userData.target = target;
+    // Its first space: it is put there, it does not drive in from the starting area (asked by the
+    // user, 2026-11-20: "il primo passo di ogni macchina deve partire direttamente dalla prima casella").
+    if (o.userData.offRoad && v.pos) { o.position.x = target.x; o.position.z = target.z; o.userData.yaw = 0; }
+    o.userData.offRoad = !v.pos;
     if (v.rig) { o.userData.restYaw = 0; delete o.userData.hitch; }
     // Inoperable: on one side (the game picks which, each time), smoking. A repair puts it back on its wheels.
     const inop = v.status === 'inop' && !v.isWreck;

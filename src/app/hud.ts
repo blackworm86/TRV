@@ -10,6 +10,7 @@ import { damageTokenSvg, dieSvg, hazardTokenSvg, commandTokenSvg, dashboardSvg, 
 import { ffStripSvg } from '../view/vector/ffboards';
 import { rigStripSvg, type RigBoardArt } from '../view/vector/rigboard';
 import { drawRigPick } from './rigpick';
+import { picksRigSystem } from './rigchoice';
 import { drawBikePick } from './bikepick';
 import { FX_ASK } from './beats';
 import { carObjs } from './board';
@@ -273,6 +274,8 @@ export function drawHud(): void {
     cowCatcher: 'Cow Catcher: dove mandi il veicolo?',
     rigDamage: 'Scegli il sistema da coprire con il danno minore',
   };
+  // The Big Rig's Repair: the damaged systems of the section are lit, a click clears one.
+  if (picksRigSystem(d) && d?.kind === 'repair') ASK.repair = 'Scegli il danno da riparare';
   // The upgrades' own questions are asked in full: they name the card.
   const asked = planning() ? '' : d && (d.kind === 'command' || d.kind === 'token') ? '' : d ? ASK[d.kind] ?? (['plow', 'rollCage', 'dispense', 'radar', 'swap', 'redButton'].includes(d.kind) ? d.prompt.replace(/^[^:]+: /, '') : '') : '';
   if (asked) actions.insertAdjacentHTML('afterbegin', `<span class="q">${esc(asked)}</span>`);
@@ -343,7 +346,7 @@ export function drawHud(): void {
   const strip = $('strip');
   // The Final Five: stand-in boards until the project owner draws them (design/gdd/big-rig-final-five.md §1.5).
   const bikeOf = (id: string): number | undefined => g!.vehicles.find(v => v.id === id)?.bike;
-  strip.innerHTML = me.rig ? rigStripSvg({ ...rigArt(me, hot, d?.kind === 'rigDamage' && mine ? d : null), undo: cmdArt.undo })
+  strip.innerHTML = me.rig ? rigStripSvg({ ...rigArt(me, hot, picksRigSystem(d) && mine ? d : null), undo: cmdArt.undo })
     : me.team === 'final_five'
     ? ffStripSvg(cmdArt, dashArt.map(a => ({ ...a, marking: bikeOf(a.carId) ?? 0, coastMax: finalFive().turn.coast_max })))
     : playerStripSvg(cmdArt, dashArt) ?? `<div class="loose">${commandBoardSvg(cmdArt)}${dashArt.map(a => dashboardSvg(a)).join('')}</div>`;
@@ -367,14 +370,14 @@ export function drawHud(): void {
       if (opt >= 0) choose(opt);
     });
   }
-  // A minor damage on the Big Rig: its owner clicks one of the systems lit in red.
-  if (d?.kind === 'rigDamage' && mine) {
+  // A minor damage on the Big Rig, or its Repair: its owner clicks one of the systems lit in red.
+  if (picksRigSystem(d) && mine) {
     for (const el of document.querySelectorAll<SVGElement>('#strip [data-pick]')) {
       const i = d.options.findIndex(o => o.rig === el.dataset.pick);
       if (i >= 0) el.addEventListener('click', e => { e.stopImmediatePropagation(); choose(i); });
     }
   }
-  if (d?.kind === 'repair') {
+  if (d?.kind === 'repair' && !picksRigSystem(d)) {
     for (const el of document.querySelectorAll<SVGElement>('#strip [data-car]')) {
       const i = d.options.findIndex(o => o.carId === el.dataset.car);
       if (i >= 0) { el.classList.add('hotzone'); el.addEventListener('click', () => choose(i)); }

@@ -17,34 +17,71 @@ import { stepDrive } from './motion/drive';
 import { JUMP, STUNT_SLOWMO, stepJump, type Jump } from './motion/jump';
 import { MotionTrack } from './motion/plan';
 import { stepMove, type Move } from './motion/moves';
+import { extendTrail, headingOn, trainOn, type Flat } from './motion/train';
 import type { PartsRig } from './motion/rig';
 
-/** A trailer turns to its heading this much slower than a car steers: it follows, it is not driven. */
-const TRAILER_TURN = 0.4;
-/** Farther than this from its hitch (world units), a trailer coming in from the starting area slides onto it. */
+/** Farther than this from its place (world units), a trailer slides onto it instead of being put there. */
 const HITCH_SNAP = 0.4;
-/** Rate at which a trailer slides onto its hitch from farther than HITCH_SNAP (per second). */
+/** Rate at which a trailer slides onto its place from farther than HITCH_SNAP (per second). */
 const HITCH_RATE = 12;
+/** The fastest a trailer swings round on its hitch, radians per second. */
+const TRAILER_TURN = 3;
+/** How far back along its trail a tractor looks for its heading, in sections' half lengths. */
+const TRACTOR_BACK = 1.5;
+/** The grain of a tractor's trail, in sections' half lengths: a point every so far. */
+const TRAIL_STEP = 0.04;
 
 /**
- * Keeps each Big Rig trailer on the rear hitch of the section ahead (pieces.ts sets `userData.hitch`
- * when both are on the road): its front hitch goes where the one ahead has its rear hitch, at its own
- * heading. Front to back, after every car has driven this frame.
+ * Moves each Big Rig as a train (motion/train.ts; asked by the user, 2026-11-20): the tractor's
+ * middle leaves a trail, and every trailer (pieces.ts sets `userData.hitch` on it) rides it, its
+ * front hitch on the rear hitch of the section ahead, its rear hitch on the trail: it passes where
+ * the tractor passed and stops over the space the section ahead has left. A tractor put somewhere
+ * else at once (its first space, a game loaded, a scene skipped) or driven backward starts a new
+ * trail through the places its trailers are to stand on (their `target`). After every car has driven
+ * this frame.
  */
 export function hitchTrains(objs: Iterable<THREE.Object3D>, dt: number): void {
   type Hitch = { ahead: THREE.Object3D; half: number; order: number };
-  const list = [...objs].filter(o => o.userData.hitch).sort((a, b) => (a.userData.hitch as Hitch).order - (b.userData.hitch as Hitch).order);
-  for (const o of list) {
-    const h = o.userData.hitch as Hitch, a = h.ahead;
-    const ya = (a.userData.yaw ?? 0) as number, yo = (o.userData.yaw ?? 0) as number;
-    const x = a.position.x - h.half * (Math.cos(ya) + Math.cos(yo)), z = a.position.z + h.half * (Math.sin(ya) + Math.sin(yo));
-    const far = Math.hypot(x - o.position.x, z - o.position.z);
-    const k = far > HITCH_SNAP ? 1 - Math.exp(-dt * HITCH_RATE) : 1;
-    const mx = (x - o.position.x) * k, mz = (z - o.position.z) * k;
-    o.position.x += mx;
-    o.position.z += mz;
-    // How fast it was pulled: the next frame's drive turns it and spins its wheels with it.
-    o.userData.hitchSpeed = Math.hypot(mx, mz) / Math.max(dt, 1e-4);
+  const hitched = [...objs].filter(o => o.userData.hitch).sort((a, b) => (a.userData.hitch as Hitch).order - (b.userData.hitch as Hitch).order);
+  const trains = new Map<THREE.Object3D, THREE.Object3D[]>();
+  for (const o of hitched) {
+    let front = o;
+    while (front.userData.hitch) front = (front.userData.hitch as Hitch).ahead;
+    if (!trains.has(front)) trains.set(front, []);
+    trains.get(front)!.push(o);
+  }
+  for (const [front, cars] of trains) {
+    const half = (cars[0].userData.hitch as Hitch).half, was = (front.userData.yaw ?? 0) as number;
+    const at = { x: front.position.x, z: front.position.z };
+    let trail = front.userData.trail as Flat[] | undefined;
+    const last = trail?.[trail.length - 1];
+    const dx = last ? at.x - last.x : 0, dz = last ? at.z - last.z : 0;
+    const jumped = !last || Math.hypot(dx, dz) > half;
+    const backward = dx * Math.cos(was) - dz * Math.sin(was) < -TRAIL_STEP * half;
+    if (!trail || jumped || backward) {
+      trail = [...cars].reverse().map(o => { const t = o.userData.target as THREE.Vector3; return { x: t.x, z: t.z }; });
+      trail.push(at);
+      front.userData.trail = trail;
+    } else extendTrail(trail, at, TRAIL_STEP * half, (cars.length + 1) * 4 * half);
+    // The tractor too keeps its tail on its trail (headingOn): it turns as it goes, it does not spin on its middle.
+    const yaw = headingOn(trail, at, TRACTOR_BACK * half);
+    front.userData.yaw = yaw;
+    front.rotation.y = yaw;
+    const held = jumped ? undefined : { yaws: cars.map(o => (o.userData.yaw ?? 0) as number), turn: TRAILER_TURN * dt };
+    trainOn(trail, { ...at, yaw }, half, cars.length, P.motion.tow.maxAngle, held).forEach((p, i) => {
+      const o = cars[i];
+      const far = Math.hypot(p.x - o.position.x, p.z - o.position.z);
+      // Put in place with its tractor; pulled along; or, strayed (a shove), sliding back.
+      const k = jumped || far <= HITCH_SNAP ? 1 : 1 - Math.exp(-dt * HITCH_RATE);
+      const mx = (p.x - o.position.x) * k, mz = (p.z - o.position.z) * k;
+      o.position.x += mx;
+      o.position.z += mz;
+      const yo = (o.userData.yaw ?? 0) as number;
+      o.userData.yaw = yo + Math.atan2(Math.sin(p.yaw - yo), Math.cos(p.yaw - yo)) * k;
+      o.rotation.y = o.userData.yaw as number;
+      // How fast it was pulled: the next frame's drive spins its wheels with it.
+      o.userData.hitchSpeed = jumped ? 0 : Math.hypot(mx, mz) / Math.max(dt, 1e-4);
+    });
   }
 }
 
@@ -188,7 +225,7 @@ export function drive(o: THREE.Object3D, dt: number, k: number, now: number): vo
   // Heading: +x is along the road; yaw turns toward -z (three.js convention).
   // At rest a car stands along the road; a Big Rig section keeps the heading it came in with (pieces.ts).
   let want = (o.userData.restYaw ?? 0) as number, reverse = false;
-  // A trailer turns to the heading its hitches give it as it is pulled along.
+  // A trailer has the heading its hitches give it as it is pulled along (hitchTrains).
   if (!hitched && speed > 0.4) {
     want = Math.atan2(-vz, vx);
     if (Math.abs(want) > Math.PI * 0.6) { want = want > 0 ? want - Math.PI : want + Math.PI; reverse = true; }
@@ -200,9 +237,9 @@ export function drive(o: THREE.Object3D, dt: number, k: number, now: number): vo
     if (drift) want *= BIKE.drift;
     if (o.userData.restYaw === undefined) want = Math.max(-reach, Math.min(reach, want));
   }
-  const rate = speed > 0.4 ? DRIVE.turnRate * (hitched ? TRAILER_TURN : 1) : DRIVE.parkTurnRate;
+  const rate = speed > 0.4 ? DRIVE.turnRate : DRIVE.parkTurnRate;
   // On a route the nose is the route's; the wheels look ahead along it.
-  const turn = routeYaw !== null ? routeSteer : want - yaw;
+  const turn = routeYaw !== null ? routeSteer : hitched ? 0 : want - yaw;
   const newYaw = routeYaw ?? yaw + turn * Math.min(1, dt * rate);
   o.userData.yaw = newYaw;
   driveGun(o, newYaw, dt);

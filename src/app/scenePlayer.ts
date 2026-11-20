@@ -53,10 +53,12 @@ function driveOf(sc: Scene): Drive | null {
     let x = o.position.x;
     // A move it did not drive (pushed, spun: f.why) ends the route; it has its own motion (beats.ts).
     for (const f of moves) { if (f.why || !ahead(x, f)) break; frames.push(f); x = world(f.at!).x; }
+    // Coming onto the road, it is put on its first space (pieces.ts) and drives on from there.
+    const from = o.userData.offRoad && frames.length ? world(frames.shift()!.at!).setY(o.position.y) : o.position;
     if (frames.length) {
       const ground = (f: Frame): ReturnType<typeof terrainAt> => (onBoard(f.at!) ? terrainAt(g!, f.at!) : 'R');
       const rig = frames[0].snap.vehicles.find(v => v.id === sc.vehicleId)?.rig !== undefined;
-      const route = makeRoute(o.position, frames.map(f => world(f.at!)), frames, frames.map(ground), P.route, !rig);
+      const route = makeRoute(from, frames.map(f => world(f.at!)), frames, frames.map(ground), P.route, !rig);
       const at = planDrive(route).moments.filter(m => m.name === 'space').map(m => m.at);
       out = { route, frames, at };
     }

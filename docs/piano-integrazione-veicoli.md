@@ -242,3 +242,14 @@ Richiesta dell'utente: la canna ruotava soltanto, i colpi partivano verso il ber
 - In gioco `aimTurret` (`src/app/cars.ts`) alza o abbassa l'arma sul punto mirato (`userData.aimPoint`, messo da `aimAt` e `burst`), con `elevationTo` (`src/app/motion/aim.ts`) che tiene conto di quanto la canna sta sopra il perno. A riposo torna orizzontale.
 - Limiti di alzo: da -0,3 a 0,5 rad. Un bersaglio a terra nella casella accanto chiederebbe qualche grado in più verso il basso.
 - Prove: `production/qa/evidence/trv-alzo-mitragliatrici-2026-11-20/`.
+
+### Big Rig a treno, primo passo, Avenger, riparazione (2026-11-20)
+
+Richieste dell'utente dello stesso giorno.
+
+- **Treno** (`src/app/motion/train.ts`, `hitchTrains` in `src/app/cars.ts`): il centro della motrice lascia una scia; la motrice prende la direzione dal punto della scia 1,5 mezze sezioni dietro di sé, ogni rimorchio ha il gancio anteriore sul perno della sezione davanti e la coda verso il punto della scia dove sarebbe il suo gancio posteriore. Le distanze si misurano lungo la scia, non in linea d'aria: i cambi di corsia del tabellone sono zig-zag stretti. Limiti: piega fra sezioni al massimo `motion.tow.max_angle`, un rimorchio gira al massimo 3 rad/s. Misurato in partita: piega massima 46°, al massimo 7° per fotogramma per un rimorchio.
+- **Primo passo**: un veicolo che entra in strada è messo sulla prima casella, non guida dall'area di partenza (`pieces.ts`, `scenePlayer.ts`, `loop.ts`).
+- **Avenger**: Meshy aveva lasciato non dipinto il 24% della carrozzeria (nero). `tools/art/fill_black_faces.py` colora quelle facce dalla faccia dipinta più vicina, un po' più scura, e riporta lo stato della mesh (bordi aperti, lati di più di due facce, avvolgimento, normali).
+- **Riparazione del Big Rig**: la domanda era presa per quella delle auto; ora si sceglie il danno sulle plance (`src/app/rigchoice.ts`).
+- **Vetro del deserto**: nessuna modifica; la regola Sturdy (BRaFF p5) dà un danno minore invece dello spostamento.
+- Prove: `production/qa/evidence/trv-treno-riparazione-2026-11-20/`.

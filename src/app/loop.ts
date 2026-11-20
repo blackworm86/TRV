@@ -56,7 +56,8 @@ function startRoute(f: Frame): boolean {
   // Forward only: each space ahead of the one before (a lane change goes half a space forward).
   const ahead = (from: THREE.Vector3, x: Frame): boolean => world(x.at!).x > from.x + TILE_W / 8 * 0.2;
   // A move it did not drive (pushed, spun, shaken: f.why) is not a route: beats.ts gives it its own motion.
-  if (o.userData.hitch || f.why || !ahead(o.position, f)) { delete o.userData.route; return false; }
+  // Coming onto the road it is put on its first space (pieces.ts): no route to it.
+  if (o.userData.hitch || o.userData.offRoad || f.why || !ahead(o.position, f)) { delete o.userData.route; return false; }
   const frames = [f];
   for (const x of queue) {
     if (x.kind === 'log') continue;
