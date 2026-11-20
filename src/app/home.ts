@@ -5,8 +5,8 @@
 import { NAME_MAX, cleanCode, closeRoom, readRoom, roomPath, type RoomStore } from '../net/room';
 import {
   HEARTBEAT_MS, acceptFriend, addFriend, claimUsername, cleanFriendCode, cleanUsername, declineFriend, earlierName, dropInvite, ensureProfile, forgetGame, gameRow, heartbeat, inviteFriend, isOnline,
-  lobbyPath, mutualFriends, publishLobby, readLobby, readPresence, readProfile, readSocial, removeFriend, showFriendCode, userPath,
-  type GameRow, type LobbyEntry, type Presence,
+  lobbyPath, mutualFriends, publishLobby, readLobby, readPresence, readProfile, readProfiles, readSocial, removeFriend, showFriendCode, userPath,
+  type GameRow, type LobbyEntry, type Presence, type Profile,
 } from '../net/social';
 import { NAME_KEY, crewColor, hasAccount, joinByCode, netError, openStore, randomBytes } from './online';
 import { showPane, type Pane } from './screens';
@@ -21,6 +21,8 @@ export const H = {
   /** Friends who count this player as a friend too. */
   mutual: new Set<string>(),
   presence: {} as Record<string, Presence | null>,
+  /** The current profiles of friends and of who asks to be one: their shown names and user names now. */
+  profiles: {} as Record<string, Profile | null>,
   /** One's games, by room code (null: the room is gone). */
   rows: {} as Record<string, GameRow | null>,
   lobbyRaw: null as unknown,
@@ -79,11 +81,16 @@ function drawMe(): void {
   field.title = p ? 'Il nome visualizzato dagli altri giocatori: lo cambi quando vuoi' : 'Il nome con cui ti vedono gli altri giocatori';
 }
 
+/** How `uid` is called now: its profile's shown name, else the name kept when it was written down. */
+const nameOf = (uid: string, kept: string): string => H.profiles[uid]?.name || kept;
+/** `@user · ` before a row's note, when the player has a user name. */
+const at = (uid: string): string => H.profiles[uid] ? `@${esc(H.profiles[uid]!.user)} · ` : '';
+
 /** The friends who count this player back, online first. */
 function friends(): { uid: string; name: string; online: boolean; room?: string }[] {
   const now = Date.now();
   return Object.entries(H.social.friends).filter(([uid]) => H.mutual.has(uid))
-    .map(([uid, f]) => ({ uid, name: f.name, online: isOnline(H.presence[uid], now), ...(H.presence[uid]?.room ? { room: H.presence[uid]!.room } : {}) }))
+    .map(([uid, f]) => ({ uid, name: nameOf(uid, f.name), online: isOnline(H.presence[uid], now), ...(H.presence[uid]?.room ? { room: H.presence[uid]!.room } : {}) }))
     .sort((a, b) => Number(b.online) - Number(a.online) || a.name.localeCompare(b.name));
 }
 
@@ -120,7 +127,7 @@ export async function invite(uid: string, code: string): Promise<void> {
 export function roomFriendsHtml(code: string, seated: string[]): string {
   return friends().filter(f => !seated.includes(f.uid)).map(f => {
     const sent = H.invited.has(`${code}/${f.uid}`);
-    return `<div class="prow">${avatar(f.name)}<span class="t"><b>${esc(f.name)}</b><small>${f.online ? 'online' : 'non in linea'}</small></span>${sent ? '<small>invitato</small>' : `<button class="tool linv" data-uid="${esc(f.uid)}">Invita</button>`}</div>`;
+    return `<div class="prow">${avatar(f.name)}<span class="t"><b>${esc(f.name)}</b><small>${at(f.uid)}${f.online ? 'online' : 'non in linea'}</small></span>${sent ? '<small>invitato</small>' : `<button class="tool linv" data-uid="${esc(f.uid)}">Invita</button>`}</div>`;
   }).join('');
 }
 
@@ -143,7 +150,7 @@ function drawHome(): void {
   $('homeGames').innerHTML = homeGames();
   const fr = friends(), on = fr.filter(f => f.online), asks = Object.keys(H.social.requests).length;
   $('homeFriends').innerHTML = !H.store ? `<p class="empty-note">${noStore()}</p>` : !friendsOn() ? `<p class="empty-note">${noFriends()}</p>` : !fr.length ? '<p class="empty-note">Ancora nessun amico: aggiungili dalla voce Amici.</p>'
-    : fr.slice(0, 5).map(f => `<div class="prow">${avatar(f.name)}<span class="t"><b>${esc(f.name)}</b><small>${f.online ? f.room ? `in stanza ${esc(f.room)}` : 'nel menu' : 'non in linea'}</small></span>${f.online && !f.room ? `<button class="tool fplay" data-uid="${esc(f.uid)}">Invita</button>` : ''}</div>`).join('');
+    : fr.slice(0, 5).map(f => `<div class="prow">${avatar(f.name)}<span class="t"><b>${esc(f.name)}</b><small>${at(f.uid)}${f.online ? f.room ? `in stanza ${esc(f.room)}` : 'nel menu' : 'non in linea'}</small></span>${f.online && !f.room ? `<button class="tool fplay" data-uid="${esc(f.uid)}">Invita</button>` : ''}</div>`).join('');
   const turns = Object.values(H.rows).filter(r => r?.state === 'turn').length;
   $('mineBadge').textContent = turns ? `${turns} tocca a te` : '';
   $('friendsBadge').textContent = asks ? `${asks} ${asks === 1 ? 'richiesta' : 'richieste'}` : on.length ? `${on.length} online` : '';
@@ -200,21 +207,21 @@ function drawFriends(): void {
   $('fguest').style.display = H.account ? 'none' : '';
   $('fmain').style.display = H.account ? '' : 'none';
   const req = Object.entries(H.social.requests);
-  $('frequests').innerHTML = req.length ? req.map(([uid, r]) => `<div class="prow">${avatar(r.name)}<span class="t"><b>${esc(r.name)}</b><small>${ago(r.at)}</small></span>
+  $('frequests').innerHTML = req.length ? req.map(([uid, r]) => `<div class="prow">${avatar(nameOf(uid, r.name))}<span class="t"><b>${esc(nameOf(uid, r.name))}</b><small>${at(uid)}${ago(r.at)}</small></span>
     <button class="tool facc" data-uid="${esc(uid)}">Accetta</button><button class="tool danger fdec" data-uid="${esc(uid)}" title="Rifiuta">✕</button></div>`).join('') : '<p class="empty-note">Nessuna richiesta.</p>';
   const fr = friends();
   const waiting = Object.entries(H.social.friends).filter(([uid]) => !H.mutual.has(uid));
   $('fcount').textContent = `I tuoi amici (${fr.length})`;
   const seen = (uid: string): string => H.presence[uid] ? `visto ${ago(H.presence[uid]!.at)}` : 'non in linea';
-  $('flist').innerHTML = (fr.length ? fr.map(f => `<div class="prow">${avatar(f.name)}<span class="t"><b>${esc(f.name)} ${f.online ? '<em class="pill on">online</em>' : ''}</b><small>${f.online ? f.room ? `in stanza ${esc(f.room)}` : 'nel menu' : seen(f.uid)}</small></span>
+  $('flist').innerHTML = (fr.length ? fr.map(f => `<div class="prow">${avatar(f.name)}<span class="t"><b>${esc(f.name)} ${f.online ? '<em class="pill on">online</em>' : ''}</b><small>${at(f.uid)}${f.online ? f.room ? `in stanza ${esc(f.room)}` : 'nel menu' : seen(f.uid)}</small></span>
     <button class="tool fplay" data-uid="${esc(f.uid)}">Invita</button><button class="tool danger fdel" data-uid="${esc(f.uid)}" title="Togli dagli amici">✕</button></div>`).join('') : '<p class="empty-note">Ancora nessun amico.</p>')
-    + waiting.map(([uid, f]) => `<div class="prow">${avatar(f.name)}<span class="t"><b>${esc(f.name)}</b><small>richiesta mandata, in attesa</small></span><button class="tool danger fdel" data-uid="${esc(uid)}" title="Annulla la richiesta">✕</button></div>`).join('');
+    + waiting.map(([uid, f]) => `<div class="prow">${avatar(nameOf(uid, f.name))}<span class="t"><b>${esc(nameOf(uid, f.name))}</b><small>${at(uid)}richiesta mandata, in attesa</small></span><button class="tool danger fdel" data-uid="${esc(uid)}" title="Annulla la richiesta">✕</button></div>`).join('');
 }
 
 /** Draws the create pane's friends to invite. */
 function drawCreateFriends(): void {
   const fr = friends();
-  $('ofriends').innerHTML = !friendsOn() ? `<p class="empty-note">${noFriends()} Puoi invitare chiunque con il link o il codice della stanza.</p>` : fr.length ? fr.map(f => `<label class="check prow"><input type="checkbox" value="${esc(f.uid)}">${avatar(f.name)}<span class="t"><b>${esc(f.name)}</b><small>${f.online ? 'online' : 'non in linea'}</small></span></label>`).join('')
+  $('ofriends').innerHTML = !friendsOn() ? `<p class="empty-note">${noFriends()} Puoi invitare chiunque con il link o il codice della stanza.</p>` : fr.length ? fr.map(f => `<label class="check prow"><input type="checkbox" value="${esc(f.uid)}">${avatar(f.name)}<span class="t"><b>${esc(f.name)}</b><small>${at(f.uid)}${f.online ? 'online' : 'non in linea'}</small></span></label>`).join('')
     : '<p class="empty-note">Nessun amico ancora: potrai invitare chiunque con il link o il codice della stanza.</p>';
 }
 
@@ -256,6 +263,7 @@ export async function refresh(): Promise<void> {
   const uids = Object.keys(H.social.friends);
   H.mutual = await mutualFriends(H.store, uids);
   H.presence = await readPresence(H.store, uids);
+  H.profiles = await readProfiles(H.store, [...new Set([...uids, ...Object.keys(H.social.requests)])]);
   drawOnline();
 }
 
@@ -301,12 +309,14 @@ export async function bootHome(): Promise<void> {
     console.warn('Amici e lobby non disponibili: regole del database da aggiornare', e);
   }
   store.watch(userPath(H.uid), raw => {
-    const before = Object.keys(H.social.friends).join();
+    // Who is in the lists: a change reads again who counts back, who is online and the names now.
+    const lists = (): string => `${Object.keys(H.social.friends).join()}|${Object.keys(H.social.requests).join()}`;
+    const before = lists();
     H.social = readSocial(raw);
     // Without an account there is no profile, even one this identity once had.
     if (!H.account) H.social.profile = null;
     followGames();
-    if (Object.keys(H.social.friends).join() !== before) void refresh().catch(() => {});
+    if (lists() !== before) void refresh().catch(() => {});
     drawOnline();
   });
   store.watch(lobbyPath(), raw => { H.lobbyRaw = raw; drawLobbyList(); });
@@ -386,7 +396,7 @@ $('setup').addEventListener('click', e => {
         await forgetGame(store, code);
         await closeRoom(store, code);
       }).catch(fail);
-  } else if (b.classList.contains('facc')) void acceptFriend(store, uid, H.social.requests[uid]?.name ?? '', Date.now()).then(refresh).catch(fail);
+  } else if (b.classList.contains('facc')) void acceptFriend(store, uid, nameOf(uid, H.social.requests[uid]?.name ?? ''), Date.now()).then(refresh).catch(fail);
   else if (b.classList.contains('fdec')) void declineFriend(store, uid).catch(fail);
   else if (b.classList.contains('fdel')) { if (confirm('Togliere questa persona dagli amici?')) void removeFriend(store, uid).then(refresh).catch(fail); }
   else if (b.classList.contains('fplay')) {

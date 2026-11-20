@@ -226,6 +226,15 @@ export async function mutualFriends(store: RoomStore, friends: string[]): Promis
   return new Set(friends.filter((_, i) => named(back[i])));
 }
 
+/**
+ * The profiles of `uids` as they are now (null: none, or one from before user names). A friend's
+ * name kept in one's list is the one it had when the friendship began; this is the current one.
+ */
+export async function readProfiles(store: RoomStore, uids: string[]): Promise<Record<string, Profile | null>> {
+  const raw = await Promise.all(uids.map(u => store.read(userPath(u, 'profile'))));
+  return Object.fromEntries(uids.map((u, i) => [u, readProfile(raw[i])]));
+}
+
 /** Says this client is here (and in which room). */
 export async function heartbeat(store: RoomStore, now: number, room?: string): Promise<void> {
   await store.write(presencePath(await store.uid()), { at: now, ...(room ? { room } : {}) } satisfies Presence);

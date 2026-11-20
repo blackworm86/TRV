@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { addBot, createRoom, joinRoom, readRoom, roomPath, startMatch, type Room, type RoomStore } from '../../../src/net/room';
 import {
-  FRIEND_CODE_LENGTH, ONLINE_MS, acceptFriend, claimUsername, cleanUsername, earlierName, readProfile, addFriend, cleanFriendCode, declineFriend, dropInvite, ensureProfile, forgetGame, gameRow, heartbeat,
+  FRIEND_CODE_LENGTH, ONLINE_MS, acceptFriend, claimUsername, cleanUsername, earlierName, readProfile, readProfiles, addFriend, cleanFriendCode, declineFriend, dropInvite, ensureProfile, forgetGame, gameRow, heartbeat,
   inviteFriend, isOnline, lobbyEntry, lobbyPath, mutualFriends, newFriendCode, publishLobby, readLobby, readPresence, readSocial, rememberGame,
   removeFriend, showFriendCode, userPath,
 } from '../../../src/net/social';
@@ -92,6 +92,18 @@ describe('user names', () => {
 });
 
 describe('friends', () => {
+  it('are shown by their current profile, not by the name they had when the friendship began', async () => {
+    const [a, b] = clients(2);
+    const pb = await register(b, 'Bo', filler(2), NOW);
+    await register(a, 'Ada', filler(1), NOW);
+    await addFriend(a, pb.code, 'Ada', NOW);
+    // Bo changes his shown name after Ada added him: her list still has the old one, his profile the new.
+    await ensureProfile(b, { user: pb.user, name: 'Bo Rossi' }, filler(2), NOW + 1);
+    const bo = await b.uid();
+    expect((await social(a)).friends[bo].name).toBe('Bo');
+    expect((await readProfiles(a, [bo, 'nobody']))).toEqual({ [bo]: expect.objectContaining({ user: pb.user, name: 'Bo Rossi' }), nobody: null });
+  });
+
   it('cannot be asked of a player without an account profile, and never under a blank name', async () => {
     const [a, b] = clients(2);
     const pa = await register(a, 'Ada', filler(1), NOW);

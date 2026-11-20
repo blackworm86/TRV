@@ -334,7 +334,14 @@ test.describe('game', () => {
     // Bo wrote no shown name: the others see his user name, never "Giocatore".
     await expect(page.locator('#frequests')).toContainText('bo.rossi');
     await page.locator('#frequests .facc').click();
-    await expect(page.locator('#flist')).toContainText('bo.rossi');
+    await expect(page.locator('#flist')).toContainText('@bo.rossi');
+    // Bo then changes his shown name: Ada's list shows the new one with his user name, not the one kept when he asked.
+    await bo.locator('#myname').fill('Bo Rossi');
+    await bo.locator('#myname').press('Tab');
+    await page.locator('#pFriends [data-back]').click();
+    await page.locator('#mFriends').click();
+    await expect(page.locator('#flist')).toContainText('Bo Rossi');
+    await expect(page.locator('#flist')).toContainText('@bo.rossi');
 
     // Ada invites Bo from the friends' list into a new public room.
     await page.locator('#flist .fplay').click();
@@ -353,7 +360,7 @@ test.describe('game', () => {
     await bo.locator('#mMine').click();
     await expect(bo.locator('#invites')).toContainText(code);
     await bo.locator('#invites .ijoin').click();
-    await expect(page.locator('#lseats')).toContainText('bo.rossi');
+    await expect(page.locator('#lseats')).toContainText('Bo Rossi');
 
     // Started: the room leaves the lobby, and Bo's list says whose turn it is.
     await page.locator('#lstart').click();
