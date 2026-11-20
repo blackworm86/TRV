@@ -30,6 +30,7 @@ import { buildTestVehicle, sheetSources, type VehicleSheet } from '../view/test-
 import { describeVehicle } from '../view/vehicle-rig';
 import CAR_M from '../../assets/base/modelli/schede/car_m.json';
 import CAR_S from '../../assets/base/modelli/schede/car_s.json';
+import CAR_L from '../../assets/base/modelli/schede/car_l.json';
 import RIG_FRONT from '../../assets/big_rig/modelli/schede/big_rig_front.json';
 import RIG_MID from '../../assets/big_rig/modelli/schede/big_rig_mid.json';
 import RIG_REAR from '../../assets/big_rig/modelli/schede/big_rig_rear.json';
@@ -228,6 +229,8 @@ function useRigModel(o: THREE.Group, part: RigSection, tint: Tint, id: string): 
 const MEDIUM_CAR = CAR_M as unknown as VehicleSheet;
 /** The Small Car's assembly sheet (assets/base/modelli/schede/car_s.json). */
 const SMALL_CAR = CAR_S as unknown as VehicleSheet;
+/** The Large Car's assembly sheet (assets/base/modelli/schede/car_l.json). */
+const LARGE_CAR = CAR_L as unknown as VehicleSheet;
 
 /**
  * Swaps a stand-in piece for the vehicle its assembly sheet describes, mounted from the models of
@@ -431,6 +434,8 @@ export function drawTable(s: Snapshot): void {
       else if (v.size === 'M') useSheetModel(o, MEDIUM_CAR, crewTint(g.players[v.owner!].color), v.id, SHOW_LENGTH_MM.M * MM / MEDIUM_CAR.length_m);
       // The Small Car (the Doom Buggy) too, 2026-11-20.
       else if (v.size === 'S') useSheetModel(o, SMALL_CAR, crewTint(g.players[v.owner!].color), v.id, SHOW_LENGTH_MM.S * MM / SMALL_CAR.length_m);
+      // And the Large Car (the Eliminator).
+      else if (v.size === 'L') useSheetModel(o, LARGE_CAR, crewTint(g.players[v.owner!].color), v.id, SHOW_LENGTH_MM.L * MM / LARGE_CAR.length_m);
       else useModel(o, MODEL.car[v.size], SHOW_LENGTH_MM[v.size], crewTint(g.players[v.owner!].color), v.id);
       carObjs.set(v.id, o);
       scene.add(o);

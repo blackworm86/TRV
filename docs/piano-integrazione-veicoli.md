@@ -260,3 +260,10 @@ Richieste dell'utente dello stesso giorno.
 - Un solo modello di ruota, ridimensionato: dietro raggio 0,64 m (da trattore), davanti 0,47 m. I mozzi del modello sono alla stessa altezza, quindi la carrozzeria è inclinata di 4,4° in avanti (`mesh.pitch`, nuovo campo delle schede).
 - Mitragliatrice sul tetto del roll-bar, divisa in supporto e arma con `tools/art/split_gun.py`; carrozzeria con il 9% non dipinto, colorato da `tools/art/fill_black_faces.py`.
 - Corretto anche un difetto comune: le parti non verniciate (ruote, armi) condividevano i materiali fra veicoli dello stesso modello, e la luce dell'auto attiva accendeva le ruote delle altre (`ownMaterials` in `src/view/models3d.ts`).
+
+### Eliminator (auto grande), 2026-11-20
+
+- Montato dai pezzi: `assets/base/modelli/schede/car_l.json`, modelli `car_l_*.glb` (originali in `assets/sorgenti/eliminator_2026-11-20/`).
+- Ruote: quelle del Big Rig (`big_rig_wheel.glb`), perché la ruota generata da Meshy era sfaccettata; sei ruote su tre assi, sterzano solo le anteriori, raggio 0,47 m come gli archi.
+- Mitragliatrice sull'anello del cassone, divisa in supporto e arma; carrozzeria con il 29% non dipinto, colorato da `tools/art/fill_black_faces.py`.
+- Con l'Eliminator tutte e tre le auto del gioco base sono montate dai pezzi.

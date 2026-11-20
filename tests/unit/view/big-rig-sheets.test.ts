@@ -11,9 +11,10 @@ import MID from '../../../assets/big_rig/modelli/schede/big_rig_mid.json';
 import REAR from '../../../assets/big_rig/modelli/schede/big_rig_rear.json';
 import CAR_M from '../../../assets/base/modelli/schede/car_m.json';
 import CAR_S from '../../../assets/base/modelli/schede/car_s.json';
+import CAR_L from '../../../assets/base/modelli/schede/car_l.json';
 
 /** The Big Rig's sections and the Medium Car (the pilot, phase 7): every vehicle mounted from the models of its parts. */
-const SHEETS = { front: FRONT, mid: MID, rear: REAR, car_m: CAR_M, car_s: CAR_S } as unknown as Record<string, VehicleSheet>;
+const SHEETS = { front: FRONT, mid: MID, rear: REAR, car_m: CAR_M, car_s: CAR_S, car_l: CAR_L } as unknown as Record<string, VehicleSheet>;
 /** Half a space, in the sheets' metres: where a section's hitches are from its middle. */
 const HALF_SPACE = 3;
 /** The size of the box standing for a part's model (model units) and of the one standing for the wheel. */
@@ -205,6 +206,21 @@ describe('Big Rig sheets', () => {
       expect(y).toBeCloseTo(a.radius, 2);
     });
     expect(sheetSources(sheet).filter(f => /wheel/.test(f))).toEqual(['car_s_wheel.glb']);
+  });
+
+  it('the Large Car: six wheels on three axles, only the front ones steering, the Big Rig wheel inside its fenders', () => {
+    // Arrange: the body model is 0.332 units wide (measured on the model).
+    const HALF_WIDTH = 0.166;
+    const sheet = SHEETS.car_l, d = describeVehicle(build(sheet));
+    const k = sheet.parts.find(p => p.node === 'body')!.mesh!.scale, wheel = sheet.parts.find(p => p.axles)!;
+    // Act, Assert
+    expect(d.wheels).toHaveLength(6);
+    expect(d.wheels.filter(w => w.steer).map(w => w.axle)).toEqual([0, 0]);
+    for (const a of wheel.axles!) expect(a.track + (wheel.width ?? 0) / 2).toBeLessThanOrEqual(HALF_WIDTH * k);
+    expect(sheetSources(sheet).filter(f => /wheel/.test(f))).toEqual(['big_rig_wheel.glb']);
+    // The gun in the bed, behind the cab: its muzzle ahead of its pivot.
+    expect(at(d.turrets[0].turret!).x).toBeLessThan(0);
+    expect(at(d.turrets[0].muzzle!).x).toBeGreaterThan(at(d.turrets[0].turret!).x);
   });
 
   it('a sheet built without its models falls back to shapes, and names no model for a shape part', () => {

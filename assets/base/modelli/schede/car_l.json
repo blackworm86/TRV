@@ -1,0 +1,162 @@
+{
+  "_note": "The Large Car (the Eliminator), mounted from its parts like the Medium and Small Cars (docs/piano-integrazione-veicoli.md, phase 7). Metres, nose toward +x; the models have their nose toward -x, hence yaw pi. Six wheels on three axles, the front one steering; the wheel is the Big Rig's (asked by the user, 2026-11-20: Meshy's own came out faceted), 0.472 m in radius, as large as the wheel arches. 6.289 m per unit of the body; the gun 1.9 m per unit, on the ring in the bed at model point (0.25, 0.078), cut in mount (node turret, turns) and gun (node gun, rises about its pin at model point (0.11, 0.004)) by tools/art/split_gun.py.",
+  "id": "car_l",
+  "length_m": 6.0,
+  "show_mm": 44,
+  "capabilities": [
+    "suspension",
+    "steering",
+    "turret",
+    "detachable"
+  ],
+  "parts": [
+    {
+      "node": "body",
+      "source": "car_l_body.glb",
+      "pivot": [
+        0,
+        0.6,
+        0
+      ],
+      "mass": 1,
+      "zones": [
+        "paint_primary",
+        "metal"
+      ],
+      "mesh": {
+        "scale": 6.289,
+        "yaw": 3.14159265,
+        "at": [
+          0,
+          0.626,
+          0
+        ]
+      }
+    },
+    {
+      "node": "turret",
+      "source": "car_l_gun_mount.glb",
+      "parent": "body",
+      "pivot": [
+        -1.572,
+        1.054,
+        0
+      ],
+      "arc": [
+        -2.6,
+        2.6
+      ],
+      "speed": 2.0,
+      "mesh": {
+        "scale": 1.9,
+        "yaw": 3.14159265,
+        "at": [
+          0.19,
+          0.401,
+          0
+        ]
+      }
+    },
+    {
+      "node": "gun",
+      "source": "car_l_gun_barrel.glb",
+      "parent": "turret",
+      "pivot": [
+        -0.019,
+        0.409,
+        0
+      ],
+      "elev": [
+        -0.3,
+        0.5
+      ],
+      "mesh": {
+        "scale": 1.9,
+        "yaw": 3.14159265,
+        "at": [
+          0.209,
+          -0.008,
+          0
+        ]
+      }
+    },
+    {
+      "node": "muzzle",
+      "parent": "gun",
+      "pivot": [
+        1.121,
+        0.121,
+        0
+      ],
+      "weapon": "mg"
+    },
+    {
+      "node": "fx_smoke",
+      "parent": "body",
+      "pivot": [
+        2.075,
+        0.626,
+        0
+      ]
+    },
+    {
+      "node": "fx_exhaust_0",
+      "parent": "body",
+      "pivot": [
+        0.314,
+        -0.129,
+        0.9
+      ]
+    },
+    {
+      "node": "exit_L",
+      "parent": "body",
+      "pivot": [
+        0.8,
+        -0.5,
+        -1.4
+      ]
+    },
+    {
+      "node": "wheel",
+      "source": "big_rig_wheel.glb",
+      "width": 0.384,
+      "axles": [
+        {
+          "x": 1.509,
+          "track": 0.822,
+          "steer": true,
+          "drive": false,
+          "max": 0.45,
+          "radius": 0.472,
+          "travel": [
+            -0.08,
+            0.12
+          ]
+        },
+        {
+          "x": -1.132,
+          "track": 0.822,
+          "steer": false,
+          "drive": true,
+          "radius": 0.472,
+          "travel": [
+            -0.08,
+            0.12
+          ]
+        },
+        {
+          "x": -2.233,
+          "track": 0.822,
+          "steer": false,
+          "drive": true,
+          "radius": 0.472,
+          "travel": [
+            -0.08,
+            0.12
+          ]
+        }
+      ]
+    }
+  ]
+}
