@@ -35,6 +35,7 @@ import CAR_SHEET from '../../assets/base/modelli/schede/collaudo_auto.json';
 import BIKE_SHEET from '../../assets/base/modelli/schede/collaudo_moto.json';
 import TRACTOR_SHEET from '../../assets/base/modelli/schede/collaudo_rig_motrice.json';
 import TRAILER_SHEET from '../../assets/base/modelli/schede/collaudo_rig_rimorchio.json';
+import { wrapAngle } from '../app/motion/angles';
 
 const $ = <T extends HTMLElement>(id: string): T => document.getElementById(id) as T;
 
@@ -937,7 +938,6 @@ function tickFlashes(dt: number): void {
   }
 }
 /** Heading difference wrapped to (-pi, pi]. */
-function wrapAngle(a: number): number { return Math.atan2(Math.sin(a), Math.cos(a)); }
 
 /** The route as a line on the table, with a dot on each space it gets to. */
 function drawPath(route: Route): void {

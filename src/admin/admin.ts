@@ -15,7 +15,7 @@ import CATALOG from '../../data/trv/catalog_base.json';
 import SHOPPE from '../../data/trv/choppe_shoppe.json';
 import {
   dieSvg, hazardTokenSvg, damageTokenSvg, dashboardSvg, commandBoardSvg, playerStripSvg, chopperSvg, carSvg, avatarSvg,
-  OFFICIAL_ART, PALETTE, type ArtDir, type ArtSize, type CommandBoardArt,
+  OFFICIAL_ART, type ArtDir, type ArtSize, type CommandBoardArt,
   fireDieSvg, onFireTokenSvg, commandTokenSvg, commandIconAt, type FireFace,
 } from '../view/vector/art';
 import { tileSvg, mapSvg, tileTitle } from '../view/vector/tiles';
@@ -29,9 +29,9 @@ import { BASE_CATALOG, commandBoardImage, dashboardImage, dieFaceImage, roadTile
 import { ASSET_CATALOG, entryFor, officialPath, type ItemEntry } from './catalog';
 import { dieSolid, flatSolid, inlineImages, type Face } from './solids';
 import { ongoingArt, ongoingCardSvg, ongoingCardText, upgradeArt, upgradeCardSvg, upgradeCardText } from '../view/cards';
+import { esc } from '../core/markup';
 
 const $ = (id: string): HTMLElement => document.getElementById(id)!;
-const esc = (s: string): string => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/"/g, '&quot;');
 const CREWS = CATALOG.crews;
 interface Comp { id: string; size_mm: number[]; measured: boolean }
 const comp = (id: string): Comp | undefined => (CATALOG.components as unknown as Comp[]).find(c => c.id === id);

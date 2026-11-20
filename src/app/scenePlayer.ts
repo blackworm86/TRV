@@ -17,7 +17,6 @@ import { g } from './game';
 import { holdForHand } from './handroll';
 import { P } from './presentation';
 import { replaying } from './replay';
-import { settings } from './settings';
 import { TILE_W, world } from './stage';
 import { S } from './state';
 

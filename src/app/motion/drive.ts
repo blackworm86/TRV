@@ -7,13 +7,13 @@ import * as THREE from 'three';
 import { P } from '../presentation';
 import { routeAt, type Route } from '../route';
 import type { Moment, MotionPlan } from './plan';
+import { wrapAngle as wrap } from './angles';
 
 const M = P.motion.drive;
 /** Time step the plan is worked out with: finer than any frame, so the plan matches the drive. */
 const PLAN_DT = 1 / 240;
 
 /** Heading difference wrapped to (-π, π]. */
-const wrap = (a: number): number => Math.atan2(Math.sin(a), Math.cos(a));
 
 /** Distance at which the car gets to the space of each move beat of the route. */
 export function arrivals(r: Route): number[] {

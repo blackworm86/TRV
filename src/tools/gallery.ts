@@ -22,6 +22,7 @@ void useRampModel(MODEL.ramp, u => bank.load(u));
 import { makeDie, type DiceFaces } from '../view/dice3d';
 import { Pieces, TextureBank } from '../view/pieces3d';
 import { texturesReady } from '../view/texture';
+import { esc } from '../core/markup';
 
 /** The finish lines cut from the official sheet (tools/asset-pipeline/finish_lines.py). */
 const FINISH_ART = import.meta.glob<string>('/assets/base/traguardi/*.webp', { eager: true, query: '?url', import: 'default' });
@@ -31,7 +32,6 @@ const CREWS = CATALOG.crews;
 interface Comp { id: string; size_mm: number[]; measured: boolean; count?: number; count_per_crew?: number }
 const comp = (id: string): Comp => (CATALOG.components as unknown as Comp[]).find(c => c.id === id)!;
 const MM = 0.05; // world units per mm, for every 3D piece on this page
-const esc = (s: string): string => s.replace(/&/g, '&amp;').replace(/</g, '&lt;');
 const $ = (id: string): HTMLElement => document.getElementById(id)!;
 
 // ---------------------------------------------------------------- 3D items

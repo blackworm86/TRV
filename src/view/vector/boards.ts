@@ -6,6 +6,7 @@
 
 import type { DashboardArt, CommandBoardArt, ArtSize } from './art';
 import { ONGOING_PANEL_TOP, CARD_RED } from '../cards';
+import { esc } from '../../core/markup';
 
 /** What this module needs from art.ts (passed in, so the two files do not import each other). */
 export interface BoardBase {
@@ -162,7 +163,6 @@ export function parseStrip(raw: string): StripBoard | null {
 
 const num = (attrs: string, name: string): number => Number(new RegExp(`\\b${name}="([-\\d.]+)"`).exec(attrs)?.[1] ?? NaN);
 const inner = (s: string): string => s.replace(/^<svg[^>]*>|<\/svg>$/g, '');
-const esc = (s: string): string => s.replace(/&/g, '&amp;').replace(/</g, '&lt;');
 /** Breaks a sentence into lines of at most `max` characters, at the spaces. */
 function wrap(s: string, max: number): string[] {
   const out: string[] = [];

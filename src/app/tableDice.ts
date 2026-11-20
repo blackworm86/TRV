@@ -15,7 +15,7 @@ import { Box, Round, clearOf } from './spots';
 import { BOARD_X0, PITCH_W, TILE_T, TILE_W, camera, renderer, scene } from './stage';
 import { settings } from './settings';
 import { S } from './state';
-import { $, FACES, cssPx } from './util';
+import { FACES, cssPx } from './util';
 
 export interface TableMyDie { d: Die3D; base: THREE.Vector3; q: THREE.Quaternion; glow: THREE.Mesh }
 /** A soft round light, drawn under a die that can be played. */

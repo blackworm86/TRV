@@ -7,9 +7,9 @@
 
 import * as THREE from 'three';
 import { P } from '../presentation';
+import { wrapAngle as wrap } from './angles';
 
 /** Heading difference wrapped to (-π, π]. */
-const wrap = (a: number): number => Math.atan2(Math.sin(a), Math.cos(a));
 
 /** How far ahead of its origin a trailer's front hitch is (world units, along its nose). */
 export function hitchReach(trailer: THREE.Object3D, hitchFront: THREE.Object3D): number {

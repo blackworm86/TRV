@@ -1,7 +1,7 @@
 // Popups that explain: rolled dice, damage tokens and their cards, leader portraits, upgrade
 // and ongoing card texts, the command board lines.
 
-import { leaderOf, commandsOf, leaders, commandName, upgrades, finalFive, bigRig, type CommandSlot, type Player, type Frame } from '../game/trv/engine';
+import { leaderOf, commandsOf, commandName, upgrades, finalFive, bigRig, type CommandSlot, type Player, type Frame } from '../game/trv/engine';
 import { ongoingCardSvg, ongoingCardText } from '../view/cards';
 import CARD_TEXT from '../../data/trv/cards_it.json';
 import { damageTokenSvg } from '../view/vector/art';

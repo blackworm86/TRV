@@ -10,6 +10,7 @@ import LOOK from '../../../data/trv/finish_lines.json';
 import { GRID } from '../tile-grid';
 import { lump, paint, place, rng, rock } from './obstacles';
 import { maskMaterials } from './pit3d';
+import { fnv1a as seedOf } from '../../core/hash';
 
 export type FinishKind = 'cliff' | 'wall' | 'grid' | 'dome';
 /** One finish line of data/trv/finish_lines.json. */
@@ -33,11 +34,6 @@ export const FINISH_CUT = finishPx(LOOK.length);
 const ROWS0 = GRID.y0 - GRID.rowPitch / 2, ROWS1 = ROWS0 + GRID.rows * GRID.rowPitch;
 const ROAD_MID = GRID.y0 + 2.5 * GRID.rowPitch;
 
-function seedOf(text: string): number {
-  let n = 2166136261;
-  for (let i = 0; i < text.length; i++) n = Math.imul(n ^ text.charCodeAt(i), 16777619);
-  return n >>> 0;
-}
 
 /**
  * Where the piece's ground ends along the road at a frame y, in frame px: the straight cut, or

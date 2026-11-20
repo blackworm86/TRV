@@ -6,6 +6,7 @@
 import { makeBoards, STRIP_BOX } from './boards';
 import { ownerDieFaces, OWNER_DIE_ORDER } from './dice';
 import { ownerDamage as cutOwnerDamage, FRONT_FIELD } from './damage';
+import { esc } from '../../core/markup';
 
 /** Board-absolute direction names used by the rules (src/game/trv/engine.ts). */
 export type ArtDir = 'F' | 'FL' | 'FR' | 'B' | 'BL' | 'BR';
@@ -22,7 +23,6 @@ export const PALETTE = {
 } as const;
 
 const FONT = `font-family="'League Gothic', Impact, 'Arial Narrow', sans-serif"`;
-const esc = (s: string): string => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/"/g, '&quot;');
 
 /** Wraps SVG content; `extra` adds attributes (class, data-*) to the root. */
 function svg(w: number, h: number, body: string, extra = ''): string {

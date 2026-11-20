@@ -9,9 +9,6 @@ import type * as THREE from 'three';
 /** What a model can do; the motion system animates only these (modelli-strutturati.md §11.1). */
 export type Capability = 'suspension' | 'steering' | 'turret' | 'articulated' | 'rotors' | 'crew' | 'detachable';
 
-/** Every capability, in the order the contract lists them. */
-export const CAPABILITIES: readonly Capability[] = ['suspension', 'steering', 'turret', 'articulated', 'rotors', 'crew', 'detachable'];
-
 /** Side of a part: left, right or on the middle line. */
 export type Side = 'L' | 'R' | 'C';
 

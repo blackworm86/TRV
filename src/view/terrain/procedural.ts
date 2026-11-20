@@ -8,6 +8,7 @@
 // TypeScript on typed arrays, no DOM and no three.js, so it runs in unit tests and in a worker.
 
 import { GRID, spaceCenterPx, type TileData } from '../tile-grid';
+import { fnv1a } from '../../core/hash';
 
 type Rgb = [number, number, number];
 /**
@@ -219,11 +220,8 @@ function distanceInside(mask: Uint8ClampedArray, w: number, h: number): Float32A
   return d;
 }
 
-function seedOf(text: string): number {
-  let n = 2166136261;
-  for (let i = 0; i < text.length; i++) n = Math.imul(n ^ text.charCodeAt(i), 16777619);
-  return (n >>> 0) % 100000;
-}
+
+const seedOf = (text: string): number => fnv1a(text) % 100000;
 
 // ------------------------------------------------------------------------------- generator
 

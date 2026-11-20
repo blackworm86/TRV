@@ -238,8 +238,9 @@ test.describe('game', () => {
     await page.locator('#lstart').click();
     await expect.poll(() => page.evaluate(() => !!window.trv!.game)).toBe(true);
     await expect.poll(() => guest.evaluate(() => !!window.trv!.game)).toBe(true);
-    // Whoever decides first makes a move: both tables end up the same.
-    await expect.poll(async () => (await page.evaluate(() => !!window.trv!.decision)) || (await guest.evaluate(() => !!window.trv!.decision))).toBe(true);
+    // Whoever decides first makes a move: both tables end up the same. (The opening roll plays first
+    // on two tables drawn in software: 20 s was not always enough in the full suite, 2026-11-20.)
+    await expect.poll(async () => (await page.evaluate(() => !!window.trv!.decision)) || (await guest.evaluate(() => !!window.trv!.decision)), { timeout: 45_000 }).toBe(true);
     const mover = (await page.evaluate(() => !!window.trv!.decision)) ? page : guest;
     await mover.evaluate(() => { window.trv!.choose(0); window.trv!.skipBeats(); });
     await expect.poll(async () => (await page.evaluate(() => JSON.stringify(window.trv!.snapshot())))

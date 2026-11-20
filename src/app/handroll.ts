@@ -44,9 +44,6 @@ function byHand(f: Frame): boolean {
   return !S.net || p === mySeat();
 }
 
-/** True while the playback waits for a throw. */
-export const handWaiting = (): boolean => held !== null;
-
 /**
  * Called by the playback before a beat: when `queue[0]` is a roll to throw by hand, the playback
  * stops there (true) and the dice of that action (the rolls at the same space up to the next other

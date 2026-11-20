@@ -7,6 +7,7 @@
 import * as THREE from 'three';
 import { P } from '../presentation';
 import type { Moment, MotionKind, MotionPlan } from './plan';
+import { smooth01 as ease } from './angles';
 
 const M = P.motion.moves;
 
@@ -23,7 +24,6 @@ export interface Move {
   t: number;
 }
 
-const ease = (u: number): number => { const x = Math.max(0, Math.min(1, u)); return x * x * (3 - 2 * x); };
 const easeOut = (u: number): number => { const x = Math.max(0, Math.min(1, u)); return 1 - (1 - x) * (1 - x); };
 const plan = (kind: MotionKind, seconds: number, extra: Moment[] = []): MotionPlan => ({ kind, seconds, moments: [...extra, { name: 'end', at: seconds }] });
 

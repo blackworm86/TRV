@@ -14,6 +14,7 @@
 
 import { commandIconAt, dieSvg, inkOn } from './art';
 import { boxOf, draw, midX, midY, minorTokenAt, shapes, undoPlate, type Box, type Shape } from './ffboards';
+import { esc } from '../../core/markup';
 
 const RAW = Object.values(import.meta.glob<string>('/assets/big_rig/plance/plancia_big_rig.svg', { eager: true, query: '?raw', import: 'default' }))[0] ?? '';
 const FONT = `font-family="'League Gothic', Impact, 'Arial Narrow', sans-serif"`;
@@ -47,7 +48,6 @@ export interface RigBoardArt {
   undo?: 'on' | 'off';
 }
 
-const esc = (s: string): string => s.replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]!));
 const text = (s: string, x: number, y: number, size: number, fill: string, anchor = 'middle', extra = ''): string =>
   `<text x="${x}" y="${y}" font-size="${size}" fill="${fill}" text-anchor="${anchor}" ${FONT} pointer-events="none" ${extra}>${esc(s)}</text>`;
 const inner = (s: string): string => s.replace(/^<svg[^>]*>|<\/svg>$/g, '');

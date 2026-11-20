@@ -2,9 +2,8 @@
 // hazard objects, hazard and dice sizes, the FX dice supply and the marker shapes.
 
 import * as THREE from 'three';
-import { tileDef, TILE_COLS, type Snapshot } from '../game/trv/engine';
 import { BASE_CATALOG as CAT, sizeOf } from '../game/trv/catalog';
-import { buildFinish, buildTile, hazardToken, GRID } from '../view/board3d';
+import { buildFinish, hazardToken, GRID } from '../view/board3d';
 import { FINISH_LINES } from '../view/terrain/finish3d';
 import { type Die3D } from '../view/dice3d';
 import type { Throw } from '../view/dice-throw';

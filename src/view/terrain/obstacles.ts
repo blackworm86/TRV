@@ -10,6 +10,7 @@ import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { GRID, type TileData } from '../tile-grid';
 import LOOK from '../../../data/trv/terrain_look.json';
 import { depthAt, footprintHalf, formationsOf, heightAt, type FormKnobs, type FormProfile, type Formation } from './formations';
+import { fnv1a as seedOf } from '../../core/hash';
 
 export type ObstacleKind = 'rocks' | 'mesa' | 'ruin' | 'bunker' | 'barricade';
 
@@ -104,11 +105,6 @@ export function place(g: THREE.BufferGeometry, x: number, y: number, z: number, 
   return g.applyMatrix4(new THREE.Matrix4().compose(new THREE.Vector3(x, y, z), new THREE.Quaternion().setFromEuler(new THREE.Euler(rx, ry, rz, 'YXZ')), sc));
 }
 
-function seedOf(text: string): number {
-  let n = 2166136261;
-  for (let i = 0; i < text.length; i++) n = Math.imul(n ^ text.charCodeAt(i), 16777619);
-  return n >>> 0;
-}
 
 /** Sizes of every formation, from the data (data/trv/terrain_look.json, `formation`). */
 export const FORM_KNOBS: FormKnobs = { baseH: LOOK.formation.base_h, grow: LOOK.formation.grow, maxH: LOOK.formation.max_h, inset: LOOK.formation.inset };
@@ -260,7 +256,7 @@ export function buildObstacles(tile: TileData, kind: ObstacleKind, o: ObstacleOp
     f.cells.forEach((c, ci) => {
       const cx = wx(c.x), cz = wz(c.y);
       const hc = topAt(c.x, c.y);
-      const s1 = Math.floor(r() * 1000);
+      r(); // a draw kept so the rest of the table comes out as before
       blockers.push({ x: cx, z: cz, r: Math.max(HW, HD), h: kind === 'rocks' ? S * 0.55 : kind === 'mesa' ? S * 1.0 : kind === 'bunker' ? hc * 1.1 : f.height * S });
       if (natural) return;
       if (kind === 'bunker') {

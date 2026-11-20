@@ -10,7 +10,6 @@ import * as THREE from 'three';
 import { type Frame } from '../game/trv/engine';
 import { carObjs } from './board';
 import { chase, chaseLens } from './chase';
-import { carAt } from './inspect';
 import { elevAt, fitDist } from './mapView';
 import { P } from './presentation';
 import { replaying } from './replay';

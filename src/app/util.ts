@@ -9,7 +9,7 @@ export const FACES = { ...RULES.dice, fire: CARNAGE.dice.fire } as unknown as Di
 
 export const SAVE_KEY = 'trv-hotseat-v3';
 export const $ = (id: string): HTMLElement => document.getElementById(id)!;
-export const esc = (s: string): string => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/"/g, '&quot;');
+export { esc } from '../core/markup';
 /**
  * True while the first screen (or the room's card) covers the game: then the game is not drawn and
  * takes no keys (Tab, arrows and shortcuts belong to the menu).

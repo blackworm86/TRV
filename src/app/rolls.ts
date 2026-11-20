@@ -13,7 +13,6 @@ import { AWAY, DIE_W, FORWARD, FX_ORDER, FX_SCALE, TRAY_SCALE, TRAY_Z, TableDie,
 import { g } from './game';
 import { P } from './presentation';
 import { dieHtml } from './hud';
-import type { Round } from './spots';
 import { BOARD_X0, KX, KZ, PITCH_W, TILE_H, TILE_W, camera, scene, tileSlots, world } from './stage';
 import { S } from './state';
 import { $, FACES, esc } from './util';

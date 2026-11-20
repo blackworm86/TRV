@@ -1,6 +1,6 @@
 // The first screen and the hot seat setup (players, crews, expansions), and starting a game.
 
-import { leaders, upgrades, type Team } from '../game/trv/engine';
+import type { Team } from '../game/trv/engine';
 import { BASE_CATALOG as CAT } from '../game/trv/catalog';
 import { newSeed } from '../platform/entropy';
 import { skipBeats } from './beats';

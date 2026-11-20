@@ -94,5 +94,3 @@ export class MotionTrack {
   }
 }
 
-/** The plan of a vehicle that does not move: nothing, at once. */
-export const IDLE_PLAN: MotionPlan = { kind: 'idle', seconds: 0, moments: [{ name: 'end', at: 0 }] };

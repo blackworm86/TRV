@@ -4,6 +4,7 @@
 // then one line per car size, read left to right.
 
 import { commandIconAt, fireDieSvg, inkOn, type FireFace } from './art';
+import { esc } from '../../core/markup';
 
 /** What {@link botCardSvg} draws: one activation card, as data/trv/trv9000.json has it. */
 export interface BotCardArt {
@@ -36,7 +37,6 @@ const BODY = `font-family="'Barlow Condensed', 'Arial Narrow', sans-serif"`;
 const INK = '#17120e', CREAM = '#f3e6d0', PANEL = '#221b15', CHEVRON = '#c98a3c';
 const SIZE_COLOR: Record<string, string> = { S: '#3fae4a', M: '#f2d22e', L: '#e0402e' };
 const COMMAND_NAME: Record<string, string> = { airstrike: 'ATTACCO AEREO', drift: 'DRIFT', repair: 'RIPARAZIONE' };
-const esc = (s: string): string => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/"/g, '&quot;');
 
 /** Splits text into lines of at most `max` characters, at spaces. */
 function wrap(text: string, max: number): string[] {

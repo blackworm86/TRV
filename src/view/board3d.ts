@@ -8,7 +8,7 @@
 import * as THREE from 'three';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { PALETTE, hazardTokenSvg } from './vector/art';
-import { svgTexture, trackTexture } from './texture';
+import { svgTexture } from './texture';
 import { GRID, spaceCenterPx, spaceOutlinePx, type TileData } from './tile-grid';
 import { proceduralTerrain, normalMap, H_MIN, H_MAX } from './terrain/procedural';
 import { buildObstacles, type ObstacleBlocker, type ObstacleKind } from './terrain/obstacles';

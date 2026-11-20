@@ -7,7 +7,6 @@ import type { Frame, Pos } from '../game/trv/engine';
 import { effects } from './beats';
 import { pitFall, shatter } from './wreckage';
 import { carObjs, chopperObjs } from './board';
-import { collectMaterials } from './pieces';
 import { P } from './presentation';
 import { rigShooter } from './motion/aim';
 import { casingAt, ejectVelocity } from './motion/casing';

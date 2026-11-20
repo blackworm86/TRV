@@ -5,6 +5,7 @@
 
 import { GRID, TILE_PITCH_PX, spaceCenterPx, spaceOutlinePx, type TileData } from '../tile-grid';
 import { PALETTE, hazardSymbol } from './art';
+import { esc } from '../../core/markup';
 
 /** Terrain letter (data/trv/game_base.json) to fill colour and Italian name. */
 export const TERRAIN_STYLE: Record<string, { fill: string; name: string }> = {
@@ -28,7 +29,6 @@ export interface TileSvgOptions {
 }
 
 const FONT = `font-family="'League Gothic', Impact, 'Arial Narrow', sans-serif"`;
-const esc = (s: string): string => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/"/g, '&quot;');
 const pts = (p: [number, number][]): string => p.map(([x, y]) => `${+x.toFixed(1)},${+y.toFixed(1)}`).join(' ');
 
 /** The marks of one tile face, shifted `dx` frame pixels along the road, split by layer. */

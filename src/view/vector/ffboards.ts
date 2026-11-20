@@ -11,6 +11,7 @@
 
 import { commandIconAt, dieSvg, inkOn, type CommandBoardArt, type DashboardArt } from './art';
 import { pathPoints } from './boards';
+import { esc } from '../../core/markup';
 
 const RAW = Object.values(import.meta.glob<string>('/assets/big_rig/plance/plancia_final_five.svg', { eager: true, query: '?raw', import: 'default' }))[0] ?? '';
 const FONT = `font-family="'League Gothic', Impact, 'Arial Narrow', sans-serif"`;
@@ -19,7 +20,6 @@ const DARK = '#26232B', METAL = '#ACA3A6', LINE = '#ACA3A6', HOT = '#4cff7a', CR
 /** A dashboard of the strip: a motorcycle's, with its marking and its coasts per round. */
 export interface BikeDashArt extends DashboardArt { marking: number; coastMax: number }
 
-const esc = (s: string): string => s.replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]!));
 const text = (s: string, x: number, y: number, size: number, fill: string, anchor = 'middle', extra = ''): string =>
   `<text x="${x}" y="${y}" font-size="${size}" fill="${fill}" text-anchor="${anchor}" ${FONT} pointer-events="none" ${extra}>${esc(s)}</text>`;
 const inner = (s: string): string => s.replace(/^<svg[^>]*>|<\/svg>$/g, '');

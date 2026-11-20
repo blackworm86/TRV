@@ -23,8 +23,6 @@ import { layRig } from '../view/rigchain';
 import { pruneHeaps } from './wreckage';
 import { BOARD_X0, KX, MM, PITCH_W, TILE_H, TILE_T, TILE_W, pieces, scene, tileCache, tileSlots, world } from './stage';
 import { S } from './state';
-import { $ } from './util';
-import { settings } from './settings';
 import { PartsRig } from './motion/rig';
 import { buildTestVehicle, sheetSources, type VehicleSheet } from '../view/test-vehicles';
 import { describeVehicle } from '../view/vehicle-rig';

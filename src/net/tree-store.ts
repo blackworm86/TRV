@@ -15,6 +15,13 @@ export interface TreeBacking {
   save(tree: Tree): void;
   /** Calls `cb` when someone else saved. */
   listen(cb: () => void): void;
+  /**
+   * Runs `fn` (a load, a change and a save) so that no other client's write falls in between, when
+   * other clients share the backing from other processes (the tabs of a browser). Without it a write
+   * made at the same moment by another tab is lost: the two read the same tree and the last to save
+   * wins (the guest of an online test never saw the host's moves, 2026-11-20).
+   */
+  atomic?(fn: () => void): Promise<void>;
 }
 
 function at(tree: Tree, path: string): Json {
@@ -58,11 +65,13 @@ export function createTreeStore(backing: TreeBacking, uid: string): RoomStore {
     uid: () => Promise.resolve(uid),
     read: path => Promise.resolve(at(backing.load(), path)),
     write: (path, value) => {
-      const tree = backing.load();
-      put(tree, path, JSON.parse(JSON.stringify(value ?? null)) as Json);
-      backing.save(tree);
-      notify();
-      return Promise.resolve();
+      const change = (): void => {
+        const tree = backing.load();
+        put(tree, path, JSON.parse(JSON.stringify(value ?? null)) as Json);
+        backing.save(tree);
+      };
+      if (!backing.atomic) { change(); notify(); return Promise.resolve(); }
+      return backing.atomic(change).then(notify);
     },
     watch: (path, cb) => {
       const value = at(backing.load(), path);
@@ -95,5 +104,7 @@ export function createLocalStore(): RoomStore {
     load: () => { try { return JSON.parse(localStorage.getItem(KEY) ?? '{}') as Tree; } catch { return {}; } },
     save: tree => { localStorage.setItem(KEY, JSON.stringify(tree)); channel.postMessage(1); },
     listen: cb => { channel.addEventListener('message', cb); addEventListener('storage', e => { if (e.key === KEY) cb(); }); },
+    // One write at a time across the tabs (Web Locks), where the browser has them.
+    ...(typeof navigator !== 'undefined' && navigator.locks ? { atomic: (fn: () => void) => navigator.locks.request(KEY, fn).then(() => undefined) } : {}),
   }, uid);
 }

@@ -6,7 +6,6 @@ import { BIKE, CarRig } from '../view/models-config';
 import { carObjs } from './board';
 import { directing } from './director';
 import { impact } from './effects';
-import { held } from './keys';
 import { applyGlow, driveGun } from './pieces';
 import { P } from './presentation';
 import { TILE_T, TILE_W, scene } from './stage';

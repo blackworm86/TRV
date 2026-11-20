@@ -3,9 +3,10 @@
 // card frame for cards that have no art yet (Choppe Shoppe upgrades), and the finishing touches
 // that make an SVG string a file a vector editor opens. Pure string work: no DOM, no three.js.
 
+import { esc } from '../../core/markup';
+
 const FONT = `font-family="'League Gothic', Impact, 'Arial Narrow', sans-serif"`;
 const BODY_FONT = `font-family="Inter, 'Segoe UI', Arial, sans-serif"`;
-const esc = (s: string): string => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/"/g, '&quot;');
 
 /** Lower-case ASCII slug: letters, digits and dashes ("Ms. Betty" -> "ms-betty"). */
 export function slug(s: string): string {

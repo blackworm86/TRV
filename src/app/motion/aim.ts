@@ -10,6 +10,7 @@ import * as THREE from 'three';
 import { P } from '../presentation';
 import type { TurretPart } from '../../view/vehicle-rig';
 import type { Moment, MotionPlan } from './plan';
+import { wrapAngle as wrap, smooth01 as ease } from './angles';
 
 const A = P.motion.aim;
 
@@ -35,9 +36,7 @@ export function elevationTo(rise: number, flat: number, offset = 0): number {
 }
 
 /** Heading difference wrapped to (-π, π]. */
-const wrap = (a: number): number => Math.atan2(Math.sin(a), Math.cos(a));
 /** Eases 0..1 in and out. */
-const ease = (u: number): number => { const x = Math.max(0, Math.min(1, u)); return x * x * (3 - 2 * x); };
 
 /** A turret's pointing: yaw about its up axis (+ = left), elevation of the gun (+ = up), radians. */
 export interface Pointing { yaw: number; elev: number }

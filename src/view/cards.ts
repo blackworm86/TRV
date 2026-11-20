@@ -12,6 +12,7 @@
 // official asset, and they are what the illustrations were cut from.
 
 import CARD_TEXT from '../../data/trv/cards_it.json';
+import { esc } from '../core/markup';
 
 const byId = (files: Record<string, string>): Record<string, string> =>
   Object.fromEntries(Object.entries(files).map(([path, url]) => [path.replace(/^.*\/|\.\w+$/g, ''), url]));
@@ -70,7 +71,6 @@ const TEXT_FONT = `font-family="'Barlow Condensed', 'Arial Narrow', 'Roboto Cond
 /** Titles lean like the printed ones (skewX, degrees). */
 const TITLE_LEAN = -9;
 
-const esc = (s: string): string => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 
 /**
  * About how wide a text is, in ems, in a condensed font: narrow letters, wide letters, capitals and
