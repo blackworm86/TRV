@@ -211,7 +211,7 @@ def car(id, nome, classe, oggi_m, oggi_mm, src_dir, files, fase, extra):
     SHEETS.append(sheet(id, nome, "base", classe, "Auto delle squadre, con ruote, sospensioni, sterzo e mitragliatrice mobili.", 9, "in_gioco", "2026-11-20",
                         f"Nel gioco con le misure di oggi. Da ridisegnare sulla dima alla scala unica (fase {fase}).", pezzi,
                         misure_oggi={"lunghezza": oggi_m, "tavolo_mm": oggi_mm}, montaggio=[f"assets/base/modelli/schede/{id}.json"],
-                        precedente=[f"assets/base/modelli/{OLD[id]}.glb"]))
+                        precedente=[f"assets/archivio/base/modelli/{OLD[id]}.glb"]))
 
 
 def wheel(id, src):
@@ -325,7 +325,7 @@ SHEETS.append(sheet(
            nota="Tagliata in base (big_rig_gun_mount.glb) e arma (big_rig_gun_barrel.glb) da tools/art/split_gun.py.", tentativi=t20("heavy_machine_gun.glb"))],
     misure_oggi={"lunghezza": 6.0, "tavolo_mm": 46},
     montaggio=["assets/big_rig/modelli/schede/big_rig_front.json", "assets/big_rig/modelli/schede/big_rig_mid.json", "assets/big_rig/modelli/schede/big_rig_rear.json"],
-    precedente=["assets/big_rig/modelli/big_rig.glb"],
+    precedente=["assets/archivio/big_rig/modelli/big_rig.glb"],
     note=["Stile: blocco di stile unico (ora in regole.json, blocchi.stile), nato qui il 2026-11-19.",
           "Forma: tre sezioni piene della stessa lunghezza, larghezza e altezza; corpo lungo tre quarti di casella, largo circa 18 mm, alto circa 16 mm; estremità smussate a 45°; timone con occhiello e gancio a perno verticale; ruote dentro la larghezza del corpo.",
           "Sistemi: motrice con lanciamissili, rostro, mitragliatrice anteriore; centrale con vano motore, piazzola per l'elicottero, gru; posteriore con scivolo dei pericoli, radar, mitragliatrice posteriore (dai comandi della plancia, data/trv/big_rig_final_five.json).",

@@ -15,7 +15,15 @@ import {
 import { buildTile, hazardToken, type TileData } from '../view/board3d';
 import { tickFlames, useRampModel } from '../view/terrain/carnage3d';
 import { ModelBank, dressed, fitToLength, type Tint } from '../view/models3d';
-import { MODEL, MODEL_YAW, SHOW_LENGTH_MM, WRECK_TINT, crewTint, wreckLength, wreckModel } from '../view/models-config';
+import type { VehicleSheet } from '../view/test-vehicles';
+import { mountSheets, sheetsLength } from '../view/sheet-model';
+import CAR_S from '../../assets/base/modelli/schede/car_s.json';
+import CAR_M from '../../assets/base/modelli/schede/car_m.json';
+import CAR_L from '../../assets/base/modelli/schede/car_l.json';
+import RIG_FRONT from '../../assets/big_rig/modelli/schede/big_rig_front.json';
+import RIG_MID from '../../assets/big_rig/modelli/schede/big_rig_mid.json';
+import RIG_REAR from '../../assets/big_rig/modelli/schede/big_rig_rear.json';
+import { MODEL, MODEL_YAW, SHOW_LENGTH_MM, WRECK_TINT, crewTint, modelFile, wreckLength, wreckModel } from '../view/models-config';
 /** The game's own 3D models (the modelli folders of assets), loaded once for every item of the page. */
 const bank = new ModelBank();
 void useRampModel(MODEL.ramp, u => bank.load(u));
@@ -53,6 +61,19 @@ function real(stand: THREE.Group, url: string, lengthMm: number, tint: Tint): TH
     fitToLength(d, lengthMm * MM, MODEL_YAW);
     for (const c of stand.children) c.visible = false;
     stand.add(d);
+  }));
+  return stand;
+}
+/** The cars' assembly sheets, and the Big Rig's three sections front first (as the game mounts them, app/pieces.ts). */
+const CAR_SHEETS = { S: CAR_S, M: CAR_M, L: CAR_L } as unknown as Record<'S' | 'M' | 'L', VehicleSheet>;
+const RIG_SHEETS = [RIG_FRONT, RIG_MID, RIG_REAR] as unknown as VehicleSheet[];
+/** A vehicle mounted from the models of its parts, as in the game (view/sheet-model.ts), `lengthMm` long in all. */
+function mounted(sheets: VehicleSheet[], lengthMm: number, tint: Tint): THREE.Group {
+  const stand = new THREE.Group();
+  loading.push(mountSheets(bank, modelFile, sheets, tint).then(all => {
+    if (!all) return;
+    all.scale.setScalar(lengthMm * MM / sheetsLength(sheets));
+    stand.add(all);
   }));
   return stand;
 }
@@ -281,7 +302,7 @@ section('veicoli', 'Veicoli e altri pezzi', 'Un modello 3D per pezzo, come nel g
     const key = `car-${size}`;
     builders.set(key, {
       title: `Auto ${SIZE_NAMES[size]}`, paint: true,
-      build: () => real(pieces.car(comp(`car_${size}`).size_mm as [number, number, number], paint, false), MODEL.car[size], SHOW_LENGTH_MM[size], crewTint(paint)),
+      build: () => mounted([CAR_SHEETS[size]], SHOW_LENGTH_MM[size], crewTint(paint)),
     });
     return { key, title: `Auto ${SIZE_NAMES[size]}`, meta: `1 per crew · ${mm(`car_${size}`)}`, flat: CREWS.map(cr => `<i class="car">${carSvg(size, cr.color)}</i>`) };
   }),
@@ -302,7 +323,7 @@ section('veicoli', 'Veicoli e altri pezzi', 'Un modello 3D per pezzo, come nel g
   })(),
   (() => {
     // The whole road train, three spaces long (a space: an eighth of a road tile's length).
-    builders.set('big-rig', { title: 'Big Rig', paint: true, build: () => real(new THREE.Group(), MODEL.bigRig, 3 * comp('road_tile_1').size_mm[0] / 8, crewTint(paint)) });
+    builders.set('big-rig', { title: 'Big Rig', paint: true, build: () => mounted(RIG_SHEETS, 3 * comp('road_tile_1').size_mm[0] / 8, crewTint(paint)) });
     return { key: 'big-rig', title: 'Big Rig', meta: 'Motrice e due rimorchi · tre caselle', flat: [] };
   })(),
   { title: 'Avatar dei giocatori', meta: 'Colore della crew e iniziale', flat: CREWS.map(cr => `<i class="icon">${avatarSvg(cr.color, cr.name)}</i>`) },

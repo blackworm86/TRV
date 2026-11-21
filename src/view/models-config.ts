@@ -4,7 +4,6 @@
 
 import * as THREE from 'three';
 import type { SpinPart, Tint, WheelSpec } from './models3d';
-import type { RigModelSpec } from './rigmodel';
 import type { WormSpec } from './worm';
 import { P } from '../app/presentation';
 import { hoverPose } from '../app/motion/hover';
@@ -16,7 +15,6 @@ const file = (name: string): string => Object.entries(FILES).find(([p]) => p.end
 /** The address of a model by its file name, as an assembly sheet names the models of its parts (`source`). */
 export const modelFile = file;
 export const MODEL = {
-  car: { S: file('Car_Small.glb'), M: file('Car_Medium.glb'), L: file('Car_Large.glb') },
   chopper: file('Chopper.glb'),
   /** Wreck variants; each wreck on the table takes one, by its id. Add files here as they come. */
   // 1 the first wreck; 2 tank, 3 muscle car, 4 school bus, 5 pickup (Meshy, from data/trv/modelli/wreck_N.json).
@@ -27,24 +25,6 @@ export const MODEL = {
   worm: file('sand_worm.glb'),
   /** The Big Rig and the Final Five (made by the project owner, 2026-11-18, data/trv/modelli/motorcycle.json): nose toward -x. */
   motorcycle: file('motorcycle.glb'),
-  /** The Big Rig in one piece (2026-11-18, data/trv/modelli/big_rig.json), cut at its hitches by view/rigmodel.ts. */
-  bigRig: file('big_rig.glb'),
-};
-
-/**
- * The one-piece Big Rig, measured off the model (nose at -x, y up): the hitch pins where the tow bars
- * narrow between the sections, and the wheels where their tyres touch the ground (radius from their
- * height, tyre band across the truck). A model that changes needs these again.
- */
-export const BIG_RIG: RigModelSpec = {
-  // Measured again on the owner's second version of the model (2026-11-18).
-  pins: [-0.166, 0.128],
-  wheels: {
-    front: [{ x: -0.374, r: 0.036, zIn: 0.045, zOut: 0.074, steer: true }, { x: -0.221, r: 0.036, zIn: 0.045, zOut: 0.074, steer: false }],
-    mid: [{ x: -0.086, r: 0.036, zIn: 0.045, zOut: 0.074, steer: false }, { x: 0.058, r: 0.036, zIn: 0.045, zOut: 0.074, steer: false }],
-    rear: [{ x: 0.186, r: 0.036, zIn: 0.045, zOut: 0.074, steer: false }, { x: 0.308, r: 0.036, zIn: 0.045, zOut: 0.074, steer: false },
-      { x: 0.372, r: 0.036, zIn: 0.045, zOut: 0.074, steer: false }],
-  },
 };
 
 /**
@@ -73,32 +53,17 @@ export const CHOPPER_PARTS: SpinPart[] = [
   { name: 'rotorMain', pivot: [-0.075, 0.14, 0], pick: (x, y, z) => y > 0.128 && Math.abs(z) < 0.035 && x < 0.27 },
   { name: 'rotorTail', pivot: [0.327, 0.024, 0.022], pick: (x, _y, z) => x > 0.285 && z > 0.017 },
 ];
-/**
- * The gun each car model carries, in the model's own coordinates (nose at -x, y up): the vertices
- * that belong to it, the point it turns about (its mount) and the tip of its barrel. Read off the
- * models' side and top views; a model that changes needs these measured again.
- */
-export interface GunSpec extends SpinPart { muzzle: [number, number, number] }
-export const GUNS: Record<string, GunSpec> = {
-  // Small: on top of the roll cage, barrel over the bonnet.
-  [MODEL.car.S]: { name: 'gun', pivot: [0.05, 0.1, 0], muzzle: [-0.14, 0.118, 0],
-    pick: (x, y, z) => y > 0.085 && x > -0.16 && x < 0.2 && Math.abs(z) < 0.05 },
-  // Medium: on the bonnet, ahead of the windscreen.
-  [MODEL.car.M]: { name: 'gun', pivot: [-0.26, 0.07, 0], muzzle: [-0.41, 0.082, 0],
-    pick: (x, y, z) => y > 0.062 && x > -0.43 && x < -0.14 && Math.abs(z) < 0.06 },
-  // Large: on the bed, barrel over the cab roof.
-  [MODEL.car.L]: { name: 'gun', pivot: [0.17, 0.06, 0.005], muzzle: [-0.02, 0.077, 0.005],
-    pick: (x, y, z) => Math.abs(z) < 0.07 && x < 0.3 && ((x > 0 && y > 0.04) || (x > -0.04 && y > 0.065)) },
-};
 /** Turning speed of the rotors, radians per second. */
 export const ROTOR_SPEED: Record<string, number> = { rotorMain: 22, rotorTail: 34 };
 
 /** The chopper's cockpit bubble, model coordinates: glass there is never painted. */
 export const CHOPPER_GLASS: Tint['glass'] = { center: [-0.19, 0.02, 0], radius: [0.12, 0.12, 0.13] };
 
-/** The crew colour on a piece; `glass` only for the chopper. */
+/** How worn the crews' paint is, 0 (a fresh even coat) to 1 (models3d.ts, `Tint.wear`). */
+export const PAINT_WEAR = 0.85;
+/** The crew colour on a piece, worn as a vehicle of the wasteland is; `glass` only for the chopper. */
 export function crewTint(color: string, chopper = false): Tint {
-  return { color, panels: 1, orange: 0, shade: 1, glass: chopper ? CHOPPER_GLASS : undefined };
+  return { color, panels: 1, orange: 0, shade: 1, wear: PAINT_WEAR, glass: chopper ? CHOPPER_GLASS : undefined };
 }
 /** Wrecks keep their own burnt look. */
 export const WRECK_TINT: Tint = { color: '#000000', panels: 0, orange: 0, shade: 1 };
@@ -129,23 +94,11 @@ export function phaseOf(id: string): number {
 }
 
 /**
- * Wheels of each car model (model coordinates, nose at -x), read off the models: centre along the
- * car from where the tyres touch the ground, radius from the tyre height, tyre band across the car.
+ * Wheels of the one-piece models (model coordinates, nose at -x), read off the models: centre along the
+ * vehicle from where the tyres touch the ground, radius from the tyre height, tyre band across it. The cars
+ * and the Big Rig are mounted from their parts (their sheets carry their axles); only the motorcycle is here.
  */
 export const WHEELS: Record<string, WheelSpec[]> = {
-  [MODEL.car.S]: [
-    { x: -0.31, r: 0.115, zIn: 0.16, zOut: 0.32, steer: true },
-    { x: 0.27, r: 0.12, zIn: 0.16, zOut: 0.32, steer: false },
-  ],
-  [MODEL.car.M]: [
-    { x: -0.265, r: 0.086, zIn: 0.118, zOut: 0.233, steer: true },
-    { x: 0.266, r: 0.086, zIn: 0.118, zOut: 0.233, steer: false },
-  ],
-  [MODEL.car.L]: [
-    { x: -0.267, r: 0.077, zIn: 0.085, zOut: 0.167, steer: true },
-    { x: 0.12, r: 0.077, zIn: 0.085, zOut: 0.167, steer: false },
-    { x: 0.262, r: 0.077, zIn: 0.085, zOut: 0.167, steer: false },
-  ],
   // The Final Five's motorcycle: one tyre on each axle, on the middle line (read off its side view, 2026-11-18).
   [MODEL.motorcycle]: [
     { x: -0.344, r: 0.11, zIn: 0, zOut: 0.06, steer: true },

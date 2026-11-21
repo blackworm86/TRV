@@ -142,15 +142,15 @@ test.describe('admin inspector', () => {
     const errors = watchErrors(page);
     await page.goto(`${ADMIN}#base/modelli`);
     await page.evaluate(() => localStorage.removeItem('trv-asset-comments'));
-    await page.locator('.grid .item', { hasText: 'Auto piccola' }).click();
+    await page.locator('.grid .item', { hasText: 'Elicottero' }).click();
     await expect(page.locator('#d-comments')).toContainText('Nessun commento.');
-    await page.locator('#c-text').fill('Le ruote posteriori sono troppo piccole.');
+    await page.locator('#c-text').fill('Il rotore di coda è troppo piccolo.');
     await page.locator('#d-comments button[type="submit"]').click();
-    await expect(page.locator('#d-comments .list li')).toHaveText(/Le ruote posteriori sono troppo piccole\./);
+    await expect(page.locator('#d-comments .list li')).toHaveText(/Il rotore di coda è troppo piccolo\./);
     await page.waitForTimeout(800);
     await page.screenshot({ path: `${EVIDENCE}/6-modello-commento.png` });
     // Another asset has none.
-    await page.locator('.grid .item', { hasText: 'Auto media' }).click();
+    await page.locator('.grid .item', { hasText: 'Relitto 1' }).click();
     await expect(page.locator('#d-comments')).toContainText('Nessun commento.');
     expect(errors).toEqual([]);
   });

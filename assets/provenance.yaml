@@ -16,24 +16,24 @@
   source: {vendor: "il proprietario del progetto", product: "immagine generata da lui"}
   date: 2026-11-21
   ships: false
-- path: assets/base/modelli/Car_Small.glb
+- path: assets/archivio/base/modelli/Car_Small.glb
   origin: ai
   tool: "Meshy, da concept generati con Gemini (Nano Banana)"
   source: {vendor: "il proprietario del progetto", product: "modello generato da lui"}
   date: 2026-11-15
-  ships: true
-- path: assets/base/modelli/Car_Medium.glb
+  ships: false
+- path: assets/archivio/base/modelli/Car_Medium.glb
   origin: ai
   tool: "Meshy, da concept generati con Gemini (Nano Banana)"
   source: {vendor: "il proprietario del progetto", product: "modello generato da lui"}
   date: 2026-11-15
-  ships: true
-- path: assets/base/modelli/Car_Large.glb
+  ships: false
+- path: assets/archivio/base/modelli/Car_Large.glb
   origin: ai
   tool: "Meshy, da concept generati con Gemini (Nano Banana)"
   source: {vendor: "il proprietario del progetto", product: "modello generato da lui"}
   date: 2026-11-15
-  ships: true
+  ships: false
 - path: assets/base/modelli/Chopper.glb
   origin: ai
   tool: "Meshy, da concept generati con Gemini (Nano Banana)"
@@ -59,3 +59,27 @@
   source: {vendor: "il proprietario del progetto", product: "logotipo Destruction Burger: Retribution fornito da lui"}
   date: 2026-11-21
   ships: true
+- path: assets/archivio/base/modelli/car_m_v2_body.glb
+  origin: ai
+  tool: "Meshy, da concept generati con Gemini (Nano Banana); adattato alla dima con tools/models/pulisci_carrozzeria.py e tools/models/adatta_pezzo.py"
+  source: {vendor: "il proprietario del progetto", product: "modello generato da lui"}
+  date: 2026-11-21
+  ships: false
+- path: assets/archivio/base/modelli/car_m_v2_wheel.glb
+  origin: ai
+  tool: "Meshy, da concept generati con Gemini (Nano Banana); adattato alla dima con tools/models/pulisci_carrozzeria.py e tools/models/adatta_pezzo.py"
+  source: {vendor: "il proprietario del progetto", product: "modello generato da lui"}
+  date: 2026-11-21
+  ships: false
+- path: assets/archivio/base/modelli/car_m_v2_gun_mount.glb
+  origin: ai
+  tool: "Meshy, da concept generati con Gemini (Nano Banana); adattato alla dima con tools/models/pulisci_carrozzeria.py e tools/models/adatta_pezzo.py"
+  source: {vendor: "il proprietario del progetto", product: "modello generato da lui"}
+  date: 2026-11-21
+  ships: false
+- path: assets/archivio/base/modelli/car_m_v2_gun.glb
+  origin: ai
+  tool: "Meshy, da concept generati con Gemini (Nano Banana); adattato alla dima con tools/models/pulisci_carrozzeria.py e tools/models/adatta_pezzo.py"
+  source: {vendor: "il proprietario del progetto", product: "modello generato da lui"}
+  date: 2026-11-21
+  ships: false

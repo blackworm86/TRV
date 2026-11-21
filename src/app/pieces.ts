@@ -8,7 +8,7 @@ import { flameCluster, useRampModel, rampPiece } from '../view/terrain/carnage3d
 import { pitPiece } from '../view/terrain/pit3d';
 import { buildTile, hazardToken, GRID } from '../view/board3d';
 import { ModelBank, dressed, fitToLength, ownMaterials, splitParts, splitWheels, type Tint } from '../view/models3d';
-import { MODEL, SHOW_LENGTH_MM, MODEL_YAW, CHOPPER_PARTS, WHEELS, GUNS, BIKE_BACK, type GunSpec, crewTint, WRECK_TINT, wreckModel, wreckLength, phaseOf, CarRig, modelFile } from '../view/models-config';
+import { MODEL, SHOW_LENGTH_MM, MODEL_YAW, CHOPPER_PARTS, WHEELS, BIKE_BACK, crewTint, WRECK_TINT, wreckModel, wreckLength, phaseOf, CarRig, modelFile } from '../view/models-config';
 import { DecalGeometry } from 'three/addons/geometries/DecalGeometry.js';
 import { effects } from './beats';
 import { HAZ_SIZE, carObjs, chopperObjs, hazardObjs, showFinish } from './board';
@@ -130,29 +130,6 @@ export function applyGlow(o: THREE.Object3D, now: number): void {
     m.emissiveIntensity = s;
   }
 }
-/**
- * The car's own gun, cut out of the model (GUNS in models-config.ts) so it can turn on its mount.
- * It swivels toward `o.userData.aim` (a world yaw); at rest it points
- * forward. It rides on the body, so it leans and shakes with it.
- */
-export function mountGun(o: THREE.Group, model: THREE.Object3D, spec: GunSpec): void {
-  const gun = model.getObjectByName(spec.name);
-  if (!gun) return;
-  let body: THREE.Object3D | null = null;
-  model.traverse(x => { if (x.userData.body && !body) body = x; });
-  const frame = gun.parent;
-  if (body && frame) {
-    (body as THREE.Object3D).add(frame); // the frame carried the body's transform: now the body does
-    frame.position.set(0, 0, 0); frame.rotation.set(0, 0, 0); frame.scale.set(1, 1, 1);
-  }
-  const muzzle = new THREE.Object3D();
-  muzzle.position.set(spec.muzzle[0] - spec.pivot[0], spec.muzzle[1] - spec.pivot[1], spec.muzzle[2] - spec.pivot[2]);
-  gun.add(muzzle);
-  gun.userData.muzzle = muzzle;
-  gun.userData.piece = gun.children[0];
-  gun.userData.restX = gun.children[0].position.x;
-  o.userData.turret = gun;
-}
 /** One frame of a gun: it turns toward its aim (or back forward). No recoil (the user, 2026-11-20): the guns throw casings instead. */
 export function driveGun(o: THREE.Object3D, carYaw: number, dt: number): void {
   const gun = o.userData.turret as THREE.Object3D | undefined;
@@ -187,7 +164,7 @@ export function useModel(o: THREE.Group, url: string, lengthMm: number, tint: Ti
     if (!m) return;
     if (!m.userData.split) {
       if (url === MODEL.chopper) splitParts(m, CHOPPER_PARTS);
-      else if (WHEELS[url]) { splitWheels(m, WHEELS[url]); if (GUNS[url]) splitParts(m, [GUNS[url]]); }
+      else if (WHEELS[url]) splitWheels(m, WHEELS[url]);
       m.userData.split = true;
     }
     registerTextures(m);
@@ -198,7 +175,6 @@ export function useModel(o: THREE.Group, url: string, lengthMm: number, tint: Ti
     // Hides the placeholder only: the flames of a burning car (added before the model arrived) stay.
     for (const c of o.children) if (c !== o.userData.flames && c !== o.userData.marking) c.visible = false;
     o.add(d);
-    if (GUNS[url]) mountGun(o, d, GUNS[url]);
     dress?.(d);
     o.userData.modelHeight = size.y;
     o.userData.modelSize = size;
@@ -436,8 +412,7 @@ export function drawTable(s: Snapshot): void {
       // The Small Car (the Doom Buggy) too, 2026-11-20.
       else if (v.size === 'S') useSheetModel(o, SMALL_CAR, crewTint(g.players[v.owner!].color), v.id, SHOW_LENGTH_MM.S * MM / SMALL_CAR.length_m);
       // And the Large Car (the Eliminator).
-      else if (v.size === 'L') useSheetModel(o, LARGE_CAR, crewTint(g.players[v.owner!].color), v.id, SHOW_LENGTH_MM.L * MM / LARGE_CAR.length_m);
-      else useModel(o, MODEL.car[v.size], SHOW_LENGTH_MM[v.size], crewTint(g.players[v.owner!].color), v.id);
+      else useSheetModel(o, LARGE_CAR, crewTint(g.players[v.owner!].color), v.id, SHOW_LENGTH_MM.L * MM / LARGE_CAR.length_m);
       carObjs.set(v.id, o);
       scene.add(o);
       o.position.copy(v.pos ? world(v.pos) : startSpot(v));

@@ -10,7 +10,7 @@
     "passo": 2,
     "esito": "in_lavorazione",
     "dal": "2026-11-21",
-    "nota": "Carrozzeria, ruota, base dell'arma e arma tenute il 2026-11-21, adattate alla dima (tools/models/adatta_pezzo.py) e controllate montate: dima 100 su 101. Da fare: montaggio nel gioco."
+    "nota": "Progetto fermato il 2026-11-21 per decisione dell'utente: la qualità dei modelli generati era calata, il gioco tiene l'Avenger che ha. I quattro pezzi adattati (metri, muso verso +x, origine sul perno, texture a 1024) sono in assets/archivio/base/modelli/."
   },
   "posti": [
     {
@@ -74,7 +74,8 @@
           "nota": "Tenuto. Ripulito con tools/models/pulisci_carrozzeria.py (assi +1,41 e −1,21): tolte 31 sospensioni sciolte dai passaruota e 2 lastre aperte sotto la scocca, tappati i buchi piccoli. Chiuso: 0 spigoli aperti. La dima è stata adattata al modello."
         }
       ],
-      "sorgente": "assets/sorgenti/avenger_2026-11-21/Avenger_Chassis_pulito.glb"
+      "sorgente": "assets/sorgenti/avenger_2026-11-21/Avenger_Chassis_pulito.glb",
+      "altrove": "assets/archivio/base/modelli/car_m_v2_body.glb"
     },
     {
       "id": "car_m_v2_wheel",
@@ -99,7 +100,8 @@
           "nota": "Tenuta: ruota riciclata dall'utente. Portata a raggio 0,36 m (scala 1,235) e allargata a 0,30 m (1,075 sull'asse), come le ruote della dima; tappato l'anello aperto dietro il cerchione. Chiusa: 0 spigoli aperti. Comando: python tools/models/adatta_pezzo.py Wheel.glb Wheel_adattata.glb --scala 1.235 1.235 1.075"
         }
       ],
-      "sorgente": "assets/sorgenti/avenger_2026-11-21/Wheel_adattata.glb"
+      "sorgente": "assets/sorgenti/avenger_2026-11-21/Wheel_adattata.glb",
+      "altrove": "assets/archivio/base/modelli/car_m_v2_wheel.glb"
     },
     {
       "id": "car_m_v2_gun_mount",
@@ -124,7 +126,8 @@
           "nota": "Tenuta. Tolto il disco piatto staccato sotto la base (la piastra è già nella carrozzeria); larga 0,6 m come la piastra; allungato il solo collo (0,41 m) perché il manicotto arrivi sotto l'arma: alta 0,98 m, sulla piastra a 0,90 m. Chiusa, un pezzo solo. Comando: python tools/models/adatta_pezzo.py PintleMount.glb PintleMount_adattata.glb --togli-sotto --gira --scala 1 1 1 --origine 0.101 -0.259 0 --allunga -0.17 -0.06 0.414"
         }
       ],
-      "sorgente": "assets/sorgenti/avenger_2026-11-21/PintleMount_adattata.glb"
+      "sorgente": "assets/sorgenti/avenger_2026-11-21/PintleMount_adattata.glb",
+      "altrove": "assets/archivio/base/modelli/car_m_v2_gun_mount.glb"
     },
     {
       "id": "car_m_v2_gun",
@@ -151,7 +154,8 @@
           "nota": "Tenuta. Scala 1,3: lunga 1,25 m, impugnature 0,45 m dietro il perno, così il mitragliere sta sul pianale. Staccati di mezzo millimetro due blocchetti che si toccavano lungo uno spigolo. Chiusa: 0 spigoli aperti, 0 non manifold. Comando: python tools/models/adatta_pezzo.py HeavyMachineGun.glb HeavyMachineGun_adattata.glb --gira --scala 1.3 1.3 1.3 --origine 0.134 0.068 0"
         }
       ],
-      "sorgente": "assets/sorgenti/avenger_2026-11-21/HeavyMachineGun_adattata.glb"
+      "sorgente": "assets/sorgenti/avenger_2026-11-21/HeavyMachineGun_adattata.glb",
+      "altrove": "assets/archivio/base/modelli/car_m_v2_gun.glb"
     }
   ],
   "collaudi": [],
@@ -187,6 +191,10 @@
     {
       "data": "2026-11-21",
       "testo": "Ruota, base e arma tenute senza rigenerare: la ruota riciclata è portata alle misure della dima (raggio 0,36, larghezza 0,30), la base ha il collo allungato perché l'arma stia all'altezza delle mani del mitragliere, l'arma è a scala 1,3. La dima le segue: perno dell'arma a −1,50 m e 2,10 m, base sulla piastra a 0,90 m, pianale a 0,82 m, mitragliere a −2,25 m con le prese sulle impugnature (16 cm tra le mani)."
+    },
+    {
+      "data": "2026-11-21",
+      "testo": "Il ridisegno dei modelli sulla dima è fermato: il gioco tiene i modelli che ha, montati dalle loro schede. I modelli non caricati dal gioco (le tre auto e il Big Rig in un pezzo solo, i pezzi dell'Avenger ridisegnato) passano in assets/archivio/."
     }
   ],
   "provenienza": {

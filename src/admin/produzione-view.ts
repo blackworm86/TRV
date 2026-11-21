@@ -169,7 +169,7 @@ function sheetHtml(s: Sheet): string {
     <h3 class="sub">Collaudo dimensionale</h3><p class="set">${s.collaudi.length ? `${s.collaudi.length} rapporti` : 'Nessun rapporto: lo script del collaudo arriva con la fase C.'}</p>
     ${texts('Note', s.note)}
     ${s.decisioni.length ? `<h3 class="sub">Decisioni</h3><ul class="legend">${s.decisioni.map(d => `<li><strong>${esc(d.data)}</strong> · ${esc(d.testo)}</li>`).join('')}</ul>` : ''}
-    ${files('Schede di montaggio', s.montaggio)}${files('Modelli precedenti, ancora nel repository', s.precedente)}
+    ${files('Schede di montaggio', s.montaggio)}${files('Modelli precedenti, in archivio (assets/archivio/)', s.precedente)}
     <h3 class="sub">Provenienza</h3><p class="set">${esc(pv.strumento)} · ${esc(pv.fonte)}${pv.data ? ` · ${esc(pv.data)}` : ''}</p>
     <section class="comments" id="p-comments" data-key="${esc(s.id)}"></section>`;
 }

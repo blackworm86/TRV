@@ -6,12 +6,20 @@ import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { BASE_CATALOG as CAT, sizeOf, ofKind } from '../game/trv/catalog';
 import { Pieces, TextureBank } from '../view/pieces3d';
 import { ModelBank, dressed, fitToLength, splitParts, splitWheels, type Tint } from '../view/models3d';
-import { MODEL, SHOW_LENGTH_MM, MODEL_YAW, CHOPPER_PARTS, ROTOR_SPEED, crewTint, WRECK_TINT, WRECK_LENGTH_MM, phaseOf, hover, CarRig, WHEELS } from '../view/models-config';
+import { mountSheets, sheetsLength } from '../view/sheet-model';
+import type { VehicleSheet } from '../view/test-vehicles';
+import CAR_S from '../../assets/base/modelli/schede/car_s.json';
+import CAR_M from '../../assets/base/modelli/schede/car_m.json';
+import CAR_L from '../../assets/base/modelli/schede/car_l.json';
+import RIG_FRONT from '../../assets/big_rig/modelli/schede/big_rig_front.json';
+import RIG_MID from '../../assets/big_rig/modelli/schede/big_rig_mid.json';
+import RIG_REAR from '../../assets/big_rig/modelli/schede/big_rig_rear.json';
+import { modelFile, MODEL, SHOW_LENGTH_MM, MODEL_YAW, CHOPPER_PARTS, ROTOR_SPEED, crewTint, WRECK_TINT, WRECK_LENGTH_MM, phaseOf, hover, CarRig, WHEELS } from '../view/models-config';
 
 const TILE_MM = sizeOf(CAT, 'road_tile');
 const MM = 13.14 / TILE_MM[0];
-/** The first crews' colours, as a new game deals them. */
-const CREWS = CAT.crews.slice(0, 4).map(c => c.color);
+/** Every crew's colour, in the catalogue's order. */
+const CREWS = CAT.crews.map(c => c.color);
 
 const renderer = new THREE.WebGLRenderer({ antialias: true, stencil: true });
 renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
@@ -35,10 +43,8 @@ const models = new ModelBank();
 
 interface Row { label: string; url: string; show: number; kind: 'car' | 'chopper' | 'wreck'; stand: () => THREE.Group }
 const ROWS: Row[] = [
-  ...(['S', 'M', 'L'] as const).map(s => ({
-    label: `auto ${s}`, url: MODEL.car[s], show: SHOW_LENGTH_MM[s], kind: 'car' as const,
-    stand: () => pieces.car(ofKind(CAT, 'car', { car_size: s })[0].size_mm, '#ec9230', false),
-  })),
+  // The cars and the Big Rig are mounted from their parts: the bench (bench.html) checks those.
+  { label: 'moto', url: MODEL.motorcycle, show: SHOW_LENGTH_MM.bike, kind: 'car', stand: () => new THREE.Group() },
   { label: 'elicottero', url: MODEL.chopper, show: SHOW_LENGTH_MM.chopper, kind: 'chopper', stand: () => pieces.chopper(sizeOf(CAT, 'chopper'), '#ec9230') },
   ...MODEL.wrecks.map((url, i) => ({
     label: `relitto ${i + 1}`, url, show: WRECK_LENGTH_MM[i] ?? SHOW_LENGTH_MM.wreck, kind: 'wreck' as const,
@@ -80,6 +86,25 @@ ROWS.forEach((row, r) => {
       if (i === 0) out.push(`${row.label}: ${(size.x / MM).toFixed(0)} × ${(size.z / MM).toFixed(0)} × ${(size.y / MM).toFixed(0)} mm`);
     });
     show();
+  });
+});
+// The vehicles mounted from their parts (the cars, the Big Rig), one per crew colour, behind the others:
+// the cars a row each, the Big Rig three to a row (it is three spaces long).
+const SHEET_ROWS: { label: string; sheets: VehicleSheet[]; mm: number }[] = [
+  { label: 'auto S', sheets: [CAR_S as unknown as VehicleSheet], mm: SHOW_LENGTH_MM.S },
+  { label: 'auto M', sheets: [CAR_M as unknown as VehicleSheet], mm: SHOW_LENGTH_MM.M },
+  { label: 'auto L', sheets: [CAR_L as unknown as VehicleSheet], mm: SHOW_LENGTH_MM.L },
+  { label: 'big rig', sheets: [RIG_FRONT, RIG_MID, RIG_REAR] as unknown as VehicleSheet[], mm: 3 * TILE_MM[0] / 8 },
+];
+SHEET_ROWS.forEach((row, r) => {
+  CREWS.forEach((color, i) => {
+    void mountSheets(models, modelFile, row.sheets, crewTint(color)).then(all => {
+      if (!all) { if (i === 0) { out.push(`${row.label}: manca un modello`); show(); } return; }
+      all.scale.setScalar(row.mm * MM / sheetsLength(row.sheets));
+      const rig = row.sheets.length > 1;
+      all.position.set(rig ? (i % 3) * 5.6 + 2.8 : i * 1.6 + 0.6, 0, rig ? -6 - Math.floor(i / 3) * 1.6 : -(r + 1) * 1.5);
+      scene.add(all);
+    });
   });
 });
 function show(): void { document.getElementById('info')!.textContent = out.join('\n'); }

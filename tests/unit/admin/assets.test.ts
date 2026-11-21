@@ -96,7 +96,8 @@ describe('traced official drawings', () => {
 
 describe('3D models', () => {
   it('has every model the game loads', () => {
-    const models = ['base/modelli/Car_Small', 'base/modelli/Car_Medium', 'base/modelli/Car_Large', 'base/modelli/Chopper',
+    const models = [...['s', 'm', 'l'].map(k => `base/modelli/car_${k}_body`), 'base/modelli/car_s_wheel', 'base/modelli/car_m_wheel', 'big_rig/modelli/big_rig_wheel',
+      'big_rig/modelli/motorcycle', 'base/modelli/Chopper',
       ...[1, 2, 3, 4, 5].map(n => `base/modelli/wreck_${n}`), 'carnage/modelli/Ramp'];
     expect(missing(models.map(m => `assets/${m}.glb`))).toEqual([]);
   });

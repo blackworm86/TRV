@@ -338,7 +338,7 @@
     "assets/big_rig/modelli/schede/big_rig_rear.json"
   ],
   "precedente": [
-    "assets/big_rig/modelli/big_rig.glb"
+    "assets/archivio/big_rig/modelli/big_rig.glb"
   ],
   "note": [
     "Stile: blocco di stile unico (ora in regole.json, blocchi.stile), nato qui il 2026-11-19.",

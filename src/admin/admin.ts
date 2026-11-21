@@ -168,8 +168,7 @@ const bigRigUrl = (id: string): string => {
   return BIG_RIG_ART[`/assets/big_rig/${p.dir}/${id}.webp`] ?? '';
 };
 const MODEL_INFO: Record<string, { name: string; comp: string }> = {
-  Car_Small: { name: 'Auto piccola', comp: 'car_S' }, Car_Medium: { name: 'Auto media', comp: 'car_M' },
-  Car_Large: { name: 'Auto grande', comp: 'car_L' }, Chopper: { name: 'Elicottero', comp: 'chopper' }, wreck_1: { name: 'Relitto 1', comp: 'wreck' },
+  Chopper: { name: 'Elicottero', comp: 'chopper' }, wreck_1: { name: 'Relitto 1', comp: 'wreck' },
   wreck_2: { name: 'Relitto 2 (carro armato)', comp: 'wreck' }, wreck_3: { name: 'Relitto 3 (muscle car)', comp: 'wreck' },
   wreck_4: { name: 'Relitto 4 (scuolabus)', comp: 'wreck' }, wreck_5: { name: 'Relitto 5 (pick-up)', comp: 'wreck' },
   Ramp: { name: 'Rampa (Carnage)', comp: '' },

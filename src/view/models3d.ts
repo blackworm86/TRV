@@ -55,6 +55,13 @@ export interface Tint {
   /** Multiplies the whole texture: 1 = as made, lower = darker (a burnt wreck). */
   shade: number;
   /**
+   * 0..1: how worn the paint is (0 or left out: a fresh, even coat). Worn paint keeps the texture's own
+   * light and grime under it, is chipped to the bare panel in patches with rust at their rims, fades
+   * where the sun bleached it and is dusty near the ground (asked by the user, 2026-11-21: the even coat
+   * read as a miniature still to be painted).
+   */
+  wear?: number;
+  /**
    * Optional glass (a cockpit): an ellipsoid in the model's own coordinates. Inside it, pixels
    * lighter than `lum` (linear luminance, a soft step from..to) are glass: darkened, glossy, never
    * painted; darker ones are the frame and get the crew colour like the rest.
@@ -62,11 +69,23 @@ export interface Tint {
   glass?: { center: [number, number, number]; radius: [number, number, number]; lum?: [number, number] };
 }
 
+/** Value noise in three octaves (GLSL), 0..1: the patches and chips of worn paint. */
+const WEAR_NOISE = `
+float wearHash(vec3 p) { p = fract(p * 0.3183099 + 0.1); p *= 17.0; return fract(p.x * p.y * p.z * (p.x + p.y + p.z)); }
+float wearNoise(vec3 x) {
+  vec3 i = floor(x), f = fract(x); f = f * f * (3.0 - 2.0 * f);
+  return mix(mix(mix(wearHash(i), wearHash(i + vec3(1, 0, 0)), f.x), mix(wearHash(i + vec3(0, 1, 0)), wearHash(i + vec3(1, 1, 0)), f.x), f.y),
+    mix(mix(wearHash(i + vec3(0, 0, 1)), wearHash(i + vec3(1, 0, 1)), f.x), mix(wearHash(i + vec3(0, 1, 1)), wearHash(i + vec3(1, 1, 1)), f.x), f.y), f.z);
+}
+float wearFbm(vec3 p) { return wearNoise(p) * 0.55 + wearNoise(p * 2.03 + 5.1) * 0.3 + wearNoise(p * 4.01 + 9.2) * 0.15; }
+`;
+
 /**
  * A copy of `src` that paints the crew colour over the light, unsaturated parts of its texture
- * (the panels), keeping their shading; dark metal and coloured details stay as they are.
+ * (the panels), keeping their shading; dark metal, rust and coloured details stay as they are.
+ * `span`: the model's lowest point and its height (model units), for the dust near the ground.
  */
-export function tintedMaterial(src: THREE.MeshStandardMaterial, tint: Tint): THREE.MeshStandardMaterial {
+export function tintedMaterial(src: THREE.MeshStandardMaterial, tint: Tint, span: [number, number] = [0, 1]): THREE.MeshStandardMaterial {
   const m = src.clone();
   const team = { value: new THREE.Color(tint.color) };
   m.onBeforeCompile = sh => {
@@ -74,6 +93,8 @@ export function tintedMaterial(src: THREE.MeshStandardMaterial, tint: Tint): THR
     sh.uniforms.teamPanels = { value: tint.panels };
     sh.uniforms.teamOrange = { value: tint.orange };
     sh.uniforms.teamShade = { value: tint.shade };
+    sh.uniforms.teamWear = { value: tint.wear ?? 0 };
+    sh.uniforms.teamSpan = { value: new THREE.Vector2(span[0], Math.max(1e-4, span[1])) };
     sh.uniforms.glassCenter = { value: new THREE.Vector3(...(tint.glass?.center ?? [0, 0, 0])) };
     sh.uniforms.glassRadius = { value: new THREE.Vector3(...(tint.glass?.radius ?? [1e-4, 1e-4, 1e-4])) };
     sh.uniforms.glassOn = { value: tint.glass ? 1 : 0 };
@@ -81,6 +102,7 @@ export function tintedMaterial(src: THREE.MeshStandardMaterial, tint: Tint): THR
     sh.vertexShader = 'varying vec3 vModelPos;\n' + sh.vertexShader.replace('#include <begin_vertex>', '#include <begin_vertex>\n  vModelPos = position;');
     sh.fragmentShader = 'uniform vec3 teamColor;\nuniform float teamPanels;\nuniform float teamOrange;\nuniform float teamShade;\n' +
       'uniform vec3 glassCenter;\nuniform vec3 glassRadius;\nuniform float glassOn;\nuniform vec2 glassLum;\nvarying vec3 vModelPos;\n' +
+      'uniform float teamWear;\nuniform vec2 teamSpan;\n' + WEAR_NOISE +
       sh.fragmentShader
         .replace('#include <roughnessmap_fragment>', '#include <roughnessmap_fragment>\n  roughnessFactor = mix(roughnessFactor, 0.12, teamGlass);')
         .replace('#include <map_fragment>', `#include <map_fragment>
@@ -98,13 +120,36 @@ export function tintedMaterial(src: THREE.MeshStandardMaterial, tint: Tint): THR
     teamGlass = glassOn * inGlass * smoothstep(glassLum.x, glassLum.y, lum);
     // The paint reaches into the texture's own baked shade (dark grey, not black) and keeps a floor of
     // brightness there: on a vivid colour those faces read as black holes otherwise (2026-11-20).
-    float panel = smoothstep(0.02, 0.12, lum) * (1.0 - smoothstep(0.25, 0.5, sat)) * teamPanels * (1.0 - teamGlass);
+    // Rust in the texture is warm and a little saturated: worn paint stops short of it, so it stays rust.
+    float satTo = mix(0.5, 0.34, teamWear);
+    float panel = smoothstep(0.02, 0.12, lum) * (1.0 - smoothstep(satTo - 0.25, satTo, sat)) * teamPanels * (1.0 - teamGlass);
     float orange = smoothstep(0.012, 0.035, hue) * (1.0 - smoothstep(0.13, 0.17, hue)) * smoothstep(0.45, 0.65, sat)
       * smoothstep(0.03, 0.08, lum) * teamOrange;
-    vec3 onPanel = teamColor * clamp(0.2 + lum * 2.4, 0.3, 1.25);
+    // Worn paint, in the model's own space so it stays put on the body: broad patches a hand wide,
+    // fine chips, sun the bleached areas.
+    float broad = wearFbm(vModelPos * 7.0), fine = wearFbm(vModelPos * 34.0 + 3.7), sun = wearFbm(vModelPos * 4.0 + 11.3);
+    float flake = fine * 0.6 + broad * 0.5;
+    float chip = smoothstep(0.7, 0.74, flake) * teamWear;
+    float rim = smoothstep(0.655, 0.7, flake) * (1.0 - smoothstep(0.72, 0.76, flake)) * teamWear;
+    vec3 paint = teamColor;
+    // Bleached: paler and greyer where the sun took it.
+    paint = mix(paint, mix(vec3(dot(paint, vec3(0.2126, 0.7152, 0.0722))), paint, 0.62) * 1.04, smoothstep(0.45, 0.75, sun) * 0.4 * teamWear);
+    // The texture's own light and shade under the coat: an even coat is nearly flat, a worn one follows it.
+    float even = clamp(0.2 + lum * 2.4, 0.3, 1.25), follow = clamp(0.12 + lum * 2.2, 0.18, 0.98);
+    vec3 onPanel = paint * mix(even, follow, teamWear);
+    // A worn coat is thin: a little of the panel's own grime shows through it.
+    onPanel = mix(onPanel, c * 1.4, 0.1 * teamWear);
     vec3 onOrange = teamColor * clamp(lum / 0.36, 0.2, 1.4);
-    c = mix(c, onPanel, panel);
+    vec3 bare = c;
+    c = mix(c, onPanel, panel * (1.0 - chip));
+    // Rust creeping from the rim of each chip, and a stain of it on the bare panel inside.
+    vec3 rust = vec3(0.21, 0.085, 0.03) * clamp(0.5 + lum * 2.0, 0.5, 1.4);
+    c = mix(c, rust, panel * rim * 0.75);
+    c = mix(c, mix(bare, rust, 0.35), panel * chip * smoothstep(0.45, 0.7, broad));
     c = mix(c, onOrange, orange);
+    // Dust and dried mud thrown up from the road, thicker near the ground.
+    float low = 1.0 - smoothstep(0.0, 0.42, (vModelPos.y - teamSpan.x) / teamSpan.y);
+    c = mix(c, vec3(0.42, 0.33, 0.23) * clamp(0.4 + lum * 2.0, 0.4, 1.2), low * (0.2 + 0.3 * broad) * teamWear * teamPanels * (1.0 - teamGlass));
     // Darkened, cool and glossy, but the texture stays: its frame lines (the pillars) still show.
     c = mix(c, c * vec3(0.34, 0.42, 0.5) + vec3(0.004, 0.007, 0.01), teamGlass);
     diffuseColor.rgb = c * teamShade;
@@ -131,12 +176,22 @@ export function ownMaterials(model: THREE.Object3D): THREE.Object3D {
 /** Clones `model` and gives every mesh its own tinted material. */
 export function dressed(model: THREE.Object3D, tint: Tint): THREE.Object3D {
   const out = model.clone(true);
+  // The model's lowest point and height in its meshes' own coordinates (the shader's), for the dust near the ground.
+  let lo = Infinity, hi = -Infinity;
+  out.traverse(o => {
+    const g = (o as THREE.Mesh).isMesh ? (o as THREE.Mesh).geometry : null;
+    if (!g) return;
+    if (!g.boundingBox) g.computeBoundingBox();
+    lo = Math.min(lo, g.boundingBox!.min.y);
+    hi = Math.max(hi, g.boundingBox!.max.y);
+  });
+  const span: [number, number] = lo < hi ? [lo, hi - lo] : [0, 1];
   out.traverse(o => {
     const mesh = o as THREE.Mesh;
     if (!mesh.isMesh) return;
     mesh.castShadow = true;
     const mats = Array.isArray(mesh.material) ? mesh.material : [mesh.material];
-    const next = mats.map(x => x instanceof THREE.MeshStandardMaterial ? tintedMaterial(x, tint) : x);
+    const next = mats.map(x => x instanceof THREE.MeshStandardMaterial ? tintedMaterial(x, tint, span) : x);
     mesh.material = Array.isArray(mesh.material) ? next : next[0];
   });
   return out;

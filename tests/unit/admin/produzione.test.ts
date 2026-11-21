@@ -103,10 +103,13 @@ describe('the rules and sheets of the repository', () => {
 
   it('have one sheet for every model the game ships', () => {
     const files = new Set(SHEETS.flatMap(s => [...s.pezzi.map(p => p.file), ...(s.precedente ?? [])]));
-    for (const f of ['Car_Small', 'Car_Medium', 'Car_Large', 'Chopper', 'wreck_1', 'wreck_5', 'car_m_body', 'car_s_wheel']) {
+    for (const f of ['Chopper', 'wreck_1', 'wreck_5', 'car_m_body', 'car_s_wheel']) {
       expect(files, f).toContain(`assets/base/modelli/${f}.glb`);
     }
-    for (const f of ['big_rig_front_body', 'big_rig_launcher', 'motorcycle', 'big_rig']) expect(files, f).toContain(`assets/big_rig/modelli/${f}.glb`);
+    for (const f of ['big_rig_front_body', 'big_rig_launcher', 'motorcycle']) expect(files, f).toContain(`assets/big_rig/modelli/${f}.glb`);
+    // The one-piece models the game no longer loads are kept in the archive, and their sheets say where.
+    for (const f of ['Car_Small', 'Car_Medium', 'Car_Large']) expect(files, f).toContain(`assets/archivio/base/modelli/${f}.glb`);
+    expect(files).toContain('assets/archivio/big_rig/modelli/big_rig.glb');
     for (const f of ['Ramp', 'sand_worm']) expect(files, f).toContain(`assets/carnage/modelli/${f}.glb`);
   });
 
