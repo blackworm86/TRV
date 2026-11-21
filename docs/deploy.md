@@ -83,6 +83,25 @@ restano nel browser, e la scheda **Confronta con la fonte** mostra le scansioni 
    account Google lo sceglie alla prossima visita, e i vecchi profili anonimi
    restano nel database senza più comparire.
 
+9. **Beta su invito** (dal 2026-11-21): il gioco intero si apre solo per gli
+   account invitati. `database.rules.json` ha le sezioni `testers` (email
+   invitate), `testerUids` (account ammessi) e `beta`, e chiede di essere tester
+   per stanze, lobby, amici e profili.
+   1. Incolla di nuovo il file nella scheda **Regole** e **Pubblica**.
+   2. Apri il pannello admin → **Tester della Beta**. La prima volta aggiunge da
+      solo tutti gli account registrati finora (chi ha scelto un nome utente) e
+      lo scrive in cima alla pagina.
+   3. Per invitare scrivi o incolla una o più email Google e premi **Invita**:
+      va bene un elenco qualsiasi (una per riga, con virgole, `Nome <email>`)
+      e anche l'intero file di `npx firebase-tools auth:export utenti.json
+      --format=json --project trv-online`, che contiene le email di chi ha fatto
+      accesso (tienilo fuori dal repository e cancellalo dopo). Con **Togli** lo
+      escludi di nuovo. Gli admin entrano sempre.
+   Gli ospiti senza account e gli account non invitati vedono "Beta su invito"
+   e non possono né giocare né entrare nelle stanze. La partita in locale è
+   chiusa solo dalla pagina: il codice è pubblico, quindi chi lo scarica può
+   comunque avviarla da sé.
+
 ## Come si gioca online
 
 - Gli amici richiedono un **account** (accesso con Google). Al primo accesso si
@@ -90,8 +109,7 @@ restano nel browser, e la scheda **Confronta con la fonte** mostra le scansioni 
   minuscole, cifre, `_` e `.`). Il **nome visualizzato** dagli altri parte uguale
   al nome utente e si cambia quando si vuole, in alto. Sotto compaiono
   `@nomeutente` e il **codice amico** (`TRV-XXXXXX`).
-- Senza account (ospite) si gioca online lo stesso con il link o il codice di una
-  stanza, scrivendo un nome in alto; non si hanno amici.
+- Durante la Beta serve un account invitato (punto 9): senza, il gioco non si apre.
 - **Gioca online** apre la lobby: le partite pubbliche non ancora iniziate (quelle
   degli amici in cima), un campo per entrare con un codice e **+ Crea partita**.
 - **Crea partita**: chi può entrare (tutti in lobby, solo amici, solo su invito),

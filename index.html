@@ -65,6 +65,23 @@
 <div id="hand"></div>
 <div id="ghost"></div>
 <div id="cartip"></div>
+<div id="beta" hidden>
+  <div class="box">
+    <img class="logo" src="./assets/base/logo/destruction_burger_retribution.svg" alt="Destruction Burger: Retribution">
+    <h2>Beta su invito</h2>
+    <p>Il gioco è in prova chiusa: si entra solo su invito.</p>
+    <div id="beta-wait"><p class="hint">Controllo l’invito…</p></div>
+    <div id="beta-login" hidden>
+      <p>Accedi con l’account Google che hai indicato per l’invito.</p>
+      <button class="go" id="beta-google">Accedi con Google</button>
+    </div>
+    <div id="beta-denied" hidden>
+      <p>L’account <b id="beta-who"></b> non è tra i tester della Beta. Chiedi l’invito a chi organizza la prova, poi riprova.</p>
+      <div class="row"><button class="tool" id="beta-other">Usa un altro account</button><button class="tool" id="beta-retry">Riprova</button></div>
+    </div>
+    <p class="err" id="beta-err"></p>
+  </div>
+</div>
 <div id="setup">
   <div class="card">
     <header class="hdr">

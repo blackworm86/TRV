@@ -147,7 +147,7 @@ test.describe('game', () => {
     // Reloading resumes the saved choices: the table must be exactly the same.
     const again = await context.newPage();
     const errors2 = watchErrors(again);
-    await again.goto(GAME);
+    await again.goto(GAME + '?net=local'); // the real site's Beta gate is not part of this check
     await expect.poll(() => again.evaluate(() => typeof window.trv?.snapshot)).toBe('function');
     await expect.poll(() => again.evaluate(() => JSON.stringify(window.trv!.snapshot()))).toBe(first);
     expect(errors).toEqual([]);

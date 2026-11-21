@@ -26,6 +26,8 @@ import { commandName, leaders, upgrades, type CommandId, type CommandSlot } from
 import type { TileData } from '../view/tile-grid';
 import { FIREBASE_CONFIG } from '../net/firebase-config';
 import { assetKey, firebaseCommentStore, localCommentStore, type CommentStore } from '../net/asset-comments';
+import { firebaseTesterStore, localTesterStore, type TesterStore } from '../net/testers';
+import { drawTesters } from './tester-view';
 import { BASE_CATALOG, commandBoardImage, dashboardImage, dieFaceImage, roadTileImage, tokenImage } from '../game/trv/catalog';
 import { ASSET_CATALOG, entryFor, officialPath, type ItemEntry } from './catalog';
 import { dieSolid, flatSolid, inlineImages, type Face } from './solids';
@@ -613,6 +615,9 @@ interface View { game: string; type: string }
 let view: View | null = null;
 /** The page of the "Produzione modelli" section on show (src/admin/produzione-view.ts), or null outside it. */
 let prod: string | null = null;
+/** True while the "Tester della Beta" section is on show (tester-view.ts). */
+let testerView = false;
+let testers: TesterStore | null = null;
 let statusFilter: string | null = null;
 let shown: Item[] = [];
 let openItem: Item | null = null;
@@ -624,7 +629,7 @@ const statusName = (s: string): string => ASSET_CATALOG.statuses[s]?.name ?? s;
 const badge = (s: string): string => `<span class="st st-${esc(s)}">${esc(statusName(s))}</span>`;
 
 function drawNav(): void {
-  let html = `<button data-view="" class="${view || prod !== null ? '' : 'on'}">Riepilogo<span>${ALL.length}</span></button>`;
+  let html = `<button data-view="" class="${view || prod !== null || testerView ? '' : 'on'}">Riepilogo<span>${ALL.length}</span></button>`;
   for (const [g, name] of Object.entries(ASSET_CATALOG.games)) {
     const types = Object.keys(ASSET_CATALOG.types).filter(t => itemsOf({ game: g, type: t }).length);
     if (!types.length) continue;
@@ -639,6 +644,7 @@ function drawNav(): void {
     const on = prod !== null && (prod === page || (!page && !!sheetById(prod)));
     html += `<button data-view="produzione${page ? `/${page}` : ''}" class="${on ? 'on' : ''}">${esc(name)}<span>${n ?? ''}</span></button>`;
   }
+  html += `<h2>Beta</h2><button data-view="tester" class="${testerView ? 'on' : ''}">Tester della Beta<span></span></button>`;
   $('nav').innerHTML = html;
 }
 
@@ -692,6 +698,12 @@ function showDima(bar: HTMLElement): void {
 }
 
 function drawView(): void {
+  if (testerView) {
+    stopViewer();
+    $('main').scrollTop = 0;
+    void drawTesters($('main'), testers!, () => testerView, toast);
+    return;
+  }
   if (prod !== null) { drawProduction(); return; }
   if (!view) { drawSummary(); return; }
   const v = view;
@@ -808,14 +820,16 @@ async function downloadAll(items: Item[]): Promise<void> {
 }
 
 function goTo(hash: string): void {
+  testerView = hash === 'tester' && !!testers;
   prod = hash === 'produzione' ? '' : hash.startsWith('produzione/') ? hash.slice('produzione/'.length) : null;
   const [g, t] = prod === null ? hash.split('/') : [];
   view = g && t && itemsOf({ game: g, type: t }).length ? { game: g, type: t } : null;
   statusFilter = null;
 }
 
-function startInspector(who: string, onSignOut: (() => void) | null, store: CommentStore): void {
+function startInspector(who: string, onSignOut: (() => void) | null, store: CommentStore, beta: TesterStore): void {
   comments = store;
+  testers = beta;
   author = onSignOut ? who : 'Admin (locale)';
   $('app').hidden = false;
   $('who').textContent = who;
@@ -921,7 +935,7 @@ function show(id: 'login' | 'denied' | 'nocfg' | null): void {
 async function boot(): Promise<void> {
   if (new URLSearchParams(location.search).get('admin') === 'local') {
     show(null);
-    startInspector('Modalità locale (?admin=local): accesso non verificato', null, localCommentStore(localStorage));
+    startInspector('Modalità locale (?admin=local): accesso non verificato', null, localCommentStore(localStorage), localTesterStore(localStorage));
     return;
   }
   if (!FIREBASE_CONFIG) { show('nocfg'); return; }
@@ -951,7 +965,7 @@ async function boot(): Promise<void> {
     if (!user || user.anonymous) { if (!started) show('login'); return; }
     if (await auth.isAdmin(user.uid)) {
       show(null);
-      if (!started) { started = true; startInspector(user.email ?? user.name ?? user.uid, out, await firebaseCommentStore(FIREBASE_CONFIG!)); }
+      if (!started) { started = true; startInspector(user.email ?? user.name ?? user.uid, out, await firebaseCommentStore(FIREBASE_CONFIG!), await firebaseTesterStore(FIREBASE_CONFIG!)); }
     } else {
       $('denied-who').textContent = user.email ?? user.name ?? 'utente senza email';
       $('uid').textContent = user.uid;

@@ -491,6 +491,18 @@
   .dice { color: #9fd3ff; } .bad { color: #ff9b8a; } .good { color: #9be39b; font-weight: 700; } .turn { color: var(--acc); font-weight: 700; }
 
   /* The first screen is a screen of its own: opaque, the game is not drawn behind it (main.ts). */
+  /* The gate of the closed Beta (beta.ts), above everything. */
+  #beta { position: fixed; inset: 0; z-index: 50; display: grid; place-items: center; background: radial-gradient(circle at 50% 30%, #2a1c12, var(--bg) 70%); padding: 16px; box-sizing: border-box; }
+  #beta[hidden], #beta [hidden] { display: none; }
+  #beta .box { width: min(480px, 100%); text-align: center; }
+  #beta .logo { width: min(360px, 90%); margin-bottom: 8px; }
+  #beta h2 { font: 400 40px/1 'League Gothic', Impact, sans-serif; color: var(--acc); margin: 6px 0 10px; letter-spacing: .5px; }
+  #beta p { margin: 8px 0; line-height: 1.45; }
+  #beta .hint { opacity: .75; }
+  #beta .go { margin-top: 12px; width: 100%; min-height: 48px; font-size: 18px; background: #e8742a; color: #1a120c; border: 0; border-radius: 10px; font-weight: 700; cursor: pointer; }
+  #beta .go:disabled { opacity: .6; cursor: default; }
+  #beta .row { display: flex; gap: 8px; justify-content: center; margin-top: 12px; }
+  #beta .err { color: #ff8a6a; min-height: 1.3em; }
   #setup { position: fixed; inset: 0; display: grid; place-items: center; z-index: 10; overflow: auto;
     background: radial-gradient(ellipse at 50% 30%, #3a2416 0%, #1a110b 55%, #0d0805 100%); }
   #setup .card { background: transparent; padding: 18px 24px; width: min(1000px, 96vw); max-height: 100vh; overflow: auto; box-sizing: border-box; align-self: start; }

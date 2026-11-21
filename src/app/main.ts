@@ -35,6 +35,7 @@ import './loop';
 import * as THREE from 'three';
 import { ROWS, COLS, snapshot, terrainAt, type Pos, type Frame } from '../game/trv/engine';
 import { bootAccount, bootOnline } from './account';
+import { betaGate } from './beta';
 import { playBeats, queue, skipBeats } from './beats';
 import { sceneState, shownLog } from './scenePlayer';
 import { carObjs, hazardObjs } from './board';
@@ -57,15 +58,18 @@ commandTips(); // the command board's pop-up: name, dice and effect of the comma
 
 applyLevel(S.level);
 syncInert();
-void bootAccount().catch(e => console.error(e));
-export const invited = bootOnline();
-try {
-  const raw = invited ? null : localStorage.getItem(SAVE_KEY);
-  if (raw) {
-    const s = JSON.parse(raw) as Saved;
-    if (s?.setup?.seed && Array.isArray(s.choices)) { $('setup').style.display = 'none'; startGame(s); }
-  }
-} catch { /* broken save: start fresh */ }
+// The closed Beta: on the real site nothing starts until an invited account is in (beta.ts).
+void betaGate().then(() => {
+  void bootAccount().catch(e => console.error(e));
+  const invited = bootOnline();
+  try {
+    const raw = invited ? null : localStorage.getItem(SAVE_KEY);
+    if (raw) {
+      const s = JSON.parse(raw) as Saved;
+      if (s?.setup?.seed && Array.isArray(s.choices)) { $('setup').style.display = 'none'; startGame(s); }
+    }
+  } catch { /* broken save: start fresh */ }
+}, e => { console.error(e); $('beta-err').textContent = 'Non riesco a controllare l’invito: ricarica la pagina.'; });
 
 // For automated checks.
 (window as unknown as { trv: object }).trv = {
