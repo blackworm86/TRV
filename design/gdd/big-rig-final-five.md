@@ -202,7 +202,7 @@ normale al passo 4. Come tutto ciò che usa il dado sparo, **non si usa nel prim
    sezioni con i nove comandi, le X dei comandi bersagliabili e i danni minori su di essi; per le Final
    Five la plancia comandi e i cinque cruscotti con il loro simbolo, capovolti quando la moto è fuori uso.
 2. **Tavolo**: i tre pezzi del Big Rig che si seguono sulle caselle, anche in corsie diverse; le moto
-   con il simbolo del loro cruscotto. I modelli 3D li prepara l'utente (`design/art/big-rig-prompts.md`);
+   con il simbolo del loro cruscotto. I modelli 3D li prepara l'utente (`data/trv/modelli/big_rig.json`);
    prima ci sono segnaposto.
 3. **Scelte nuove**: lo sterzo del round, la sezione del turno, le due moto e l'ordine in cui muoverle,
    il comando da colpire quando si spara al Big Rig, dove mettere un danno minore, dove spostare un

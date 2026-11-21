@@ -1,0 +1,43 @@
+{
+  "schema": 1,
+  "id": "chopper",
+  "nome": "Elicottero",
+  "gioco": "base",
+  "classe": "chopper",
+  "scopo": "Elicottero delle squadre.",
+  "regime": "precedenti",
+  "stato": {
+    "passo": 9,
+    "esito": "in_gioco",
+    "dal": "2026-11-15",
+    "nota": "Modello intero, senza parti separate. Misure da fissare con la sua dima (fase G)."
+  },
+  "pezzi": [
+    {
+      "id": "chopper",
+      "nome": "Elicottero intero",
+      "tipo": "intero",
+      "file": "assets/base/modelli/Chopper.glb",
+      "tentativi": [
+        {
+          "data": "2026-11-15",
+          "strumento": "Meshy",
+          "prompt": "Prompt non conservato: il modello è stato generato dall'utente prima che i prompt fossero registrati.",
+          "esito": "in_gioco"
+        }
+      ]
+    }
+  ],
+  "collaudi": [],
+  "decisioni": [],
+  "provenienza": {
+    "origine": "ai",
+    "strumento": "Meshy, da concept generati con Gemini",
+    "fonte": "il proprietario del progetto",
+    "data": "2026-11-15"
+  },
+  "misure_oggi": {
+    "lunghezza": null,
+    "tavolo_mm": 50
+  }
+}

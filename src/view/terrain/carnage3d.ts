@@ -1,7 +1,7 @@
 // 3D pieces of Carnage at Devil's Run on the road tiles, from the grid alone (no licensed art):
 // a particle fire (flames, smoke, flickering glow) on fire spaces (and anywhere else something burns: a revealed fire hazard,
 // a car ON FIRE!), and a placeholder launch ramp on ramp spaces until its model exists
-// (assets/carnage/modelli/Ramp.glb, made from the prompts in design/art/carnage-ramp-prompts.md).
+// (assets/carnage/modelli/Ramp.glb, made from the prompts in data/trv/modelli/ramp.json).
 //
 // The fires share their materials: one call to tickFlames per frame animates every fire on the table.
 
@@ -243,7 +243,7 @@ export function makeRamp(space: number): THREE.Group {
 
 /**
  * The ramp model (assets/carnage/modelli/Ramp.glb, "Barricade Ramp" made with Meshy from
- * design/art/carnage-ramp-prompts.md): one object, rising toward -z; it is turned to rise toward +x,
+ * data/trv/modelli/ramp.json): one object, rising toward -z; it is turned to rise toward +x,
  * the lead tile. `keepBelowX` can cut a file that holds more than one object (Infinity: keep all).
  */
 const RAMP_MODEL = { keepBelowX: Infinity, yaw: -Math.PI / 2, length: 0.86 };

@@ -1,0 +1,71 @@
+{
+  "schema": 1,
+  "id": "motorcycle",
+  "nome": "Moto delle Final Five (pezzo unico)",
+  "gioco": "big_rig",
+  "classe": "bike",
+  "scopo": "La moto delle Final Five com'è oggi nel gioco: moto e pilota fusi in un pezzo.",
+  "regime": "precedenti",
+  "stato": {
+    "passo": 9,
+    "esito": "in_gioco",
+    "dal": "2026-11-18",
+    "nota": "Nel gioco finché la moto a pezzi non è pronta. Lunga 24 mm: con la scala unica diventa 17 mm."
+  },
+  "pezzi": [
+    {
+      "id": "motorcycle",
+      "nome": "Moto con pilota",
+      "tipo": "intero",
+      "file": "assets/big_rig/modelli/motorcycle.glb",
+      "usato": {
+        "fonte": "design/art/big-rig-prompts.md §2",
+        "gemini": [
+          {
+            "titolo": "Concept",
+            "testo": "Photorealistic 3D render of a physical scale model miniature, like a studio product photo. Matte\npainted metal with chipped paint, light rust, visible weld seams, rivets and bolts, real rubber\ntyres. Seamless light grey studio backdrop, soft overhead lighting, soft contact shadow under\nthe model. Camera three-quarter view from the front-left, looking down from above. Exactly the\nsame rendering style, materials, lighting and camera as the attached style reference image. Not\na drawing, not an illustration, no outlines, no cartoon shading, no labels, no text.\nThe model: an armoured post-apocalyptic combat motorcycle with its rider, for a desert racing\nboard game, the same scale and build as the reference vehicle. Chunky dirt-bike frame\nwith knobby tyres, a small twin machine gun mounted in front of the handlebars, exhaust pipes,\na few spikes and welded armour plates. Fuel tank and fairing panels in pale neutral off-white\ngrey with smooth, plain sides; frame, engine and weapon in dark rusty iron. The rider wears a\ndark leather jacket, goggles and a helmet, leaning forward, sculpted and painted like a\nminiature figure. Robust, slightly oversized shapes, clean readable silhouette. No logos."
+          }
+        ],
+        "meshy": [
+          {
+            "titolo": "Testo, se serve",
+            "testo": "Low poly game-ready post-apocalyptic armoured combat motorcycle with a rider leaning forward,\nsmall twin machine gun in front of the handlebars, knobby tyres, welded armour plates. Pale\noff-white grey fuel tank and fairing with plain smooth sides, dark rusty iron frame and engine.\nRealistic painted metal scale model look, chipped paint, weld seams and rivets, single object,\nflat base under the wheels."
+          }
+        ],
+        "correzioni": [
+          {
+            "quando": "troppo sottile per leggersi sul tavolo",
+            "testo": "chunkier, wider tyres and bigger armour plates"
+          }
+        ],
+        "impostazioni": {
+          "topology": "Triangle",
+          "symmetry": "On",
+          "triangoli": 4000,
+          "texture": 1024
+        }
+      },
+      "nota": "I fianchi del serbatoio restano lisci e chiari: lì il gioco mette il simbolo della moto.",
+      "tentativi": [
+        {
+          "data": "2026-11-18",
+          "strumento": "Meshy",
+          "prompt": "Quello qui sopra.",
+          "esito": "in_gioco"
+        }
+      ]
+    }
+  ],
+  "collaudi": [],
+  "decisioni": [],
+  "provenienza": {
+    "origine": "ai",
+    "strumento": "Meshy, da concept generati con Gemini",
+    "fonte": "il proprietario del progetto",
+    "data": "2026-11-18"
+  },
+  "misure_oggi": {
+    "lunghezza": null,
+    "tavolo_mm": 24
+  }
+}

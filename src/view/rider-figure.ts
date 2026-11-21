@@ -3,7 +3,7 @@
 // hips, chest, head, upper_arm_L, lower_arm_L, hand_L, thigh_L, shin_L, boot_L and the right ones.
 // (The boots are `boot_*`, not `foot_*`, which is the name of the footrests on the bike.)
 // It is placed every frame on the joints of app/motion/rider.ts; the rider generated with Meshy
-// (design/art/moto-pilota-prompts.md) will take its place on the same joints. Seat frame, metres.
+// (data/trv/modelli/moto_1.json and pilota_1.json) will take its place on the same joints. Seat frame, metres.
 
 import * as THREE from 'three';
 import type { P3, RiderJoints, RiderPose } from '../app/motion/rider';

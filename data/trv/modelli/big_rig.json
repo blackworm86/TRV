@@ -1,0 +1,349 @@
+{
+  "schema": 1,
+  "id": "big_rig",
+  "nome": "Big Rig",
+  "gioco": "big_rig",
+  "classe": "rig",
+  "scopo": "Il camion a tre sezioni dell'espansione The Big Rig and the Final Five.",
+  "regime": "precedenti",
+  "stato": {
+    "passo": 9,
+    "esito": "in_gioco",
+    "dal": "2026-11-20",
+    "nota": "Nel gioco a pezzi separati dal 2026-11-20. Sezioni lunghe 6,0 m (46 mm): con la scala unica diventano 5,6 m (fase G)."
+  },
+  "pezzi": [
+    {
+      "id": "big_rig_intero",
+      "nome": "Camion intero (solo concept)",
+      "tipo": "intero",
+      "file": null,
+      "usato": {
+        "fonte": "design/art/big-rig-prompts.md §1.3",
+        "gemini": [
+          {
+            "titolo": "Camion intero",
+            "testo": "Photorealistic 3D render of a physical scale model miniature, like a studio product photo. Matte\npainted metal with chipped paint, light rust, visible weld seams, rivets and bolts, real rubber\ntyres. Seamless light grey studio backdrop, soft overhead lighting, soft contact shadow under\nthe model. Camera three-quarter view from the front-left, looking down from above. Exactly the\nsame rendering style, materials, lighting and camera as the first attached image (style\nreference). Not a drawing, not an illustration, no outlines, no cartoon shading, no labels, no\ntext. Use the second attached image only as a reference for the proportions of the sections.\nThe model: a heavily armoured post-apocalyptic road train for a desert racing board game, made\nof three separate sections in a straight row: a tractor at the front, a middle section and a\nrear section. All three sections are solid, closed, boxy armoured bodies of the same length,\nthe same width and the same roof height, like three armoured wagons, not flatbeds. Each body is\nshort and compact, about twice as long as it is wide, with its four corners cut at 45 degrees\nwhen seen from above. Between two sections there is a clear empty gap one third as long as a\nbody, crossed only by a thin tow bar ending in a ring, hooked on a vertical pin at the back of\nthe section in front; the bodies never overlap. Wheels stay inside the width of the body, under\narmoured fenders: three axles on the tractor, two on each trailer.\nTractor: a low cab, a multi-tube missile launcher on the roof behind the cab, a small machine\ngun on a pintle mount on the hood pointing forward, a heavy wedge-shaped cow catcher plow at the\nfront, a toolbox and a spare wheel on the side.\nMiddle section: an engine bay with grilles and two tall exhaust stacks, wider drive wheels, a\nflat helipad with a painted circle on the roof, a small folded workshop crane arm.\nRear section: a rear hatch with a dumping chute holding oil drums and spiked caltrops, a radar\ndish with antennas on the roof, a machine gun on a pintle mount pointing backward, a gas\ncylinder and a welder on the side.\nBody panels in pale neutral off-white grey paint; frame, roll bars, wheels, weapons, plow,\nexhausts and radar in dark rusty iron. No people."
+          }
+        ],
+        "meshy": [],
+        "correzioni": [
+          {
+            "quando": "esce ancora un disegno",
+            "testo": "this must look like a photo of a real painted metal miniature, the same as the style reference image"
+          },
+          {
+            "quando": "sezioni di misura diversa",
+            "testo": "make the three bodies exactly the same length, width and roof height"
+          },
+          {
+            "quando": "corpi troppo lunghi o attaccati",
+            "testo": "shorter bodies, wider gaps, only the thin tow bar crosses the gap"
+          },
+          {
+            "quando": "pianali vuoti",
+            "testo": "closed armoured box bodies with a roof, no open flatbed"
+          },
+          {
+            "quando": "troppo colore",
+            "testo": "all body panels pale off-white grey, no red or yellow paint on the body"
+          }
+        ]
+      },
+      "nota": "Allegati: il concept di riferimento per lo stile e la foto del modellino originale per le proporzioni. Da questa immagine si ricavano i pezzi.",
+      "tentativi": []
+    },
+    {
+      "id": "big_rig_front_body",
+      "nome": "Carrozzeria della motrice",
+      "tipo": "carrozzeria",
+      "file": "assets/big_rig/modelli/big_rig_front_body.glb",
+      "usato": {
+        "fonte": "design/art/big-rig-prompts.md §1.4, §1.5",
+        "gemini": [
+          {
+            "titolo": "Passo 1: isolare la motrice",
+            "testo": "Edit the road train image you made. Do not redesign anything: erase the middle section, the\nrear section and the tow bar, and leave the tractor, the front section, exactly as it is, pixel\nfor pixel: same shape, same length, same height, same panels, same camera, same backdrop. It\nstays short and tall: a short sloped hood, then a tall boxy armoured cab whose rear wall is the\nend of the vehicle. Closed doors, small dark armoured windows."
+          },
+          {
+            "titolo": "Passo 2: togliere ruote e armi",
+            "testo": "Edit this last image. Change only three things and keep everything else identical, the same\nshape, length, height, panels, camera and backdrop.\n1. Remove all six wheels: empty wheel arches under the armoured fenders, the body resting on\nits flat underside.\n2. Remove the missile launcher: in its place a flat round mounting plate on the roof.\n3. Remove the machine gun: in its place a smaller flat round mounting plate on the hood.\nDo not make the body longer or lower. The rear wall of the cab is the end of the body: nothing\nbehind it, no flat deck, no platform, no chassis rails sticking out, only a short hook with a\nvertical pin fixed to the rear wall. Doors stay closed, windows stay small and dark, the\ninterior is not visible. Keep the wedge-shaped cow catcher plow, the toolbox and the spare\nwheel on the side. Not a drawing, no text."
+          },
+          {
+            "titolo": "Altra vista: di lato",
+            "testo": "Same object, same photorealistic 3D render style and backdrop. Move only the camera: straight\nside view, nose to the right."
+          },
+          {
+            "titolo": "Altra vista: dall'alto",
+            "testo": "Same object, same photorealistic 3D render style and backdrop. Move only the camera: straight\nfrom above, nose to the right."
+          }
+        ],
+        "meshy": [
+          {
+            "titolo": "Testo",
+            "testo": "Low poly game-ready body of an armoured post-apocalyptic truck tractor, short and tall, solid\nclosed boxy shape about twice as long as wide: a short sloped hood, then a tall boxy cab whose\nrear wall is the end of the body, no deck or platform behind the cab. Closed doors, small dark\nwindows. Wedge-shaped cow catcher plow at the front, toolbox and spare wheel on the side, short\nhook with a vertical pin on the rear wall. No wheels, empty wheel arches under armoured fenders. No\nweapons, a flat round mounting plate on the roof behind the cab and a smaller one on the hood.\nPale off-white grey painted armour panels, dark rusty iron frame and plow. Realistic painted\nmetal scale model look, chipped paint, weld seams and rivets, single object, flat underside."
+          }
+        ],
+        "correzioni": [
+          {
+            "quando": "più lunga o più bassa del concept",
+            "testo": "too long and too low: make it as short and as tall as the tractor in the road train image"
+          },
+          {
+            "quando": "pianale dietro la cabina",
+            "testo": "remove the flat deck behind the cab, the cab rear wall is the end of the body"
+          },
+          {
+            "quando": "porta aperta o interni in vista",
+            "testo": "close the door, small dark windows, interior not visible"
+          }
+        ],
+        "impostazioni": {
+          "topology": "Triangle",
+          "symmetry": "On",
+          "triangoli": 4500,
+          "texture": 1024
+        }
+      },
+      "nota": "In due passi: chiesto tutto insieme, Gemini ridisegna il pezzo e lo allunga.",
+      "tentativi": [
+        {
+          "data": "2026-11-20",
+          "strumento": "Meshy",
+          "prompt": "Quello qui sopra.",
+          "esito": "in_gioco",
+          "sorgente": "assets/sorgenti/big_rig_2026-11-20/armoured_truck_tracto.glb"
+        }
+      ]
+    },
+    {
+      "id": "big_rig_mid_body",
+      "nome": "Carrozzeria della sezione centrale",
+      "tipo": "carrozzeria",
+      "file": "assets/big_rig/modelli/big_rig_mid_body.glb",
+      "usato": {
+        "fonte": "design/art/big-rig-prompts.md §1.4, §1.5",
+        "gemini": [
+          {
+            "titolo": "Concept",
+            "testo": "Edit the road train image you made: keep only the middle section, the wagon with the helipad,\nexactly as it appears there, and remove the tractor and the rear section. Same photorealistic\n3D render style, same materials, same light grey studio backdrop, same three-quarter camera\nfrom the front-left looking down. This is a trailer, not a truck: a plain closed armoured box\nwith corners cut at 45 degrees, the same at the front and at the back. It has no cab, no hood,\nno nose, no windscreen, no side windows, no doors, no seats, no headlights, no radiator grille\nat the front. Remove the wheels: empty wheel arches, the box resting on its flat underside.\nKeep the side grilles of the engine bay and the two tall exhaust stacks, the flat helipad with\na painted circle on the roof, the folded workshop crane arm, the thin tow bar ending in a ring\nat the front and the hook with a vertical pin at the back. Not a drawing, no text."
+          },
+          {
+            "titolo": "Altra vista: di lato",
+            "testo": "Same object, same photorealistic 3D render style and backdrop. Move only the camera: straight\nside view, nose to the right."
+          },
+          {
+            "titolo": "Altra vista: dall'alto",
+            "testo": "Same object, same photorealistic 3D render style and backdrop. Move only the camera: straight\nfrom above, nose to the right."
+          }
+        ],
+        "meshy": [
+          {
+            "titolo": "Testo",
+            "testo": "Low poly game-ready body of an armoured post-apocalyptic trailer wagon, a plain closed armoured\nbox about twice as long as wide, corners cut at 45 degrees seen from above, the same at the\nfront and at the back: no cab, no hood, no windscreen, no windows, no doors. Engine bay with grilles\nand two tall exhaust stacks, flat helipad with a painted circle on the roof, small folded crane\narm, thin tow bar ending in a ring at the front, hook with a vertical pin at the back. No\nwheels, empty wheel arches under armoured fenders. Pale off-white grey painted armour panels,\ndark rusty iron frame and exhausts. Realistic painted metal scale model look, chipped paint,\nweld seams and rivets, single object, flat underside."
+          }
+        ],
+        "impostazioni": {
+          "topology": "Triangle",
+          "symmetry": "On",
+          "triangoli": 4500,
+          "texture": 1024
+        }
+      },
+      "nota": "Se un rimorchio esce con il muso della motrice: conversazione nuova, allegare solo il camion intero, oppure generare i rimorchi prima della motrice.",
+      "tentativi": [
+        {
+          "data": "2026-11-20",
+          "strumento": "Meshy",
+          "prompt": "Quello qui sopra.",
+          "esito": "in_gioco",
+          "sorgente": "assets/sorgenti/big_rig_2026-11-20/armoured_trailer_wago.glb"
+        }
+      ]
+    },
+    {
+      "id": "big_rig_rear_body",
+      "nome": "Carrozzeria della sezione posteriore",
+      "tipo": "carrozzeria",
+      "file": "assets/big_rig/modelli/big_rig_rear_body.glb",
+      "usato": {
+        "fonte": "design/art/big-rig-prompts.md §1.4, §1.5",
+        "gemini": [
+          {
+            "titolo": "Concept",
+            "testo": "Edit the road train image you made: keep only the rear section, the wagon with the radar dish,\nexactly as it appears there, and remove the tractor and the middle section. Same photorealistic\n3D render style, same materials, same light grey studio backdrop, same three-quarter camera\nfrom the front-left looking down. This is a trailer, not a truck: a plain closed armoured box\nwith corners cut at 45 degrees. It has no cab, no hood, no nose, no windscreen, no side\nwindows, no doors, no seats, no headlights, no radiator grille at the front. Remove the wheels:\nempty wheel arches, the box resting on its flat underside. Remove the machine gun: a flat round\nmounting plate on the roof near the back where it was. Keep the rear hatch with the dumping\nchute, the oil drums and the spiked caltrops, the radar dish with antennas on the roof, the gas\ncylinder and the welder on the side, and the thin tow bar ending in a ring at the front. Not a\ndrawing, no text."
+          },
+          {
+            "titolo": "Altra vista: di lato",
+            "testo": "Same object, same photorealistic 3D render style and backdrop. Move only the camera: straight\nside view, nose to the right."
+          },
+          {
+            "titolo": "Altra vista: dall'alto",
+            "testo": "Same object, same photorealistic 3D render style and backdrop. Move only the camera: straight\nfrom above, nose to the right."
+          }
+        ],
+        "meshy": [
+          {
+            "titolo": "Testo",
+            "testo": "Low poly game-ready body of an armoured post-apocalyptic trailer wagon, a plain closed armoured\nbox about twice as long as wide, corners cut at 45 degrees seen from above: no cab, no hood,\nno windscreen, no windows, no doors. Rear hatch with a\ndumping chute holding oil drums and spiked caltrops, radar dish with antennas on the roof, gas\ncylinder and welder on the side, thin tow bar ending in a ring at the front. No wheels, empty\nwheel arches under armoured fenders. No weapons, a flat round mounting plate on the roof near\nthe back. Pale off-white grey painted armour panels, dark rusty iron frame and radar. Realistic\npainted metal scale model look, chipped paint, weld seams and rivets, single object, flat\nunderside."
+          }
+        ],
+        "impostazioni": {
+          "topology": "Triangle",
+          "symmetry": "On",
+          "triangoli": 4500,
+          "texture": 1024
+        }
+      },
+      "tentativi": [
+        {
+          "data": "2026-11-20",
+          "strumento": "Meshy",
+          "prompt": "Quello qui sopra.",
+          "esito": "in_gioco",
+          "sorgente": "assets/sorgenti/big_rig_2026-11-20/armoured_radar_traile.glb"
+        }
+      ]
+    },
+    {
+      "id": "big_rig_wheel",
+      "nome": "Ruota",
+      "tipo": "ruota",
+      "file": "assets/big_rig/modelli/big_rig_wheel.glb",
+      "usato": {
+        "fonte": "design/art/big-rig-prompts.md §1.4, §1.5",
+        "gemini": [
+          {
+            "titolo": "Concept",
+            "testo": "Same photorealistic 3D render style, same materials, same light grey studio backdrop. Show only\none wheel of that road train, alone, standing upright, three-quarter view: a chunky off-road\ntruck tyre with deep tread on a dark rusty iron rim with a centred hub and bolts. Not a\ndrawing, no text."
+          }
+        ],
+        "meshy": [
+          {
+            "titolo": "Testo",
+            "testo": "Low poly game-ready off-road truck wheel, chunky rubber tyre with deep tread, dark rusty iron\nrim with centred hub and bolts. Realistic scale model look, single object."
+          }
+        ],
+        "impostazioni": {
+          "topology": "Triangle",
+          "symmetry": "On",
+          "triangoli": 400,
+          "texture": 512
+        }
+      },
+      "tentativi": [
+        {
+          "data": "2026-11-20",
+          "strumento": "Meshy",
+          "prompt": "Quello qui sopra.",
+          "esito": "in_gioco",
+          "sorgente": "assets/sorgenti/big_rig_2026-11-20/offroad_truck_wheel.glb"
+        }
+      ]
+    },
+    {
+      "id": "big_rig_launcher",
+      "nome": "Lanciamissili",
+      "tipo": "arma",
+      "file": "assets/big_rig/modelli/big_rig_launcher.glb",
+      "usato": {
+        "fonte": "design/art/big-rig-prompts.md §1.4, §1.5",
+        "gemini": [
+          {
+            "titolo": "Concept",
+            "testo": "Same photorealistic 3D render style, same materials, same light grey studio backdrop,\nthree-quarter view. Show only the missile launcher of that road train, alone: a box of six\nshort missile tubes in dark rusty iron on a round rotating base, tubes horizontal and pointing\nto the right, mounting ring underneath. Not a drawing, no text."
+          }
+        ],
+        "meshy": [
+          {
+            "titolo": "Testo",
+            "testo": "Low poly game-ready missile launcher, box of six short tubes on a round rotating base with a\nmounting ring underneath, dark rusty iron. Realistic painted metal scale model look, single object."
+          }
+        ],
+        "impostazioni": {
+          "topology": "Triangle",
+          "symmetry": "On",
+          "triangoli": 800,
+          "texture": 512
+        }
+      },
+      "tentativi": [
+        {
+          "data": "2026-11-20",
+          "strumento": "Meshy",
+          "prompt": "Quello qui sopra.",
+          "esito": "in_gioco",
+          "sorgente": "assets/sorgenti/big_rig_2026-11-20/missile_launcher.glb"
+        }
+      ]
+    },
+    {
+      "id": "big_rig_gun",
+      "nome": "Mitragliatrice (davanti e dietro)",
+      "tipo": "arma",
+      "file": "assets/big_rig/modelli/big_rig_gun_barrel.glb",
+      "usato": {
+        "fonte": "design/art/big-rig-prompts.md §1.4, §1.5",
+        "gemini": [
+          {
+            "titolo": "Concept",
+            "testo": "Same photorealistic 3D render style, same materials, same light grey studio backdrop,\nthree-quarter view. Show only the machine gun of that road train, alone: a heavy machine gun\nwith an ammunition belt and box on a pintle mount with a small armoured gun shield, in dark\nrusty iron, barrel horizontal and pointing to the right, round mounting base underneath. Not a\ndrawing, no text."
+          }
+        ],
+        "meshy": [
+          {
+            "titolo": "Testo",
+            "testo": "Low poly game-ready heavy machine gun with ammunition belt and box on a pintle mount with a\nsmall armoured gun shield, round mounting base underneath, dark rusty iron. Realistic painted\nmetal scale model look, single object."
+          }
+        ],
+        "impostazioni": {
+          "topology": "Triangle",
+          "symmetry": "On",
+          "triangoli": 600,
+          "texture": 512
+        }
+      },
+      "nota": "Tagliata in base (big_rig_gun_mount.glb) e arma (big_rig_gun_barrel.glb) da tools/art/split_gun.py.",
+      "tentativi": [
+        {
+          "data": "2026-11-20",
+          "strumento": "Meshy",
+          "prompt": "Quello qui sopra.",
+          "esito": "in_gioco",
+          "sorgente": "assets/sorgenti/big_rig_2026-11-20/heavy_machine_gun.glb"
+        }
+      ]
+    }
+  ],
+  "collaudi": [],
+  "decisioni": [
+    {
+      "data": "2026-11-19",
+      "testo": "Big Rig ridisegnato: il primo modello aveva rimorchi a pianale vuoto e sezioni di misura diversa che in curva sconfinavano nelle caselle vicine."
+    }
+  ],
+  "provenienza": {
+    "origine": "ai",
+    "strumento": "Meshy, da concept generati con Gemini",
+    "fonte": "il proprietario del progetto",
+    "data": "2026-11-20"
+  },
+  "misure_oggi": {
+    "lunghezza": 6.0,
+    "tavolo_mm": 46
+  },
+  "montaggio": [
+    "assets/big_rig/modelli/schede/big_rig_front.json",
+    "assets/big_rig/modelli/schede/big_rig_mid.json",
+    "assets/big_rig/modelli/schede/big_rig_rear.json"
+  ],
+  "precedente": [
+    "assets/big_rig/modelli/big_rig.glb"
+  ],
+  "note": [
+    "Stile: blocco di stile unico (ora in regole.json, blocchi.stile), nato qui il 2026-11-19.",
+    "Forma: tre sezioni piene della stessa lunghezza, larghezza e altezza; corpo lungo tre quarti di casella, largo circa 18 mm, alto circa 16 mm; estremità smussate a 45°; timone con occhiello e gancio a perno verticale; ruote dentro la larghezza del corpo.",
+    "Sistemi: motrice con lanciamissili, rostro, mitragliatrice anteriore; centrale con vano motore, piazzola per l'elicottero, gru; posteriore con scivolo dei pericoli, radar, mitragliatrice posteriore (dai comandi della plancia, data/trv/big_rig_final_five.json).",
+    "Via corta, scartata: generare le sezioni intere con ruote e armi attaccate (le ruote non girano, le armi non ruotano)."
+  ]
+}

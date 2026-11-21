@@ -1,0 +1,61 @@
+{
+  "schema": 1,
+  "id": "wreck_4",
+  "nome": "Relitto 4 (scuolabus)",
+  "gioco": "base",
+  "classe": "wreck",
+  "scopo": "Relitto sul tavolo: occupa una casella e conta come un'auto piccola.",
+  "regime": "precedenti",
+  "stato": {
+    "passo": 9,
+    "esito": "in_gioco",
+    "dal": "2026-11-17",
+    "nota": "Nel gioco con le misure di oggi (22 mm). Con la scala unica prende le misure del veicolo da cui viene (fase G)."
+  },
+  "pezzi": [
+    {
+      "id": "wreck_4",
+      "nome": "Relitto intero",
+      "tipo": "intero",
+      "file": "assets/base/modelli/wreck_4.glb",
+      "tentativi": [
+        {
+          "data": "2026-11-17",
+          "strumento": "Meshy",
+          "prompt": "Quello qui sopra.",
+          "esito": "in_gioco"
+        }
+      ],
+      "usato": {
+        "fonte": "design/art/wreck-prompts.md",
+        "gemini": [
+          {
+            "titolo": "Concept",
+            "testo": "Concept art of a single object on a plain white background: the front half of a yellow school\nbus, torn in half, lying on its side in a Mad Max style post-apocalyptic desert board game.\nRagged torn metal at the cut, rusted and sand-blasted yellow paint, broken windows, flat tyres,\nwelded-on spikes and armour plates from a past raider life. Stylized, chunky, slightly\nexaggerated shapes, bold saturated colours, hand-painted texture, clean readable silhouette, like\na premium board game miniature. Short, low and wide. Three-quarter view from the front-left. No\npeople, no ground, no text, no logos."
+          }
+        ],
+        "meshy": [],
+        "impostazioni": {
+          "topology": "Triangle",
+          "triangoli": 5000,
+          "texture": 1024
+        }
+      }
+    }
+  ],
+  "collaudi": [],
+  "decisioni": [],
+  "provenienza": {
+    "origine": "ai",
+    "strumento": "Meshy, da concept generati con Gemini",
+    "fonte": "il proprietario del progetto",
+    "data": "2026-11-17"
+  },
+  "misure_oggi": {
+    "lunghezza": null,
+    "tavolo_mm": 22
+  },
+  "note": [
+    "Regole comuni (wreck-prompts.md): Image to 3D dal concept, Triangle, circa 5.000 triangoli, texture 1024, oggetto unico, base piatta. Stile dipinto a mano, precedente al blocco di stile unico."
+  ]
+}

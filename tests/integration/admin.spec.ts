@@ -1,12 +1,15 @@
 // The admin asset inspector (admin.html, src/admin/admin.ts) in local mode: the summary by game
 // and status, a group of pieces with its status filter, the detail with the 3D view, the
 // side-by-side check with the extracted scans, downloads and comments. Screenshots of each screen
-// go to production/qa/evidence/trv-admin-assets-2026-11-17/.
+// go to production/qa/evidence/trv-admin-assets-2026-11-17/. The production section of the models
+// (src/admin/produzione-view.ts) has its own test and folder.
 import { existsSync } from 'node:fs';
 import { expect, test, type Page } from '@playwright/test';
 
 const ADMIN = '/admin.html?admin=local';
 const EVIDENCE = 'production/qa/evidence/trv-admin-assets-2026-11-17';
+/** The "Produzione modelli" section (design/art/modelli-strutturati.md §21). */
+const PRODUCTION = 'production/qa/evidence/trv-produzione-modelli-2026-11-21';
 /** The extracted scans live only on a computer that has the original files (assets/estratti, outside git). */
 const HAS_SCANS = existsSync('assets/estratti/base/hazards/mine.png');
 
@@ -149,6 +152,56 @@ test.describe('admin inspector', () => {
     // Another asset has none.
     await page.locator('.grid .item', { hasText: 'Auto media' }).click();
     await expect(page.locator('#d-comments')).toContainText('Nessun commento.');
+    expect(errors).toEqual([]);
+  });
+
+  test('the production section lists the models, shows a sheet with its prompts to copy, a piece in 3D, the rules and the specification', async ({ page }) => {
+    const errors = watchErrors(page);
+    await page.context().grantPermissions(['clipboard-read', 'clipboard-write']);
+    await page.goto(`${ADMIN}#produzione`);
+    await expect(page.locator('main h2')).toHaveText('Produzione modelli');
+    expect(await page.locator('table.models tbody tr').count()).toBeGreaterThan(10);
+    // No sheet names a file the repository does not have.
+    await expect(page.locator('table.models .bad')).toHaveCount(0);
+    await page.screenshot({ path: `${PRODUCTION}/1-elenco.png` });
+
+    // A sheet that follows the specification: its step, and the prompts put together from the blocks.
+    await page.locator('[data-prod="car_m_v2"]').click();
+    await expect(page.locator('main h2')).toHaveText('Auto media (Avenger) ridisegnata');
+    await expect(page.locator('ol.steps li.now')).toContainText('Scheda');
+    const body = page.locator('#pz-car_m_v2_body');
+    await expect(body.locator('.prompt pre').first()).toContainText('Photorealistic 3D render');
+    await expect(body.locator('.prompt pre').first()).toContainText('one single flat neutral light grey');
+    await body.locator('[data-copy]').first().click();
+    await expect(page.locator('#toast')).toHaveText('Prompt copiato');
+    expect(await page.evaluate(() => navigator.clipboard.readText())).toContain('The model: the Avenger');
+    await page.screenshot({ path: `${PRODUCTION}/2-scheda-avenger.png` });
+
+    // A model made before the specification: the prompts it was made with, and a piece in 3D.
+    await page.locator('[data-prod=""]').click();
+    await page.locator('[data-prod="big_rig"]').click();
+    const front = page.locator('#pz-big_rig_front_body');
+    await expect(front.locator('.prompt pre').first()).toContainText('Edit the road train image you made');
+    await front.locator('[data-glb]').click();
+    await expect(page.locator('#p-3d canvas')).toBeVisible();
+    await page.waitForTimeout(1500);
+    await page.screenshot({ path: `${PRODUCTION}/3-scheda-big-rig-3d.png` });
+
+    // A comment on the model stays under it.
+    await page.locator('#p-comments textarea').fill('Rivedere la sezione centrale');
+    await page.locator('#p-comments button[type=submit]').click();
+    await expect(page.locator('#p-comments .list li')).toContainText('Rivedere la sezione centrale');
+
+    // The rules, their numbers read from the rules file, and the specification laid out.
+    await page.locator('nav [data-view="produzione/regole"]').click();
+    await expect(page.locator('main h2')).toHaveText('Regole e misure');
+    await expect(page.locator('table.pt', { hasText: 'Auto media (Avenger)' }).first()).toContainText('38 mm');
+    await page.screenshot({ path: `${PRODUCTION}/4-regole.png` });
+    await page.locator('nav [data-view="produzione/specifica"]').click();
+    await expect(page.locator('.doc h2').first()).toContainText('Modelli strutturati');
+    expect(await page.locator('.doc h3').count()).toBeGreaterThan(15);
+    expect(await page.locator('.doc table').count()).toBeGreaterThan(15);
+    await page.screenshot({ path: `${PRODUCTION}/5-specifica.png` });
     expect(errors).toEqual([]);
   });
 });

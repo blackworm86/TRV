@@ -1,0 +1,63 @@
+{
+  "schema": 1,
+  "id": "pilota_1",
+  "nome": "Pilota 1",
+  "gioco": "big_rig",
+  "classe": "figure",
+  "scopo": "Il primo pilota, con lo scheletro di Meshy.",
+  "regime": "precedenti",
+  "stato": {
+    "passo": 6,
+    "esito": "in_pausa",
+    "dal": "2026-11-20",
+    "nota": "In pausa con la moto 1. Va collaudato come figura (§15.4): ossa, lunghezze entro il 10%, posa di riposo. Generato in posa a T; la specifica chiede braccia ad A."
+  },
+  "pezzi": [
+    {
+      "id": "pilota_1",
+      "nome": "Pilota in piedi",
+      "tipo": "figura",
+      "file": null,
+      "altrove": "assets/big_rig/modelli/pilota_1.glb",
+      "usato": {
+        "fonte": "design/art/moto-pilota-prompts.md §1.5",
+        "gemini": [
+          {
+            "titolo": "Concept, di fronte",
+            "testo": "Photorealistic 3D render of a physical scale model miniature, like a studio product photo. Matte\npainted metal with chipped paint, light rust, visible weld seams, rivets and bolts. Seamless light\ngrey studio backdrop, soft overhead lighting, soft contact shadow. Exactly the same rendering style,\nmaterials, lighting and camera as the attached style reference image. Not a drawing, not an\nillustration, no outlines, no cartoon shading, no labels, no text. One single object, nothing else\nin the picture.\nThe model: a post-apocalyptic motorcycle rider, sculpted and painted like a tabletop miniature\nfigure, standing in a T-pose with arms straight out to the sides, legs slightly apart, hands closed\nin fists, empty hands, looking forward. Helmet with goggles, dark leather jacket with a smooth plain\npale off-white panel on the back, pale off-white shoulder pads, gloves, heavy boots, a scarf.\nHeroic but compact proportions, slightly big head and hands so it reads at small scale. Front view,\nfull body, feet on the ground."
+          },
+          {
+            "titolo": "Concept, di schiena",
+            "testo": "The same rider, seen from behind."
+          }
+        ],
+        "meshy": [],
+        "impostazioni": {
+          "topology": "Triangle",
+          "symmetry": "On",
+          "triangoli": 5000,
+          "texture": 1024,
+          "rig": "automatico, senza animazioni"
+        }
+      },
+      "nota": "La schiena della giacca ha un pannello liscio e chiaro per la decalcomania della moto; spalle o casco chiari per il colore della squadra. 5.000 triangoli: oltre il budget di una persona (1.500). File sul ramo locale moto-in-pausa, non in questo.",
+      "tentativi": [
+        {
+          "data": "2026-11-20",
+          "strumento": "Meshy",
+          "prompt": "Quello qui sopra.",
+          "esito": "in_pausa",
+          "sorgente": "assets/sorgenti/moto_1_2026-11-20/rider_rigged.glb"
+        }
+      ]
+    }
+  ],
+  "collaudi": [],
+  "decisioni": [],
+  "provenienza": {
+    "origine": "ai",
+    "strumento": "Meshy, da concept generati con Gemini",
+    "fonte": "il proprietario del progetto",
+    "data": "2026-11-20"
+  }
+}

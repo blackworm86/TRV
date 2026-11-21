@@ -1,0 +1,61 @@
+{
+  "schema": 1,
+  "id": "wreck_3",
+  "nome": "Relitto 3 (muscle car)",
+  "gioco": "base",
+  "classe": "wreck",
+  "scopo": "Relitto sul tavolo: occupa una casella e conta come un'auto piccola.",
+  "regime": "precedenti",
+  "stato": {
+    "passo": 9,
+    "esito": "in_gioco",
+    "dal": "2026-11-17",
+    "nota": "Nel gioco con le misure di oggi (22 mm). Con la scala unica prende le misure del veicolo da cui viene (fase G)."
+  },
+  "pezzi": [
+    {
+      "id": "wreck_3",
+      "nome": "Relitto intero",
+      "tipo": "intero",
+      "file": "assets/base/modelli/wreck_3.glb",
+      "tentativi": [
+        {
+          "data": "2026-11-17",
+          "strumento": "Meshy",
+          "prompt": "Quello qui sopra.",
+          "esito": "in_gioco"
+        }
+      ],
+      "usato": {
+        "fonte": "design/art/wreck-prompts.md",
+        "gemini": [
+          {
+            "titolo": "Concept",
+            "testo": "Concept art of a single object on a plain white background: a charred 1970s muscle car wreck in\na Mad Max style post-apocalyptic desert board game. Burnt black and rust-orange body, hood blown\nopen with the engine block exposed, a supercharger torn loose, bare wheel rims, still faintly\nsmoking. Stylized, chunky, slightly exaggerated shapes, bold saturated colours, hand-painted\ntexture, clean readable silhouette, like a premium board game miniature. Low and wide.\nThree-quarter view from the front-left. No people, no ground, no text, no logos."
+          }
+        ],
+        "meshy": [],
+        "impostazioni": {
+          "topology": "Triangle",
+          "triangoli": 5000,
+          "texture": 1024
+        }
+      }
+    }
+  ],
+  "collaudi": [],
+  "decisioni": [],
+  "provenienza": {
+    "origine": "ai",
+    "strumento": "Meshy, da concept generati con Gemini",
+    "fonte": "il proprietario del progetto",
+    "data": "2026-11-17"
+  },
+  "misure_oggi": {
+    "lunghezza": null,
+    "tavolo_mm": 22
+  },
+  "note": [
+    "Regole comuni (wreck-prompts.md): Image to 3D dal concept, Triangle, circa 5.000 triangoli, texture 1024, oggetto unico, base piatta. Stile dipinto a mano, precedente al blocco di stile unico."
+  ]
+}

@@ -1,5 +1,5 @@
 // The Big Rig is one model made by the project owner (assets/big_rig/modelli/big_rig.glb, 2026-11-18,
-// from design/art/big-rig-prompts.md 1.4): the cab and two trailers in a row, nose toward -x. Here it
+// from data/trv/modelli/big_rig.json): the cab and two trailers in a row, nose toward -x. Here it
 // is cut at its two hitch pins into the three sections the game moves on their own (src/view/rigchain.ts
 // lays them as a hitched chain), each with its wheels cut out to roll.
 

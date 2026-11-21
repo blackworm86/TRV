@@ -1,0 +1,66 @@
+{
+  "schema": 1,
+  "id": "wreck_2",
+  "nome": "Relitto 2 (carro armato)",
+  "gioco": "base",
+  "classe": "wreck",
+  "scopo": "Relitto sul tavolo: occupa una casella e conta come un'auto piccola.",
+  "regime": "precedenti",
+  "stato": {
+    "passo": 9,
+    "esito": "in_gioco",
+    "dal": "2026-11-17",
+    "nota": "Nel gioco con le misure di oggi (22 mm). Con la scala unica prende le misure del veicolo da cui viene (fase G)."
+  },
+  "pezzi": [
+    {
+      "id": "wreck_2",
+      "nome": "Relitto intero",
+      "tipo": "intero",
+      "file": "assets/base/modelli/wreck_2.glb",
+      "tentativi": [
+        {
+          "data": "2026-11-17",
+          "strumento": "Meshy",
+          "prompt": "Quello qui sopra.",
+          "esito": "in_gioco"
+        }
+      ],
+      "usato": {
+        "fonte": "design/art/wreck-prompts.md",
+        "gemini": [
+          {
+            "titolo": "Concept",
+            "testo": "Concept art of a single object on a plain white background: the burnt-out wreck of a small\nbattle tank in a Mad Max style post-apocalyptic desert board game. Turret knocked askew with a\nbent, drooping cannon barrel, one track snapped and lying flat, scorched and rusted armour plates,\na few sandbags and a torn camouflage net draped over it, desert sand piled against the hull.\nStylized, chunky, slightly exaggerated shapes, bold saturated colours, hand-painted texture,\nclean readable silhouette, like a premium board game miniature. Low and wide. Three-quarter view\nfrom the front-left. No people, no ground, no text, no logos."
+          }
+        ],
+        "meshy": [
+          {
+            "titolo": "Testo, se serve",
+            "testo": "Low poly game-ready burnt-out small battle tank wreck, turret askew, bent drooping cannon, one\nsnapped track lying flat, scorched rusty armour, sandbags and torn camo net, sand piled against\nthe hull. Stylized hand-painted look, chunky shapes, single object, flat base."
+          }
+        ],
+        "impostazioni": {
+          "topology": "Triangle",
+          "triangoli": 5000,
+          "texture": 1024
+        }
+      }
+    }
+  ],
+  "collaudi": [],
+  "decisioni": [],
+  "provenienza": {
+    "origine": "ai",
+    "strumento": "Meshy, da concept generati con Gemini",
+    "fonte": "il proprietario del progetto",
+    "data": "2026-11-17"
+  },
+  "misure_oggi": {
+    "lunghezza": null,
+    "tavolo_mm": 22
+  },
+  "note": [
+    "Regole comuni (wreck-prompts.md): Image to 3D dal concept, Triangle, circa 5.000 triangoli, texture 1024, oggetto unico, base piatta. Stile dipinto a mano, precedente al blocco di stile unico."
+  ]
+}

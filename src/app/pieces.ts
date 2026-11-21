@@ -208,7 +208,7 @@ export function useModel(o: THREE.Group, url: string, lengthMm: number, tint: Ti
   });
 }
 
-/** The assembly sheet of each Big Rig section (assets/big_rig/modelli/schede/, design/art/big-rig-prompts.md). */
+/** The assembly sheet of each Big Rig section (assets/big_rig/modelli/schede/, data/trv/modelli/big_rig.json). */
 const RIG_SHEETS = { front: RIG_FRONT, mid: RIG_MID, rear: RIG_REAR } as unknown as Record<RigSection, VehicleSheet>;
 
 /**

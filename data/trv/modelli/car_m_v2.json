@@ -1,0 +1,112 @@
+{
+  "schema": 1,
+  "id": "car_m_v2",
+  "nome": "Auto media (Avenger) ridisegnata",
+  "gioco": "base",
+  "classe": "car_m",
+  "scopo": "Prova completa del flusso nuovo (fase D): Avenger alla scala unica, con il pilota al volante.",
+  "regime": "specifica",
+  "stato": {
+    "passo": 1,
+    "esito": "bozza",
+    "dal": "2026-11-21",
+    "nota": "Scheda in bozza: le parti specifiche dei prompt sono da approvare. La dima arriva con la fase C; senza dima non si genera nulla."
+  },
+  "posti": [
+    {
+      "id": "seat_driver",
+      "posa": "sit",
+      "ruolo": "pilota"
+    },
+    {
+      "id": "seat_gunner",
+      "posa": "stand",
+      "ruolo": "artigliere",
+      "nota": "fase E"
+    }
+  ],
+  "pezzi": [
+    {
+      "id": "car_m_v2_body",
+      "nome": "Carrozzeria",
+      "tipo": "carrozzeria",
+      "file": null,
+      "tinto": true,
+      "posti": true,
+      "triangoli": 5000,
+      "allegati": [
+        "riferimento di stile",
+        "dima: carrozzeria, tre quarti"
+      ],
+      "specifico": {
+        "gemini": "The model: the Avenger, a low and long post-apocalyptic muscle car for a desert racing board game. Long flat hood, low roofline, wide stance, an open cockpit behind a low armoured windscreen with one driver seat and a steering wheel, a standing platform for a gunner at the back. Welded armour plates, side exhausts, a ram bar at the front.",
+        "meshy": "Low poly game-ready body of a low and long post-apocalyptic muscle car, long flat hood, low roofline, open cockpit with one seat and a steering wheel, standing platform at the back, welded armour plates, side exhausts, front ram bar. No wheels, empty wheel arches. No weapons, a flat round mounting plate at the back. Neutral light grey painted panels, dark iron frame."
+      },
+      "tentativi": []
+    },
+    {
+      "id": "car_m_v2_wheel",
+      "nome": "Ruota",
+      "tipo": "ruota",
+      "file": null,
+      "triangoli": 500,
+      "allegati": [
+        "riferimento di stile"
+      ],
+      "specifico": {
+        "gemini": "The model: a wide muscle car wheel, a fat road tyre with a worn tread on a dark steel rim with five bolts.",
+        "meshy": "Low poly game-ready muscle car wheel, fat worn road tyre, dark steel rim with a centred hub and five bolts."
+      },
+      "tentativi": []
+    },
+    {
+      "id": "car_m_v2_gun_mount",
+      "nome": "Base della mitragliatrice",
+      "tipo": "arma_base",
+      "file": null,
+      "triangoli": 300,
+      "allegati": [
+        "riferimento di stile"
+      ],
+      "specifico": {
+        "gemini": "The model: the pintle mount of a heavy machine gun, a short thick steel post on a round rotating base.",
+        "meshy": "Low poly game-ready pintle mount for a heavy machine gun, short thick steel post on a round rotating base, dark rusty iron."
+      },
+      "tentativi": []
+    },
+    {
+      "id": "car_m_v2_gun",
+      "nome": "Mitragliatrice",
+      "tipo": "arma",
+      "file": null,
+      "triangoli": 700,
+      "posti": true,
+      "allegati": [
+        "riferimento di stile",
+        "dima: arma, di lato"
+      ],
+      "specifico": {
+        "gemini": "The model: a heavy machine gun aimed by hand, with an ammunition belt and box, a small armoured gun shield and two rear spade grips.",
+        "meshy": "Low poly game-ready heavy machine gun with ammunition belt and box, small armoured gun shield, two rear spade grips, dark rusty iron."
+      },
+      "tentativi": []
+    }
+  ],
+  "collaudi": [],
+  "decisioni": [
+    {
+      "data": "2026-11-21",
+      "testo": "Scala unica 1:125: Avenger lunga 4,8 m (38 mm sul tavolo), alta 1,2 m, bassa e lunga."
+    },
+    {
+      "data": "2026-11-21",
+      "testo": "Vernice in un solo grigio neutro; ruggine, piastre di riparazione e sporco non prendono il colore del giocatore."
+    }
+  ],
+  "provenienza": {
+    "origine": "ai",
+    "strumento": "da generare: Gemini e Meshy",
+    "fonte": "il proprietario del progetto",
+    "data": null
+  }
+}

@@ -1,0 +1,45 @@
+{
+  "schema": 1,
+  "id": "wreck_cisterna",
+  "nome": "Relitto: rimorchio-cisterna",
+  "gioco": "base",
+  "classe": "wreck",
+  "scopo": "Sesta variante di relitto, mai generata.",
+  "regime": "precedenti",
+  "stato": {
+    "passo": 3,
+    "esito": "da_fare",
+    "dal": "2026-11-17",
+    "nota": "Prompt scritto, modello mai generato. Va riscritto con i blocchi nuovi prima di generarlo."
+  },
+  "pezzi": [
+    {
+      "id": "wreck_6",
+      "nome": "Relitto intero",
+      "tipo": "intero",
+      "file": null,
+      "tentativi": [],
+      "usato": {
+        "fonte": "design/art/wreck-prompts.md",
+        "gemini": [
+          {
+            "titolo": "Concept",
+            "testo": "Concept art of a single object on a plain white background: a short burst fuel tanker trailer\nwreck in a Mad Max style post-apocalyptic desert board game. Ruptured cylindrical tank with\npeeled-back metal, black soot streaks, dripping dark fuel, broken hitch and two flat tyres,\nhazard warning stripes half burnt away. Stylized, chunky, slightly exaggerated shapes, bold\nsaturated colours, hand-painted texture, clean readable silhouette, like a premium board game\nminiature. Low and wide. Three-quarter view from the front-left. No people, no ground, no text,\nno logos."
+          }
+        ],
+        "meshy": []
+      }
+    }
+  ],
+  "collaudi": [],
+  "decisioni": [],
+  "provenienza": {
+    "origine": "ai",
+    "strumento": "Meshy, da concept generati con Gemini",
+    "fonte": "il proprietario del progetto",
+    "data": "2026-11-17"
+  },
+  "note": [
+    "Regole comuni (wreck-prompts.md): Image to 3D dal concept, Triangle, circa 5.000 triangoli, texture 1024, oggetto unico, base piatta. Stile dipinto a mano, precedente al blocco di stile unico."
+  ]
+}

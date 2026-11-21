@@ -1,0 +1,749 @@
+{
+  "_note": "Production rules of the 3D models (design/art/modelli-strutturati.md, approved 2026-11-21). Metres at real scale unless a name says mm, px or degrees. Read by the admin inspector (src/admin/produzione.ts), by the unit tests and, from phase C, by tools/models. Every number is a starting value until the table check says otherwise.",
+  "schema": 1,
+  "documento": "design/art/modelli-strutturati.md",
+  "scala": {
+    "_doc": "§16.2",
+    "rapporto": 125,
+    "mm_per_metro": 8,
+    "casella_mm": 46,
+    "margine_mm": 2,
+    "larghezza_casella_mm": null,
+    "nota": "La larghezza della casella va misurata sulla griglia prima di fissare le larghezze dei veicoli."
+  },
+  "figura": {
+    "_doc": "§15",
+    "misure": {
+      "altezza": 1.75,
+      "altezza_con_casco": 1.82,
+      "anche_da_terra": 0.94,
+      "busto": 0.5,
+      "collo_testa": 0.31,
+      "spalle": 0.4,
+      "ingombro_spalle": 0.5,
+      "anche": 0.2,
+      "ingombro_bacino": 0.36,
+      "braccio": 0.31,
+      "avambraccio": 0.27,
+      "mano": 0.07,
+      "coscia": 0.44,
+      "stinco": 0.42,
+      "caviglia": 0.08,
+      "piede": 0.26
+    },
+    "nomi_misure": {
+      "altezza": "Altezza",
+      "altezza_con_casco": "Altezza con il casco",
+      "anche_da_terra": "Altezza delle anche da terra",
+      "busto": "Busto: dalle anche alle spalle",
+      "collo_testa": "Collo e testa",
+      "spalle": "Larghezza delle spalle",
+      "ingombro_spalle": "Ingombro con le braccia",
+      "anche": "Larghezza delle anche",
+      "ingombro_bacino": "Ingombro del bacino",
+      "braccio": "Braccio (spalla-gomito)",
+      "avambraccio": "Avambraccio (gomito-polso)",
+      "mano": "Mano: dal polso alla presa",
+      "coscia": "Coscia (anca-ginocchio)",
+      "stinco": "Stinco (ginocchio-caviglia)",
+      "caviglia": "Caviglia: altezza sulla suola",
+      "piede": "Piede: lunghezza"
+    },
+    "capsule": {
+      "busto": 0.13,
+      "testa": 0.12,
+      "braccio": 0.05,
+      "coscia": 0.08,
+      "stinco": 0.06
+    },
+    "portata": {
+      "min": 0.55,
+      "max": 0.92
+    },
+    "tolleranza_ossa": 0.1,
+    "ossa": [
+      "hips",
+      "spine",
+      "chest",
+      "neck",
+      "head",
+      "upper_arm_L",
+      "upper_arm_R",
+      "lower_arm_L",
+      "lower_arm_R",
+      "hand_L",
+      "hand_R",
+      "thigh_L",
+      "thigh_R",
+      "shin_L",
+      "shin_R",
+      "foot_L",
+      "foot_R"
+    ],
+    "nomi_meshy": {
+      "_doc": "Bones of the Meshy rig seen on pilota_1 (2026-11-20). chest and neck: to be read off the next figure.",
+      "hips": "Hips",
+      "spine": "Spine01",
+      "head": "Head",
+      "upper_arm_L": "LeftArm",
+      "upper_arm_R": "RightArm",
+      "lower_arm_L": "LeftForeArm",
+      "lower_arm_R": "RightForeArm",
+      "hand_L": "LeftHand",
+      "hand_R": "RightHand",
+      "thigh_L": "LeftUpLeg",
+      "thigh_R": "RightUpLeg",
+      "shin_L": "LeftLeg",
+      "shin_R": "RightLeg",
+      "foot_L": "LeftFoot",
+      "foot_R": "RightFoot"
+    },
+    "riposo": "In piedi, braccia ad A (45° dal busto), gambe appena divaricate, palmi verso le cosce, dita chiuse. Guarda verso +X, Y in alto, origine a terra tra i piedi.",
+    "limiti_gradi": [
+      [
+        "Gomito",
+        "flessione",
+        5,
+        145
+      ],
+      [
+        "Ginocchio",
+        "flessione",
+        5,
+        140
+      ],
+      [
+        "Spalla",
+        "in avanti / indietro",
+        -40,
+        160
+      ],
+      [
+        "Spalla",
+        "apertura di lato",
+        0,
+        120
+      ],
+      [
+        "Anca",
+        "flessione",
+        -10,
+        115
+      ],
+      [
+        "Anca",
+        "apertura di lato",
+        0,
+        40
+      ],
+      [
+        "Schiena",
+        "in avanti / indietro",
+        -15,
+        45
+      ],
+      [
+        "Schiena",
+        "di lato",
+        -20,
+        20
+      ],
+      [
+        "Schiena",
+        "torsione",
+        -35,
+        35
+      ],
+      [
+        "Collo e testa",
+        "su e giù",
+        -35,
+        35
+      ],
+      [
+        "Collo e testa",
+        "di lato",
+        -25,
+        25
+      ],
+      [
+        "Collo e testa",
+        "rotazione",
+        -70,
+        70
+      ],
+      [
+        "Polso",
+        "ogni verso",
+        -45,
+        45
+      ],
+      [
+        "Caviglia",
+        "punta su / giù",
+        -20,
+        40
+      ]
+    ],
+    "versi": {
+      "gomiti": "in basso e in fuori, mai verso l'interno del busto né verso l'alto",
+      "ginocchia": "in avanti e appena in fuori; a cavalcioni stringono il serbatoio"
+    }
+  },
+  "posti": {
+    "_doc": "§16.1: rispetto all'origine del posto (le anche), avanti +X, in alto +Y. [min, max]; null: non si applica.",
+    "nomi": {
+      "sit": "seduto in auto",
+      "ride": "a cavalcioni",
+      "stand": "in piedi all'arma"
+    },
+    "misure": [
+      [
+        "Prese delle mani: avanti",
+        [
+          0.35,
+          0.55
+        ],
+        [
+          0.35,
+          0.55
+        ],
+        [
+          0.3,
+          0.5
+        ]
+      ],
+      [
+        "Prese delle mani: in alto",
+        [
+          0.2,
+          0.4
+        ],
+        [
+          0.15,
+          0.4
+        ],
+        [
+          0.25,
+          0.45
+        ]
+      ],
+      [
+        "Prese delle mani: distanza tra loro",
+        [
+          0.3,
+          0.4
+        ],
+        [
+          0.55,
+          0.75
+        ],
+        [
+          0.15,
+          0.35
+        ]
+      ],
+      [
+        "Appoggi dei piedi: avanti",
+        [
+          0.5,
+          0.75
+        ],
+        [
+          -0.15,
+          0.2
+        ],
+        [
+          0,
+          0
+        ]
+      ],
+      [
+        "Appoggi dei piedi: in basso",
+        [
+          0.15,
+          0.4
+        ],
+        [
+          0.4,
+          0.6
+        ],
+        [
+          0.94,
+          0.94
+        ]
+      ],
+      [
+        "Appoggi dei piedi: distanza tra loro",
+        [
+          0.2,
+          0.4
+        ],
+        [
+          0.4,
+          0.55
+        ],
+        [
+          0.25,
+          0.45
+        ]
+      ],
+      [
+        "Larghezza del sedile tra le cosce (massimo)",
+        null,
+        [
+          0,
+          0.32
+        ],
+        null
+      ],
+      [
+        "Spazio libero sopra le anche (minimo)",
+        [
+          0.9,
+          null
+        ],
+        [
+          0.95,
+          null
+        ],
+        [
+          0.9,
+          null
+        ]
+      ],
+      [
+        "Spazio libero di lato (minimo)",
+        [
+          0.55,
+          null
+        ],
+        [
+          0.6,
+          null
+        ],
+        [
+          0.7,
+          null
+        ]
+      ],
+      [
+        "Schienale: inclinazione all'indietro (gradi)",
+        [
+          5,
+          25
+        ],
+        null,
+        null
+      ],
+      [
+        "Altezza della sella da terra",
+        null,
+        [
+          0.7,
+          0.85
+        ],
+        null
+      ]
+    ],
+    "arma_manuale": {
+      "impugnature_dal_pavimento": [
+        1.2,
+        1.4
+      ],
+      "pavimento_piano_m": [
+        0.5,
+        0.5
+      ]
+    }
+  },
+  "classi": {
+    "_doc": "§16.3: misure vere in metri, a veicolo scarico e senza arma. Sul tavolo: lunghezza × 8 mm.",
+    "car_s": {
+      "nome": "Auto piccola (Doom Buggy)",
+      "sagoma": "piccola e corta",
+      "lunghezza": 3.0,
+      "altezza": 1.5,
+      "larghezza": 1.6,
+      "ruota": 0.36,
+      "posti": [
+        "pilota"
+      ]
+    },
+    "car_m": {
+      "nome": "Auto media (Avenger)",
+      "sagoma": "bassa e lunga",
+      "lunghezza": 4.8,
+      "altezza": 1.2,
+      "larghezza": 1.9,
+      "ruota": 0.36,
+      "posti": [
+        "pilota",
+        "artigliere"
+      ]
+    },
+    "car_l": {
+      "nome": "Auto grande (Eliminator)",
+      "sagoma": "lunga, alta e tozza",
+      "lunghezza": 5.2,
+      "altezza": 2.3,
+      "larghezza": 2.3,
+      "ruota": 0.5,
+      "posti": [
+        "pilota",
+        "copilota",
+        "artigliere"
+      ]
+    },
+    "bike": {
+      "nome": "Moto",
+      "sagoma": "stretta",
+      "lunghezza": 2.1,
+      "altezza": 1.1,
+      "larghezza": 0.75,
+      "ruota": 0.32,
+      "posti": [
+        "pilota"
+      ]
+    },
+    "rig": {
+      "nome": "Big Rig, ogni sezione",
+      "sagoma": "la più alta del tavolo",
+      "lunghezza": 5.6,
+      "altezza": 3.2,
+      "larghezza": 2.5,
+      "ruota": 0.55,
+      "posti": []
+    },
+    "chopper": {
+      "nome": "Elicottero",
+      "sagoma": "da fissare con la sua dima",
+      "lunghezza": null,
+      "altezza": null,
+      "larghezza": null,
+      "ruota": null,
+      "posti": [
+        "pilota"
+      ]
+    },
+    "wreck": {
+      "nome": "Relitto",
+      "sagoma": "le misure del veicolo da cui viene",
+      "lunghezza": null,
+      "altezza": null,
+      "larghezza": null,
+      "ruota": null,
+      "posti": []
+    },
+    "figure": {
+      "nome": "Persona dell'equipaggio",
+      "sagoma": "figura standard",
+      "lunghezza": null,
+      "altezza": 1.75,
+      "larghezza": 0.5,
+      "ruota": null,
+      "posti": []
+    },
+    "prop": {
+      "nome": "Ostacolo o elemento della mappa",
+      "sagoma": "—",
+      "lunghezza": null,
+      "altezza": null,
+      "larghezza": null,
+      "ruota": null,
+      "posti": []
+    }
+  },
+  "parti_mobili": {
+    "_doc": "§4.2",
+    "ruote_auto": {
+      "corsa_sospensione": [
+        -0.08,
+        0.12
+      ],
+      "sterzo_max_gradi": 32
+    },
+    "armi": {
+      "mitragliatrice_alzo_gradi": [
+        -10,
+        35
+      ],
+      "cannone_alzo_gradi": [
+        -5,
+        25
+      ]
+    },
+    "moto": {
+      "sterzo_max_gradi": 35,
+      "inclinazione_forcella_gradi": [
+        25,
+        30
+      ],
+      "piega_max_gradi": 45,
+      "piega_curva_stretta_gradi": 50,
+      "derapata_max_gradi": 30
+    }
+  },
+  "vernice": {
+    "_doc": "§7.1",
+    "quota_vernice": [
+      0.3,
+      0.5
+    ],
+    "quota_usura": [
+      0.15,
+      0.35
+    ]
+  },
+  "collaudo": {
+    "_doc": "§18",
+    "proporzioni": 0.08,
+    "punti_posti_m": 0.05,
+    "compenetrazione_m": 0.02,
+    "lunghezza_montaggio": 0.05
+  },
+  "budget": {
+    "_doc": "§8: triangoli, lato della texture, materiali. Per veicolo intero.",
+    "auto": {
+      "triangoli": 8000,
+      "texture": 1024,
+      "materiali": 6
+    },
+    "elicottero": {
+      "triangoli": 7000,
+      "texture": 1024,
+      "materiali": 5
+    },
+    "moto": {
+      "triangoli": 4000,
+      "texture": 1024,
+      "materiali": 5
+    },
+    "big_rig": {
+      "triangoli": 18000,
+      "texture": 1024,
+      "materiali": 6
+    },
+    "relitto": {
+      "triangoli": 5000,
+      "texture": 1024,
+      "materiali": 2
+    },
+    "persona": {
+      "triangoli": 1500,
+      "texture": 512,
+      "materiali": 3
+    }
+  },
+  "lod": {
+    "_doc": "§8.2: valori di partenza NON misurati, da verificare al tavolo col selettore della qualità grafica. Fino ad allora il collaudo li riporta come avviso.",
+    "verificato": false,
+    "veicoli": [
+      {
+        "id": "V0",
+        "nome": "Primo piano",
+        "px": [
+          200,
+          null
+        ],
+        "triangoli": 1.0,
+        "texture": 1024
+      },
+      {
+        "id": "V1",
+        "nome": "Tavolo da vicino",
+        "px": [
+          80,
+          200
+        ],
+        "triangoli": 0.4,
+        "texture": 512
+      },
+      {
+        "id": "V2",
+        "nome": "Tavolo intero",
+        "px": [
+          30,
+          80
+        ],
+        "triangoli": 0.1,
+        "texture": 0
+      },
+      {
+        "id": "V3",
+        "nome": "Lontano e vista mappa",
+        "px": [
+          0,
+          30
+        ],
+        "triangoli_max": 150,
+        "texture": 0
+      }
+    ],
+    "isteresi": 0.15,
+    "qualita": 0.3,
+    "livello_minimo_in_azione": "V1",
+    "sagoma_rinforzata_max": 0.15,
+    "tavolo_intero_triangoli": 25000,
+    "vista_mappa_triangoli": 5000,
+    "regola": "A ogni distanza resta il modello: nessun segno, icona o simbolo lo sostituisce o lo accompagna (decisione dell'utente, 2026-11-21)."
+  },
+  "passi": [
+    {
+      "n": 1,
+      "nome": "Scheda",
+      "chi": "Claude scrive, l'utente approva",
+      "cancello": "approvazione dell'utente"
+    },
+    {
+      "n": 2,
+      "nome": "Dima",
+      "chi": "script",
+      "cancello": "i posti della dima passano il collaudo"
+    },
+    {
+      "n": 3,
+      "nome": "Prompt",
+      "chi": "script, dai blocchi condivisi",
+      "cancello": "—"
+    },
+    {
+      "n": 4,
+      "nome": "Concept",
+      "chi": "utente, con Gemini",
+      "cancello": "l'utente lo approva a occhio contro la dima"
+    },
+    {
+      "n": 5,
+      "nome": "3D",
+      "chi": "utente, con Meshy",
+      "cancello": "—"
+    },
+    {
+      "n": 6,
+      "nome": "Collaudo dimensionale",
+      "chi": "script",
+      "cancello": "tutte le tolleranze rispettate"
+    },
+    {
+      "n": 7,
+      "nome": "Montaggio",
+      "chi": "script; l'utente ritocca se serve",
+      "cancello": "controllo automatico"
+    },
+    {
+      "n": 8,
+      "nome": "Alleggerimento",
+      "chi": "script",
+      "cancello": "budget"
+    },
+    {
+      "n": 9,
+      "nome": "Gioco",
+      "chi": "Claude",
+      "cancello": "prove sul banco, immagini conservate"
+    },
+    {
+      "n": 10,
+      "nome": "Approvazione",
+      "chi": "utente",
+      "cancello": "—"
+    }
+  ],
+  "esiti": {
+    "bozza": "Bozza: da approvare",
+    "da_fare": "Da fare",
+    "in_lavorazione": "In lavorazione",
+    "in_pausa": "In pausa",
+    "in_gioco": "Nel gioco",
+    "approvato": "Approvato",
+    "scartato": "Scartato"
+  },
+  "regimi": {
+    "precedenti": "Nato prima della specifica: nel gioco con le misure di oggi, da ridisegnare",
+    "specifica": "Segue la specifica del 2026-11-21"
+  },
+  "tipi": {
+    "carrozzeria": "Carrozzeria",
+    "telaio": "Telaio della moto",
+    "avantreno": "Avantreno della moto",
+    "ruota": "Ruota",
+    "arma_base": "Base dell'arma",
+    "arma": "Arma",
+    "figura": "Figura",
+    "accessorio": "Accessorio",
+    "intero": "Modello intero (prima della specifica)"
+  },
+  "blocchi": {
+    "_doc": "§20.3. Un prompt per Gemini = stile + camera + tipo + dima (se il pezzo ha posti) + specifico + colore (se il pezzo è tinto). Un prompt per Meshy = specifico + coda. Cambiare un blocco cambia i prompt dei pezzi non ancora generati; quelli usati restano scritti nei tentativi.",
+    "stile": "Photorealistic 3D render of a physical scale model miniature, like a studio product photo. Matte painted metal with chipped paint, light rust, visible weld seams, rivets and bolts. Seamless light grey studio backdrop, soft overhead lighting, soft contact shadow under the model. Exactly the same rendering style, materials and lighting as the attached style reference image. Not a drawing, not an illustration, no outlines, no cartoon shading, no labels, no text. One single object, nothing else in the picture.",
+    "camera": "Camera three-quarter view from the front-left, looking down from above.",
+    "colore": "Paint and weathering: every painted panel is one single flat neutral light grey, the same grey everywhere, with no other paint colour, no stripes, no logos, no numbers. About one third to one half of the visible surface is painted. Weathering keeps its own colours and is never grey paint: orange-brown rust, bare scratched steel where the paint is chipped, black burn marks, dry mud, dark oil stains. Repair plates are unpainted bare or rusty metal, welded or bolted on. Everything that is not a painted panel (frame, wheels, weapons, exhausts, mechanics) is dark iron.",
+    "dima": "Use the attached grey block-out image as the exact template of proportions: the same length, width and height, the same position of seats, steering wheel or handlebars, footrests and wheel centres. The translucent human figure in the template is only a measure of scale: do not draw any person.",
+    "tipo": {
+      "carrozzeria": "This picture shows only the body of the vehicle. No wheels: empty wheel arches. No weapons: a flat round mounting plate where each weapon goes. Open or visible cockpit with its seats and steering wheel, and no person in it.",
+      "telaio": "This picture shows only the frame of the motorcycle with its engine, tank, seat, footrests and rear swingarm. No front fork, no handlebars, no front mudguard, no headlight: the steering head tube at the front is empty. No wheels: the swingarm ends in an empty hub. No rider.",
+      "avantreno": "This picture shows only the front end of the motorcycle, alone: the fork with its two legs, the handlebars with their grips, the front mudguard and the headlight, as one piece. No wheel: the fork ends in an empty hub. No frame, no rider.",
+      "ruota": "This picture shows only one wheel, alone, standing upright, its hub exactly in the centre.",
+      "arma_base": "This picture shows only the fixed base of the weapon, alone: a round rotating mount with a mounting ring underneath and a pin on top where the gun sits. No gun on it.",
+      "arma": "This picture shows only the gun, alone, without its base: barrel horizontal and pointing to the right, its pivot pin underneath, its handles visible if a person aims it by hand.",
+      "figura": "This picture shows one human figure alone, standing upright, arms held straight and 45 degrees away from the body, legs slightly apart, hands closed in soft fists and empty, looking forward. Realistic adult proportions, 1.75 m tall. No weapon in the hands, nothing that sticks out far from the body. Front view, full body, feet on the ground.",
+      "accessorio": "This picture shows only this object, alone."
+    },
+    "meshy": {
+      "_doc": "Le impostazioni vanno verificate dall'utente sull'interfaccia di Meshy di oggi.",
+      "coda": "Realistic painted metal scale model look, chipped paint, weld seams and rivets, single object.",
+      "modo": "Image to 3D dalla tavola del concept",
+      "impostazioni": {
+        "carrozzeria": {
+          "topology": "Triangle",
+          "symmetry": "On",
+          "texture": 1024
+        },
+        "telaio": {
+          "topology": "Triangle",
+          "symmetry": "On",
+          "texture": 1024
+        },
+        "avantreno": {
+          "topology": "Triangle",
+          "symmetry": "On",
+          "texture": 512
+        },
+        "ruota": {
+          "topology": "Triangle",
+          "symmetry": "On",
+          "texture": 512
+        },
+        "arma_base": {
+          "topology": "Triangle",
+          "symmetry": "On",
+          "texture": 512
+        },
+        "arma": {
+          "topology": "Triangle",
+          "symmetry": "Off",
+          "texture": 512
+        },
+        "figura": {
+          "topology": "Triangle",
+          "symmetry": "On",
+          "texture": 512,
+          "rig": "scheletro automatico, senza animazioni"
+        },
+        "accessorio": {
+          "topology": "Triangle",
+          "symmetry": "Off",
+          "texture": 512
+        }
+      },
+      "esportazione": "GLB, un oggetto per file, in assets/sorgenti/. La scala non conta: la fissa il collaudo."
+    },
+    "regole_gemini": [
+      "Allega sempre il riferimento di stile (un concept già approvato) e, se il pezzo ha posti, la vista della dima.",
+      "Una sola vista per immagine. Le altre viste si chiedono dopo, una per volta.",
+      "Mai le parole drawing, sheet, concept art, illustration, hand-painted: portano al disegno piatto.",
+      "Un pezzo per immagine, nella stessa conversazione, così lo stile resta uguale."
+    ]
+  }
+}

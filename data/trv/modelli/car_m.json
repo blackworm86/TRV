@@ -1,0 +1,90 @@
+{
+  "schema": 1,
+  "id": "car_m",
+  "nome": "Auto media (Avenger)",
+  "gioco": "base",
+  "classe": "car_m",
+  "scopo": "Auto delle squadre, con ruote, sospensioni, sterzo e mitragliatrice mobili.",
+  "regime": "precedenti",
+  "stato": {
+    "passo": 9,
+    "esito": "in_gioco",
+    "dal": "2026-11-20",
+    "nota": "Nel gioco con le misure di oggi. Da ridisegnare sulla dima alla scala unica (fase D)."
+  },
+  "pezzi": [
+    {
+      "id": "car_m_body",
+      "nome": "Carrozzeria",
+      "tipo": "carrozzeria",
+      "file": "assets/base/modelli/car_m_body.glb",
+      "sorgente": "assets/sorgenti/avenger_2026-11-20/PostApocalypticCarBod.glb",
+      "tentativi": [
+        {
+          "data": "2026-11-20",
+          "strumento": "Meshy",
+          "prompt": "Prompt non conservato: il modello è stato generato dall'utente prima che i prompt fossero registrati.",
+          "esito": "in_gioco"
+        }
+      ]
+    },
+    {
+      "id": "car_m_gun_mount",
+      "nome": "Base della mitragliatrice",
+      "tipo": "arma_base",
+      "file": "assets/base/modelli/car_m_gun_mount.glb",
+      "sorgente": "assets/sorgenti/avenger_2026-11-20/MountedMachineGun.glb",
+      "nota": "Tagliata dal modello intero dell'arma (tools/art/split_gun.py).",
+      "tentativi": [
+        {
+          "data": "2026-11-20",
+          "strumento": "Meshy",
+          "prompt": "Prompt non conservato: il modello è stato generato dall'utente prima che i prompt fossero registrati.",
+          "esito": "in_gioco"
+        }
+      ]
+    },
+    {
+      "id": "car_m_gun_barrel",
+      "nome": "Mitragliatrice",
+      "tipo": "arma",
+      "file": "assets/base/modelli/car_m_gun_barrel.glb",
+      "sorgente": "assets/sorgenti/avenger_2026-11-20/MountedMachineGun.glb",
+      "nota": "Tagliata dal modello intero dell'arma (tools/art/split_gun.py).",
+      "tentativi": []
+    },
+    {
+      "id": "car_m_wheel",
+      "nome": "Ruota",
+      "tipo": "ruota",
+      "file": "assets/base/modelli/car_m_wheel.glb",
+      "sorgente": "assets/sorgenti/avenger_2026-11-20/PostApocalypticWheel.glb",
+      "tentativi": [
+        {
+          "data": "2026-11-20",
+          "strumento": "Meshy",
+          "prompt": "Prompt non conservato: il modello è stato generato dall'utente prima che i prompt fossero registrati.",
+          "esito": "in_gioco"
+        }
+      ]
+    }
+  ],
+  "collaudi": [],
+  "decisioni": [],
+  "provenienza": {
+    "origine": "ai",
+    "strumento": "Meshy, da concept generati con Gemini",
+    "fonte": "il proprietario del progetto",
+    "data": "2026-11-20"
+  },
+  "misure_oggi": {
+    "lunghezza": 4.5,
+    "tavolo_mm": 33
+  },
+  "montaggio": [
+    "assets/base/modelli/schede/car_m.json"
+  ],
+  "precedente": [
+    "assets/base/modelli/Car_Medium.glb"
+  ]
+}

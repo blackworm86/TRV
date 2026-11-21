@@ -48,7 +48,7 @@
       "game": "base", "type": "modelli", "status": "bozza",
       "source": "Generati dal proprietario con Meshy da concept fatti con Gemini: le miniature ufficiali non hanno una scansione.",
       "items": {
-        "Ramp": { "game": "carnage", "source": "Generata con Meshy dai prompt di design/art/carnage-ramp-prompts.md." }
+        "Ramp": { "game": "carnage", "source": "Generata con Meshy dai prompt di data/trv/modelli/ramp.json." }
       }
     },
     "tessere": {

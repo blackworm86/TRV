@@ -38,7 +38,7 @@ qui ci sono lo stato attuale, le decisioni prese a voce e cosa resta da fare.
 | Pannello admin (asset per gioco e tipo, stato, 3D, confronto, commenti) | `src/admin/admin.ts`, `catalog.ts`, `solids.ts`, `admin.html`; stato degli asset in `data/trv/assets_catalog.json` |
 | Commenti sugli asset | `src/net/asset-comments.ts` (Firebase `assetComments/`, regole in `database.rules.json`) |
 | Asset: dove sono e in che stato | `assets/` (per gioco e tipo), `design/art/asset-status.md` |
-| Prompt per generare modelli (Gemini, Meshy) | `design/art/carnage-ramp-prompts.md`, `design/art/wreck-prompts.md` |
+| Prompt per generare modelli (Gemini, Meshy) | `data/trv/modelli/` (schede di produzione; si leggono nell'inspector, sezione Produzione modelli) |
 | Screenshot di verifica | `production/qa/evidence/` |
 
 ## Decisioni e preferenze dell'utente (non scritte altrove)

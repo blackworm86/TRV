@@ -1,0 +1,77 @@
+{
+  "schema": 1,
+  "id": "ramp",
+  "nome": "Rampa di lancio",
+  "gioco": "carnage",
+  "classe": "prop",
+  "scopo": "La rampa di Carnage at Devil's Run: occupa una casella, si salta solo in avanti.",
+  "regime": "precedenti",
+  "stato": {
+    "passo": 9,
+    "esito": "in_gioco",
+    "dal": "2026-11-17",
+    "nota": "Nel gioco. Lunga una casella (46 mm); proporzioni: lunghezza 1, larghezza 0,8, altezza 0,45 all'estremità alta."
+  },
+  "pezzi": [
+    {
+      "id": "ramp",
+      "nome": "Rampa",
+      "tipo": "intero",
+      "file": "assets/carnage/modelli/Ramp.glb",
+      "usato": {
+        "fonte": "design/art/carnage-ramp-prompts.md",
+        "gemini": [
+          {
+            "titolo": "Concept",
+            "testo": "Concept art of a single object on a plain white background: a makeshift launch ramp for\ntoy-scale racing cars in a Mad Max style post-apocalyptic desert board game. A wedge-shaped\nramp: the sloped deck is weathered pale plywood and dented sheet metal, with a big bold yellow\narrow painted on it pointing up the slope. Underneath, a rusty welded steel frame with a few\nbolts and braces. At the high end, a short yellow-and-black hazard-striped barrier post across\nthe full width. A couple of sandbags at the low end. Stylized, chunky, slightly exaggerated\nshapes, bold saturated colours, hand-painted texture, clean readable silhouette, like a\npremium board game miniature. Show it twice: a three-quarter view from the front-left and a\npure side view. No cars, no ground, no shadows on the background, no text, no logos."
+          }
+        ],
+        "meshy": [
+          {
+            "titolo": "Testo, se serve",
+            "testo": "Low poly game-ready model of a makeshift wedge-shaped car launch ramp. Weathered pale plywood\nand sheet metal deck with a large painted yellow arrow pointing up the slope, rusty steel frame\nunderneath, a yellow-and-black hazard-striped barrier post across the high end, two sandbags at\nthe low end. Stylized hand-painted look, bold colours, chunky shapes. Single object, flat base,\nlow end touching the ground."
+          }
+        ],
+        "correzioni": [
+          {
+            "quando": "troppo realistico",
+            "testo": "cartoon style, flat colours, thick shapes"
+          },
+          {
+            "quando": "la freccia non si vede",
+            "testo": "the yellow arrow covers most of the deck and is clearly visible"
+          }
+        ],
+        "impostazioni": {
+          "topology": "Triangle",
+          "symmetry": "On",
+          "triangoli": 5000,
+          "texture": 1024
+        }
+      },
+      "tentativi": [
+        {
+          "data": "2026-11-17",
+          "strumento": "Meshy",
+          "prompt": "Quello qui sopra.",
+          "esito": "in_gioco"
+        }
+      ]
+    }
+  ],
+  "collaudi": [],
+  "decisioni": [],
+  "provenienza": {
+    "origine": "ai",
+    "strumento": "Meshy, da concept generati con Gemini",
+    "fonte": "il proprietario del progetto",
+    "data": "2026-11-17"
+  },
+  "misure_oggi": {
+    "lunghezza": null,
+    "tavolo_mm": 46
+  },
+  "note": [
+    "Stile dipinto a mano, precedente al blocco di stile unico."
+  ]
+}

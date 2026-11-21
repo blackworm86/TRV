@@ -1,0 +1,44 @@
+{
+  "schema": 1,
+  "id": "wreck_1",
+  "nome": "Relitto 1",
+  "gioco": "base",
+  "classe": "wreck",
+  "scopo": "Relitto sul tavolo: occupa una casella e conta come un'auto piccola.",
+  "regime": "precedenti",
+  "stato": {
+    "passo": 9,
+    "esito": "in_gioco",
+    "dal": "2026-11-15",
+    "nota": "Nel gioco con le misure di oggi (22 mm). Con la scala unica prende le misure del veicolo da cui viene (fase G)."
+  },
+  "pezzi": [
+    {
+      "id": "wreck_1",
+      "nome": "Relitto intero",
+      "tipo": "intero",
+      "file": "assets/base/modelli/wreck_1.glb",
+      "tentativi": [
+        {
+          "data": "2026-11-15",
+          "strumento": "Meshy",
+          "prompt": "Prompt non conservato: il modello è stato generato dall'utente prima che i prompt fossero registrati.",
+          "esito": "in_gioco"
+        }
+      ]
+    }
+  ],
+  "collaudi": [],
+  "decisioni": [],
+  "provenienza": {
+    "origine": "ai",
+    "strumento": "Meshy, da concept generati con Gemini",
+    "fonte": "il proprietario del progetto",
+    "data": "2026-11-15"
+  },
+  "misure_oggi": {
+    "lunghezza": null,
+    "tavolo_mm": 22
+  },
+  "note": []
+}

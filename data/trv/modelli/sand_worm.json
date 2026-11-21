@@ -1,0 +1,39 @@
+{
+  "schema": 1,
+  "id": "sand_worm",
+  "nome": "Verme delle sabbie",
+  "gioco": "carnage",
+  "classe": "prop",
+  "scopo": "Il verme di Carnage at Devil's Run, che inghiotte un'auto.",
+  "regime": "precedenti",
+  "stato": {
+    "passo": 9,
+    "esito": "in_gioco",
+    "dal": "2026-11-18",
+    "nota": "Nel gioco. Messo in posa dal codice (src/view/worm.ts)."
+  },
+  "pezzi": [
+    {
+      "id": "sand_worm",
+      "nome": "Verme",
+      "tipo": "intero",
+      "file": "assets/carnage/modelli/sand_worm.glb",
+      "tentativi": [
+        {
+          "data": "2026-11-18",
+          "strumento": "Meshy",
+          "prompt": "Prompt non conservato. Modello Meshy \"Mawstone Mimic\" con la sua texture.",
+          "esito": "in_gioco"
+        }
+      ]
+    }
+  ],
+  "collaudi": [],
+  "decisioni": [],
+  "provenienza": {
+    "origine": "ai",
+    "strumento": "Meshy, da concept generati con Gemini",
+    "fonte": "il proprietario del progetto",
+    "data": "2026-11-18"
+  }
+}

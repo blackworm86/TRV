@@ -1,0 +1,170 @@
+{
+  "schema": 1,
+  "id": "moto_1",
+  "nome": "Moto 1 a pezzi",
+  "gioco": "big_rig",
+  "classe": "bike",
+  "scopo": "La prima moto a pezzi separati, banco prova dei piloti.",
+  "regime": "precedenti",
+  "stato": {
+    "passo": 6,
+    "esito": "in_pausa",
+    "dal": "2026-11-20",
+    "nota": "In pausa: il pilota siede male, si compenetra con la moto e piega le articolazioni in versi innaturali. Cause e rimedi nel §1.1 della specifica. Si rifà sulla dima (fase G); il lavoro è sul ramo locale moto-in-pausa."
+  },
+  "pezzi": [
+    {
+      "id": "moto_1_body",
+      "nome": "Moto senza ruote, pilota e arma",
+      "tipo": "intero",
+      "file": null,
+      "altrove": "assets/big_rig/modelli/moto_1_body.glb",
+      "usato": {
+        "fonte": "design/art/moto-pilota-prompts.md §1.1",
+        "gemini": [
+          {
+            "titolo": "Concept",
+            "testo": "Photorealistic 3D render of a physical scale model miniature, like a studio product photo. Matte\npainted metal with chipped paint, light rust, visible weld seams, rivets and bolts. Seamless light\ngrey studio backdrop, soft overhead lighting, soft contact shadow. Exactly the same rendering style,\nmaterials, lighting and camera as the attached style reference image. Not a drawing, not an\nillustration, no outlines, no cartoon shading, no labels, no text. One single object, nothing else\nin the picture.\nThe model: an armoured post-apocalyptic combat motorcycle for a desert racing board game, WITHOUT\nWHEELS and WITHOUT RIDER. Chunky dirt-bike frame, front fork and swingarm ending in empty wheel\nhubs, handlebars with grips, empty seat, foot pegs, exhaust pipes, a few spikes and welded armour\nplates. In front of the handlebars a small flat steel mounting plate, empty. Fuel tank and fairing\nin pale neutral off-white grey with smooth, plain sides; frame and engine in dark rusty iron.\nRobust, slightly oversized shapes. Camera three-quarter view from the front-left, slightly above."
+          }
+        ],
+        "meshy": [],
+        "impostazioni": {
+          "topology": "Triangle",
+          "symmetry": "On",
+          "triangoli": 4000,
+          "texture": 1024
+        }
+      },
+      "nota": "Forcella e manubrio fusi con il telaio: per questo lo sterzo non poteva ruotare. La specifica chiede telaio e avantreno come due pezzi. File sul ramo locale moto-in-pausa, non in questo.",
+      "tentativi": [
+        {
+          "data": "2026-11-20",
+          "strumento": "Meshy",
+          "prompt": "Quello qui sopra.",
+          "esito": "in_pausa",
+          "sorgente": "assets/sorgenti/moto_1_2026-11-20/moto_body.glb"
+        }
+      ]
+    },
+    {
+      "id": "moto_1_wheel",
+      "nome": "Ruota tassellata",
+      "tipo": "ruota",
+      "file": null,
+      "altrove": "assets/big_rig/modelli/moto_1_wheel.glb",
+      "usato": {
+        "fonte": "design/art/moto-pilota-prompts.md §1.2",
+        "gemini": [
+          {
+            "titolo": "Concept",
+            "testo": "Photorealistic 3D render of a physical scale model miniature, like a studio product photo. Matte\npainted metal with chipped paint, light rust, visible weld seams, rivets and bolts. Seamless light\ngrey studio backdrop, soft overhead lighting, soft contact shadow. Exactly the same rendering style,\nmaterials, lighting and camera as the attached style reference image. Not a drawing, not an\nillustration, no outlines, no cartoon shading, no labels, no text. One single object, nothing else\nin the picture.\nThe model: one single knobby off-road motorcycle wheel, standing upright: chunky rubber tyre with\nbig knobs, dark rusty steel rim with spokes, centred hub. Camera three-quarter side view, slightly\nabove."
+          }
+        ],
+        "meshy": [],
+        "impostazioni": {
+          "topology": "Triangle",
+          "symmetry": "On",
+          "triangoli": 800,
+          "texture": 512
+        }
+      },
+      "nota": "File sul ramo locale moto-in-pausa, non in questo.",
+      "tentativi": [
+        {
+          "data": "2026-11-20",
+          "strumento": "Meshy",
+          "prompt": "Quello qui sopra.",
+          "esito": "in_pausa",
+          "sorgente": "assets/sorgenti/moto_1_2026-11-20/moto_wheel.glb"
+        }
+      ]
+    },
+    {
+      "id": "moto_1_gun",
+      "nome": "Mitragliatrice montata",
+      "tipo": "arma",
+      "file": null,
+      "altrove": "assets/big_rig/modelli/moto_1_gun.glb",
+      "usato": {
+        "fonte": "design/art/moto-pilota-prompts.md §1.3",
+        "gemini": [
+          {
+            "titolo": "Concept",
+            "testo": "Photorealistic 3D render of a physical scale model miniature, like a studio product photo. Matte\npainted metal with chipped paint, light rust, visible weld seams, rivets and bolts. Seamless light\ngrey studio backdrop, soft overhead lighting, soft contact shadow. Exactly the same rendering style,\nmaterials, lighting and camera as the attached style reference image. Not a drawing, not an\nillustration, no outlines, no cartoon shading, no labels, no text. One single object, nothing else\nin the picture.\nThe model: a small post-apocalyptic machine gun for a motorcycle, on a short mounting bracket\nunderneath: one or two short barrels pointing right, ammunition box on the side, dark rusty iron,\nwelds and bolts. Side view from the left, barrels pointing to the right."
+          }
+        ],
+        "meshy": [],
+        "impostazioni": {
+          "topology": "Triangle",
+          "symmetry": "Off",
+          "triangoli": 1200,
+          "texture": 512
+        }
+      },
+      "nota": "File sul ramo locale moto-in-pausa, non in questo.",
+      "tentativi": [
+        {
+          "data": "2026-11-20",
+          "strumento": "Meshy",
+          "prompt": "Quello qui sopra.",
+          "esito": "in_pausa",
+          "sorgente": "assets/sorgenti/moto_1_2026-11-20/moto_gun.glb"
+        }
+      ]
+    },
+    {
+      "id": "uzi",
+      "nome": "Uzi",
+      "tipo": "accessorio",
+      "file": null,
+      "altrove": "assets/big_rig/modelli/uzi.glb",
+      "usato": {
+        "fonte": "design/art/moto-pilota-prompts.md §1.4",
+        "gemini": [
+          {
+            "titolo": "Concept",
+            "testo": "Photorealistic 3D render of a physical scale model miniature, like a studio product photo. Matte\npainted metal with chipped paint, light rust, visible weld seams, rivets and bolts. Seamless light\ngrey studio backdrop, soft overhead lighting, soft contact shadow. Exactly the same rendering style,\nmaterials, lighting and camera as the attached style reference image. Not a drawing, not an\nillustration, no outlines, no cartoon shading, no labels, no text. One single object, nothing else\nin the picture.\nThe model: a compact submachine gun like an Uzi, slightly chunky and oversized, worn dark steel\nwith scratches, magazine inside the pistol grip, short barrel pointing right. Side view from the\nleft, barrel pointing to the right."
+          }
+        ],
+        "meshy": [],
+        "impostazioni": {
+          "topology": "Triangle",
+          "symmetry": "Off",
+          "triangoli": 600,
+          "texture": 512
+        }
+      },
+      "nota": "Nella mano sinistra del pilota mentre spara. File sul ramo locale moto-in-pausa, non in questo.",
+      "tentativi": [
+        {
+          "data": "2026-11-20",
+          "strumento": "Meshy",
+          "prompt": "Quello qui sopra.",
+          "esito": "in_pausa",
+          "sorgente": "assets/sorgenti/moto_1_2026-11-20/uzi.glb"
+        }
+      ]
+    }
+  ],
+  "collaudi": [],
+  "decisioni": [
+    {
+      "data": "2026-11-20",
+      "testo": "Moto messa in pausa: prima vanno definiti i parametri dimensionali dei piloti."
+    },
+    {
+      "data": "2026-11-21",
+      "testo": "Avantreno (forcella, manubrio, parafango, faro) come pezzo separato; la moto deve sterzare, piegare fino a 45-50° e derapare."
+    }
+  ],
+  "provenienza": {
+    "origine": "ai",
+    "strumento": "Meshy, da concept generati con Gemini",
+    "fonte": "il proprietario del progetto",
+    "data": "2026-11-20"
+  },
+  "misure_oggi": {
+    "lunghezza": 2.2,
+    "tavolo_mm": 24
+  }
+}

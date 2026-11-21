@@ -129,6 +129,54 @@
   table.sum tbody th { text-align: left; font-family: var(--body); font-weight: 600; letter-spacing: 0; }
   h3.sub { font-size: 26px; margin: 18px 0 6px; }
   ul.legend { margin: 0; padding-left: 18px; display: grid; gap: 6px; max-width: 90ch; }
+  /* Produzione modelli: lists, sheets, rules and the specification (src/admin/produzione-view.ts). */
+  .prod { max-width: 1100px; }
+  .prod p { max-width: 90ch; }
+  .prod h4 { font-family: var(--body); font-weight: 600; font-size: 15px; letter-spacing: 0; margin: 16px 0 6px; }
+  .prod h4 small, .prod td small { color: var(--muted); font-weight: 400; display: block; }
+  .prod h5 { font-size: 13px; color: var(--muted); margin: 12px 0 4px; }
+  table.pt { border-collapse: collapse; margin: 6px 0 16px; }
+  table.pt th, table.pt td { padding: 6px 12px; border-bottom: 1px solid var(--line); text-align: left; vertical-align: top; font-variant-numeric: tabular-nums; }
+  table.pt th { color: var(--muted); font-family: var(--body); font-weight: 600; font-size: 12px; letter-spacing: .3px; text-transform: uppercase; }
+  table.pt.kv td:first-child { color: var(--muted); }
+  table.pt.kv thead { display: none; }
+  .prod .link { background: none; border: 0; padding: 0; color: var(--accent); font-weight: 600; text-align: left; }
+  .prod .link:hover, .prod .link:focus-visible { text-decoration: underline; }
+  .prod .bad, .prod .legend.bad { color: #ff8a7a; }
+  .prod .warn { color: var(--accent); border-left: 3px solid var(--accent); padding-left: 10px; }
+  .prod .set { color: var(--muted); font-size: 13px; margin: 4px 0 8px; }
+  .prod .psum { margin: 0 0 12px; }
+  .st-p-in_gioco, .st-p-approvato { color: #8fe0a0; border-color: #8fe0a066; background: #8fe0a014; }
+  .st-p-in_lavorazione, .st-p-da_fare { color: #8cc7ff; border-color: #8cc7ff66; background: #8cc7ff14; }
+  .st-p-bozza { color: #f6c46a; border-color: #f6c46a66; background: #f6c46a14; }
+  .st-p-in_pausa, .st-p-scartato { color: #ff9a85; border-color: #ff9a8566; background: #ff9a8514; }
+  ol.steps { list-style: none; display: flex; flex-wrap: wrap; gap: 4px; padding: 0; margin: 10px 0 12px; }
+  ol.steps li { display: flex; align-items: center; gap: 6px; padding: 4px 10px 4px 4px; border: 1px solid var(--line); border-radius: 999px; color: var(--muted); font-size: 12px; }
+  ol.steps li b { display: grid; place-items: center; width: 20px; height: 20px; border-radius: 50%; background: var(--surface2); }
+  ol.steps li.done { color: var(--ink); }
+  ol.steps li.done b { background: #8fe0a0; color: var(--bg); }
+  ol.steps li.now { color: var(--bg); background: var(--accent); border-color: var(--accent); font-weight: 600; }
+  ol.steps li.now b { background: var(--bg); color: var(--accent); }
+  .piece { border: 1px solid var(--line); border-radius: 10px; padding: 12px 16px; margin: 0 0 12px; background: var(--surface); }
+  .piece h3 { font-size: 24px; }
+  .prompt { border: 1px solid var(--line); border-radius: 8px; margin: 0 0 8px; background: var(--bg); }
+  .prompt .ph { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 6px 6px 6px 12px; border-bottom: 1px solid var(--line); }
+  .prompt .ph .btn { padding: 4px 12px; }
+  .prompt pre, .doc pre { margin: 0; padding: 10px 12px; white-space: pre-wrap; font: 13px/1.5 ui-monospace, Consolas, monospace; user-select: text; }
+  .p3d { position: relative; height: 380px; margin: 12px 0; border-radius: 10px; overflow: hidden; background: #1d1712; display: grid; place-items: center; }
+  .p3d canvas { position: absolute; inset: 0; width: 100%; height: 100%; }
+  .p3d .hint { position: absolute; left: 12px; bottom: 8px; z-index: 1; color: var(--muted); font-size: 12px; }
+  .prod .comments { padding: 0; }
+  .doc { max-width: 95ch; }
+  .doc h2 { font-size: 40px; margin: 8px 0; }
+  .doc h3 { font-size: 30px; margin: 28px 0 8px; padding-top: 12px; border-top: 1px solid var(--line); }
+  .doc h4 { font-size: 17px; margin: 20px 0 6px; }
+  .doc table { border-collapse: collapse; margin: 8px 0 16px; display: block; overflow-x: auto; }
+  .doc th, .doc td { padding: 6px 10px; border: 1px solid var(--line); text-align: left; vertical-align: top; }
+  .doc th { background: var(--surface2); font-family: var(--body); font-weight: 600; letter-spacing: 0; }
+  .doc blockquote { margin: 8px 0; padding: 4px 14px; border-left: 3px solid var(--line); color: var(--muted); }
+  .doc pre { background: var(--surface); border-radius: 8px; margin: 8px 0; }
+  .doc li { margin: 3px 0; }
   #toast { position: fixed; left: 50%; bottom: 20px; transform: translateX(-50%); background: var(--accent); color: var(--bg); padding: 8px 16px; border-radius: 8px; font-weight: 600; z-index: 20; }
 </style>
 </head>

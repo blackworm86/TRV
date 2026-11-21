@@ -28,6 +28,7 @@ import { assetKey, firebaseCommentStore, localCommentStore, type CommentStore } 
 import { BASE_CATALOG, commandBoardImage, dashboardImage, dieFaceImage, roadTileImage, tokenImage } from '../game/trv/catalog';
 import { ASSET_CATALOG, entryFor, officialPath, type ItemEntry } from './catalog';
 import { dieSolid, flatSolid, inlineImages, type Face } from './solids';
+import { PRODUCTION_PAGES, productionHtml, sheetById } from './produzione-view';
 import { ongoingArt, ongoingCardSvg, ongoingCardText, upgradeArt, upgradeCardSvg, upgradeCardText } from '../view/cards';
 import { esc } from '../core/markup';
 
@@ -585,6 +586,8 @@ const STATUSES = Object.keys(ASSET_CATALOG.statuses);
 /** What the main area shows: the summary (null) or the pieces of one game and type. */
 interface View { game: string; type: string }
 let view: View | null = null;
+/** The page of the "Produzione modelli" section on show (src/admin/produzione-view.ts), or null outside it. */
+let prod: string | null = null;
 let statusFilter: string | null = null;
 let shown: Item[] = [];
 let openItem: Item | null = null;
@@ -596,7 +599,7 @@ const statusName = (s: string): string => ASSET_CATALOG.statuses[s]?.name ?? s;
 const badge = (s: string): string => `<span class="st st-${esc(s)}">${esc(statusName(s))}</span>`;
 
 function drawNav(): void {
-  let html = `<button data-view="" class="${view ? '' : 'on'}">Riepilogo<span>${ALL.length}</span></button>`;
+  let html = `<button data-view="" class="${view || prod !== null ? '' : 'on'}">Riepilogo<span>${ALL.length}</span></button>`;
   for (const [g, name] of Object.entries(ASSET_CATALOG.games)) {
     const types = Object.keys(ASSET_CATALOG.types).filter(t => itemsOf({ game: g, type: t }).length);
     if (!types.length) continue;
@@ -605,6 +608,11 @@ function drawNav(): void {
       const on = view?.game === g && view.type === t;
       html += `<button data-view="${g}/${t}" class="${on ? 'on' : ''}">${esc(ASSET_CATALOG.types[t])}<span>${itemsOf({ game: g, type: t }).length}</span></button>`;
     }
+  }
+  html += '<h2>Produzione modelli</h2>';
+  for (const [page, name, n] of PRODUCTION_PAGES) {
+    const on = prod !== null && (prod === page || (!page && !!sheetById(prod)));
+    html += `<button data-view="produzione${page ? `/${page}` : ''}" class="${on ? 'on' : ''}">${esc(name)}<span>${n ?? ''}</span></button>`;
   }
   $('nav').innerHTML = html;
 }
@@ -632,7 +640,18 @@ function preview(it: Item): string {
   return it.svg ? safeSvg(it) : '';
 }
 
+/** Draws the page of the production section on show, with the comments of a model's sheet. */
+function drawProduction(): void {
+  stopViewer();
+  $('d-comments').innerHTML = '';
+  $('main').innerHTML = `<div class="prod">${productionHtml(prod!)}</div>`;
+  $('main').scrollTop = 0;
+  const box = document.getElementById('p-comments');
+  if (box) void drawCommentsIn(box, assetKey('produzione', box.dataset.key!), () => box.isConnected);
+}
+
 function drawView(): void {
+  if (prod !== null) { drawProduction(); return; }
   if (!view) { drawSummary(); return; }
   const v = view;
   const all = itemsOf(v);
@@ -712,15 +731,16 @@ function openDetail(it: Item): void {
   void drawComments(it);
 }
 
-async function drawComments(it: Item): Promise<void> {
-  const box = $('d-comments');
+const drawComments = (it: Item): Promise<void> => drawCommentsIn($('d-comments'), assetKey(it.cat!, it.id), () => openItem === it);
+
+/** Lists the comments kept under `key` in `box`, with the form to add one; `live` says whether the box still shows that key. */
+async function drawCommentsIn(box: HTMLElement, key: string, live: () => boolean): Promise<void> {
   if (!comments) { box.innerHTML = ''; return; }
-  const key = assetKey(it.cat!, it.id);
   box.innerHTML = `<h3>Commenti</h3><p class="where">Salvati ${esc(comments.where)}.</p><ol class="list"><li class="wait">Carico…</li></ol>
     <form id="c-form"><textarea id="c-text" rows="3" maxlength="2000" placeholder="Cosa va corretto in questo asset?"></textarea><button class="btn" type="submit">Aggiungi commento</button></form>`;
   try {
     const list = await comments.list(key);
-    if (openItem !== it) return;
+    if (!live()) return;
     box.querySelector('.list')!.innerHTML = list.length
       ? list.map(c => `<li><div class="meta">${esc(c.author)} · ${new Date(c.at).toLocaleString('it-IT')}</div>${esc(c.text)}</li>`).join('')
       : '<li class="wait">Nessun commento.</li>';
@@ -747,7 +767,8 @@ async function downloadAll(items: Item[]): Promise<void> {
 }
 
 function goTo(hash: string): void {
-  const [g, t] = hash.split('/');
+  prod = hash === 'produzione' ? '' : hash.startsWith('produzione/') ? hash.slice('produzione/'.length) : null;
+  const [g, t] = prod === null ? hash.split('/') : [];
   view = g && t && itemsOf({ game: g, type: t }).length ? { game: g, type: t } : null;
   statusFilter = null;
 }
@@ -775,6 +796,29 @@ function startInspector(who: string, onSignOut: (() => void) | null, store: Comm
   $('main').addEventListener('click', e => {
     const t = e.target as Element;
     if (t.closest('#all')) { void downloadAll(shown); return; }
+    const page = t.closest<HTMLElement>('[data-prod]');
+    if (page) {
+      prod = page.dataset.prod!;
+      history.replaceState(null, '', `#produzione${prod ? `/${prod}` : ''}`);
+      drawNav();
+      drawView();
+      return;
+    }
+    if (t.closest('[data-copy]')) {
+      const text = t.closest('.prompt')!.querySelector('pre')!.textContent ?? '';
+      void navigator.clipboard.writeText(text).then(() => toast('Prompt copiato'), () => toast('Copia non riuscita: seleziona il testo a mano'));
+      return;
+    }
+    const glb = t.closest<HTMLElement>('[data-glb]');
+    if (glb) {
+      const host = $('p-3d'), url = MODELS[`/${glb.dataset.glb}`];
+      host.hidden = false;
+      host.innerHTML = `<span class="hint">${esc(glb.dataset.glb!)} · trascina per ruotare · rotella per lo zoom</span>`;
+      if (url) void showObject(() => loadModel(url), host).catch(err => { host.innerHTML = `<span class="wait">3D non disponibile: ${esc((err as Error).message)}</span>`; });
+      else host.innerHTML = '<span class="wait">Modello non trovato tra i file del gioco.</span>';
+      host.scrollIntoView({ block: 'nearest' });
+      return;
+    }
     const chip = t.closest<HTMLElement>('[data-status]');
     if (chip) { statusFilter = chip.dataset.status || null; closeDetail(); drawView(); return; }
     const b = t.closest<HTMLElement>('[data-item]');
@@ -793,10 +837,19 @@ function startInspector(who: string, onSignOut: (() => void) | null, store: Comm
   $('d-comments').addEventListener('submit', e => {
     e.preventDefault();
     const it = openItem;
-    const text = ($('c-text') as HTMLTextAreaElement).value;
+    const text = (e.target as HTMLFormElement).querySelector('textarea')!.value;
     if (!it || !comments) return;
     void comments.add(assetKey(it.cat!, it.id), text, author)
       .then(() => { toast('Commento salvato'); return drawComments(it); })
+      .catch(err => toast(`Commento non salvato: ${(err as Error).message}`));
+  });
+  $('main').addEventListener('submit', e => {
+    e.preventDefault();
+    const box = (e.target as Element).closest<HTMLElement>('#p-comments');
+    if (!box || !comments) return;
+    const key = assetKey('produzione', box.dataset.key!);
+    void comments.add(key, (e.target as HTMLFormElement).querySelector('textarea')!.value, author)
+      .then(() => { toast('Commento salvato'); return drawCommentsIn(box, key, () => box.isConnected); })
       .catch(err => toast(`Commento non salvato: ${(err as Error).message}`));
   });
 }
