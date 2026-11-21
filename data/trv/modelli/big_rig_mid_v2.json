@@ -22,7 +22,8 @@
       "triangoli": 5000,
       "allegati": [
         "riferimento di stile",
-        "dima: carrozzeria_trequarti"
+        "dima: carrozzeria_trequarti",
+        "dima: carrozzeria_lato"
       ],
       "specifico": {
         "gemini": "The model: the middle wagon of that armoured road train: a plain closed armoured box with its corners cut at 45 degrees seen from above, the same at the front and at the back, with side grilles, two tall exhaust stacks, a flat helipad with a painted circle on the roof and a small folded crane arm. A thin tow bar ending in a ring at the front, a hook with a vertical pin at the back. It is a trailer: no cab, no hood, no windscreen, no doors.",

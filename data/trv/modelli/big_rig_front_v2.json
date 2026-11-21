@@ -38,7 +38,8 @@
       "triangoli": 5500,
       "allegati": [
         "riferimento di stile",
-        "dima: carrozzeria_trequarti"
+        "dima: carrozzeria_trequarti",
+        "dima: carrozzeria_lato"
       ],
       "specifico": {
         "gemini": "The model: the tractor of a heavily armoured post-apocalyptic road train for a desert racing board game. A short hood with a heavy wedge-shaped cow catcher plow, a tall boxy armoured cab with two seats and a steering wheel behind small armoured windows, and behind the cab a closed armoured box with a flat roof where a gunner stands. A hook with a vertical pin at the back.",

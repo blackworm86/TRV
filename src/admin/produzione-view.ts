@@ -80,7 +80,8 @@ function pieceHtml(p: Piece): string {
 
 /**
  * What the user does now, in order: the pictures of the template once, then for every piece not made yet
- * the Gemini prompt with what to attach, the look at the picture, the Meshy prompt with its settings.
+ * the Gemini prompt with what to attach, the look at the picture, the Meshy prompt with its settings and,
+ * for a piece with a template, the template's .glb.
  * Nothing for a sheet with no template or with every piece made.
  */
 const STYLE_FILES = import.meta.glob<string>('/assets/*/modelli/*.{jpg,png,webp}', { eager: true, query: '?url', import: 'default' });
@@ -101,11 +102,12 @@ function todoHtml(s: Sheet): string {
     return `<li><strong>${esc(p.nome)}</strong><ol>
       <li>${copy('Copia il prompt di Gemini', c!.gemini)} Incollalo in Gemini${c!.allegati.length ? ` e allega ${c!.allegati.map(attach).join(' e ')}` : ''}.</li>
       ${view ? `<li>Guarda l'immagine accanto a ${png(view)}: stesse proporzioni e stesse altezze. Se non torna, rigenera in Gemini prima di andare avanti.</li>` : ''}
-      <li>${copy('Copia il prompt di Meshy', c!.meshy)} In Meshy: ${esc(R.blocchi.meshy.modo)}, con l'immagine di Gemini. Impostazioni: ${settings(c!.impostazioni)}.</li>
+      <li>${copy('Copia il prompt di Meshy', c!.meshy)} In Meshy: ${esc(R.blocchi.meshy.modo)}, con l'immagine di Gemini${view ? ` e la dima 3D <code>${esc(`${s.id}_dima.glb`)}</code>` : ''}. Impostazioni: ${settings(c!.impostazioni)}.</li>
       <li>Salva il GLB e di' a Claude dov'è: misure, montaggio e messa in gioco li fa lui.</li></ol></li>`;
   }).join('');
   return `<section class="todo" data-dima="${esc(s.id)}"><h3>Cosa fare adesso</h3><ol>
-    <li><strong>Dima</strong><ol><li><button class="btn" data-dima-png>Scarica le viste della dima (PNG)</button> Una volta sola: finiscono nella cartella dei download.</li><li>${styleLink()} Una volta sola: è l'immagine da allegare a ogni prompt di Gemini.</li></ol></li>
+    <li><strong>Dima</strong><ol><li><button class="btn" data-dima-png>Scarica le viste della dima (PNG)</button> Una volta sola: finiscono nella cartella dei download.</li>
+      <li><button class="btn" data-dima-glb>Scarica la dima 3D (GLB)</button> Una volta sola: si carica in Meshy insieme all'immagine di Gemini.</li><li>${styleLink()} Una volta sola: è l'immagine da allegare a ogni prompt di Gemini.</li></ol></li>
     ${rows}</ol><p class="set">Un pezzo alla volta, tutti nella stessa conversazione di Gemini. Il resto della pagina è da consultare, non da usare.</p></section>`;
 }
 

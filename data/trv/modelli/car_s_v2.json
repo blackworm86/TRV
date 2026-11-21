@@ -29,7 +29,8 @@
       "triangoli": 4500,
       "allegati": [
         "riferimento di stile",
-        "dima: carrozzeria_trequarti"
+        "dima: carrozzeria_trequarti",
+        "dima: carrozzeria_lato"
       ],
       "specifico": {
         "gemini": "The model: the Doom Buggy, a small and short post-apocalyptic dune buggy for a desert racing board game. A single open seat inside a welded tubular roll cage, a stubby nose, the engine exposed at the back, big exposed suspension arms, a few welded armour plates.",

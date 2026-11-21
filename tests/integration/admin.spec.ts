@@ -173,6 +173,8 @@ test.describe('admin inspector', () => {
     const todo = page.locator('.todo');
     await expect(todo.locator('h3')).toHaveText('Cosa fare adesso');
     await expect(todo.locator('[data-dima-png]')).toBeVisible();
+    await expect(todo.locator('[data-dima-glb]')).toBeVisible();
+    await expect(todo).toContainText('e la dima 3D car_m_v2_dima.glb');
     await expect(todo).toContainText('car_m_v2_dima_carrozzeria_trequarti.png');
     await expect(todo.getByRole('link', { name: 'Scarica il riferimento di stile' })).toHaveAttribute('download', 'riferimento_stile.jpg');
     await page.setViewportSize({ width: 1366, height: 1600 });
