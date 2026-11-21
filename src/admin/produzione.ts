@@ -97,7 +97,10 @@ export interface Rules {
   classi: Record<string, VehicleClass | string>;
   parti_mobili: Record<string, Record<string, number | number[]> | string>;
   vernice: { quota_vernice: number[]; quota_usura: number[] };
-  collaudo: Record<string, number | string>;
+  collaudo: Record<string, number | string | object> & {
+    /** §18 point 8: weld tolerance as a fraction of the diagonal, and how many open or shared edges are allowed. */
+    manifold: { saldatura: number; spigoli_aperti: number; spigoli_non_manifold: number };
+  };
   budget: Record<string, { triangoli: number; texture: number; materiali: number } | string>;
   lod: {
     verificato: boolean; veicoli: { id: string; nome: string; px: [number, number | null]; triangoli?: number; triangoli_max?: number; texture: number }[];
@@ -113,7 +116,9 @@ export interface Rules {
     riferimento_stile?: string;
     /** The camera and the template text of the kinds of piece that are not drawn like a body. */
     camera_per_tipo?: Record<string, string>; dima_per_tipo?: Record<string, string>;
-    meshy: { coda: string; coda_per_tipo?: Record<string, string>; modo: string; impostazioni: Record<string, Record<string, string | number> | string>; esportazione: string };
+    /** Asked of every piece: a closed (manifold) model, §18 point 8. */
+    chiuso: string;
+    meshy: { coda: string; coda_per_tipo?: Record<string, string>; chiuso: string; modo: string; impostazioni: Record<string, Record<string, string | number> | string>; esportazione: string };
     regole_gemini: string[];
   };
 }
@@ -143,7 +148,7 @@ export interface Composed { gemini: string; meshy: string; impostazioni: Record<
  * The prompts of `piece` put together from the shared blocks (§20.3), or null for a piece with no
  * part of its own (one made before the specification: its prompts are in `usato`).
  * Gemini: style, camera, kind of piece, template (a piece with seats), its own part, paint (a painted
- * piece). A figure has its own view, so no camera. Meshy: its own part, then the tail. Camera, template
+ * piece), always the closed-model block. A figure has its own view, so no camera. Meshy: its own part, then the tail and the closed-model block. Camera, template
  * and tail are the ones of the kind of piece when it has its own (a gun is drawn from the side).
  */
 export function compose(piece: Piece, r: Rules = RULES): Composed | null {
@@ -153,9 +158,9 @@ export function compose(piece: Piece, r: Rules = RULES): Composed | null {
   return {
     gemini: [
       b.stile, piece.tipo === 'figura' ? '' : b.camera_per_tipo?.[piece.tipo] ?? b.camera, b.tipo[piece.tipo] ?? '', piece.posti ? b.dima_per_tipo?.[piece.tipo] ?? b.dima : '',
-      piece.specifico.gemini, piece.tinto ? b.colore : '',
+      piece.specifico.gemini, piece.tinto ? b.colore : '', b.chiuso,
     ].filter(Boolean).join('\n'),
-    meshy: `${piece.specifico.meshy} ${b.meshy.coda_per_tipo?.[piece.tipo] ?? b.meshy.coda}`,
+    meshy: `${piece.specifico.meshy} ${b.meshy.coda_per_tipo?.[piece.tipo] ?? b.meshy.coda} ${b.meshy.chiuso}`,
     impostazioni: { ...(typeof settings === 'object' ? settings : {}), ...(piece.triangoli ? { triangoli: piece.triangoli } : {}) },
     allegati: piece.allegati ?? [],
   };

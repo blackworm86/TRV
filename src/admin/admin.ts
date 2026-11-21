@@ -9,6 +9,7 @@
 import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+import { meshTopology } from '../models/manifold';
 import CARNAGE_DATA from '../../data/trv/carnage.json';
 import RULES from '../../data/trv/game_base.json';
 import CATALOG from '../../data/trv/catalog_base.json';
@@ -512,6 +513,29 @@ function frame(obj: THREE.Object3D, cam: THREE.PerspectiveCamera): THREE.Vector3
 }
 const loader = new GLTFLoader();
 const modelCache = new Map<string, Promise<THREE.Object3D>>();
+/** Says on the 3D view whether the model is closed (§18 point 8), counting every mesh in it together. */
+function noteTopology(obj: THREE.Object3D, host: HTMLElement): void {
+  const pos: number[] = [], idx: number[] = [], v = new THREE.Vector3();
+  obj.updateMatrixWorld(true);
+  obj.traverse(o => {
+    const mesh = o as THREE.Mesh;
+    if (!mesh.isMesh) return;
+    const g = mesh.geometry, p = g.getAttribute('position'), base = pos.length / 3;
+    for (let i = 0; i < p.count; i++) { v.fromBufferAttribute(p, i).applyMatrix4(mesh.matrixWorld); pos.push(v.x, v.y, v.z); }
+    if (g.index) for (let i = 0; i < g.index.count; i++) idx.push(base + g.index.getX(i));
+    else for (let i = 0; i < p.count; i++) idx.push(base + i);
+  });
+  const t = meshTopology(pos, idx, MODEL_RULES.collaudo.manifold.saldatura), rule = MODEL_RULES.collaudo.manifold;
+  const ok = t.openEdges <= rule.spigoli_aperti && t.nonManifoldEdges <= rule.spigoli_non_manifold;
+  const note = document.createElement('span');
+  note.className = `topo ${ok ? 'good' : 'bad'}`;
+  note.dataset.manifold = String(ok);
+  note.textContent = ok ? `Chiuso (manifold) · ${t.triangles} triangoli · ${t.pieces} pezzi`
+    : `Non chiuso: ${t.openEdges} spigoli aperti, ${t.nonManifoldEdges} spigoli con più di due facce, in ${t.openPieces} pezzi su ${t.pieces}`;
+  host.querySelector('.topo')?.remove();
+  host.append(note);
+}
+
 const loadModel = (url: string): Promise<THREE.Object3D> => {
   if (!modelCache.has(url)) modelCache.set(url, loader.loadAsync(url).then(g => g.scene));
   return modelCache.get(url)!.then(s => s.clone(true));
@@ -844,7 +868,7 @@ function startInspector(who: string, onSignOut: (() => void) | null, store: Comm
       delete host.dataset.dima;
       host.hidden = false;
       host.innerHTML = `<span class="hint">${esc(glb.dataset.glb!)} · trascina per ruotare · rotella per lo zoom</span>`;
-      if (url) void showObject(() => loadModel(url), host).catch(err => { host.innerHTML = `<span class="wait">3D non disponibile: ${esc((err as Error).message)}</span>`; });
+      if (url) void showObject(() => loadModel(url).then(obj => { noteTopology(obj, host); return obj; }), host).catch(err => { host.innerHTML = `<span class="wait">3D non disponibile: ${esc((err as Error).message)}</span>`; });
       else host.innerHTML = '<span class="wait">Modello non trovato tra i file del gioco.</span>';
       host.scrollIntoView({ block: 'nearest' });
       return;

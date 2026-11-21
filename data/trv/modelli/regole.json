@@ -506,7 +506,13 @@
     "proporzioni": 0.08,
     "punti_posti_m": 0.05,
     "compenetrazione_m": 0.02,
-    "lunghezza_montaggio": 0.05
+    "lunghezza_montaggio": 0.05,
+    "manifold": {
+      "_doc": "§18, punto 8: vertici saldati per posizione (tolleranza in frazione della diagonale), poi si contano gli spigoli.",
+      "saldatura": 1e-06,
+      "spigoli_aperti": 0,
+      "spigoli_non_manifold": 0
+    }
   },
   "budget": {
     "_doc": "§8: triangoli, lato della texture, materiali. Per veicolo intero.",
@@ -681,13 +687,13 @@
     "intero": "Modello intero (prima della specifica)"
   },
   "blocchi": {
-    "_doc": "§20.3. Un prompt per Gemini = stile + camera (quella del tipo di pezzo, se ne ha una) + tipo + dima (se il pezzo ha posti; quella del tipo, se ne ha una) + specifico + colore (se il pezzo è tinto). Un prompt per Meshy = specifico + coda (quella del tipo, se ne ha una). Cambiare un blocco cambia i prompt dei pezzi non ancora generati; quelli usati restano scritti nei tentativi.",
+    "_doc": "§20.3. Un prompt per Gemini = stile + camera (quella del tipo di pezzo, se ne ha una) + tipo + dima (se il pezzo ha posti; quella del tipo, se ne ha una) + specifico + colore (se il pezzo è tinto) + chiuso. Un prompt per Meshy = specifico + coda (quella del tipo, se ne ha una) + chiuso. Il blocco chiuso è sempre presente: ogni modello deve essere manifold (§18, punto 8). Cambiare un blocco cambia i prompt dei pezzi non ancora generati; quelli usati restano scritti nei tentativi.",
     "stile": "Photorealistic 3D render of a physical scale model miniature, like a studio product photo. Matte painted metal with chipped paint, light rust, visible weld seams, rivets and bolts. Seamless light grey studio backdrop, soft overhead lighting, soft contact shadow under the model. Exactly the same rendering style, materials and lighting as the attached style reference image. Not a drawing, not an illustration, no outlines, no cartoon shading, no labels, no text. One single object, nothing else in the picture.",
     "camera": "Camera three-quarter view from the front-left, looking down from above.",
     "colore": "Paint and weathering: every painted panel is one single flat neutral light grey, the same grey everywhere, with no other paint colour, no stripes, no logos, no numbers. About one third to one half of the visible surface is painted. Weathering keeps its own colours and is never grey paint: orange-brown rust, bare scratched steel where the paint is chipped, black burn marks, dry mud, dark oil stains. Repair plates are unpainted bare or rusty metal, welded or bolted on. Everything that is not a painted panel (frame, wheels, weapons, exhausts, mechanics) is dark iron.",
     "dima": "Use the attached grey block-out images as the exact template of proportions: the three-quarter view for the shape, the side view for every height (hood, cockpit floor, seat, rear deck, roof). The same length, width and height, the same position of seats, steering wheel or handlebars, footrests and wheel centres. The translucent human figures in the template are only a measure of scale: do not draw any person, but leave them room.",
     "tipo": {
-      "carrozzeria": "This picture shows only the body of the vehicle. No wheels: empty wheel arches. No weapons: a flat round mounting plate where each weapon goes. Open or visible cockpit with its seats and steering wheel, and no person in it.",
+      "carrozzeria": "This picture shows only the body of the vehicle. No wheels: empty wheel arches. No weapons: a flat round mounting plate where each weapon goes. Open or visible cockpit with its seats and steering wheel, and no person in it. Deep rounded wheel arches with generous clearance above where the tyres sit, so the wheels can rise and steer inside them. The hood and the underside are closed solid surfaces. Deep rounded wheel arches with generous clearance above where the tyres sit, so the wheels can rise and steer inside them. The hood and the underside are closed solid surfaces.",
       "telaio": "This picture shows only the frame of the motorcycle with its engine, tank, seat, footrests and rear swingarm. No front fork, no handlebars, no front mudguard, no headlight: the steering head tube at the front is empty. No wheels: the swingarm ends in an empty hub. No rider.",
       "avantreno": "This picture shows only the front end of the motorcycle, alone: the fork with its two legs, the handlebars with their grips, the front mudguard and the headlight, as one piece. No wheel: the fork ends in an empty hub. No frame, no rider.",
       "ruota": "This picture shows only one wheel, alone, standing upright, its hub exactly in the centre.",
@@ -747,13 +753,15 @@
       "coda_per_tipo": {
         "ruota": "Realistic scale model look, worn rubber and rusty steel, single object.",
         "figura": "Realistic painted tabletop miniature figure look, single object, standing, arms away from the body."
-      }
+      },
+      "chiuso": "Watertight manifold mesh: every part a closed solid with thickness, no holes, no open edges, no single-sided panels, no floating loose faces."
     },
     "regole_gemini": [
       "Allega sempre il riferimento di stile (un concept già approvato) e, se il pezzo ha posti, le viste della dima indicate: per una carrozzeria quella di tre quarti e quella di lato.",
       "Una sola vista per immagine. Le altre viste si chiedono dopo, una per volta.",
       "Mai le parole drawing, sheet, concept art, illustration, hand-painted: portano al disegno piatto.",
-      "Un pezzo per immagine, nella stessa conversazione, così lo stile resta uguale."
+      "Un pezzo per immagine, nella stessa conversazione, così lo stile resta uguale.",
+      "Ogni modello deve uscire chiuso (manifold): se Meshy lascia buchi, spigoli aperti o pannelli a faccia singola, si rigenera; non si rattoppa a mano."
     ],
     "camera_per_tipo": {
       "arma": "Camera: straight side view at the height of the object, its front pointing to the right.",
@@ -767,6 +775,7 @@
       "avantreno": "Use the attached grey block-out image as the template of proportions: the same length and height, the same position of the pivot and of the handlebar grips. The translucent human figure in the template is only a measure of scale: do not draw any person.",
       "telaio": "Use the attached grey block-out image as the exact template of proportions: the same length and height, the same position of seat, tank, foot pegs, steering head and rear wheel centre. The translucent human figure in the template is only a measure of scale: do not draw any person."
     },
-    "riferimento_stile": "assets/base/modelli/riferimento_stile.jpg"
+    "riferimento_stile": "assets/base/modelli/riferimento_stile.jpg",
+    "chiuso": "Every part is a solid closed volume with real thickness: no paper-thin open panels, no hollow shells open underneath, no gaps or holes through the object, glass shown as a solid closed pane."
   }
 }

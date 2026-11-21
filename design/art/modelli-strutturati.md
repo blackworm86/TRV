@@ -946,6 +946,7 @@ risultato è un rapporto salvato nella scheda di produzione e mostrato nell'insp
 | 5 | Le parti mobili non urtano | ruote a fine corsa e a tutto sterzo, torretta e arma ai loro limiti, avantreno della moto a tutto sterzo, moto a 50° di piega (§4.2) | nessun contatto con la carrozzeria né con la figura; in piega toccano terra solo le gomme |
 | 6 | Budget | triangoli, texture, materiali | §8 |
 | 7 | Vernice e usura | dalla maschera della vernice (§7.1) | vernice 30-50% della superficie visibile; usura 15-35% dei pannelli verniciati |
+| 8 | Il modello è chiuso (manifold) | si saldano i vertici nello stesso punto (le cuciture della texture non sono buchi), poi ogni spigolo deve avere esattamente due facce (`src/models/manifold.ts`; l'inspector lo dice su ogni modello mostrato in 3D) | **nessuno** spigolo aperto, **nessuno** spigolo con più di due facce. Un modello aperto si rigenera, non si rattoppa: la prova del 2026-11-21 sull'Avenger ha mostrato che chiudere a script cornici e gusci aperti li rovina |
 
 **Esiti**
 - **Passa**: si va al montaggio.
@@ -1064,6 +1065,7 @@ Un prompt non si scrive più a mano per intero: si **compone** da blocchi tenuti
 | Tipo di pezzo | le regole del §10.1 per carrozzeria, ruota, arma; quelle del §15.2 per la figura | per tipo |
 | Dima | "stesse proporzioni dell'immagine allegata, la persona in trasparenza non va disegnata" | pezzi con posti |
 | Specifico | ciò che rende unico quel pezzo | un pezzo |
+| Modello chiuso | ogni parte è un solido chiuso con spessore, niente pannelli a faccia singola, niente buchi; per Meshy "watertight manifold mesh" (aggiunto il 2026-11-21) | **tutti i pezzi, sempre**, in Gemini e in Meshy |
 | Meshy | Topology Triangle, Symmetry On, texture, triangoli dal budget | per tipo |
 
 - Cambiare un blocco aggiorna tutti i prompt dei pezzi **non ancora generati**. I prompt già usati

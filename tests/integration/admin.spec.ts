@@ -198,6 +198,8 @@ test.describe('admin inspector', () => {
     await expect(front.locator('.prompt pre').first()).toContainText('Edit the road train image you made');
     await front.locator('[data-glb]').click();
     await expect(page.locator('#p-3d canvas')).toBeVisible();
+    // Every model shown in 3D says whether it is closed (manifold), §18 point 8.
+    await expect(page.locator('#p-3d .topo')).toHaveText(/^(Chiuso \(manifold\)|Non chiuso: \d+ spigoli aperti)/);
     await page.waitForTimeout(1500);
     await page.screenshot({ path: `${PRODUCTION}/3-scheda-big-rig-3d.png` });
 

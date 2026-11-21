@@ -15,27 +15,36 @@ const sheet = (more: Partial<Sheet>): Sheet => ({
 });
 
 describe('compose', () => {
+  it('asks every piece of every sheet for a closed model, in Gemini and in Meshy', () => {
+    for (const s of SHEETS) for (const p of s.pezzi) {
+      const c = compose(p);
+      if (!c) continue;
+      expect(c.gemini, p.id).toContain(B.chiuso);
+      expect(c.meshy, p.id).toContain('Watertight manifold mesh');
+    }
+  });
+
   it('puts a painted piece with seats together in order: style, camera, kind, template, its own part, paint', () => {
     // Arrange / Act
     const c = compose(piece({ specifico: OWN, tinto: true, posti: true }))!;
     // Assert
-    expect(c.gemini).toBe([B.stile, B.camera, B.tipo.carrozzeria, B.dima, OWN.gemini, B.colore].join('\n'));
+    expect(c.gemini).toBe([B.stile, B.camera, B.tipo.carrozzeria, B.dima, OWN.gemini, B.colore, B.chiuso].join('\n'));
   });
 
   it('leaves out the template and the paint for a piece with no seats that is not painted', () => {
     const c = compose(piece({ tipo: 'accessorio', specifico: OWN }))!;
-    expect(c.gemini).toBe([B.stile, B.camera, B.tipo.accessorio, OWN.gemini].join('\n'));
+    expect(c.gemini).toBe([B.stile, B.camera, B.tipo.accessorio, OWN.gemini, B.chiuso].join('\n'));
   });
 
   it('gives a gun its own camera and its own template text, not the ones of a body', () => {
     const c = compose(piece({ tipo: 'arma', specifico: OWN, posti: true }))!;
-    expect(c.gemini).toBe([B.stile, B.camera_per_tipo!.arma, B.tipo.arma, B.dima_per_tipo!.arma, OWN.gemini].join('\n'));
+    expect(c.gemini).toBe([B.stile, B.camera_per_tipo!.arma, B.tipo.arma, B.dima_per_tipo!.arma, OWN.gemini, B.chiuso].join('\n'));
     expect(c.gemini).not.toContain('steering wheel');
   });
 
   it('ends the Meshy text of a wheel with the tail of wheels', () => {
     const c = compose(piece({ tipo: 'ruota', specifico: OWN }))!;
-    expect(c.meshy).toBe(`${OWN.meshy} ${B.meshy.coda_per_tipo!.ruota}`);
+    expect(c.meshy).toBe(`${OWN.meshy} ${B.meshy.coda_per_tipo!.ruota} ${B.meshy.chiuso}`);
     expect(c.meshy).not.toContain('rivets');
   });
 
@@ -47,7 +56,7 @@ describe('compose', () => {
 
   it('ends the Meshy text with the shared tail and adds the triangles to the settings of its kind', () => {
     const c = compose(piece({ specifico: OWN, triangoli: 5000 }))!;
-    expect(c.meshy).toBe(`${OWN.meshy} ${B.meshy.coda}`);
+    expect(c.meshy).toBe(`${OWN.meshy} ${B.meshy.coda} ${B.meshy.chiuso}`);
     expect(c.impostazioni).toEqual({ ...(B.meshy.impostazioni.carrozzeria as object), triangoli: 5000 });
   });
 

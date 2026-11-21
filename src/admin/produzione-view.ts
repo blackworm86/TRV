@@ -103,7 +103,7 @@ function todoHtml(s: Sheet): string {
       <li>${copy('Copia il prompt di Gemini', c!.gemini)} Incollalo in Gemini${c!.allegati.length ? ` e allega ${c!.allegati.map(attach).join(' e ')}` : ''}.</li>
       ${view ? `<li>Guarda l'immagine accanto a ${png(view)}: stesse proporzioni e stesse altezze. Se non torna, rigenera in Gemini prima di andare avanti.</li>` : ''}
       <li>${copy('Copia il prompt di Meshy', c!.meshy)} In Meshy: ${esc(R.blocchi.meshy.modo)}, con l'immagine di Gemini${view ? ` e la dima 3D <code>${esc(`${s.id}_dima.glb`)}</code>` : ''}. Impostazioni: ${settings(c!.impostazioni)}.</li>
-      <li>Salva il GLB e di' a Claude dov'è: misure, montaggio e messa in gioco li fa lui.</li></ol></li>`;
+      <li>Salva il GLB e di' a Claude dov'è: controlla che sia chiuso (manifold), poi misure, montaggio e messa in gioco. Un modello aperto si rigenera.</li></ol></li>`;
   }).join('');
   return `<section class="todo" data-dima="${esc(s.id)}"><h3>Cosa fare adesso</h3><ol>
     <li><strong>Dima</strong><ol><li><button class="btn" data-dima-png>Scarica le viste della dima (PNG)</button> Una volta sola: finiscono nella cartella dei download.</li>
@@ -189,7 +189,7 @@ function rulesHtml(): string {
     ...Object.entries(b.tipo).map(([k, v]): [string, string] => [`Tipo di pezzo: ${R.tipi[k] ?? k}`, v]),
     ...Object.entries(b.camera_per_tipo ?? {}).map(([k, v]): [string, string] => [`Camera: ${R.tipi[k] ?? k}`, v]),
     ...Object.entries(b.dima_per_tipo ?? {}).map(([k, v]): [string, string] => [`Dima: ${R.tipi[k] ?? k}`, v]),
-    ['Meshy: coda di ogni testo', b.meshy.coda], ...Object.entries(b.meshy.coda_per_tipo ?? {}).map(([k, v]): [string, string] => [`Meshy, coda: ${R.tipi[k] ?? k}`, v])];
+    ['Gemini: modello chiuso (sempre)', b.chiuso], ['Meshy: coda di ogni testo', b.meshy.coda], ['Meshy: modello chiuso (sempre)', b.meshy.chiuso], ...Object.entries(b.meshy.coda_per_tipo ?? {}).map(([k, v]): [string, string] => [`Meshy, coda: ${R.tipi[k] ?? k}`, v])];
   const meshy = Object.entries(b.meshy.impostazioni).filter(([, v]) => typeof v === 'object').map(([k, v]) => [esc(R.tipi[k] ?? k), settings(v as Record<string, string | number>)]);
   return `<div class="cat-head"><h2>Regole e misure</h2></div>
     <p class="cat-note">I numeri di questa pagina sono letti da <code>data/trv/modelli/regole.json</code>, lo stesso file che usano gli script e i test. La spiegazione di ogni regola è nella specifica completa.</p>
@@ -214,6 +214,7 @@ function rulesHtml(): string {
       ['Proporzioni del pezzo rispetto alla dima', `± ${num(Number(R.collaudo.proporzioni) * 100)}%`],
       ['Punti dei posti', `entro ${num(Number(R.collaudo.punti_posti_m) * 100)} cm`],
       ['Compenetrazione della figura', `al massimo ${num(Number(R.collaudo.compenetrazione_m) * 100)} cm`],
+      ['Modello chiuso (manifold)', `spigoli aperti al massimo ${R.collaudo.manifold.spigoli_aperti}, spigoli con più di due facce al massimo ${R.collaudo.manifold.spigoli_non_manifold}`],
       ['Vernice (colore del giocatore)', `${range(R.vernice.quota_vernice.map(x => x * 100))}% della superficie visibile`],
       ['Usura', `${range(R.vernice.quota_usura.map(x => x * 100))}% dei pannelli verniciati`],
     ], 'kv')}
