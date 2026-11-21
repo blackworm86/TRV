@@ -796,7 +796,7 @@ forza la posa.
 | Gomito | flessione | 5 – 145 (mai dritto del tutto, mai all'indietro) |
 | Ginocchio | flessione | 5 – 140 (mai all'indietro) |
 | Spalla | in avanti / indietro | −40 – 160 |
-| Spalla | apertura di lato | 0 – 120 |
+| Spalla | apertura di lato | −15 – 120 (il braccio può incrociare appena davanti al busto: le mani in alto e in basso sul volante) |
 | Anca | flessione (coscia verso il busto) | −10 – 115 |
 | Anca | apertura di lato | 0 – 40 |
 | Schiena (`spine` + `chest`) | in avanti / indietro | −15 – 45 |
@@ -841,7 +841,7 @@ in alto +Y. Sono i valori di partenza; li verifica e li corregge la prima prova 
 | Prese delle mani: in alto | 0,20 – 0,40 | 0,15 – 0,40 | 0,25 – 0,45 |
 | Prese delle mani: distanza tra loro | 0,30 – 0,40 | 0,55 – 0,75 | 0,15 – 0,35 |
 | Appoggi dei piedi: avanti | 0,50 – 0,75 | −0,15 – 0,20 | 0 |
-| Appoggi dei piedi: in basso | 0,15 – 0,40 | 0,40 – 0,60 | 0,94 (il pavimento) |
+| Appoggi dei piedi: in basso | 0,15 – 0,40 | 0,40 – 0,60 | 0,82 – 0,87 (il pavimento: in piedi con le ginocchia appena piegate, come chiede la portata del 92%) |
 | Appoggi dei piedi: distanza tra loro | 0,20 – 0,40 | 0,40 – 0,55 | 0,25 – 0,45 |
 | Larghezza del sedile tra le cosce | — | **al massimo 0,32** | — |
 | Spazio libero sopra le anche | 0,90 | 0,95 | 0,90 |
@@ -1112,3 +1112,9 @@ scrive nulla: i dati si cambiano nel repository.
 | G | Moto (dal ramo `moto-in-pausa`, ridisegnata sulla dima), Big Rig, relitti, elicottero; poi ADR del formato | — |
 
 Finché un veicolo non è ridisegnato, nel gioco resta quello di oggi con le misure di oggi.
+
+**Stato al 2026-11-21**: fasi A, B e C chiuse. Le dime di auto piccola, media e grande, moto e delle tre
+sezioni del Big Rig passano il collaudo dei posti e sono approvate dall'utente (`data/trv/modelli/*_v2.json`,
+`moto_2.json`). Rimandati alla fase D, perché servono i modelli nuovi: il confronto del modello con la dima
+(§18, punti 1 e 5-7), la dima sovrapposta al modello nell'inspector e lo script da riga di comando
+(le viste oggi si scaricano dall'inspector).

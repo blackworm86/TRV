@@ -261,10 +261,25 @@ test.describe('game', () => {
     expect(await other.evaluate(() => window.trv!.canUndo())).toBe(false); // not the other player's choice
     const before = await page.evaluate(() => window.trv!.choices);
     await undoer!.evaluate(() => window.trv!.undo());
-    await expect.poll(() => page.evaluate(() => window.trv!.choices), { timeout: 45_000 }).toBe(before - 1);
-    await expect.poll(() => guest.evaluate(() => window.trv!.choices), { timeout: 45_000 }).toBe(before - 1);
-    await expect.poll(async () => (await page.evaluate(() => JSON.stringify(window.trv!.snapshot())))
-      === (await guest.evaluate(() => JSON.stringify(window.trv!.snapshot()))), { timeout: 45_000 }).toBe(true);
+    try {
+      await expect.poll(() => page.evaluate(() => window.trv!.choices), { timeout: 45_000 }).toBe(before - 1);
+      await expect.poll(() => guest.evaluate(() => window.trv!.choices), { timeout: 45_000 }).toBe(before - 1);
+      await expect.poll(async () => (await page.evaluate(() => JSON.stringify(window.trv!.snapshot())))
+        === (await guest.evaluate(() => JSON.stringify(window.trv!.snapshot()))), { timeout: 45_000 }).toBe(true);
+    } catch (e) {
+      // This check failed once in a while (2026-11-21: the host at 2 choices instead of 0) and never when
+      // watched: what both tables and the shared room hold goes to the report, for the next time.
+      const table = (p: Page): Promise<string> => p.evaluate(() => {
+        const t = window.trv!, d = t.decision as { kind: string; player: number } | null;
+        return JSON.stringify({ choices: t.choices, canUndo: t.canUndo(), decision: d && `${d.kind} of player ${d.player}`, playing: t.playing });
+      });
+      const room = await page.evaluate(() => {
+        const tree = JSON.parse(localStorage.getItem('trv-net-local') ?? '{}') as { rooms?: Record<string, Record<string, unknown>> };
+        return JSON.stringify(Object.values(tree.rooms ?? {}).map(r => ({ log: r.log ?? null, intents: r.intents ?? null, turn: r.turn ?? null })));
+      });
+      console.log(`UNDO FAILED: undo asked by the ${undoer === page ? 'host' : 'guest'} at ${before} choices\n  host  ${await table(page)}\n  guest ${await table(guest)}\n  room  ${room}`);
+      throw e;
+    }
     expect(errors).toEqual([]);
     expect(guestErrors).toEqual([]);
   });

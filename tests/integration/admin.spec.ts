@@ -168,7 +168,7 @@ test.describe('admin inspector', () => {
     // A sheet that follows the specification: its step, and the prompts put together from the blocks.
     await page.locator('[data-prod="car_m_v2"]').click();
     await expect(page.locator('main h2')).toHaveText('Auto media (Avenger) ridisegnata');
-    await expect(page.locator('ol.steps li.now')).toContainText('Scheda');
+    await expect(page.locator('ol.steps li.now')).toContainText('Dima');
     const body = page.locator('#pz-car_m_v2_body');
     await expect(body.locator('.prompt pre').first()).toContainText('Photorealistic 3D render');
     await expect(body.locator('.prompt pre').first()).toContainText('one single flat neutral light grey');
@@ -202,6 +202,50 @@ test.describe('admin inspector', () => {
     expect(await page.locator('.doc h3').count()).toBeGreaterThan(15);
     expect(await page.locator('.doc table').count()).toBeGreaterThan(15);
     await page.screenshot({ path: `${PRODUCTION}/5-specifica.png` });
+    expect(errors).toEqual([]);
+  });
+
+  test('the template of a model: the figure in its seats in 3D, the check of the seats, the pictures for Gemini', async ({ page }) => {
+    const errors = watchErrors(page);
+    await page.goto(`${ADMIN}#produzione/car_m_v2`);
+    // The check of the seats, worked out from the sheet's numbers: nothing out of its limits.
+    await expect(page.locator('#dima-check')).toContainText('passa');
+    await expect(page.locator('#dima-check .bad')).toHaveCount(0);
+    await page.locator('details.allrows summary').click();
+    await expect(page.locator('details.allrows table.check tbody tr', { hasText: 'Gomito sinistro' }).first()).toContainText('ok');
+    await page.locator('details.allrows summary').click();
+
+    // The template in 3D, then the wheel fully turned with the figure see-through.
+    await page.locator('[data-dima-show]').click();
+    await expect(page.locator('#p-3d canvas')).toBeVisible();
+    await page.waitForTimeout(1000);
+    await page.locator('#p-3d').screenshot({ path: `${PRODUCTION}/6-dima-avenger-3d.png` });
+    await page.locator('.dimabar [data-opt="position"]').selectOption('1');
+    await page.locator('.dimabar [data-opt="figure"]').selectOption('ghost');
+    await page.locator('.dimabar [data-opt="ground"]').uncheck();
+    await page.waitForTimeout(1000);
+    await page.locator('#p-3d').screenshot({ path: `${PRODUCTION}/7-dima-avenger-volante.png` });
+
+    // The pictures to attach to Gemini come down as PNG files, the .glb as one file.
+    const files: string[] = [];
+    page.on('download', d => { files.push(d.suggestedFilename()); void d.saveAs(`${PRODUCTION}/dima/${d.suggestedFilename()}`); });
+    await page.locator('[data-dima-png]').click();
+    await expect.poll(() => files.length, { timeout: 30_000 }).toBe(6);
+    expect(files).toContain('car_m_v2_dima_carrozzeria_lato.png');
+    await page.locator('[data-dima-glb]').click();
+    await expect.poll(() => files, { timeout: 30_000 }).toContain('car_m_v2_dima.glb');
+    await page.waitForTimeout(500);
+
+    // Every other template of the repository passes the check of its seats and gives its pictures.
+    for (const id of ["car_s_v2", "car_l_v2", "moto_2", "big_rig_front_v2", "big_rig_mid_v2", "big_rig_rear_v2"]) {
+      const had = files.length;
+      await page.locator("[data-prod='']").click();
+      await page.locator(`[data-prod="${id}"]`).click();
+      await expect(page.locator("#dima-check"), id).toContainText("passa");
+      await page.locator("[data-dima-png]").click();
+      await expect.poll(() => files.length, { timeout: 30_000 }).toBe(had + 6);
+    }
+    await page.waitForTimeout(500);
     expect(errors).toEqual([]);
   });
 });

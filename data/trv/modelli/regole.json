@@ -121,7 +121,7 @@
       [
         "Spalla",
         "apertura di lato",
-        0,
+        -15,
         120
       ],
       [
@@ -269,8 +269,8 @@
           0.6
         ],
         [
-          0.94,
-          0.94
+          0.82,
+          0.87
         ]
       ],
       [
@@ -413,7 +413,13 @@
       "altezza": 3.2,
       "larghezza": 2.5,
       "ruota": 0.55,
-      "posti": []
+      "posti": [
+        "pilota",
+        "copilota",
+        "artigliere anteriore",
+        "artigliere posteriore"
+      ],
+      "gancio_a_gancio": true
     },
     "chopper": {
       "nome": "Elicottero",

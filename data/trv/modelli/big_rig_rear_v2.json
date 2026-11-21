@@ -1,0 +1,307 @@
+{
+  "schema": 1,
+  "id": "big_rig_rear_v2",
+  "nome": "Big Rig ridisegnato: sezione posteriore",
+  "gioco": "big_rig",
+  "classe": "rig",
+  "scopo": "Il rimorchio posteriore del Big Rig alla scala unica: radar, scivolo dei pericoli e l'artigliere che spara all'indietro.",
+  "regime": "specifica",
+  "stato": {
+    "passo": 2,
+    "esito": "in_lavorazione",
+    "dal": "2026-11-21",
+    "nota": "Dima approvata dall'utente il 2026-11-21. Le parti specifiche dei prompt sono bozze, da approvare prima di generare. Si genera nella fase G."
+  },
+  "posti": [
+    {
+      "id": "seat_gunner_rear",
+      "posa": "stand",
+      "ruolo": "artigliere posteriore",
+      "nota": "guarda all'indietro"
+    }
+  ],
+  "pezzi": [
+    {
+      "id": "big_rig_rear_v2_body",
+      "nome": "Carrozzeria della sezione posteriore",
+      "tipo": "carrozzeria",
+      "file": null,
+      "triangoli": 5000,
+      "allegati": [
+        "riferimento di stile",
+        "dima: carrozzeria, tre quarti"
+      ],
+      "specifico": {
+        "gemini": "The model: the rear wagon of that armoured road train: a closed armoured box at the front with a radar dish and antennas on its roof, and at the back a lower open deck with low armoured sides where a gunner stands facing backward, a rear hatch with a dumping chute holding oil drums and spiked caltrops. A thin tow bar ending in a ring at the front. It is a trailer: no cab, no hood, no windscreen, no doors.",
+        "meshy": "Low poly game-ready body of an armoured post-apocalyptic trailer wagon, closed armoured box at the front with a radar dish and antennas on the roof, lower open rear deck with low armoured sides, rear hatch with a dumping chute holding oil drums and spiked caltrops, thin tow bar ending in a ring at the front. No cab, no windows, no doors. No wheels, empty wheel arches for three axles. No weapons, a flat round mounting plate on the rear deck. Neutral light grey armour panels, dark iron frame."
+      },
+      "tentativi": [],
+      "tinto": true,
+      "posti": true
+    },
+    {
+      "id": "big_rig_rear_v2_gun_mount",
+      "nome": "Base della mitragliatrice",
+      "tipo": "arma_base",
+      "file": null,
+      "triangoli": 300,
+      "allegati": [
+        "riferimento di stile"
+      ],
+      "specifico": {
+        "gemini": "The model: the pintle mount of a heavy machine gun, a short thick steel post on a round rotating base.",
+        "meshy": "Low poly game-ready pintle mount for a heavy machine gun, short thick steel post on a round rotating base, dark rusty iron."
+      },
+      "tentativi": []
+    },
+    {
+      "id": "big_rig_rear_v2_gun",
+      "nome": "Mitragliatrice",
+      "tipo": "arma",
+      "file": null,
+      "triangoli": 700,
+      "allegati": [
+        "riferimento di stile",
+        "dima: arma, di lato"
+      ],
+      "specifico": {
+        "gemini": "The model: a heavy machine gun aimed by hand, with an ammunition belt and box, a small armoured gun shield and two rear spade grips.",
+        "meshy": "Low poly game-ready heavy machine gun with ammunition belt and box, small armoured gun shield, two rear spade grips, dark rusty iron."
+      },
+      "tentativi": [],
+      "posti": true
+    }
+  ],
+  "collaudi": [],
+  "decisioni": [
+    {
+      "data": "2026-11-21",
+      "testo": "Scala unica 1:125: ogni sezione è lunga 5,6 m da gancio a gancio (45 mm, una casella), alta 3,2 m, la più alta del tavolo."
+    },
+    {
+      "data": "2026-11-21",
+      "testo": "Sagoma della dima approvata."
+    }
+  ],
+  "provenienza": {
+    "origine": "ai",
+    "strumento": "da generare: Gemini e Meshy",
+    "fonte": "il proprietario del progetto",
+    "data": null
+  },
+  "dima": {
+    "_note": "Metres, vehicle frame: +x ahead, +y up, +z its right, ground at y = 0, origin under the middle of the length. Boxes between two corners. Starting values: the check (src/models/dima.ts) says whether the figure fits.",
+    "volumi": [
+      {
+        "id": "telaio",
+        "da": [
+          -2.8,
+          0.5,
+          -1.0
+        ],
+        "a": [
+          2.2,
+          1.0,
+          1.0
+        ]
+      },
+      {
+        "id": "cassone",
+        "da": [
+          -0.6,
+          1.0,
+          -1.0
+        ],
+        "a": [
+          2.2,
+          3.2,
+          1.0
+        ]
+      },
+      {
+        "id": "pianale",
+        "da": [
+          -2.8,
+          1.0,
+          -1.0
+        ],
+        "a": [
+          -0.6,
+          1.6,
+          1.0
+        ]
+      },
+      {
+        "id": "timone",
+        "da": [
+          2.2,
+          0.7,
+          -0.08
+        ],
+        "a": [
+          2.8,
+          0.82,
+          0.08
+        ]
+      },
+      {
+        "id": "sponda_sinistra",
+        "da": [
+          -2.8,
+          1.6,
+          -1.0
+        ],
+        "a": [
+          -0.6,
+          2.0,
+          -0.92
+        ]
+      },
+      {
+        "id": "sponda_destra",
+        "da": [
+          -2.8,
+          1.6,
+          0.92
+        ],
+        "a": [
+          -0.6,
+          2.0,
+          1.0
+        ]
+      },
+      {
+        "id": "parafanghi",
+        "da": [
+          -2.5,
+          1.0,
+          -1.25
+        ],
+        "a": [
+          1.6,
+          1.15,
+          -1.0
+        ]
+      },
+      {
+        "id": "parafanghi_destri",
+        "da": [
+          -2.5,
+          1.0,
+          1.0
+        ],
+        "a": [
+          1.6,
+          1.15,
+          1.25
+        ]
+      },
+      {
+        "id": "base_arma",
+        "da": [
+          -2.18,
+          1.6,
+          -0.08
+        ],
+        "a": [
+          -2.02,
+          2.9000000000000004,
+          0.08
+        ],
+        "uso": "comando",
+        "pezzo": "arma_base"
+      },
+      {
+        "id": "arma",
+        "da": [
+          -2.7,
+          2.8800000000000003,
+          -0.09
+        ],
+        "a": [
+          -1.85,
+          3.1000000000000005,
+          0.09
+        ],
+        "uso": "comando",
+        "pezzo": "arma"
+      }
+    ],
+    "ruote": [
+      {
+        "x": 1.0,
+        "z": 1.0,
+        "r": 0.55,
+        "w": 0.5
+      },
+      {
+        "x": -0.9,
+        "z": 1.0,
+        "r": 0.55,
+        "w": 0.5
+      },
+      {
+        "x": -2.0,
+        "z": 1.0,
+        "r": 0.55,
+        "w": 0.5
+      }
+    ],
+    "posti": [
+      {
+        "id": "seat_gunner_rear",
+        "posa": "stand",
+        "ruolo": "artigliere posteriore",
+        "anche": [
+          -1.48,
+          2.46,
+          0
+        ],
+        "prese": {
+          "L": [
+            -1.88,
+            2.9000000000000004,
+            0.12
+          ],
+          "R": [
+            -1.88,
+            2.9000000000000004,
+            -0.12
+          ]
+        },
+        "piedi": {
+          "L": [
+            -1.48,
+            1.6,
+            0.16
+          ],
+          "R": [
+            -1.48,
+            1.6,
+            -0.16
+          ]
+        },
+        "mosse": [
+          {
+            "nome": "alzo",
+            "centro": [
+              -2.1,
+              2.9000000000000004,
+              0
+            ],
+            "asse": [
+              0,
+              0,
+              -1
+            ],
+            "gradi": [
+              -10,
+              35
+            ]
+          }
+        ],
+        "guarda": 180
+      }
+    ]
+  }
+}

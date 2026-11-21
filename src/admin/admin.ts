@@ -29,6 +29,8 @@ import { BASE_CATALOG, commandBoardImage, dashboardImage, dieFaceImage, roadTile
 import { ASSET_CATALOG, entryFor, officialPath, type ItemEntry } from './catalog';
 import { dieSolid, flatSolid, inlineImages, type Face } from './solids';
 import { PRODUCTION_PAGES, productionHtml, sheetById } from './produzione-view';
+import { RULES as MODEL_RULES } from './produzione';
+import { buildDima, dimaGlb, dimaViews, type DimaLook } from '../view/dima3d';
 import { ongoingArt, ongoingCardSvg, ongoingCardText, upgradeArt, upgradeCardSvg, upgradeCardText } from '../view/cards';
 import { esc } from '../core/markup';
 
@@ -650,6 +652,22 @@ function drawProduction(): void {
   if (box) void drawCommentsIn(box, assetKey('produzione', box.dataset.key!), () => box.isConnected);
 }
 
+/** The template of the sheet on show in the 3D box, as the switches beside it ask. */
+function showDima(bar: HTMLElement): void {
+  const dima = sheetById(bar.dataset.dima!)?.dima;
+  if (!dima) return;
+  const opt = (k: string): HTMLInputElement => bar.querySelector<HTMLInputElement>(`[data-opt="${k}"]`)!;
+  const look: DimaLook = {
+    wheels: opt('wheels').checked, weapons: opt('weapons').checked, marks: opt('marks').checked, ground: opt('ground').checked,
+    figure: opt('figure').value as DimaLook['figure'], position: Number(opt('position').value),
+  };
+  const host = $('p-3d');
+  host.hidden = false;
+  host.dataset.dima = bar.dataset.dima!;
+  host.innerHTML = '<span class="hint">Dima · trascina per ruotare · rotella per lo zoom · un quadretto della griglia = 0,5 m</span>';
+  void showObject(() => Promise.resolve(buildDima(dima, MODEL_RULES, look)), host).catch(err => { host.innerHTML = `<span class="wait">3D non disponibile: ${esc((err as Error).message)}</span>`; });
+}
+
 function drawView(): void {
   if (prod !== null) { drawProduction(); return; }
   if (!view) { drawSummary(); return; }
@@ -809,9 +827,21 @@ function startInspector(who: string, onSignOut: (() => void) | null, store: Comm
       void navigator.clipboard.writeText(text).then(() => toast('Prompt copiato'), () => toast('Copia non riuscita: seleziona il testo a mano'));
       return;
     }
+    const bar = t.closest<HTMLElement>('.dimabar');
+    if (bar && t.closest('[data-dima-show]')) { showDima(bar); $('p-3d').scrollIntoView({ block: 'nearest' }); return; }
+    if (bar && t.closest('[data-dima-png], [data-dima-glb]')) {
+      const id = bar.dataset.dima!, dima = sheetById(id)!.dima!, btn = t.closest<HTMLButtonElement>('button')!;
+      btn.disabled = true;
+      void (async () => {
+        if (btn.matches('[data-dima-glb]')) save(await dimaGlb(dima, MODEL_RULES), `${id}_dima.glb`);
+        else for (const view of await dimaViews(dima, MODEL_RULES)) { save(view.blob, `${id}_dima_${view.name}.png`); await new Promise(r => setTimeout(r, 300)); }
+      })().catch(err => toast(`Non riuscito: ${(err as Error).message}`)).finally(() => { btn.disabled = false; });
+      return;
+    }
     const glb = t.closest<HTMLElement>('[data-glb]');
     if (glb) {
       const host = $('p-3d'), url = MODELS[`/${glb.dataset.glb}`];
+      delete host.dataset.dima;
       host.hidden = false;
       host.innerHTML = `<span class="hint">${esc(glb.dataset.glb!)} · trascina per ruotare · rotella per lo zoom</span>`;
       if (url) void showObject(() => loadModel(url), host).catch(err => { host.innerHTML = `<span class="wait">3D non disponibile: ${esc((err as Error).message)}</span>`; });
@@ -842,6 +872,11 @@ function startInspector(who: string, onSignOut: (() => void) | null, store: Comm
     void comments.add(assetKey(it.cat!, it.id), text, author)
       .then(() => { toast('Commento salvato'); return drawComments(it); })
       .catch(err => toast(`Commento non salvato: ${(err as Error).message}`));
+  });
+  // A switch of the template's view redraws it, once it is on show.
+  $('main').addEventListener('change', e => {
+    const bar = (e.target as Element).closest<HTMLElement>('.dimabar');
+    if (bar && $('p-3d').dataset.dima === bar.dataset.dima) showDima(bar);
   });
   $('main').addEventListener('submit', e => {
     e.preventDefault();

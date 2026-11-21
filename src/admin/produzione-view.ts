@@ -9,6 +9,7 @@ import { esc } from '../core/markup';
 import { ASSET_CATALOG } from './catalog';
 import { markdownHtml } from './markdown';
 import { classes, compose, problems, RULES, SHEETS, tableMm, type Piece, type Prompt, type Range, type Sheet } from './produzione';
+import { checkDima, positions, type Row } from '../models/dima';
 
 const R = RULES;
 /** The pages of the section, for the side menu: address after `produzione/`, name, count. */
@@ -77,6 +78,33 @@ function pieceHtml(p: Piece): string {
     ${p.nota ? `<p>${esc(p.nota)}</p>` : ''}${composed}${p.usato ? usedHtml(p) : ''}${tries}</section>`;
 }
 
+/** The template of a model: the switches of its 3D view, the pictures to download and the check of its seats. */
+function dimaHtml(s: Sheet): string {
+  const dima = s.dima!, rows = checkDima(dima, classes()[s.classe], R);
+  const count = (e: Row['esito']): number => rows.filter(r => r.esito === e).length;
+  const many = Math.max(...dima.posti.map(p => positions(p).length), 1);
+  const options = Array.from({ length: many }, (_, i) => `<option value="${i}">${esc(i ? dima.posti.map(p => positions(p)[i]?.nome).filter(Boolean).join(' · ') : 'posizione neutra')}</option>`).join('');
+  const line = (r: Row): string[] => [esc(r.posto), esc(r.posizione), esc(r.voce), esc(r.valore), esc(r.limite), r.esito === 'ok' ? 'ok' : `<span class="${r.esito === 'fuori' ? 'bad' : 'note'}">${r.esito === 'fuori' ? 'fuori' : 'da guardare'}</span>`];
+  const head = ['Posto', 'Posizione', 'Voce', 'Valore', 'Limite', 'Esito'];
+  const wrong = rows.filter(r => r.esito !== 'ok');
+  return `<h3 class="sub">Dima</h3>
+    <p class="cat-note">La sagoma grigia del veicolo, costruita dai numeri di questa scheda, con la figura standard ai suoi posti. Si guarda e si collauda prima di generare qualsiasi cosa; le sue viste si allegano a Gemini.</p>
+    <div class="dimabar" data-dima="${esc(s.id)}">
+      <button class="btn" data-dima-show>Mostra la dima</button>
+      <label><input type="checkbox" data-opt="wheels" checked> Ruote</label>
+      <label><input type="checkbox" data-opt="weapons" checked> Armi</label>
+      <label><input type="checkbox" data-opt="marks" checked> Prese e appoggi</label>
+      <label><input type="checkbox" data-opt="ground" checked> Griglia e persona</label>
+      <label>Figura <select data-opt="figure"><option value="solid">piena</option><option value="ghost">in trasparenza</option><option value="none">nascosta</option></select></label>
+      <label>Posizione <select data-opt="position">${options}</select></label>
+      <button class="btn ghost" data-dima-png>Scarica le viste (PNG)</button>
+      <button class="btn ghost" data-dima-glb>Scarica il GLB</button>
+    </div>
+    <p class="psum" id="dima-check">Collaudo dei posti: ${count('fuori') ? `<span class="bad">${count('fuori')} misure fuori</span>` : '<span class="good">passa</span>'} · ${count('ok')} in regola · ${count('avviso')} da guardare</p>
+    ${wrong.length ? table(head, wrong.map(line), 'check') : ''}
+    <details class="allrows"><summary>Tutte le ${rows.length} misure del collaudo</summary>${table(head, rows.map(line), 'check')}</details>`;
+}
+
 function sheetHtml(s: Sheet): string {
   const cls = classes()[s.classe];
   const bad = exists(s);
@@ -101,6 +129,7 @@ function sheetHtml(s: Sheet): string {
     ${bad.length ? `<ul class="legend bad">${bad.map(b => `<li>${esc(b)}</li>`).join('')}</ul>` : ''}
     <h3 class="sub">Misure</h3>${table(['', ''], [...target, ...today], 'kv')}
     ${seats}
+    ${s.dima ? dimaHtml(s) : ''}
     <div class="p3d" id="p-3d" hidden></div>
     <h3 class="sub">Pezzi</h3>${s.pezzi.map(pieceHtml).join('')}
     <h3 class="sub">Collaudo dimensionale</h3><p class="set">${s.collaudi.length ? `${s.collaudi.length} rapporti` : 'Nessun rapporto: lo script del collaudo arriva con la fase C.'}</p>

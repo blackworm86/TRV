@@ -1,0 +1,384 @@
+{
+  "schema": 1,
+  "id": "car_s_v2",
+  "nome": "Auto piccola (Doom Buggy) ridisegnata",
+  "gioco": "base",
+  "classe": "car_s",
+  "scopo": "Doom Buggy alla scala unica: piccola e corta, il pilota solo in una gabbia, l'arma sopra.",
+  "regime": "specifica",
+  "stato": {
+    "passo": 2,
+    "esito": "in_lavorazione",
+    "dal": "2026-11-21",
+    "nota": "Dima approvata dall'utente il 2026-11-21. Le parti specifiche dei prompt sono bozze, da approvare prima di generare. Si genera nella fase F."
+  },
+  "posti": [
+    {
+      "id": "seat_driver",
+      "posa": "sit",
+      "ruolo": "pilota",
+      "nota": "comanda anche l'arma, senza staccare le mani dal volante"
+    }
+  ],
+  "pezzi": [
+    {
+      "id": "car_s_v2_body",
+      "nome": "Carrozzeria",
+      "tipo": "carrozzeria",
+      "file": null,
+      "triangoli": 4500,
+      "allegati": [
+        "riferimento di stile",
+        "dima: carrozzeria, tre quarti"
+      ],
+      "specifico": {
+        "gemini": "The model: the Doom Buggy, a small and short post-apocalyptic dune buggy for a desert racing board game. A single open seat inside a welded tubular roll cage, a stubby nose, the engine exposed at the back, big exposed suspension arms, a few welded armour plates.",
+        "meshy": "Low poly game-ready body of a small short post-apocalyptic dune buggy, single open seat with a steering wheel inside a welded tubular roll cage, stubby nose, exposed rear engine, welded armour plates. No wheels, empty suspension arms. No weapons, a flat round mounting plate on top of the cage. Neutral light grey painted panels, dark iron frame."
+      },
+      "tentativi": [],
+      "tinto": true,
+      "posti": true
+    },
+    {
+      "id": "car_s_v2_wheel",
+      "nome": "Ruota",
+      "tipo": "ruota",
+      "file": null,
+      "triangoli": 500,
+      "allegati": [
+        "riferimento di stile"
+      ],
+      "specifico": {
+        "gemini": "The model: a wide knobby dune buggy wheel, a fat off-road tyre on a dark steel rim.",
+        "meshy": "Low poly game-ready dune buggy wheel, fat knobby off-road tyre, dark steel rim with a centred hub."
+      },
+      "tentativi": []
+    },
+    {
+      "id": "car_s_v2_gun_mount",
+      "nome": "Base della mitragliatrice",
+      "tipo": "arma_base",
+      "file": null,
+      "triangoli": 300,
+      "allegati": [
+        "riferimento di stile"
+      ],
+      "specifico": {
+        "gemini": "The model: the pintle mount of a heavy machine gun, a short thick steel post on a round rotating base.",
+        "meshy": "Low poly game-ready pintle mount for a heavy machine gun, short thick steel post on a round rotating base, dark rusty iron."
+      },
+      "tentativi": []
+    },
+    {
+      "id": "car_s_v2_gun",
+      "nome": "Mitragliatrice",
+      "tipo": "arma",
+      "file": null,
+      "triangoli": 700,
+      "allegati": [
+        "riferimento di stile"
+      ],
+      "specifico": {
+        "gemini": "The model: a machine gun fired by remote, with an ammunition box on its side and no handles.",
+        "meshy": "Low poly game-ready remote machine gun with a side ammunition box, no handles, dark rusty iron."
+      },
+      "tentativi": []
+    }
+  ],
+  "collaudi": [],
+  "decisioni": [
+    {
+      "data": "2026-11-21",
+      "testo": "Scala unica 1:125: Doom Buggy lunga 3,0 m (24 mm sul tavolo), alta 1,5 m, piccola e corta."
+    },
+    {
+      "data": "2026-11-21",
+      "testo": "Sagoma della dima approvata."
+    }
+  ],
+  "provenienza": {
+    "origine": "ai",
+    "strumento": "da generare: Gemini e Meshy",
+    "fonte": "il proprietario del progetto",
+    "data": null
+  },
+  "dima": {
+    "_note": "Metres, vehicle frame: +x ahead, +y up, +z its right, ground at y = 0, origin under the middle of the length. Boxes between two corners. Starting values: the check (src/models/dima.ts) says whether the figure fits.",
+    "volumi": [
+      {
+        "id": "fondo",
+        "da": [
+          -1.5,
+          0.25,
+          -0.5
+        ],
+        "a": [
+          1.5,
+          0.38,
+          0.5
+        ]
+      },
+      {
+        "id": "muso",
+        "da": [
+          0.8,
+          0.38,
+          -0.45
+        ],
+        "a": [
+          1.5,
+          0.7,
+          0.45
+        ]
+      },
+      {
+        "id": "cruscotto",
+        "da": [
+          0.58,
+          0.62,
+          -0.5
+        ],
+        "a": [
+          0.8,
+          0.8,
+          0.5
+        ]
+      },
+      {
+        "id": "motore",
+        "da": [
+          -1.5,
+          0.38,
+          -0.5
+        ],
+        "a": [
+          -0.75,
+          0.95,
+          0.5
+        ]
+      },
+      {
+        "id": "tetto_gabbia",
+        "da": [
+          -0.72,
+          1.42,
+          -0.5
+        ],
+        "a": [
+          0.62,
+          1.5,
+          0.5
+        ]
+      },
+      {
+        "id": "montante_anteriore_sinistra",
+        "da": [
+          0.54,
+          0.8,
+          -0.5
+        ],
+        "a": [
+          0.62,
+          1.42,
+          -0.43
+        ]
+      },
+      {
+        "id": "montante_anteriore_destra",
+        "da": [
+          0.54,
+          0.8,
+          0.43
+        ],
+        "a": [
+          0.62,
+          1.42,
+          0.5
+        ]
+      },
+      {
+        "id": "montante_posteriore_sinistra",
+        "da": [
+          -0.72,
+          0.38,
+          -0.5
+        ],
+        "a": [
+          -0.64,
+          1.42,
+          -0.43
+        ]
+      },
+      {
+        "id": "montante_posteriore_destra",
+        "da": [
+          -0.72,
+          0.38,
+          0.43
+        ],
+        "a": [
+          -0.64,
+          1.42,
+          0.5
+        ]
+      },
+      {
+        "id": "sedile_pilota",
+        "da": [
+          -0.52,
+          0.36,
+          -0.24
+        ],
+        "a": [
+          0.04999999999999999,
+          0.42,
+          0.24
+        ],
+        "uso": "sedile"
+      },
+      {
+        "id": "schienale_pilota",
+        "da": [
+          -0.6599999999999999,
+          0.36,
+          -0.24
+        ],
+        "a": [
+          -0.52,
+          1.02,
+          0.24
+        ],
+        "uso": "sedile"
+      },
+      {
+        "id": "volante",
+        "da": [
+          0.17,
+          0.6200000000000001,
+          -0.18
+        ],
+        "a": [
+          0.23,
+          0.98,
+          0.18
+        ],
+        "uso": "comando"
+      },
+      {
+        "id": "pedali",
+        "da": [
+          0.48,
+          0.38,
+          -0.2
+        ],
+        "a": [
+          0.58,
+          0.5,
+          0.2
+        ],
+        "uso": "comando"
+      },
+      {
+        "id": "base_arma",
+        "da": [
+          -0.18,
+          1.5,
+          -0.08
+        ],
+        "a": [
+          -0.02,
+          1.62,
+          0.08
+        ],
+        "uso": "comando",
+        "pezzo": "arma_base"
+      },
+      {
+        "id": "arma",
+        "da": [
+          -0.35,
+          1.62,
+          -0.08
+        ],
+        "a": [
+          0.7,
+          1.8,
+          0.08
+        ],
+        "uso": "comando",
+        "pezzo": "arma"
+      }
+    ],
+    "ruote": [
+      {
+        "x": 1.05,
+        "z": 0.65,
+        "r": 0.36,
+        "w": 0.3,
+        "sterza": true
+      },
+      {
+        "x": -1.05,
+        "z": 0.65,
+        "r": 0.36,
+        "w": 0.3
+      }
+    ],
+    "posti": [
+      {
+        "id": "seat_driver",
+        "posa": "sit",
+        "ruolo": "pilota",
+        "anche": [
+          -0.25,
+          0.5,
+          0
+        ],
+        "schienale": 15,
+        "prese": {
+          "L": [
+            0.2,
+            0.8,
+            -0.17
+          ],
+          "R": [
+            0.2,
+            0.8,
+            0.17
+          ]
+        },
+        "piedi": {
+          "L": [
+            0.42,
+            0.38,
+            -0.12
+          ],
+          "R": [
+            0.42,
+            0.38,
+            0.12
+          ]
+        },
+        "mosse": [
+          {
+            "nome": "volante",
+            "centro": [
+              0.2,
+              0.8,
+              0
+            ],
+            "asse": [
+              -1,
+              0,
+              0
+            ],
+            "gradi": [
+              -90,
+              90
+            ]
+          }
+        ]
+      }
+    ]
+  }
+}

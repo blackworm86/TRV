@@ -1,0 +1,150 @@
+{
+  "schema": 1,
+  "id": "big_rig_mid_v2",
+  "nome": "Big Rig ridisegnato: sezione centrale",
+  "gioco": "big_rig",
+  "classe": "rig",
+  "scopo": "Il rimorchio centrale del Big Rig alla scala unica: vano motore e piazzola per l'elicottero. Nessuno a bordo.",
+  "regime": "specifica",
+  "stato": {
+    "passo": 2,
+    "esito": "in_lavorazione",
+    "dal": "2026-11-21",
+    "nota": "Dima approvata dall'utente il 2026-11-21. Le parti specifiche dei prompt sono bozze, da approvare prima di generare. Si genera nella fase G."
+  },
+  "posti": [],
+  "pezzi": [
+    {
+      "id": "big_rig_mid_v2_body",
+      "nome": "Carrozzeria della sezione centrale",
+      "tipo": "carrozzeria",
+      "file": null,
+      "triangoli": 5000,
+      "allegati": [
+        "riferimento di stile",
+        "dima: carrozzeria, tre quarti"
+      ],
+      "specifico": {
+        "gemini": "The model: the middle wagon of that armoured road train: a plain closed armoured box with its corners cut at 45 degrees seen from above, the same at the front and at the back, with side grilles, two tall exhaust stacks, a flat helipad with a painted circle on the roof and a small folded crane arm. A thin tow bar ending in a ring at the front, a hook with a vertical pin at the back. It is a trailer: no cab, no hood, no windscreen, no doors.",
+        "meshy": "Low poly game-ready body of an armoured post-apocalyptic trailer wagon, plain closed armoured box with corners cut at 45 degrees, side grilles, two tall exhaust stacks, flat helipad with a painted circle on the roof, small folded crane arm, thin tow bar ending in a ring at the front, hook with a vertical pin at the back. No cab, no windows, no doors. No wheels, empty wheel arches. Neutral light grey armour panels, dark iron frame."
+      },
+      "tentativi": [],
+      "tinto": true
+    }
+  ],
+  "collaudi": [],
+  "decisioni": [
+    {
+      "data": "2026-11-21",
+      "testo": "Scala unica 1:125: ogni sezione è lunga 5,6 m da gancio a gancio (45 mm, una casella), alta 3,2 m, la più alta del tavolo."
+    },
+    {
+      "data": "2026-11-21",
+      "testo": "Sagoma della dima approvata."
+    }
+  ],
+  "provenienza": {
+    "origine": "ai",
+    "strumento": "da generare: Gemini e Meshy",
+    "fonte": "il proprietario del progetto",
+    "data": null
+  },
+  "dima": {
+    "_note": "Metres, vehicle frame: +x ahead, +y up, +z its right, ground at y = 0, origin under the middle of the length. Boxes between two corners. Starting values: the check (src/models/dima.ts) says whether the figure fits.",
+    "volumi": [
+      {
+        "id": "telaio",
+        "da": [
+          -2.2,
+          0.5,
+          -1.0
+        ],
+        "a": [
+          2.2,
+          1.0,
+          1.0
+        ]
+      },
+      {
+        "id": "cassone",
+        "da": [
+          -2.2,
+          1.0,
+          -1.0
+        ],
+        "a": [
+          2.2,
+          3.2,
+          1.0
+        ]
+      },
+      {
+        "id": "timone",
+        "da": [
+          2.2,
+          0.7,
+          -0.08
+        ],
+        "a": [
+          2.8,
+          0.82,
+          0.08
+        ]
+      },
+      {
+        "id": "gancio",
+        "da": [
+          -2.8,
+          0.7,
+          -0.1
+        ],
+        "a": [
+          -2.2,
+          0.85,
+          0.1
+        ]
+      },
+      {
+        "id": "parafanghi",
+        "da": [
+          -1.9,
+          1.0,
+          -1.25
+        ],
+        "a": [
+          1.9,
+          1.15,
+          -1.0
+        ]
+      },
+      {
+        "id": "parafanghi_destri",
+        "da": [
+          -1.9,
+          1.0,
+          1.0
+        ],
+        "a": [
+          1.9,
+          1.15,
+          1.25
+        ]
+      }
+    ],
+    "ruote": [
+      {
+        "x": 1.2,
+        "z": 1.0,
+        "r": 0.55,
+        "w": 0.5
+      },
+      {
+        "x": -1.2,
+        "z": 1.0,
+        "r": 0.55,
+        "w": 0.5
+      }
+    ],
+    "posti": []
+  }
+}

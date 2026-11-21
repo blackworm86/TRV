@@ -1,0 +1,341 @@
+{
+  "schema": 1,
+  "id": "moto_2",
+  "nome": "Moto ridisegnata",
+  "gioco": "big_rig",
+  "classe": "bike",
+  "scopo": "La moto delle Final Five alla scala unica, a pezzi: telaio, avantreno che sterza, ruote, arma. Sostituisce la moto 1, in pausa.",
+  "regime": "specifica",
+  "stato": {
+    "passo": 2,
+    "esito": "in_lavorazione",
+    "dal": "2026-11-21",
+    "nota": "Dima approvata dall'utente il 2026-11-21. Le parti specifiche dei prompt sono bozze, da approvare prima di generare. Si genera nella fase G."
+  },
+  "posti": [
+    {
+      "id": "seat_rider",
+      "posa": "ride",
+      "ruolo": "pilota"
+    }
+  ],
+  "pezzi": [
+    {
+      "id": "moto_2_frame",
+      "nome": "Telaio",
+      "tipo": "telaio",
+      "file": null,
+      "triangoli": 2500,
+      "allegati": [
+        "riferimento di stile",
+        "dima: telaio, di lato"
+      ],
+      "specifico": {
+        "gemini": "The model: an armoured post-apocalyptic combat motorcycle for a desert racing board game. Chunky dirt-bike frame, a narrow fuel tank with smooth plain sides, a flat seat, foot pegs, exhaust pipes, a few spikes and welded armour plates.",
+        "meshy": "Low poly game-ready frame of a post-apocalyptic combat motorcycle with engine, narrow fuel tank with smooth plain sides, flat seat, foot pegs, exhaust pipes, rear swingarm ending in an empty hub, empty steering head tube at the front. No front fork, no handlebars, no wheels, no rider. Neutral light grey tank, dark iron frame and engine."
+      },
+      "tentativi": [],
+      "tinto": true,
+      "posti": true
+    },
+    {
+      "id": "moto_2_front",
+      "nome": "Avantreno",
+      "tipo": "avantreno",
+      "file": null,
+      "triangoli": 1200,
+      "allegati": [
+        "riferimento di stile",
+        "dima: avantreno, di lato"
+      ],
+      "specifico": {
+        "gemini": "The model: the front end of that combat motorcycle: a long-travel fork, wide pulled-back handlebars with rubber grips, a short front mudguard and a small caged headlight.",
+        "meshy": "Low poly game-ready motorcycle front end as one piece: long-travel fork ending in an empty hub, wide pulled-back handlebars with grips, short front mudguard, small caged headlight, dark iron."
+      },
+      "tentativi": [],
+      "posti": true
+    },
+    {
+      "id": "moto_2_wheel",
+      "nome": "Ruota",
+      "tipo": "ruota",
+      "file": null,
+      "triangoli": 500,
+      "allegati": [
+        "riferimento di stile"
+      ],
+      "specifico": {
+        "gemini": "The model: a knobby off-road motorcycle wheel, a chunky tyre with big knobs on a dark steel spoked rim.",
+        "meshy": "Low poly game-ready knobby off-road motorcycle wheel, chunky tyre with big knobs, dark steel spoked rim with a centred hub."
+      },
+      "tentativi": []
+    },
+    {
+      "id": "moto_2_gun",
+      "nome": "Mitragliatrice montata",
+      "tipo": "arma",
+      "file": null,
+      "triangoli": 600,
+      "allegati": [
+        "riferimento di stile"
+      ],
+      "specifico": {
+        "gemini": "The model: a small machine gun for a motorcycle on a short mounting bracket, one or two short barrels, an ammunition box on the side.",
+        "meshy": "Low poly game-ready small motorcycle machine gun on a short bracket, short barrels, side ammunition box, dark rusty iron."
+      },
+      "tentativi": []
+    }
+  ],
+  "collaudi": [],
+  "decisioni": [
+    {
+      "data": "2026-11-21",
+      "testo": "Scala unica 1:125: moto lunga 2,1 m (17 mm sul tavolo), più piccola di oggi."
+    },
+    {
+      "data": "2026-11-21",
+      "testo": "Telaio e avantreno sono due pezzi: tutto l'avantreno sterza, manubrio compreso."
+    },
+    {
+      "data": "2026-11-21",
+      "testo": "Sagoma della dima approvata."
+    }
+  ],
+  "provenienza": {
+    "origine": "ai",
+    "strumento": "da generare: Gemini e Meshy",
+    "fonte": "il proprietario del progetto",
+    "data": null
+  },
+  "dima": {
+    "_note": "Metres, vehicle frame: +x ahead, +y up, +z its right, ground at y = 0, origin under the middle of the length. Boxes between two corners. Starting values: the check (src/models/dima.ts) says whether the figure fits.",
+    "volumi": [
+      {
+        "id": "motore",
+        "da": [
+          -0.35,
+          0.25,
+          -0.14
+        ],
+        "a": [
+          0.3,
+          0.62,
+          0.14
+        ]
+      },
+      {
+        "id": "serbatoio",
+        "da": [
+          -0.05,
+          0.62,
+          -0.14
+        ],
+        "a": [
+          0.38,
+          0.88,
+          0.14
+        ],
+        "uso": "sedile"
+      },
+      {
+        "id": "sella",
+        "da": [
+          -0.62,
+          0.68,
+          -0.13
+        ],
+        "a": [
+          -0.05,
+          0.76,
+          0.13
+        ],
+        "uso": "sedile"
+      },
+      {
+        "id": "codone",
+        "da": [
+          -0.95,
+          0.56,
+          -0.1
+        ],
+        "a": [
+          -0.6,
+          0.68,
+          0.1
+        ]
+      },
+      {
+        "id": "forcellone",
+        "da": [
+          -0.85,
+          0.28,
+          -0.1
+        ],
+        "a": [
+          -0.3,
+          0.38,
+          0.1
+        ]
+      },
+      {
+        "id": "pedane",
+        "da": [
+          -0.1,
+          0.3,
+          -0.26
+        ],
+        "a": [
+          0.0,
+          0.34,
+          0.26
+        ],
+        "uso": "comando"
+      },
+      {
+        "id": "forcella",
+        "da": [
+          0.44,
+          0.32,
+          -0.1
+        ],
+        "a": [
+          0.62,
+          1.0,
+          0.1
+        ],
+        "uso": "comando",
+        "pezzo": "avantreno"
+      },
+      {
+        "id": "manubrio",
+        "da": [
+          0.22,
+          1.02,
+          -0.375
+        ],
+        "a": [
+          0.28,
+          1.08,
+          0.375
+        ],
+        "uso": "comando",
+        "pezzo": "avantreno"
+      },
+      {
+        "id": "piega_manubrio",
+        "da": [
+          0.25,
+          0.98,
+          -0.04
+        ],
+        "a": [
+          0.5,
+          1.04,
+          0.04
+        ],
+        "uso": "comando",
+        "pezzo": "avantreno"
+      },
+      {
+        "id": "faro",
+        "da": [
+          0.62,
+          0.82,
+          -0.09
+        ],
+        "a": [
+          0.72,
+          1.0,
+          0.09
+        ],
+        "uso": "comando",
+        "pezzo": "avantreno"
+      },
+      {
+        "id": "arma",
+        "da": [
+          0.3,
+          0.88,
+          -0.06
+        ],
+        "a": [
+          0.95,
+          0.98,
+          0.06
+        ],
+        "uso": "comando",
+        "pezzo": "arma"
+      }
+    ],
+    "ruote": [
+      {
+        "x": 0.73,
+        "z": 0,
+        "r": 0.32,
+        "w": 0.14,
+        "sterza": true
+      },
+      {
+        "x": -0.73,
+        "z": 0,
+        "r": 0.32,
+        "w": 0.14
+      }
+    ],
+    "posti": [
+      {
+        "id": "seat_rider",
+        "posa": "ride",
+        "ruolo": "pilota",
+        "anche": [
+          -0.25,
+          0.84,
+          0
+        ],
+        "prese": {
+          "L": [
+            0.25,
+            1.05,
+            -0.33
+          ],
+          "R": [
+            0.25,
+            1.05,
+            0.33
+          ]
+        },
+        "piedi": {
+          "L": [
+            -0.05,
+            0.34,
+            -0.225
+          ],
+          "R": [
+            -0.05,
+            0.34,
+            0.225
+          ]
+        },
+        "mosse": [
+          {
+            "nome": "sterzo",
+            "centro": [
+              0.45,
+              0.9,
+              0
+            ],
+            "asse": [
+              -0.454,
+              0.891,
+              0
+            ],
+            "gradi": [
+              -35,
+              35
+            ]
+          }
+        ]
+      }
+    ]
+  }
+}

@@ -4,6 +4,7 @@
 // tests/unit/admin/produzione.test.ts. The admin inspector draws it (src/admin/produzione-view.ts).
 
 import RAW from '../../data/trv/modelli/regole.json';
+import type { Dima } from '../models/dima';
 
 /** A prompt as it was written and used, with what it is for. */
 export interface Prompt { titolo: string; testo: string }
@@ -71,9 +72,15 @@ export interface Sheet {
   /** The one-piece models it replaced, still in the repository. */
   precedente?: string[];
   note?: string[];
+  /** Its template: the grey block-out with the seats, built before anything is generated (§17). */
+  dima?: Dima;
 }
 /** A class of vehicle: real measures in metres, null where they are still to be set. */
-export interface VehicleClass { nome: string; sagoma: string; lunghezza: number | null; altezza: number | null; larghezza: number | null; ruota: number | null; posti: string[] }
+export interface VehicleClass {
+  nome: string; sagoma: string; lunghezza: number | null; altezza: number | null; larghezza: number | null; ruota: number | null; posti: string[];
+  /** One road space long from hitch to hitch, with no margin at its ends (a section of the Big Rig). */
+  gancio_a_gancio?: boolean;
+}
 /** A least and a most; null where there is none. */
 export type Range = [number | null, number | null] | null;
 /** The rules file (schema 1): only what the code reads is typed closely. */
