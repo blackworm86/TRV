@@ -16,10 +16,10 @@ for (const [from, to] of Object.entries(MOVED)) {
 <html lang="it">
 <head>
 <meta charset="utf-8">
-<title>Thunder Road Vendetta</title>
+<title>Destruction Burger: Retribution</title>
 <script>location.replace('${target}' + location.search + location.hash);</script>
 </head>
-<body><a href="${target}">Thunder Road Vendetta</a></body>
+<body><a href="${target}">Destruction Burger: Retribution</a></body>
 </html>
 `);
 }

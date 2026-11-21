@@ -52,3 +52,10 @@
   source: {vendor: "il proprietario del progetto", product: "disegno fatto da lui"}
   date: 2026-11-15
   ships: true
+- path: assets/base/logo/destruction_burger_retribution.svg
+  origin: unknown
+  tool: "scontorno e vettorializzazione con OpenCV (soglie di colore, contorni a 8x, poligoni semplificati) dal logotipo fornito dal proprietario del progetto, originale in assets/sorgenti/logo/"
+  model: "claude-opus-5-5"
+  source: {vendor: "il proprietario del progetto", product: "logotipo Destruction Burger: Retribution fornito da lui"}
+  date: 2026-11-21
+  ships: true

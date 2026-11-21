@@ -506,8 +506,12 @@
   /* The first screen (design/ux/menu-lobby/mockup.html, approved 2026-11-18): a header with the
      player's card, then one pane at a time: home, lobby, create, my games, friends, local game. */
   #setup .hdr { display: flex; align-items: center; gap: 12px; margin-bottom: 16px; flex-wrap: wrap; }
-  #setup .logo { font: 400 40px/1 'League Gothic', Impact, sans-serif; letter-spacing: 1px; color: var(--acc); text-shadow: 0 2px 0 #000; }
-  #setup .logo small { display: block; font: 700 12px system-ui, sans-serif; letter-spacing: 3px; color: var(--ink); opacity: .6; }
+  /* The title is the logo (assets/base/logo/): cream letters over black ones, drawn for a mid-tone background. */
+  #setup .logo { margin: 0; line-height: 0; }
+  /* A cream halo round the whole outline: invisible on the cream letters, it lifts the black
+     RETRIBUTION off the dark brown of this screen. */
+  #setup .logo img { display: block; height: 96px; width: auto;
+    filter: drop-shadow(0 0 1px #fcf1d1) drop-shadow(0 0 1px #fcf1d1) drop-shadow(0 2px 3px rgba(0,0,0,.6)); }
   #setup .sp, #lobby .sp { flex: 1; }
   #me { display: flex; align-items: center; gap: 8px; background: var(--card); border: 1px solid #4a3523; border-radius: 30px; padding: 4px 14px 4px 4px; }
   .av { width: 34px; height: 34px; border-radius: 50%; background: var(--c, #6b5440); display: grid; place-items: center; font: 400 19px 'League Gothic', Impact, sans-serif; color: #f3e6d0; border: 2px solid #000; flex: none; }
