@@ -823,11 +823,11 @@ function startInspector(who: string, onSignOut: (() => void) | null, store: Comm
       return;
     }
     if (t.closest('[data-copy]')) {
-      const text = t.closest('.prompt')!.querySelector('pre')!.textContent ?? '';
+      const text = t.closest<HTMLElement>('[data-copy]')!.dataset.copy || (t.closest('.prompt')?.querySelector('pre')?.textContent ?? '');
       void navigator.clipboard.writeText(text).then(() => toast('Prompt copiato'), () => toast('Copia non riuscita: seleziona il testo a mano'));
       return;
     }
-    const bar = t.closest<HTMLElement>('.dimabar');
+    const bar = t.closest<HTMLElement>('.dimabar, .todo');
     if (bar && t.closest('[data-dima-show]')) { showDima(bar); $('p-3d').scrollIntoView({ block: 'nearest' }); return; }
     if (bar && t.closest('[data-dima-png], [data-dima-glb]')) {
       const id = bar.dataset.dima!, dima = sheetById(id)!.dima!, btn = t.closest<HTMLButtonElement>('button')!;

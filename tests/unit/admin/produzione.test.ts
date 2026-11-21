@@ -23,8 +23,20 @@ describe('compose', () => {
   });
 
   it('leaves out the template and the paint for a piece with no seats that is not painted', () => {
+    const c = compose(piece({ tipo: 'accessorio', specifico: OWN }))!;
+    expect(c.gemini).toBe([B.stile, B.camera, B.tipo.accessorio, OWN.gemini].join('\n'));
+  });
+
+  it('gives a gun its own camera and its own template text, not the ones of a body', () => {
+    const c = compose(piece({ tipo: 'arma', specifico: OWN, posti: true }))!;
+    expect(c.gemini).toBe([B.stile, B.camera_per_tipo!.arma, B.tipo.arma, B.dima_per_tipo!.arma, OWN.gemini].join('\n'));
+    expect(c.gemini).not.toContain('steering wheel');
+  });
+
+  it('ends the Meshy text of a wheel with the tail of wheels', () => {
     const c = compose(piece({ tipo: 'ruota', specifico: OWN }))!;
-    expect(c.gemini).toBe([B.stile, B.camera, B.tipo.ruota, OWN.gemini].join('\n'));
+    expect(c.meshy).toBe(`${OWN.meshy} ${B.meshy.coda_per_tipo!.ruota}`);
+    expect(c.meshy).not.toContain('rivets');
   });
 
   it('gives a figure no camera: its kind of piece has its own view', () => {

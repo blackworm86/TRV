@@ -109,7 +109,11 @@ export interface Rules {
   tipi: Record<string, string>;
   blocchi: {
     stile: string; camera: string; colore: string; dima: string; tipo: Record<string, string>;
-    meshy: { coda: string; modo: string; impostazioni: Record<string, Record<string, string | number> | string>; esportazione: string };
+    /** The approved concept attached to every Gemini prompt, from the project root. */
+    riferimento_stile?: string;
+    /** The camera and the template text of the kinds of piece that are not drawn like a body. */
+    camera_per_tipo?: Record<string, string>; dima_per_tipo?: Record<string, string>;
+    meshy: { coda: string; coda_per_tipo?: Record<string, string>; modo: string; impostazioni: Record<string, Record<string, string | number> | string>; esportazione: string };
     regole_gemini: string[];
   };
 }
@@ -139,7 +143,8 @@ export interface Composed { gemini: string; meshy: string; impostazioni: Record<
  * The prompts of `piece` put together from the shared blocks (§20.3), or null for a piece with no
  * part of its own (one made before the specification: its prompts are in `usato`).
  * Gemini: style, camera, kind of piece, template (a piece with seats), its own part, paint (a painted
- * piece). A figure has its own view, so no camera. Meshy: its own part, then the shared tail.
+ * piece). A figure has its own view, so no camera. Meshy: its own part, then the tail. Camera, template
+ * and tail are the ones of the kind of piece when it has its own (a gun is drawn from the side).
  */
 export function compose(piece: Piece, r: Rules = RULES): Composed | null {
   if (!piece.specifico) return null;
@@ -147,10 +152,10 @@ export function compose(piece: Piece, r: Rules = RULES): Composed | null {
   const settings = b.meshy.impostazioni[piece.tipo];
   return {
     gemini: [
-      b.stile, piece.tipo === 'figura' ? '' : b.camera, b.tipo[piece.tipo] ?? '', piece.posti ? b.dima : '',
+      b.stile, piece.tipo === 'figura' ? '' : b.camera_per_tipo?.[piece.tipo] ?? b.camera, b.tipo[piece.tipo] ?? '', piece.posti ? b.dima_per_tipo?.[piece.tipo] ?? b.dima : '',
       piece.specifico.gemini, piece.tinto ? b.colore : '',
     ].filter(Boolean).join('\n'),
-    meshy: `${piece.specifico.meshy} ${b.meshy.coda}`,
+    meshy: `${piece.specifico.meshy} ${b.meshy.coda_per_tipo?.[piece.tipo] ?? b.meshy.coda}`,
     impostazioni: { ...(typeof settings === 'object' ? settings : {}), ...(piece.triangoli ? { triangoli: piece.triangoli } : {}) },
     allegati: piece.allegati ?? [],
   };

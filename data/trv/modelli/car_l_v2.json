@@ -39,7 +39,7 @@
       "triangoli": 5500,
       "allegati": [
         "riferimento di stile",
-        "dima: carrozzeria, tre quarti"
+        "dima: carrozzeria_trequarti"
       ],
       "specifico": {
         "gemini": "The model: the Eliminator, a long, tall and stocky post-apocalyptic armoured truck for a desert racing board game. A short hood, a tall boxy cab with two seats and a steering wheel behind small armoured windows, an open cargo bed at the back with low armoured sides and a standing place for a gunner. Three axles, heavy bumpers, welded armour plates.",
@@ -87,7 +87,7 @@
       "triangoli": 700,
       "allegati": [
         "riferimento di stile",
-        "dima: arma, di lato"
+        "dima: arma_lato"
       ],
       "specifico": {
         "gemini": "The model: a heavy machine gun aimed by hand, with an ammunition belt and box, a small armoured gun shield and two rear spade grips.",

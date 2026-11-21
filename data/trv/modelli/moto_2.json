@@ -28,7 +28,7 @@
       "triangoli": 2500,
       "allegati": [
         "riferimento di stile",
-        "dima: telaio, di lato"
+        "dima: carrozzeria_lato"
       ],
       "specifico": {
         "gemini": "The model: an armoured post-apocalyptic combat motorcycle for a desert racing board game. Chunky dirt-bike frame, a narrow fuel tank with smooth plain sides, a flat seat, foot pegs, exhaust pipes, a few spikes and welded armour plates.",
@@ -46,7 +46,7 @@
       "triangoli": 1200,
       "allegati": [
         "riferimento di stile",
-        "dima: avantreno, di lato"
+        "dima: avantreno_lato"
       ],
       "specifico": {
         "gemini": "The model: the front end of that combat motorcycle: a long-travel fork, wide pulled-back handlebars with rubber grips, a short front mudguard and a small caged headlight.",

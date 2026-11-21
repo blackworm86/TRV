@@ -681,7 +681,7 @@
     "intero": "Modello intero (prima della specifica)"
   },
   "blocchi": {
-    "_doc": "§20.3. Un prompt per Gemini = stile + camera + tipo + dima (se il pezzo ha posti) + specifico + colore (se il pezzo è tinto). Un prompt per Meshy = specifico + coda. Cambiare un blocco cambia i prompt dei pezzi non ancora generati; quelli usati restano scritti nei tentativi.",
+    "_doc": "§20.3. Un prompt per Gemini = stile + camera (quella del tipo di pezzo, se ne ha una) + tipo + dima (se il pezzo ha posti; quella del tipo, se ne ha una) + specifico + colore (se il pezzo è tinto). Un prompt per Meshy = specifico + coda (quella del tipo, se ne ha una). Cambiare un blocco cambia i prompt dei pezzi non ancora generati; quelli usati restano scritti nei tentativi.",
     "stile": "Photorealistic 3D render of a physical scale model miniature, like a studio product photo. Matte painted metal with chipped paint, light rust, visible weld seams, rivets and bolts. Seamless light grey studio backdrop, soft overhead lighting, soft contact shadow under the model. Exactly the same rendering style, materials and lighting as the attached style reference image. Not a drawing, not an illustration, no outlines, no cartoon shading, no labels, no text. One single object, nothing else in the picture.",
     "camera": "Camera three-quarter view from the front-left, looking down from above.",
     "colore": "Paint and weathering: every painted panel is one single flat neutral light grey, the same grey everywhere, with no other paint colour, no stripes, no logos, no numbers. About one third to one half of the visible surface is painted. Weathering keeps its own colours and is never grey paint: orange-brown rust, bare scratched steel where the paint is chipped, black burn marks, dry mud, dark oil stains. Repair plates are unpainted bare or rusty metal, welded or bolted on. Everything that is not a painted panel (frame, wheels, weapons, exhausts, mechanics) is dark iron.",
@@ -743,13 +743,30 @@
           "texture": 512
         }
       },
-      "esportazione": "GLB, un oggetto per file, in assets/sorgenti/. La scala non conta: la fissa il collaudo."
+      "esportazione": "GLB, un oggetto per file, in assets/sorgenti/. La scala non conta: la fissa il collaudo.",
+      "coda_per_tipo": {
+        "ruota": "Realistic scale model look, worn rubber and rusty steel, single object.",
+        "figura": "Realistic painted tabletop miniature figure look, single object, standing, arms away from the body."
+      }
     },
     "regole_gemini": [
       "Allega sempre il riferimento di stile (un concept già approvato) e, se il pezzo ha posti, la vista della dima.",
       "Una sola vista per immagine. Le altre viste si chiedono dopo, una per volta.",
       "Mai le parole drawing, sheet, concept art, illustration, hand-painted: portano al disegno piatto.",
       "Un pezzo per immagine, nella stessa conversazione, così lo stile resta uguale."
-    ]
+    ],
+    "camera_per_tipo": {
+      "arma": "Camera: straight side view at the height of the object, its front pointing to the right.",
+      "arma_base": "Camera: straight side view at the height of the object, its front pointing to the right.",
+      "avantreno": "Camera: straight side view at the height of the object, its front pointing to the right.",
+      "telaio": "Camera: straight side view at the height of the object, its front pointing to the right.",
+      "ruota": "Camera: three-quarter side view of the wheel, slightly from above."
+    },
+    "dima_per_tipo": {
+      "arma": "Use the attached grey block-out image as the template of proportions: the same length and height, the same position of the pivot and of the handles. The translucent human figure in the template is only a measure of scale: do not draw any person.",
+      "avantreno": "Use the attached grey block-out image as the template of proportions: the same length and height, the same position of the pivot and of the handlebar grips. The translucent human figure in the template is only a measure of scale: do not draw any person.",
+      "telaio": "Use the attached grey block-out image as the exact template of proportions: the same length and height, the same position of seat, tank, foot pegs, steering head and rear wheel centre. The translucent human figure in the template is only a measure of scale: do not draw any person."
+    },
+    "riferimento_stile": "assets/base/modelli/riferimento_stile.jpg"
   }
 }

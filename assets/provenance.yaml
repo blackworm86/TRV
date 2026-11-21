@@ -10,6 +10,12 @@
 #   date: 2026-01-31
 #   ships: true               # false for a file only the build uses
 #   placeholder: true         # until it is replaced, with _ph before the extension; leave the line out otherwise
+- path: assets/base/modelli/riferimento_stile.jpg
+  origin: ai
+  tool: "Gemini (Nano Banana): il concept approvato che fa da riferimento di stile per tutti i prompt"
+  source: {vendor: "il proprietario del progetto", product: "immagine generata da lui"}
+  date: 2026-11-21
+  ships: false
 - path: assets/base/modelli/Car_Small.glb
   origin: ai
   tool: "Meshy, da concept generati con Gemini (Nano Banana)"

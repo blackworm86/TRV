@@ -2,7 +2,7 @@
 // list of the models with the step each has reached, the sheet of one model with its prompts ready to
 // copy, the rules with their measures read from data/trv/modelli/regole.json, and the specification
 // itself laid out. Markup only: src/admin/admin.ts puts it on the page and answers the clicks
-// (`data-prod` opens a page, `data-copy` copies the prompt beside it, `data-glb` shows a model in 3D).
+// (`data-prod` opens a page, `data-copy` copies the prompt beside it, or its own text, `data-glb` shows a model in 3D).
 
 import DOC from '../../design/art/modelli-strutturati.md?raw';
 import { esc } from '../core/markup';
@@ -78,6 +78,37 @@ function pieceHtml(p: Piece): string {
     ${p.nota ? `<p>${esc(p.nota)}</p>` : ''}${composed}${p.usato ? usedHtml(p) : ''}${tries}</section>`;
 }
 
+/**
+ * What the user does now, in order: the pictures of the template once, then for every piece not made yet
+ * the Gemini prompt with what to attach, the look at the picture, the Meshy prompt with its settings.
+ * Nothing for a sheet with no template or with every piece made.
+ */
+const STYLE_FILES = import.meta.glob<string>('/assets/*/modelli/*.{jpg,png,webp}', { eager: true, query: '?url', import: 'default' });
+/** The style reference as a download, or its name when the file is missing. */
+function styleLink(): string {
+  const path = R.blocchi.riferimento_stile, url = path ? STYLE_FILES[`/${path}`] : undefined;
+  return url ? `<a class="btn" href="${esc(url)}" download="${esc(path!.split('/').pop()!)}">Scarica il riferimento di stile</a>` : '<span class="bad">riferimento di stile non ancora nel progetto</span>';
+}
+
+function todoHtml(s: Sheet): string {
+  const pieces = s.pezzi.filter(p => !p.file).map(p => ({ p, c: compose(p) })).filter(x => x.c);
+  if (!s.dima || !pieces.length) return '';
+  const png = (view: string): string => `<code>${esc(`${s.id}_dima_${view}.png`)}</code>`;
+  const attach = (a: string): string => a.startsWith('dima: ') ? png(a.slice(6)) : a === 'riferimento di stile' ? `<code>${esc(R.blocchi.riferimento_stile?.split('/').pop() ?? 'riferimento di stile')}</code>` : esc(a);
+  const copy = (label: string, text: string): string => `<button class="btn" data-copy="${esc(text)}">${label}</button>`;
+  const rows = pieces.map(({ p, c }) => {
+    const view = p.tipo === 'carrozzeria' || p.tipo === 'telaio' ? 'carrozzeria_lato' : c!.allegati.find(a => a.startsWith('dima: '))?.slice(6);
+    return `<li><strong>${esc(p.nome)}</strong><ol>
+      <li>${copy('Copia il prompt di Gemini', c!.gemini)} Incollalo in Gemini${c!.allegati.length ? ` e allega ${c!.allegati.map(attach).join(' e ')}` : ''}.</li>
+      ${view ? `<li>Guarda l'immagine accanto a ${png(view)}: stesse proporzioni e stesse altezze. Se non torna, rigenera in Gemini prima di andare avanti.</li>` : ''}
+      <li>${copy('Copia il prompt di Meshy', c!.meshy)} In Meshy: ${esc(R.blocchi.meshy.modo)}, con l'immagine di Gemini. Impostazioni: ${settings(c!.impostazioni)}.</li>
+      <li>Salva il GLB e di' a Claude dov'è: misure, montaggio e messa in gioco li fa lui.</li></ol></li>`;
+  }).join('');
+  return `<section class="todo" data-dima="${esc(s.id)}"><h3>Cosa fare adesso</h3><ol>
+    <li><strong>Dima</strong><ol><li><button class="btn" data-dima-png>Scarica le viste della dima (PNG)</button> Una volta sola: finiscono nella cartella dei download.</li><li>${styleLink()} Una volta sola: è l'immagine da allegare a ogni prompt di Gemini.</li></ol></li>
+    ${rows}</ol><p class="set">Un pezzo alla volta, tutti nella stessa conversazione di Gemini. Il resto della pagina è da consultare, non da usare.</p></section>`;
+}
+
 /** The template of a model: the switches of its 3D view, the pictures to download and the check of its seats. */
 function dimaHtml(s: Sheet): string {
   const dima = s.dima!, rows = checkDima(dima, classes()[s.classe], R);
@@ -126,6 +157,7 @@ function sheetHtml(s: Sheet): string {
     <p class="psum">${badge(s.stato.esito)} &nbsp; ${esc(R.regimi[s.regime] ?? s.regime)} &nbsp;·&nbsp; dal ${esc(s.stato.dal)}</p>
     <ol class="steps">${steps}</ol>
     <p>${esc(s.stato.nota)}</p>
+    ${todoHtml(s)}
     ${bad.length ? `<ul class="legend bad">${bad.map(b => `<li>${esc(b)}</li>`).join('')}</ul>` : ''}
     <h3 class="sub">Misure</h3>${table(['', ''], [...target, ...today], 'kv')}
     ${seats}
@@ -152,7 +184,10 @@ function rulesHtml(): string {
     return [esc(k.replace('_', ' ')), `≤ ${num(x.triangoli)}`, num(x.texture), `≤ ${x.materiali}`];
   });
   const blocks: [string, string][] = [['Stile (tutti i pezzi)', b.stile], ['Camera', b.camera], ['Colore e usura (pezzi tinti)', b.colore], ['Dima (pezzi con posti)', b.dima],
-    ...Object.entries(b.tipo).map(([k, v]): [string, string] => [`Tipo di pezzo: ${R.tipi[k] ?? k}`, v]), ['Meshy: coda di ogni testo', b.meshy.coda]];
+    ...Object.entries(b.tipo).map(([k, v]): [string, string] => [`Tipo di pezzo: ${R.tipi[k] ?? k}`, v]),
+    ...Object.entries(b.camera_per_tipo ?? {}).map(([k, v]): [string, string] => [`Camera: ${R.tipi[k] ?? k}`, v]),
+    ...Object.entries(b.dima_per_tipo ?? {}).map(([k, v]): [string, string] => [`Dima: ${R.tipi[k] ?? k}`, v]),
+    ['Meshy: coda di ogni testo', b.meshy.coda], ...Object.entries(b.meshy.coda_per_tipo ?? {}).map(([k, v]): [string, string] => [`Meshy, coda: ${R.tipi[k] ?? k}`, v])];
   const meshy = Object.entries(b.meshy.impostazioni).filter(([, v]) => typeof v === 'object').map(([k, v]) => [esc(R.tipi[k] ?? k), settings(v as Record<string, string | number>)]);
   return `<div class="cat-head"><h2>Regole e misure</h2></div>
     <p class="cat-note">I numeri di questa pagina sono letti da <code>data/trv/modelli/regole.json</code>, lo stesso file che usano gli script e i test. La spiegazione di ogni regola è nella specifica completa.</p>

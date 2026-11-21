@@ -36,11 +36,11 @@
       "triangoli": 5000,
       "allegati": [
         "riferimento di stile",
-        "dima: carrozzeria, tre quarti"
+        "dima: carrozzeria_trequarti"
       ],
       "specifico": {
-        "gemini": "The model: the Avenger, a low and long post-apocalyptic muscle car for a desert racing board game. Long flat hood, low roofline, wide stance, an open cockpit behind a low armoured windscreen with one driver seat and a steering wheel, a standing platform for a gunner at the back. Welded armour plates, side exhausts, a ram bar at the front.",
-        "meshy": "Low poly game-ready body of a low and long post-apocalyptic muscle car, long flat hood, low roofline, open cockpit with one seat and a steering wheel, standing platform at the back, welded armour plates, side exhausts, front ram bar. No wheels, empty wheel arches. No weapons, a flat round mounting plate at the back. Neutral light grey painted panels, dark iron frame."
+        "gemini": "The model: the Avenger, a low and long post-apocalyptic muscle car for a desert racing board game. Long flat hood, low roofline, wide stance, an open cockpit behind a low armoured windscreen with one driver seat and a steering wheel. Behind the cockpit the rear third of the car is a low flat open deck, like a pickup bed without sides, at the height of the cockpit floor and clearly lower than the hood: a gunner stands there. No trunk, no raised rear bodywork. The hood is flat and no higher than the door tops. Welded armour plates, side exhausts, a ram bar at the front.",
+        "meshy": "Low poly game-ready body of a low and long post-apocalyptic muscle car, long flat hood, low roofline, open cockpit with one seat and a steering wheel, low flat open rear deck at cockpit floor height, lower than the hood, no trunk, welded armour plates, side exhausts, front ram bar. No wheels, empty wheel arches. No weapons, a flat round mounting plate at the back. Neutral light grey painted panels, dark iron frame."
       },
       "tentativi": []
     },
@@ -83,7 +83,7 @@
       "posti": true,
       "allegati": [
         "riferimento di stile",
-        "dima: arma, di lato"
+        "dima: arma_lato"
       ],
       "specifico": {
         "gemini": "The model: a heavy machine gun aimed by hand, with an ammunition belt and box, a small armoured gun shield and two rear spade grips.",
@@ -105,6 +105,10 @@
     {
       "data": "2026-11-21",
       "testo": "Sagoma della dima approvata."
+    },
+    {
+      "data": "2026-11-21",
+      "testo": "Prova del flusso: il primo concept aveva la coda alta circa 1,05 m invece di 0,45 e Meshy l'ha copiata. Il prompt della carrozzeria ora chiede un pianale basso e aperto, all'altezza del fondo dell'abitacolo."
     }
   ],
   "provenienza": {

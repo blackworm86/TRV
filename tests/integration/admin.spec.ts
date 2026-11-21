@@ -169,6 +169,18 @@ test.describe('admin inspector', () => {
     await page.locator('[data-prod="car_m_v2"]').click();
     await expect(page.locator('main h2')).toHaveText('Auto media (Avenger) ridisegnata');
     await expect(page.locator('ol.steps li.now')).toContainText('Dima');
+    // What to do now, in order: the template's pictures, then every piece with its two prompts to copy.
+    const todo = page.locator('.todo');
+    await expect(todo.locator('h3')).toHaveText('Cosa fare adesso');
+    await expect(todo.locator('[data-dima-png]')).toBeVisible();
+    await expect(todo).toContainText('car_m_v2_dima_carrozzeria_trequarti.png');
+    await expect(todo.getByRole('link', { name: 'Scarica il riferimento di stile' })).toHaveAttribute('download', 'riferimento_stile.jpg');
+    await page.setViewportSize({ width: 1366, height: 1600 });
+    await todo.screenshot({ path: `${PRODUCTION}/2b-cosa-fare-adesso.png` });
+    await page.setViewportSize({ width: 1366, height: 800 });
+    await todo.getByRole('button', { name: 'Copia il prompt di Meshy' }).first().click();
+    await expect(page.locator('#toast')).toHaveText('Prompt copiato');
+    expect(await page.evaluate(() => navigator.clipboard.readText())).toContain('low flat open rear deck');
     const body = page.locator('#pz-car_m_v2_body');
     await expect(body.locator('.prompt pre').first()).toContainText('Photorealistic 3D render');
     await expect(body.locator('.prompt pre').first()).toContainText('one single flat neutral light grey');
@@ -229,21 +241,23 @@ test.describe('admin inspector', () => {
     // The pictures to attach to Gemini come down as PNG files, the .glb as one file.
     const files: string[] = [];
     page.on('download', d => { files.push(d.suggestedFilename()); void d.saveAs(`${PRODUCTION}/dima/${d.suggestedFilename()}`); });
-    await page.locator('[data-dima-png]').click();
-    await expect.poll(() => files.length, { timeout: 30_000 }).toBe(6);
+    await page.locator('.dimabar [data-dima-png]').click();
+    await expect.poll(() => files.length, { timeout: 30_000 }).toBe(7);
     expect(files).toContain('car_m_v2_dima_carrozzeria_lato.png');
-    await page.locator('[data-dima-glb]').click();
+    expect(files).toContain('car_m_v2_dima_arma_lato.png'); // the gun alone, with who holds it
+    await page.locator('.dimabar [data-dima-glb]').click();
     await expect.poll(() => files, { timeout: 30_000 }).toContain('car_m_v2_dima.glb');
     await page.waitForTimeout(500);
 
     // Every other template of the repository passes the check of its seats and gives its pictures.
-    for (const id of ["car_s_v2", "car_l_v2", "moto_2", "big_rig_front_v2", "big_rig_mid_v2", "big_rig_rear_v2"]) {
+    // Six pictures each, and one more for every piece drawn alone: a gun somebody holds, the motorcycle's front end.
+    for (const [id, more] of [["car_s_v2", 0], ["car_l_v2", 1], ["moto_2", 1], ["big_rig_front_v2", 1], ["big_rig_mid_v2", 0], ["big_rig_rear_v2", 1]] as const) {
       const had = files.length;
       await page.locator("[data-prod='']").click();
       await page.locator(`[data-prod="${id}"]`).click();
       await expect(page.locator("#dima-check"), id).toContainText("passa");
-      await page.locator("[data-dima-png]").click();
-      await expect.poll(() => files.length, { timeout: 30_000 }).toBe(had + 6);
+      await page.locator(".dimabar [data-dima-png]").click();
+      await expect.poll(() => files.length, { timeout: 30_000 }).toBe(had + 6 + more);
     }
     await page.waitForTimeout(500);
     expect(errors).toEqual([]);

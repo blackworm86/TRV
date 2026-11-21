@@ -29,7 +29,7 @@
       "triangoli": 5000,
       "allegati": [
         "riferimento di stile",
-        "dima: carrozzeria, tre quarti"
+        "dima: carrozzeria_trequarti"
       ],
       "specifico": {
         "gemini": "The model: the rear wagon of that armoured road train: a closed armoured box at the front with a radar dish and antennas on its roof, and at the back a lower open deck with low armoured sides where a gunner stands facing backward, a rear hatch with a dumping chute holding oil drums and spiked caltrops. A thin tow bar ending in a ring at the front. It is a trailer: no cab, no hood, no windscreen, no doors.",
@@ -62,7 +62,7 @@
       "triangoli": 700,
       "allegati": [
         "riferimento di stile",
-        "dima: arma, di lato"
+        "dima: arma_lato"
       ],
       "specifico": {
         "gemini": "The model: a heavy machine gun aimed by hand, with an ammunition belt and box, a small armoured gun shield and two rear spade grips.",

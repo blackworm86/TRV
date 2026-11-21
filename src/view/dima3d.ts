@@ -23,6 +23,8 @@ export interface DimaLook {
   ground: boolean;
   /** Which position every seat is shown in: 0 the neutral one, then its extremes in order. */
   position: number;
+  /** Only the boxes of the pieces whose name starts so (`arma`, `avantreno`), with who stands or rides at them. */
+  only?: string;
 }
 /** Everything on, the figures solid, the neutral position. */
 export const DIMA_WHOLE: DimaLook = { wheels: true, weapons: true, figure: 'solid', marks: true, ground: true, position: 0 };
@@ -78,7 +80,7 @@ export function buildDima(dima: Dima, r: Rules, look: DimaLook = DIMA_WHOLE): TH
   const flat = (color: number, more: THREE.MeshStandardMaterialParameters = {}): THREE.MeshStandardMaterial => new THREE.MeshStandardMaterial({ color, roughness: 0.9, ...more });
   const mats = { pieno: flat(GREY.body), sedile: flat(GREY.seat), comando: flat(GREY.control), vetro: flat(0xbfd6de, { transparent: true, opacity: 0.35, depthWrite: false }), weapon: flat(GREY.weapon) };
   for (const b of dima.volumi) {
-    if (b.pezzo && !look.weapons) continue;
+    if (look.only ? !b.pezzo?.startsWith(look.only) : b.pezzo && !look.weapons) continue;
     const size = [0, 1, 2].map(i => Math.abs(b.a[i] - b.da[i]));
     const mesh = new THREE.Mesh(new THREE.BoxGeometry(size[0], size[1], size[2]), b.pezzo ? mats.weapon : mats[b.uso ?? 'pieno']);
     mesh.position.set((b.da[0] + b.a[0]) / 2, (b.da[1] + b.a[1]) / 2, (b.da[2] + b.a[2]) / 2);
@@ -99,6 +101,7 @@ export function buildDima(dima: Dima, r: Rules, look: DimaLook = DIMA_WHOLE): TH
   }
   const dot = (p: number[], color: number): void => { const s = new THREE.Mesh(new THREE.SphereGeometry(0.035, 12, 8), new THREE.MeshBasicMaterial({ color })); s.position.set(p[0], p[1], p[2]); g.add(s); };
   for (const seat of dima.posti) {
+    if (look.only && seat.posa === 'sit') continue; // a piece alone: only who holds it
     const all = positions(seat), pos = all[Math.min(look.position, all.length - 1)];
     if (look.figure !== 'none') g.add(figureMesh(poseFigure(seat, pos.prese, r), r, look.figure === 'ghost'));
     if (!look.marks) continue;
@@ -121,7 +124,9 @@ export interface DimaView { name: string; blob: Blob }
 /**
  * The pictures of a template to attach to Gemini (§17): the body alone, with no wheels and no weapon
  * and the figures see-through, from the side, from above, from the front and in three quarters; then
- * the whole vehicle with its crew, in three quarters. PNG, light grey ground, 1600 × 1000.
+ * the whole vehicle with its crew, in three quarters and from the side; then every other piece alone
+ * from the side (the weapon, the motorcycle's front end), with who holds it. PNG, light grey ground,
+ * 1600 × 1000.
  */
 export async function dimaViews(dima: Dima, r: Rules): Promise<DimaView[]> {
   const W = 1600, H = 1000;
@@ -147,6 +152,8 @@ export async function dimaViews(dima: Dima, r: Rules): Promise<DimaView[]> {
   };
   const body: DimaLook = { wheels: false, weapons: false, figure: 'ghost', marks: false, ground: true, position: 0 };
   const Y = new THREE.Vector3(0, 1, 0), quarter = new THREE.Vector3(1, 0.75, -1);
+  const alone = [...new Set(dima.volumi.map(b => b.pezzo?.replace('arma_base', 'arma')).filter((x): x is string => !!x))]
+    .filter(piece => piece !== 'arma' || dima.posti.some(s => s.posa === 'stand'));
   try {
     return [
       await shot('carrozzeria_lato', body, new THREE.Vector3(0, 0, 1), Y, true),
@@ -155,6 +162,7 @@ export async function dimaViews(dima: Dima, r: Rules): Promise<DimaView[]> {
       await shot('carrozzeria_trequarti', body, quarter, Y, false),
       await shot('intera_trequarti', { ...DIMA_WHOLE, marks: false }, quarter, Y, false),
       await shot('intera_lato', { ...DIMA_WHOLE, marks: false }, new THREE.Vector3(0, 0, 1), Y, true),
+      ...await Promise.all(alone.map(piece => shot(`${piece}_lato`, { ...body, only: piece }, new THREE.Vector3(0, 0, 1), Y, true))),
     ];
   } finally {
     renderer.dispose();
