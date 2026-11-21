@@ -103,7 +103,7 @@ function todoHtml(s: Sheet): string {
       <li>${copy('Copia il prompt di Gemini', c!.gemini)} Incollalo in Gemini${c!.allegati.length ? ` e allega ${c!.allegati.map(attach).join(' e ')}` : ''}.</li>
       ${view ? `<li>Guarda l'immagine accanto a ${png(view)}: stesse proporzioni e stesse altezze. Se non torna, rigenera in Gemini prima di andare avanti.</li>` : ''}
       <li>${copy('Copia il prompt di Meshy', c!.meshy)} In Meshy: ${esc(R.blocchi.meshy.modo)}, con l'immagine di Gemini${view ? ` e la dima 3D <code>${esc(`${s.id}_dima.glb`)}</code>` : ''}. Impostazioni: ${settings(c!.impostazioni)}.</li>
-      <li>Salva il GLB e di' a Claude dov'è: controlla che sia chiuso (manifold), poi misure, montaggio e messa in gioco. Un modello aperto si rigenera.</li></ol></li>`;
+      <li>Salva il GLB e di' a Claude dov'è: lo ripulisce, controlla che sia chiuso e adatta la dima al modello. <strong>Non rigenerare per uno scarto di misura</strong>: si rigenera solo se la forma è sbagliata o le ruote non entrano nei passaruota.</li></ol></li>`;
   }).join('');
   return `<section class="todo" data-dima="${esc(s.id)}"><h3>Cosa fare adesso</h3><ol>
     <li><strong>Dima</strong><ol><li><button class="btn" data-dima-png>Scarica le viste della dima (PNG)</button> Una volta sola: finiscono nella cartella dei download.</li>

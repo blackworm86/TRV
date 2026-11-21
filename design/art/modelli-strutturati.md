@@ -955,6 +955,23 @@ risultato è un rapporto salvato nella scheda di produzione e mostrato nell'insp
 - **Non passa**: il rapporto dice quale misura è fuori e di quanto, in parole ("la sella è 9 cm troppo
   larga tra le cosce"). Si rigenera il pezzo, o si corregge la scheda se era sbagliata lei.
 
+**La dima segue il modello** (decisione del 2026-11-21, dopo quattro generazioni dell'Avenger). Un modello
+generato non rispetta mai la dima al centimetro, e rigenerare costa. Per questo **non si rigenera per uno
+scarto di misura**: posti, ruote e base dell'arma si spostano sui punti veri del modello e i controlli
+2-5 si rifanno lì. Si rigenera solo quando:
+- la forma è sbagliata (manca il pianale del mitragliere, non c'è l'abitacolo, l'auto è un'altra);
+- i passaruota non contengono la ruota da ferma, o le anteriori non sterzano fino al limite del gioco;
+- dopo la pulizia restano buchi che non si possono tappare (cornici, gusci aperti grandi).
+
+**La pulizia prima del collaudo.** `tools/models/pulisci_carrozzeria.py` toglie i pezzi sciolti che Meshy
+lascia dentro i passaruota (molle, bracci: li coprono le ruote, che hanno bisogno di quello spazio), tappa
+i buchi piccoli e piatti e toglie le lastre aperte sotto la scocca. Non deforma niente: spostare i vertici
+per allargare un passaruota rovina la carrozzeria (prova del 2026-11-21).
+
+**Ruote: cosa si controlla davvero.** Il gioco non anima la sospensione e sterza solo le ruote anteriori,
+con un limite per modello. Il punto 5 si fa quindi sulla ruota ferma e a tutto sterzo; la corsa della
+sospensione si controllerà quando il gioco la animerà.
+
 **Le immagini.** Il collaudo salva una vista per ogni posa provata, con le parti fuori tolleranza in
 rosso. I numeri li giudica lo script; l'aspetto lo giudica l'utente.
 

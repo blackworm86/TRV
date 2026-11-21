@@ -10,7 +10,7 @@
     "passo": 2,
     "esito": "in_lavorazione",
     "dal": "2026-11-21",
-    "nota": "Dima adattata il 2026-11-21 alla terza carrozzeria generata, che va tenuta. Restano da decidere i passaruota (bassi rispetto alla corsa della sospensione). Le parti specifiche dei prompt sono bozze."
+    "nota": "Carrozzeria tenuta il 2026-11-21 (quarta generazione, ripulita) e dima adattata. Da fare: ruote, base dell'arma e arma con i prompt nuovi; montaggio."
   },
   "posti": [
     {
@@ -43,7 +43,38 @@
         "gemini": "The model: the Avenger, a low and long post-apocalyptic muscle car for a desert racing board game. Long flat hood, low roofline, wide stance, an open cockpit behind a low armoured windscreen with one driver seat and a steering wheel. Behind the cockpit the rear third of the car is a low flat open deck, like a pickup bed without sides, at the height of the cockpit floor and clearly lower than the hood: a gunner stands there. No trunk, no raised rear bodywork. The hood is flat and no higher than the door tops. Welded armour plates, side exhausts, a ram bar at the front.",
         "meshy": "Low poly game-ready body of a low and long post-apocalyptic muscle car, long flat hood, low roofline, open cockpit with one seat and a steering wheel, low flat open rear deck at cockpit floor height, lower than the hood, no trunk, welded armour plates, side exhausts, front ram bar. No wheels, empty wheel arches. No weapons, a flat round mounting plate at the back. Neutral light grey painted panels, dark iron frame."
       },
-      "tentativi": []
+      "tentativi": [
+        {
+          "data": "2026-11-21",
+          "strumento": "Gemini + Meshy",
+          "prompt": "composto dai blocchi (prima versione)",
+          "esito": "scartato",
+          "nota": "Coda alta circa 1,05 m invece del pianale a 0,45: il mitragliere non ci stava."
+        },
+        {
+          "data": "2026-11-21",
+          "strumento": "Gemini + Meshy",
+          "prompt": "composto, con il pianale basso",
+          "esito": "scartato",
+          "nota": "Baule a 0,96 m e altezze sbagliate: a Gemini mancava la vista di lato della dima."
+        },
+        {
+          "data": "2026-11-21",
+          "strumento": "Gemini + Meshy",
+          "prompt": "composto, con la vista di lato",
+          "esito": "scartato",
+          "nota": "Pianale giusto, ma passaruota troppo bassi per le ruote; chiuderli a script deformava la carrozzeria."
+        },
+        {
+          "data": "2026-11-21",
+          "strumento": "Gemini + Meshy",
+          "prompt": "composto, con il modello chiuso e i passaruota ampi",
+          "esito": "approvato",
+          "sorgente": "assets/sorgenti/avenger_2026-11-21/Avenger_Chassis_.glb",
+          "nota": "Tenuto. Ripulito con tools/models/pulisci_carrozzeria.py (assi +1,41 e −1,21): tolte 31 sospensioni sciolte dai passaruota e 2 lastre aperte sotto la scocca, tappati i buchi piccoli. Chiuso: 0 spigoli aperti. La dima è stata adattata al modello."
+        }
+      ],
+      "sorgente": "assets/sorgenti/avenger_2026-11-21/Avenger_Chassis_pulito.glb"
     },
     {
       "id": "car_m_v2_wheel",
@@ -118,6 +149,10 @@
     {
       "data": "2026-11-21",
       "testo": "Dima adattata alla terza carrozzeria generata (Avenger_car_body.glb): abitacolo 25 cm più avanti e sedile più alto, volante inclinato, pianale a 0,46 m con sponda posteriore, base dell'arma sulla piastra a −1,57 m, mitragliere dietro a −2,08 m, ruota anteriore a +1,4 m sul passaruota."
+    },
+    {
+      "data": "2026-11-21",
+      "testo": "Quarta carrozzeria (Avenger_Chassis_.glb) tenuta: chiusa a script togliendo le sospensioni sciolte dentro i passaruota e tappando i buchi piccoli. La dima la segue: ruote a +1,41 e −1,21 m, pianale a 0,85 m con la piastra dell'arma a −1,54 m, mitragliere dietro a −2,05 m, pilota sul sedile del modello. Il gioco non anima la sospensione: le ruote devono stare nei passaruota da ferme e sterzare fino a 32°."
     }
   ],
   "provenienza": {
@@ -145,51 +180,38 @@
       {
         "id": "cofano",
         "da": [
-          0.8,
+          0.65,
           0.3,
           -0.62
         ],
         "a": [
           2.4,
-          0.85,
+          0.93,
           0.62
         ]
       },
       {
-        "id": "cruscotto_alto",
+        "id": "cruscotto",
         "da": [
           0.45,
-          0.88,
+          0.7,
           -0.62
         ],
         "a": [
-          0.6,
-          1.0,
-          0.62
-        ]
-      },
-      {
-        "id": "cruscotto_basso",
-        "da": [
-          0.6,
-          0.66,
-          -0.62
-        ],
-        "a": [
-          0.8,
-          0.95,
+          0.65,
+          0.98,
           0.62
         ]
       },
       {
         "id": "parabrezza",
         "da": [
-          0.5,
-          1.0,
+          0.55,
+          0.98,
           -0.62
         ],
         "a": [
-          0.58,
+          0.62,
           1.28,
           0.62
         ],
@@ -200,12 +222,12 @@
         "da": [
           -0.6,
           0.3,
-          -0.86
+          -0.82
         ],
         "a": [
-          0.8,
+          0.65,
           0.92,
-          -0.76
+          -0.72
         ]
       },
       {
@@ -213,78 +235,65 @@
         "da": [
           -0.6,
           0.3,
-          0.76
+          0.72
         ],
         "a": [
-          0.8,
+          0.65,
           0.92,
-          0.86
+          0.82
         ]
       },
       {
         "id": "sedile",
         "da": [
-          -0.27,
+          -0.33,
           0.36,
           -0.62
         ],
         "a": [
-          0.2,
-          0.59,
-          -0.22
+          0.15,
+          0.55,
+          -0.18
         ],
         "uso": "sedile"
       },
       {
         "id": "schienale",
         "da": [
-          -0.42,
+          -0.47,
           0.36,
           -0.62
         ],
         "a": [
-          -0.27,
-          1.18,
-          -0.22
+          -0.33,
+          1.15,
+          -0.18
         ],
         "uso": "sedile"
       },
       {
         "id": "roll_bar",
         "da": [
-          -0.5,
+          -0.55,
           0.95,
-          -0.7
+          -0.75
         ],
         "a": [
-          -0.42,
-          1.18,
-          0.7
+          -0.47,
+          1.22,
+          0.75
         ]
       },
       {
         "id": "pianale",
         "da": [
-          -2.2,
+          -2.25,
           0.3,
           -0.62
         ],
         "a": [
-          -0.6,
-          0.46,
-          0.62
-        ]
-      },
-      {
-        "id": "sponda_posteriore",
-        "da": [
-          -2.4,
-          0.3,
-          -0.62
-        ],
-        "a": [
-          -2.2,
-          0.64,
+          -0.7,
+          0.85,
           0.62
         ]
       },
@@ -292,118 +301,92 @@
         "id": "piastra_arma",
         "da": [
           -1.88,
-          0.46,
-          -0.31
+          0.85,
+          -0.34
         ],
         "a": [
-          -1.26,
-          0.51,
-          0.31
+          -1.2,
+          0.9,
+          0.34
         ]
       },
       {
         "id": "parafanghi_anteriori",
         "da": [
           1.0,
-          0.3,
-          -0.95
+          0.78,
+          -1.0
         ],
         "a": [
-          1.8,
-          0.9,
-          0.95
+          1.85,
+          0.93,
+          1.0
         ]
       },
       {
-        "id": "parafango_posteriore_sinistro",
+        "id": "parafango_posteriore_sinistra",
         "da": [
-          -1.95,
-          0.3,
-          -0.95
+          -1.65,
+          0.78,
+          -1.0
         ],
         "a": [
-          -1.05,
-          0.79,
+          -0.75,
+          0.98,
           -0.62
         ]
       },
       {
-        "id": "parafango_posteriore_destro",
+        "id": "parafango_posteriore_destra",
         "da": [
-          -1.95,
-          0.3,
+          -1.65,
+          0.78,
           0.62
         ],
         "a": [
-          -1.05,
-          0.79,
-          0.95
-        ]
-      },
-      {
-        "id": "fiancate_pianale",
-        "da": [
-          -2.2,
-          0.3,
-          -0.95
-        ],
-        "a": [
-          -0.6,
-          0.71,
-          -0.77
-        ]
-      },
-      {
-        "id": "fiancate_pianale_destra",
-        "da": [
-          -2.2,
-          0.3,
-          0.77
-        ],
-        "a": [
-          -0.6,
-          0.71,
-          0.95
+          -0.75,
+          0.98,
+          1.0
         ]
       },
       {
         "id": "volante",
         "da": [
-          0.3,
-          0.74,
-          -0.6
+          0.26,
+          0.6,
+          -0.58
         ],
         "a": [
-          0.4,
-          1.1,
-          -0.24
+          0.34,
+          0.96,
+          -0.22
         ],
         "uso": "comando"
       },
       {
         "id": "pedali",
         "da": [
-          0.58,
-          0.3,
+          0.52,
+          0.26,
           -0.55
         ],
         "a": [
-          0.68,
-          0.4,
-          -0.29
+          0.6,
+          0.34,
+          -0.25
         ],
         "uso": "comando"
       },
       {
         "id": "base_arma",
         "da": [
-          -1.65,
-          0.51,
+          -1.62,
+          0.9,
           -0.08
         ],
         "a": [
-          -1.49,
-          1.77,
+          -1.46,
+          2.14,
           0.08
         ],
         "uso": "comando",
@@ -412,13 +395,13 @@
       {
         "id": "arma",
         "da": [
-          -1.82,
-          1.75,
+          -1.79,
+          2.12,
           -0.09
         ],
         "a": [
-          -0.42,
-          1.97,
+          -0.39,
+          2.34,
           0.09
         ],
         "uso": "comando",
@@ -427,14 +410,14 @@
     ],
     "ruote": [
       {
-        "x": 1.4,
+        "x": 1.41,
         "z": 0.8,
         "r": 0.36,
         "w": 0.3,
         "sterza": true
       },
       {
-        "x": -1.5,
+        "x": -1.21,
         "z": 0.8,
         "r": 0.36,
         "w": 0.3
@@ -446,42 +429,42 @@
         "posa": "sit",
         "ruolo": "pilota",
         "anche": [
-          0.0,
-          0.67,
-          -0.42
+          -0.18,
+          0.66,
+          -0.4
         ],
         "schienale": 15,
         "prese": {
           "L": [
-            0.35,
-            0.92,
-            -0.6
+            0.3,
+            0.78,
+            -0.5800000000000001
           ],
           "R": [
-            0.35,
-            0.92,
-            -0.24
+            0.3,
+            0.78,
+            -0.22000000000000003
           ]
         },
         "piedi": {
           "L": [
-            0.62,
-            0.32,
-            -0.53
+            0.53,
+            0.3,
+            -0.51
           ],
           "R": [
-            0.62,
-            0.32,
-            -0.31
+            0.53,
+            0.3,
+            -0.29
           ]
         },
         "mosse": [
           {
             "nome": "volante",
             "centro": [
-              0.35,
-              0.92,
-              -0.42
+              0.3,
+              0.78,
+              -0.4
             ],
             "asse": [
               -0.93,
@@ -500,31 +483,31 @@
         "posa": "stand",
         "ruolo": "artigliere",
         "anche": [
-          -2.08,
-          1.32,
+          -2.05,
+          1.71,
           0
         ],
         "prese": {
           "L": [
-            -1.76,
-            1.77,
+            -1.73,
+            2.14,
             -0.12
           ],
           "R": [
-            -1.76,
-            1.77,
+            -1.73,
+            2.14,
             0.12
           ]
         },
         "piedi": {
           "L": [
-            -2.08,
-            0.46,
+            -2.05,
+            0.85,
             -0.16
           ],
           "R": [
-            -2.08,
-            0.46,
+            -2.05,
+            0.85,
             0.16
           ]
         },
@@ -532,8 +515,8 @@
           {
             "nome": "alzo",
             "centro": [
-              -1.57,
-              1.77,
+              -1.54,
+              2.14,
               0
             ],
             "asse": [
