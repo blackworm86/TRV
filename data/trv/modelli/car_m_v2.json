@@ -10,7 +10,7 @@
     "passo": 2,
     "esito": "in_lavorazione",
     "dal": "2026-11-21",
-    "nota": "Carrozzeria tenuta il 2026-11-21 (quarta generazione, ripulita) e dima adattata. Da fare: ruote, base dell'arma e arma con i prompt nuovi; montaggio."
+    "nota": "Carrozzeria, ruota, base dell'arma e arma tenute il 2026-11-21, adattate alla dima (tools/models/adatta_pezzo.py) e controllate montate: dima 100 su 101. Da fare: montaggio nel gioco."
   },
   "posti": [
     {
@@ -89,7 +89,17 @@
         "gemini": "The model: a wide muscle car wheel, a fat road tyre with a worn tread on a dark steel rim with five bolts.",
         "meshy": "Low poly game-ready muscle car wheel, fat worn road tyre, dark steel rim with a centred hub and five bolts."
       },
-      "tentativi": []
+      "tentativi": [
+        {
+          "data": "2026-11-21",
+          "strumento": "Meshy",
+          "prompt": "ruota riciclata dall'utente",
+          "esito": "approvato",
+          "sorgente": "assets/sorgenti/avenger_2026-11-21/Wheel.glb",
+          "nota": "Tenuta: ruota riciclata dall'utente. Portata a raggio 0,36 m (scala 1,235) e allargata a 0,30 m (1,075 sull'asse), come le ruote della dima; tappato l'anello aperto dietro il cerchione. Chiusa: 0 spigoli aperti. Comando: python tools/models/adatta_pezzo.py Wheel.glb Wheel_adattata.glb --scala 1.235 1.235 1.075"
+        }
+      ],
+      "sorgente": "assets/sorgenti/avenger_2026-11-21/Wheel_adattata.glb"
     },
     {
       "id": "car_m_v2_gun_mount",
@@ -104,7 +114,17 @@
         "gemini": "The model: the pintle mount of a heavy machine gun, a short thick steel post on a round rotating base.",
         "meshy": "Low poly game-ready pintle mount for a heavy machine gun, short thick steel post on a round rotating base, dark rusty iron."
       },
-      "tentativi": []
+      "tentativi": [
+        {
+          "data": "2026-11-21",
+          "strumento": "Gemini + Meshy",
+          "prompt": "composto, con il modello chiuso",
+          "esito": "approvato",
+          "sorgente": "assets/sorgenti/avenger_2026-11-21/PintleMount.glb",
+          "nota": "Tenuta. Tolto il disco piatto staccato sotto la base (la piastra è già nella carrozzeria); larga 0,6 m come la piastra; allungato il solo collo (0,41 m) perché il manicotto arrivi sotto l'arma: alta 0,98 m, sulla piastra a 0,90 m. Chiusa, un pezzo solo. Comando: python tools/models/adatta_pezzo.py PintleMount.glb PintleMount_adattata.glb --togli-sotto --gira --scala 1 1 1 --origine 0.101 -0.259 0 --allunga -0.17 -0.06 0.414"
+        }
+      ],
+      "sorgente": "assets/sorgenti/avenger_2026-11-21/PintleMount_adattata.glb"
     },
     {
       "id": "car_m_v2_gun",
@@ -121,7 +141,17 @@
         "gemini": "The model: a heavy machine gun aimed by hand, with an ammunition belt and box, a small armoured gun shield and two rear spade grips.",
         "meshy": "Low poly game-ready heavy machine gun with ammunition belt and box, small armoured gun shield, two rear spade grips, dark rusty iron."
       },
-      "tentativi": []
+      "tentativi": [
+        {
+          "data": "2026-11-21",
+          "strumento": "Gemini + Meshy",
+          "prompt": "composto, con il modello chiuso",
+          "esito": "approvato",
+          "sorgente": "assets/sorgenti/avenger_2026-11-21/HeavyMachineGun.glb",
+          "nota": "Tenuta. Scala 1,3: lunga 1,25 m, impugnature 0,45 m dietro il perno, così il mitragliere sta sul pianale. Staccati di mezzo millimetro due blocchetti che si toccavano lungo uno spigolo. Chiusa: 0 spigoli aperti, 0 non manifold. Comando: python tools/models/adatta_pezzo.py HeavyMachineGun.glb HeavyMachineGun_adattata.glb --gira --scala 1.3 1.3 1.3 --origine 0.134 0.068 0"
+        }
+      ],
+      "sorgente": "assets/sorgenti/avenger_2026-11-21/HeavyMachineGun_adattata.glb"
     }
   ],
   "collaudi": [],
@@ -153,6 +183,10 @@
     {
       "data": "2026-11-21",
       "testo": "Quarta carrozzeria (Avenger_Chassis_.glb) tenuta: chiusa a script togliendo le sospensioni sciolte dentro i passaruota e tappando i buchi piccoli. La dima la segue: ruote a +1,41 e −1,21 m, pianale a 0,85 m con la piastra dell'arma a −1,54 m, mitragliere dietro a −2,05 m, pilota sul sedile del modello. Il gioco non anima la sospensione: le ruote devono stare nei passaruota da ferme e sterzare fino a 32°."
+    },
+    {
+      "data": "2026-11-21",
+      "testo": "Ruota, base e arma tenute senza rigenerare: la ruota riciclata è portata alle misure della dima (raggio 0,36, larghezza 0,30), la base ha il collo allungato perché l'arma stia all'altezza delle mani del mitragliere, l'arma è a scala 1,3. La dima le segue: perno dell'arma a −1,50 m e 2,10 m, base sulla piastra a 0,90 m, pianale a 0,82 m, mitragliere a −2,25 m con le prese sulle impugnature (16 cm tra le mani)."
     }
   ],
   "provenienza": {
@@ -287,27 +321,27 @@
       {
         "id": "pianale",
         "da": [
-          -2.25,
+          -2.3,
           0.3,
           -0.62
         ],
         "a": [
           -0.7,
-          0.85,
+          0.82,
           0.62
         ]
       },
       {
         "id": "piastra_arma",
         "da": [
-          -1.88,
-          0.85,
-          -0.34
+          -1.85,
+          0.82,
+          -0.3
         ],
         "a": [
-          -1.2,
+          -1.25,
           0.9,
-          0.34
+          0.3
         ]
       },
       {
@@ -380,14 +414,14 @@
       {
         "id": "base_arma",
         "da": [
-          -1.62,
+          -1.8,
           0.9,
-          -0.08
+          -0.31
         ],
         "a": [
-          -1.46,
-          2.14,
-          0.08
+          -0.92,
+          1.88,
+          0.31
         ],
         "uso": "comando",
         "pezzo": "arma_base"
@@ -395,14 +429,14 @@
       {
         "id": "arma",
         "da": [
-          -1.79,
-          2.12,
-          -0.09
+          -1.95,
+          1.78,
+          -0.17
         ],
         "a": [
-          -0.39,
-          2.34,
-          0.09
+          -0.7,
+          2.25,
+          0.17
         ],
         "uso": "comando",
         "pezzo": "arma"
@@ -483,31 +517,31 @@
         "posa": "stand",
         "ruolo": "artigliere",
         "anche": [
-          -2.05,
-          1.71,
+          -2.25,
+          1.68,
           0
         ],
         "prese": {
           "L": [
-            -1.73,
-            2.14,
-            -0.12
+            -1.95,
+            2.1,
+            -0.08
           ],
           "R": [
-            -1.73,
-            2.14,
-            0.12
+            -1.95,
+            2.1,
+            0.08
           ]
         },
         "piedi": {
           "L": [
-            -2.05,
-            0.85,
+            -2.25,
+            0.82,
             -0.16
           ],
           "R": [
-            -2.05,
-            0.85,
+            -2.25,
+            0.82,
             0.16
           ]
         },
@@ -515,8 +549,8 @@
           {
             "nome": "alzo",
             "centro": [
-              -1.54,
-              2.14,
+              -1.5,
+              2.1,
               0
             ],
             "asse": [

@@ -968,6 +968,12 @@ lascia dentro i passaruota (molle, bracci: li coprono le ruote, che hanno bisogn
 i buchi piccoli e piatti e toglie le lastre aperte sotto la scocca. Non deforma niente: spostare i vertici
 per allargare un passaruota rovina la carrozzeria (prova del 2026-11-21).
 
+**Gli altri pezzi.** `tools/models/adatta_pezzo.py` porta ruote, basi e armi alla dima: le gira col muso
+verso +x, prende il loro perno come origine e le scala per asse (una ruota si allarga senza ingrandirla),
+toglie i dischi staccati sotto una base, tappa gli anelli aperti e stacca di mezzo millimetro i blocchi che
+si toccano lungo uno spigolo. Può allungare una sola fascia di altezze (il collo di una base) perché l'arma
+arrivi alle mani del mitragliere; il resto del pezzo resta com'è. Il comando usato è nella nota del tentativo.
+
 **Ruote: cosa si controlla davvero.** Il gioco non anima la sospensione e sterza solo le ruote anteriori,
 con un limite per modello. Il punto 5 si fa quindi sulla ruota ferma e a tutto sterzo; la corsa della
 sospensione si controllerà quando il gioco la animerà.
