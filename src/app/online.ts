@@ -13,7 +13,7 @@ import {
   roomPath, roomSeats, startMatch, startProblem, isReady, setReady, clearReady, MINI_KEYS, type RoomOptions, type Room, type RoomStore, type Visibility,
 } from '../net/room';
 import { miniSwitches, miniId, readMinis } from './minisetup';
-import { forgetGame, lobbyEntry, publishLobby, rememberGame, userPath } from '../net/social';
+import { HEARTBEAT_MS, forgetGame, lobbyEntry, publishLobby, rememberGame, takeOverHost, userPath } from '../net/social';
 import { resultOf } from '../net/stats';
 import { FIREBASE_CONFIG } from '../net/firebase-config';
 import qrcode from 'qrcode-generator';
@@ -91,7 +91,17 @@ export function enterRoom(store: RoomStore, code: string, uid: string): void {
   $('oerr').textContent = '';
   // The room goes in the player's list of games, on every device (home.ts).
   if (socialOn()) void rememberGame(store, code, Date.now()).catch(() => {});
-  S.net.stop = store.watch(roomPath(code), raw => onRoom(readRoom(raw)));
+  const unwatch = store.watch(roomPath(code), raw => onRoom(readRoom(raw)));
+  // A guest looks every heartbeat whether the host is still in the room; if not, the first player
+  // there takes over, so the match goes on (asked by the user, 2026-11-22).
+  const look = window.setInterval(() => {
+    const n = S.net;
+    if (!n || n.host || !n.room || !socialOn()) return;
+    void takeOverHost(n.store, n.code, n.room, Date.now())
+      .then(took => { if (took && S.net) { S.net.tookOver = true; drawLobby(); } })
+      .catch(e => console.warn('Subentro all’host non riuscito', e));
+  }, HEARTBEAT_MS);
+  S.net.stop = () => { unwatch(); clearInterval(look); };
 }
 
 /** Leaves the room on this device only and goes back to the first screen. */
@@ -212,7 +222,7 @@ export function drawLobby(): void {
   const n = S.net, r = S.net.room, inGame = r.status === 'playing', open = !inGame || n.lobbyOpen;
   const ids = inGame ? r.order : Object.keys(r.seats).sort((a, b) => r.seats[a].joinedAt - r.seats[b].joinedAt || (a < b ? -1 : 1));
   badge.style.display = 'block';
-  badge.textContent = `Stanza ${n.code} · ${ids.length} giocatori${n.host ? ' · sei l’host' : ''}`;
+  badge.textContent = `Stanza ${n.code} · ${ids.length} giocatori${n.host ? n.tookOver ? ' · l’host è uscito: ora sei tu l’host' : ' · sei l’host' : ''}`;
   lobby.style.display = open ? 'grid' : 'none';
   if (!open) return;
   $('lcode').textContent = n.code;

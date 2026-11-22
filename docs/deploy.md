@@ -121,6 +121,13 @@ restano nel browser, e la scheda **Confronta con la fonte** mostra le scansioni 
     L'eliminazione cancella anche l'account Google dal progetto (Authentication):
     Google chiede di accedere di nuovo prima di farlo.
 
+12. **Subentro dell'host** (dal 2026-11-22): `database.rules.json` permette a
+    chi siede in una stanza di prendere il posto dell'host (`rooms/<codice>/host`)
+    quando l'host non è nella stanza da 90 secondi, e al nuovo host di
+    aggiornare la scheda della stanza nella lobby. Incolla di nuovo il file nella
+    scheda **Regole** e **Pubblica**: senza, il subentro viene rifiutato e la
+    partita aspetta l'host come prima.
+
 ## Come si gioca online
 
 - Gli amici richiedono un **account** (accesso con Google). Al primo accesso si

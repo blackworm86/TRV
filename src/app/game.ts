@@ -48,6 +48,8 @@ export let pending: Decision | null = null;
 /** The online room this device is in (null: hot seat). See the "online" section below. */
 export interface Net {
   store: RoomStore; code: string; uid: string; host: boolean; room: Room | null; stop: () => void; lobbyOpen: boolean; qrFor: string;
+  /** This player took the host's place when the host left (online.ts, takeOverHost). */
+  tookOver?: boolean;
   /** Host: the lobby card last published (JSON), so it is written only when it changes. */
   posted?: string;
   /** Host: the log length last seen, to stamp the time of each new move. */

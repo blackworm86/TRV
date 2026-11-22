@@ -3,7 +3,7 @@ import { addBot, createRoom, joinRoom, readRoom, roomPath, setReady, startMatch,
 import {
   FRIEND_CODE_LENGTH, ONLINE_MS, acceptFriend, claimUsername, cleanUsername, earlierName, readProfile, readProfiles, addFriend, cleanFriendCode, declineFriend, dropInvite, ensureProfile, forgetGame, gameRow, heartbeat,
   inviteFriend, isOnline, lobbyEntry, lobbyPath, mutualFriends, newFriendCode, publishLobby, readLobby, readPresence, readSocial, rememberGame,
-  removeFriend, setAvatar, showFriendCode, userPath, wipeAccount,
+  removeFriend, setAvatar, showFriendCode, userPath, wipeAccount, nextHost, takeOverHost,
 } from '../../../src/net/social';
 import { createTreeStore, memoryBacking } from '../../../src/net/tree-store';
 
@@ -150,6 +150,44 @@ describe('friends', () => {
     const pa = await register(a, 'Ada', filler(1), NOW);
     expect(await addFriend(a, pa.code, 'Ada', NOW)).toBe('self');
     expect(await addFriend(a, newFriendCode(filler(20)), 'Ada', NOW)).toBe('not-found');
+  });
+});
+
+describe('host handover', () => {
+  // Asked by the user (2026-11-22): a match does not stop when the host leaves.
+  /** A room with the host (u0) and two guests (u1, u2), started; its code. */
+  async function started(stores: RoomStore[]): Promise<string> {
+    const code = await createRoom(stores[0], { name: 'Ada', crew: 'red' }, OPTIONS, filler(7), NOW);
+    for (let i = 1; i < stores.length; i++) { await joinRoom(stores[i], code, { name: `G${i}` }, CREWS, NOW + i); await setReady(stores[i], code, true); }
+    await startMatch(stores[0], code, readRoom(await stores[0].read(roomPath(code)))!, 'ab'.repeat(32), c => c);
+    return code;
+  }
+  it('keeps the host while the host is in the room', async () => {
+    // Arrange
+    const s = clients(3);
+    const code = await started(s);
+    for (const x of s) await heartbeat(x, NOW, code);
+    const room = readRoom(await s[0].read(roomPath(code)))!;
+    // Act / Assert
+    expect(nextHost(room, code, { u0: { at: NOW, room: code }, u1: { at: NOW, room: code }, u2: { at: NOW, room: code } }, NOW + 1000)).toBe(null);
+    expect(await takeOverHost(s[1], code, room, NOW + 1000)).toBe(false);
+  });
+  it('passes the host to the first player in sitting order who is in the room, once the host is away', async () => {
+    // Arrange: the host last seen long ago; of the guests, only the one later in the order is in the room.
+    const s = clients(3);
+    const code = await started(s);
+    const room = readRoom(await s[0].read(roomPath(code)))!;
+    const later = NOW + ONLINE_MS + 1000;
+    const [first, second] = room.order.filter(id => id !== 'u0');
+    const seen = { u0: { at: NOW, room: code }, [first]: { at: later, room: 'OTHER' }, [second]: { at: later, room: code } };
+    // Act / Assert: the one in the room takes over; nobody when no one else is there.
+    expect(nextHost(room, code, seen, later)).toBe(second);
+    expect(nextHost(room, code, { u0: { at: NOW, room: code } }, later)).toBe(null);
+    // takeOverHost: the first in order who is here (this page counts as here) writes itself as host.
+    await heartbeat(s[0], NOW, code);
+    const firstStore = s[Number(first.slice(1))];
+    expect(await takeOverHost(firstStore, code, room, later)).toBe(true);
+    expect(readRoom(await s[0].read(roomPath(code)))!.host).toBe(first);
   });
 });
 

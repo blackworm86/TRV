@@ -294,6 +294,34 @@ export async function readPresence(store: RoomStore, uids: string[]): Promise<Re
 /** Whether a player last seen as `p` counts as online at `now`. */
 export const isOnline = (p: Presence | null | undefined, now: number): boolean => !!p && now - p.at < ONLINE_MS;
 
+/**
+ * Who takes the host's place in room `code`, so a match does not stop when the host leaves
+ * (asked by the user, 2026-11-22). When the host has not been seen in this room for
+ * {@link ONLINE_MS}, it is the first person in sitting order (in order of arrival before the
+ * start) who is in the room now. Null while the host is there, or when nobody else is.
+ */
+export function nextHost(room: Room, code: string, seen: Record<string, Presence | null>, now: number): string | null {
+  const here = (uid: string): boolean => isOnline(seen[uid], now) && seen[uid]?.room === code;
+  if (here(room.host)) return null;
+  const ids = room.status === 'playing' && room.order.length ? room.order : seatOrder(room);
+  return ids.find(id => id !== room.host && !!room.seats[id] && !isBotSeat(room, id) && here(id)) ?? null;
+}
+
+/**
+ * This player becomes the host of room `code` when {@link nextHost} says so (this page is in the
+ * room, so it counts as here). The database rules allow it only while the host is away.
+ * @returns whether this player took over.
+ */
+export async function takeOverHost(store: RoomStore, code: string, room: Room, now: number): Promise<boolean> {
+  const me = await store.uid();
+  if (room.host === me || !room.seats[me]) return false;
+  const seen = await readPresence(store, Object.keys(room.seats).filter(id => !isBotSeat(room, id)));
+  seen[me] = { at: now, room: code };
+  if (nextHost(room, code, seen, now) !== me) return false;
+  await store.write(roomPath(code, 'host'), me);
+  return true;
+}
+
 /** A room's card in the lobby. */
 export interface LobbyEntry {
   code: string;

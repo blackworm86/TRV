@@ -64,6 +64,11 @@ distribuito come sito statico.
   di 5 caratteri, senza lettere o cifre che si confondono.
 - **Arbitro**: l'host accetta un'intenzione solo se è stata fatta sul registro della lunghezza attuale
   ed è del giocatore che deve decidere.
+- **Subentro dell'host** (aggiunto il 2026-11-22, su richiesta dell'utente): se l'host non è stato visto
+  nella stanza da 90 secondi (`presence/<uid>`, battito ogni 30 secondi), il primo giocatore in ordine di
+  posto che è nella stanza scrive sé stesso come `host` e da quel momento fa da arbitro (`nextHost`,
+  `takeOverHost` in `social.ts`). Le regole del database lo permettono solo a chi siede nella stanza e
+  solo mentre l'host è assente. L'host che torna rientra come ospite.
 - **Bot**: i TRV9000 hanno un posto con una chiave inventata (`trv9000-…`) e non mandano mai intenzioni:
   le regole li giocano allo stesso modo su ogni tavolo.
 - **Social**: amici, inviti e "Le mie partite" (`social.ts`) usano lo stesso database, protetto da
@@ -96,7 +101,8 @@ Non ha un database, ma serve comunque un server di segnalazione e la riconnessio
 ### Negative
 
 - **Seed condiviso**: un client modificato può prevedere dadi e pile. Va bene solo tra persone che si fidano.
-- **Dipendenza dall'host**: se l'host non c'è, la partita aspetta.
+- **Dipendenza dall'host**: ridotta dal subentro (2026-11-22). Se l'host esce, entro circa due minuti
+  un altro giocatore presente prende il suo posto; la partita aspetta solo se non c'è nessuno.
 - **Tiro dei dadi a mano**: gli altri vedono un tiro automatico, perché il gesto non viaggia in rete.
 
 ### Neutral
