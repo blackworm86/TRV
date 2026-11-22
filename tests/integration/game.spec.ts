@@ -168,6 +168,29 @@ test.describe('game', () => {
     expect(errors).toEqual([]);
   });
 
+  test('the Beta gate over the first screen takes the click on its Google button', async ({ page }) => {
+    // Arrange: the first screen, with the gate shown over it as on the real site.
+    const errors = await open(page);
+    await page.evaluate(() => {
+      document.getElementById('beta')!.hidden = false;
+      document.getElementById('beta-wait')!.hidden = true;
+      document.getElementById('beta-login')!.hidden = false;
+      const s = document.getElementById('setup')!;
+      s.style.display = 'none';
+      s.style.display = 'grid'; // the menus close and open again: what is behind them turns inert
+    });
+    // Act: what a click in the middle of the button lands on.
+    await expect(page.locator('#beta-google')).toBeVisible();
+    const hit = await page.evaluate(async () => {
+      await new Promise(r => setTimeout(r, 50));
+      const b = document.getElementById('beta-google')!, r = b.getBoundingClientRect();
+      return { inert: document.getElementById('beta')!.inert, at: document.elementFromPoint(r.x + r.width / 2, r.y + r.height / 2)?.id };
+    });
+    // Assert
+    expect(hit).toEqual({ inert: false, at: 'beta-google' });
+    expect(errors).toEqual([]);
+  });
+
   test('the profile window sets the avatar, adds up the statistics and deletes the profile', async ({ page }) => {
     // Arrange: an account (on this browser's store) that chooses its user name.
     const errors = await open(page, { query: '?net=local&account' });

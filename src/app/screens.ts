@@ -144,8 +144,10 @@ export function showPane(id: Pane): void {
 export function syncInert(): void {
   const covered = menuOpen();
   for (const el of document.body.children) {
-    // The windows over the menus (Segnala, the profile) stay usable: they open from the first screen too.
-    if (el.id === 'setup' || el.id === 'lobby' || el.tagName === 'SCRIPT' || el.getAttribute('role') === 'dialog' || el.id === 'rep-thanks') continue;
+    // What lies over the menus stays usable: the Beta gate (its Google button), and the windows that
+    // open from the first screen too (Segnala, the profile).
+    if (el.id === 'setup' || el.id === 'lobby' || el.tagName === 'SCRIPT' || el.id === 'beta'
+      || el.getAttribute('role') === 'dialog' || el.id === 'rep-thanks') continue;
     (el as HTMLElement).inert = covered;
   }
 }
