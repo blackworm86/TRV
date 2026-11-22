@@ -21,7 +21,7 @@
  * Nothing here touches the page; the database rules (database.rules.json) say who may write what.
  */
 
-import { CODE_ALPHABET, NAME_MAX, isBotSeat, roomSeats, seatOrder, type Room, type RoomStore } from './room';
+import { CODE_ALPHABET, NAME_MAX, closeRoom, isBotSeat, leaveRoom, readRoom, roomPath, roomSeats, seatOrder, type Room, type RoomStore } from './room';
 
 /** Length of a friend code (without the shown `TRV-` prefix). */
 export const FRIEND_CODE_LENGTH = 6;
@@ -42,8 +42,13 @@ export const USERNAME_MIN = 3, USERNAME_MAX = 20;
 const USERNAME_RE = /^[a-z0-9_.]+$/;
 const presencePath = (uid: string): string => `presence/${uid}`;
 
-/** A player's public card: the user name chosen at registration, the shown name, the friend code. */
-export interface Profile { user: string; name: string; code: string; at: number }
+/**
+ * A player's public card: the user name chosen at registration, the shown name, the friend code,
+ * and the picture chosen in the profile window (a crew leader's id; absent: the initial).
+ */
+export interface Profile { user: string; name: string; code: string; at: number; avatar?: string }
+/** What an avatar id may look like (a crew leader's id today; the avatars drawn later will follow it). */
+const AVATAR_RE = /^[a-z0-9_]{1,24}$/;
 /** Someone named in one's lists, with when it was written. */
 export interface Named { name: string; at: number }
 /** An invitation to room `code` (the key), from `from`. */
@@ -123,7 +128,43 @@ export function readProfile(raw: unknown): Profile | null {
   // A profile from before user names (2026-11-20) has none: its owner chooses one at the next visit.
   if (!user || typeof r.code !== 'string' || !cleanFriendCode(r.code)) return null;
   const name = typeof r.name === 'string' ? r.name.trim().slice(0, NAME_MAX) : '';
-  return { user, name: name || user, code: r.code, at: Number(r.at) || 0 };
+  const avatar = typeof r.avatar === 'string' && AVATAR_RE.test(r.avatar) ? { avatar: r.avatar } : {};
+  return { user, name: name || user, code: r.code, at: Number(r.at) || 0, ...avatar };
+}
+
+/** Sets this client's picture to `avatar` (an id), or back to the initial (null). */
+export async function setAvatar(store: RoomStore, avatar: string | null): Promise<void> {
+  if (avatar !== null && !AVATAR_RE.test(avatar)) throw new Error(`Not an avatar: ${avatar}`);
+  await store.write(userPath(await store.uid(), 'profile', 'avatar'), avatar);
+}
+
+/**
+ * Deletes what this client's account left in the store (asked by the user, 2026-11-22): its side of
+ * every friendship and the requests it sent, its seats in rooms still waiting to start (a room it
+ * hosts is closed), its friend code and user name (free again), its presence and everything under
+ * `users/<uid>`. Matches already under way keep its seat. The account itself is deleted apart.
+ */
+export async function wipeAccount(store: RoomStore, social: Social): Promise<void> {
+  const uid = await store.uid();
+  const quiet = (p: Promise<void>): Promise<void> => p.catch(e => console.warn(e));
+  const others = new Set([...Object.keys(social.friends), ...Object.keys(social.requests)]);
+  await Promise.all([...others].flatMap(o => [
+    quiet(store.write(userPath(o, 'friends', uid), null)), quiet(store.write(userPath(o, 'requests', uid), null)),
+  ]));
+  await Promise.all(Object.keys(social.games).map(async code => {
+    const room = readRoom(await store.read(roomPath(code)).catch(() => null));
+    if (!room || room.status !== 'lobby' || !room.seats[uid]) return;
+    if (room.host !== uid) { await quiet(leaveRoom(store, code)); return; }
+    await quiet(closeRoom(store, code));
+    await quiet(store.write(lobbyPath(code), null));
+  }));
+  const p = social.profile;
+  if (p) {
+    await quiet(store.write(codePath(p.code), null));
+    await quiet(store.write(usernamePath(p.user), null));
+  }
+  await quiet(store.write(presencePath(uid), null));
+  await store.write(userPath(uid), null);
 }
 
 /** Reads what is under `users/<uid>`. */
@@ -166,7 +207,8 @@ export async function ensureProfile(store: RoomStore, me: { user: string; name: 
     code = c;
   }
   if (!code) throw new Error('No free friend code found.');
-  const profile: Profile = { user, name: me.name.trim().slice(0, NAME_MAX) || user, code, at: now };
+  const avatar = typeof had.avatar === 'string' && AVATAR_RE.test(had.avatar) ? { avatar: had.avatar } : {};
+  const profile: Profile = { user, name: me.name.trim().slice(0, NAME_MAX) || user, code, at: now, ...avatar };
   await store.write(userPath(uid, 'profile'), profile);
   return profile;
 }

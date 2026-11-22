@@ -3,7 +3,7 @@ import { addBot, createRoom, joinRoom, readRoom, roomPath, startMatch, type Room
 import {
   FRIEND_CODE_LENGTH, ONLINE_MS, acceptFriend, claimUsername, cleanUsername, earlierName, readProfile, readProfiles, addFriend, cleanFriendCode, declineFriend, dropInvite, ensureProfile, forgetGame, gameRow, heartbeat,
   inviteFriend, isOnline, lobbyEntry, lobbyPath, mutualFriends, newFriendCode, publishLobby, readLobby, readPresence, readSocial, rememberGame,
-  removeFriend, showFriendCode, userPath,
+  removeFriend, setAvatar, showFriendCode, userPath, wipeAccount,
 } from '../../../src/net/social';
 import { createTreeStore, memoryBacking } from '../../../src/net/tree-store';
 
@@ -250,5 +250,44 @@ describe('invitations', () => {
     expect((await social(b)).invites).toEqual({ QWERT: { from: 'u0', name: 'Ada', at: NOW } });
     await dropInvite(b, 'QWERT');
     expect((await social(b)).invites).toEqual({});
+  });
+});
+
+describe('the profile picture and deleting an account', () => {
+  it('keeps the chosen picture when the profile is written again, and goes back to the initial', async () => {
+    // Arrange
+    const [a] = clients(1);
+    await register(a, 'Ada', filler(3), NOW);
+    // Act
+    await setAvatar(a, 'betty');
+    await register(a, 'Ada L', filler(3), NOW + 1);
+    // Assert
+    expect((await social(a)).profile?.avatar).toBe('betty');
+    await setAvatar(a, null);
+    expect((await social(a)).profile?.avatar).toBeUndefined();
+    await expect(setAvatar(a, '../x')).rejects.toThrow();
+  });
+
+  it('wipes the account’s data, its side of friendships and its waiting seats, and frees its user name', async () => {
+    // Arrange: Ada and Bo are friends, Ada sits in Bo's waiting room and hosts one of her own.
+    const [a, b] = clients(2);
+    const pa = await register(a, 'Ada', filler(3), NOW);
+    const pb = await register(b, 'Bo', filler(4), NOW);
+    await addFriend(a, pb.code, 'Ada', NOW);
+    await acceptFriend(b, 'u0', 'Ada', NOW);
+    const bo = await createRoom(b, { name: 'Bo', crew: 'red' }, OPTIONS, filler(7), NOW);
+    expect((await joinRoom(a, bo, { name: 'Ada' }, CREWS, NOW)).ok).toBe(true);
+    await rememberGame(a, bo, NOW);
+    const own = await createRoom(a, { name: 'Ada', crew: 'red' }, OPTIONS, filler(9), NOW);
+    await rememberGame(a, own, NOW);
+    // Act
+    await wipeAccount(a, await social(a));
+    // Assert
+    expect(await a.read(userPath('u0'))).toBeNull();
+    expect((await social(b)).friends).toEqual({});
+    expect(readRoom(await b.read(roomPath(bo)))!.seats.u0).toBeUndefined();
+    expect(await a.read(roomPath(own))).toBeNull();
+    expect(await a.read(`usernames/${pa.user}`)).toBeNull();
+    expect(await a.read(`friendCodes/${pa.code}`)).toBeNull();
   });
 });

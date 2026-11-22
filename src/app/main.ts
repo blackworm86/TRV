@@ -37,6 +37,7 @@ import { ROWS, COLS, snapshot, terrainAt, type Pos, type Frame } from '../game/t
 import { bootAccount, bootOnline } from './account';
 import { betaGate } from './beta';
 import { openReportGame } from './report';
+import './profile';
 import { playBeats, queue, skipBeats } from './beats';
 import { sceneState, shownLog } from './scenePlayer';
 import { carObjs, hazardObjs } from './board';

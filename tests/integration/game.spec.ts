@@ -137,6 +137,87 @@ test.describe('game', () => {
     expect(errors).toEqual([]);
   });
 
+  test('the hot seat panel sets colours, a bot, the Big Rig and the tile, and the game starts with them', async ({ page }) => {
+    // Arrange: the local game panel.
+    const errors = await open(page);
+    await page.locator('#mHot').click();
+    // Act: four players; the third takes purple from the palette, where the first's red is taken;
+    // the second plays the Big Rig, the fourth is a TRV9000 at level 3; tile 1b, Carnage on.
+    await page.locator('#npseg [data-v="4"]').click();
+    await page.locator('#hotrows .crew[data-i="2"] .sw').click();
+    await expect(page.locator('#crewpal [data-crew="crimson"]')).toBeDisabled();
+    await page.locator('#crewpal [data-crew="purple"]').click();
+    await expect(page.locator('#n2')).toHaveValue('Viola');
+    await page.locator('#hotrows .crew[data-i="1"] [data-team="big_rig"]').click();
+    await expect(page.locator('#hotrows .crew[data-i="0"] [data-team="big_rig"]')).toBeDisabled();
+    await page.locator('#hotrows .crew[data-i="3"] .bot').click();
+    await page.locator('#botseg [data-v="3"]').click();
+    await page.locator('#sideseg [data-v="b"]').click();
+    await page.locator('label.switch:has(#carnage)').click();
+    await page.locator('#start').click();
+    // Assert: the saved game holds what the panel set.
+    await expect.poll(() => page.evaluate(k => !!localStorage.getItem(k), SAVE_KEY), { timeout: 60_000 }).toBe(true);
+    const setup = await page.evaluate(k => JSON.parse(localStorage.getItem(k)!).setup, SAVE_KEY) as {
+      startSide: string; carnage?: boolean; players: { crew: string; team?: string; bot?: { protocol: number } }[] };
+    expect(setup.players.map(p => p.crew)).toEqual(['crimson', 'royal', 'purple', 'green']);
+    expect(setup.players[1].team).toBe('big_rig');
+    expect(setup.players[3].bot).toEqual({ protocol: 3 });
+    expect(setup.players.filter(p => p.bot)).toHaveLength(1);
+    expect(setup.startSide).toBe('b');
+    expect(setup.carnage).toBe(true);
+    expect(errors).toEqual([]);
+  });
+
+  test('the profile window sets the avatar, adds up the statistics and deletes the profile', async ({ page }) => {
+    // Arrange: an account (on this browser's store) that chooses its user name.
+    const errors = await open(page, { query: '?net=local&account' });
+    await expect(page.locator('#pUser')).toBeVisible();
+    await page.locator('#uname').fill('ada_e2e');
+    await page.locator('#usave').click();
+    await expect(page.locator('#mecode')).toContainText('@ada_e2e');
+    // The windows over the first screen take clicks and typing (they were inert there before).
+    await page.locator('#reporthome').click();
+    await page.locator('#rep-text').fill('Prova');
+    await page.locator('#rep-cancel').click();
+    await expect(page.locator('#report')).toBeHidden();
+    // Two finished online matches in its statistics, as the end of a match records them.
+    await page.evaluate(async () => {
+      const { openStore } = await import('/src/app/online.ts');
+      const s = await openStore(), uid = await s.uid();
+      const r = { players: 3, crew: 'crimson', team: null, bots: 0, botLevel: 0, carnage: true, rounds: 6 };
+      await s.write(`users/${uid}/results/AAAAA-1`, { ...r, at: 1, won: true, leader: 'betty', upgrades: ['snowplow'], jumps: 2 });
+      await s.write(`users/${uid}/results/BBBBB-2`, { ...r, at: 2, won: false, leader: 'betty', upgrades: ['snowplow', 'ghost_mode'], jumps: 1 });
+    });
+    // Act and assert: the avatar in the header opens the window; a face becomes the avatar.
+    await page.locator('#meav').click();
+    await expect(page.locator('#profile')).toBeVisible();
+    await page.locator('#pf-avatars [data-avatar="cruft"]').click();
+    await expect(page.locator('#meav')).toHaveClass(/pic/);
+    // The statistics add the two matches up.
+    await page.locator('#pf-tabs [data-tab="stats"]').click();
+    await expect(page.locator('#pf-stats')).toContainText('50%');
+    await expect(page.locator('#pf-stats')).toContainText('Ms. Betty');
+    await expect(page.locator('#pf-stats')).toContainText('Snowplow');
+    await expect(page.locator('#pf-stats .pf-tile', { hasText: 'salti con le rampe' })).toContainText('3');
+    await page.locator('#pf-tabs [data-tab="ach"]').click();
+    await expect(page.locator('#profile .pf-soon')).toContainText('Coming soon');
+    // Deleting asks for the user name, then the profile is gone: the next visit asks for a name again.
+    await page.locator('#pf-tabs [data-tab="dati"]').click();
+    await page.locator('#pf-delete').click();
+    await page.locator('#pf-confirmname').fill('ada_e');
+    await expect(page.locator('#pf-deleteok')).toBeDisabled();
+    await page.locator('#pf-confirmname').fill('ada_e2e');
+    page.once('dialog', d => void d.accept());
+    await page.locator('#pf-deleteok').click();
+    await expect(page.locator('#pUser')).toBeVisible({ timeout: 20_000 });
+    expect(await page.evaluate(async () => {
+      const { openStore } = await import('/src/app/online.ts');
+      const s = await openStore();
+      return [await s.read(`users/${await s.uid()}`), await s.read('usernames/ada_e2e')];
+    })).toEqual([null, null]);
+    expect(errors).toEqual([]);
+  });
+
   test('a tester’s report carries the game and the table, and the admin page opens it at that point', async ({ page, context }) => {
     test.setTimeout(300_000); // three pages, two of them tables drawn in software
     // Arrange: a local game a few choices in.

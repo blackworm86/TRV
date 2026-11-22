@@ -54,6 +54,7 @@
 <div class="pop" id="menupop">
   <button id="newgame"><span>⟳</span> Nuova partita</button>
   <button id="roomopen"><span>⌁</span> Stanza online</button>
+  <button id="profileopen"><span>☺</span> Il tuo profilo</button>
   <button id="reportopen"><span>✎</span> Segnala un problema</button>
   <button id="adminopen"><span>⚿</span> Pannello admin</button>
   <button id="quit"><span>⏏</span> Esci dalla partita (menu principale)</button>
@@ -96,6 +97,43 @@
   </div>
 </div>
 <div id="rep-thanks">Grazie, segnalazione inviata.</div>
+<div id="profile" role="dialog" aria-modal="true" aria-labelledby="pf-title">
+  <div class="box">
+    <header class="pf-head">
+      <span class="av" id="pf-av">?</span>
+      <div class="pf-who"><h2 id="pf-title">Il tuo profilo</h2><p id="pf-user"></p></div>
+      <button class="tool" id="pf-close" aria-label="Chiudi" title="Chiudi">✕</button>
+    </header>
+    <div id="pf-guest">
+      <p>Il profilo è per chi ha un account: con Google tieni nome utente, avatar, amici e statistiche su ogni dispositivo.</p>
+      <button class="go" id="pf-login">Accedi con Google</button>
+    </div>
+    <div id="pf-main">
+      <div class="seg pf-tabs" id="pf-tabs"><button type="button" data-tab="dati" class="on">Profilo</button><button type="button" data-tab="stats">Statistiche</button><button type="button" data-tab="ach">Achievement <em class="pill soon">coming soon</em></button></div>
+      <section class="pf-pane on" data-pane="dati">
+        <h3>Avatar</h3>
+        <p class="hint">Per ora i volti dei capisquadra di Choppe Shoppe: presto arriveranno avatar tutti nuovi.</p>
+        <div class="pf-avatars" id="pf-avatars" role="listbox" aria-label="Avatar"></div>
+        <h3>Account</h3>
+        <dl class="pf-facts" id="pf-facts"></dl>
+        <div class="pf-danger">
+          <h3>Elimina il profilo</h3>
+          <p>Cancella per sempre account, nome utente, avatar, amici, statistiche e i tuoi posti nelle stanze in attesa. Le partite già in corso restano agli altri giocatori.</p>
+          <button class="tool danger" id="pf-delete">Elimina il profilo…</button>
+          <div id="pf-confirm">
+            <label for="pf-confirmname">Per confermare scrivi il tuo nome utente, <b id="pf-confirmuser"></b>; poi Google ti chiede di accedere di nuovo.</label>
+            <div class="row"><input id="pf-confirmname" autocomplete="off" spellcheck="false" autocapitalize="none"><button class="tool danger" id="pf-deleteok" disabled>Elimina per sempre</button></div>
+          </div>
+          <p class="err" id="pf-err"></p>
+        </div>
+      </section>
+      <section class="pf-pane" data-pane="stats"><div id="pf-stats"></div></section>
+      <section class="pf-pane" data-pane="ach">
+        <div class="pf-soon"><b>Coming soon</b><p>Gli achievement arriveranno con un prossimo aggiornamento: li stiamo progettando.</p></div>
+      </section>
+    </div>
+  </div>
+</div>
 <div id="setup">
   <div class="card">
     <header class="hdr">
@@ -212,24 +250,38 @@
     </div>
     <div class="pane" id="pHot">
       <div class="bar"><button class="back" data-back>← Menu</button><h2>Partita in locale</h2></div>
-      <div class="panel narrow">
-      <label>Giocatori</label>
-      <select id="np"><option>2</option><option selected>3</option><option>4</option></select>
-      <label>Nomi e colori</label>
-      <div class="names">
-        <input id="n0"><input id="n1"><input id="n2"><input id="n3">
-      </div>
-      <div id="botrow" style="display:none">
-        <label>Difficoltà TRV9000 (Basic Protocol)</label>
-        <select id="botlevel"><option value="1">1 — fuoristrada, fango, melma e saline come strada</option><option value="2">2 — ignora il primo pericolo coperto</option><option value="3">3 — può fermarsi sul proprio elicottero</option><option value="4">4 — attraversa le proprie auto senza slam</option></select>
-      </div>
-      <label>Tessera di partenza</label>
-      <select id="side"><option value="a">1a — The Parking Lot</option><option value="b">1b — Runway to Ruin</option></select>
-      <label>Espansioni</label>
-      <label class="check"><input type="checkbox" id="leaders"> Choppe Shoppe: capisquadra e segnalini comando</label>
-      <label class="check"><input type="checkbox" id="upgrades"> Choppe Shoppe: carte potenziamento</label>
-      <label class="check"><input type="checkbox" id="carnage"> Carnage at Devil’s Run: tessere, pericoli e fuoco</label>
-      <button class="go" id="start">Si parte!</button>
+      <div class="hot">
+        <section class="panel">
+          <div class="hh"><h3>Squadre</h3><span class="sp"></span><span class="lbl">Giocatori</span>
+            <div class="seg" id="npseg"><button type="button" data-v="2">2</button><button type="button" data-v="3">3</button><button type="button" data-v="4">4</button></div>
+            <select id="np" hidden><option>2</option><option selected>3</option><option>4</option></select></div>
+          <div class="crews" id="hotrows">
+            <div class="crew" data-i="0"><button type="button" class="sw" title="Cambia colore"></button><input id="n0" maxlength="24" placeholder="Nome"></div>
+            <div class="crew" data-i="1"><button type="button" class="sw" title="Cambia colore"></button><input id="n1" maxlength="24" placeholder="Nome"></div>
+            <div class="crew" data-i="2"><button type="button" class="sw" title="Cambia colore"></button><input id="n2" maxlength="24" placeholder="Nome"></div>
+            <div class="crew" data-i="3"><button type="button" class="sw" title="Cambia colore"></button><input id="n3" maxlength="24" placeholder="Nome"></div>
+          </div>
+          <div class="pal" id="crewpal" role="listbox" aria-label="Colore della squadra"></div>
+          <div id="botrow" style="display:none">
+            <div class="hh"><span class="lbl">Difficoltà TRV9000 <small>(Basic Protocol)</small></span><span class="sp"></span><div class="seg" id="botseg"></div></div>
+            <p class="hint" id="botwhat"></p>
+            <select id="botlevel" hidden><option value="1">1 — fuoristrada, fango, melma e saline come strada</option><option value="2">2 — ignora il primo pericolo coperto</option><option value="3">3 — può fermarsi sul proprio elicottero</option><option value="4">4 — attraversa le proprie auto senza slam</option></select>
+          </div>
+        </section>
+        <section class="panel">
+          <h3>Tessera di partenza</h3>
+          <div class="sides" id="sideseg">
+            <button type="button" data-v="a"><b>1a</b><span>The Parking Lot</span></button>
+            <button type="button" data-v="b"><b>1b</b><span>Runway to Ruin</span></button>
+          </div>
+          <select id="side" hidden><option value="a">1a — The Parking Lot</option><option value="b">1b — Runway to Ruin</option></select>
+          <h3>Espansioni</h3>
+          <label class="switch"><input type="checkbox" id="leaders"><span><b>Capisquadra</b><small>Choppe Shoppe · capisquadra e segnalini comando</small></span></label>
+          <label class="switch"><input type="checkbox" id="upgrades"><span><b>Potenziamenti</b><small>Choppe Shoppe · carte potenziamento</small></span></label>
+          <label class="switch"><input type="checkbox" id="carnage"><span><b>Carnage at Devil’s Run</b><small>Tessere, pericoli e fuoco</small></span></label>
+          <p class="hint">The Big Rig e The Final Five si scelgono nella riga della squadra.</p>
+          <button class="go" id="start">Si parte!</button>
+        </section>
       </div>
     </div>
     <p class="err" id="oerr"></p>

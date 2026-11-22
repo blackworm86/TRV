@@ -110,6 +110,17 @@ restano nel browser, e la scheda **Confronta con la fonte** mostra le scansioni 
     Segnalazioni**; **Apri la partita a quel punto** la carica nel gioco in una
     scheda nuova, senza toccare la partita in locale del tuo browser.
 
+11. **Profilo del giocatore** (dal 2026-11-22): `database.rules.json` aggiunge
+    l'avatar nel profilo (`users/<uid>/profile/avatar`, l'id di un capisquadra),
+    le statistiche (`users/<uid>/results/<stanza>-<seme>`, una per partita online
+    conclusa, scritta una volta sola dal giocatore) e i permessi per eliminare il
+    profilo: ognuno può cancellare il proprio ramo `users/<uid>`, il proprio nome
+    utente e codice amico, e togliersi dagli elenchi di amici degli altri.
+    Incolla di nuovo il file nella scheda **Regole** e **Pubblica**: senza, avatar
+    e statistiche non si salvano e l'eliminazione si ferma con un errore.
+    L'eliminazione cancella anche l'account Google dal progetto (Authentication):
+    Google chiede di accedere di nuovo prima di farlo.
+
 ## Come si gioca online
 
 - Gli amici richiedono un **account** (accesso con Google). Al primo accesso si

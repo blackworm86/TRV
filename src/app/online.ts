@@ -12,10 +12,11 @@ import {
   acceptable, addBot, isBotSeat, removeBot, BOT_LEVELS, undoable, backToLobby, cleanCode, closeRoom, createRoom, freeCrew, joinRoom, leaveRoom, readRoom,
   roomPath, roomSeats, startMatch, startProblem, type RoomOptions, type Room, type RoomStore, type Visibility,
 } from '../net/room';
-import { forgetGame, lobbyEntry, publishLobby, rememberGame } from '../net/social';
+import { forgetGame, lobbyEntry, publishLobby, rememberGame, userPath } from '../net/social';
+import { resultOf } from '../net/stats';
 import { FIREBASE_CONFIG } from '../net/firebase-config';
 import qrcode from 'qrcode-generator';
-import { applyChoice, deciders, g, pending, setPending, startGame, takeBack } from './game';
+import { applyChoice, deciders, g, mySeat, pending, setPending, startGame, takeBack } from './game';
 import { checkedFriends, drawOnline, friendState, friendsOn, invite, myName, roomFriendsHtml, segValue, socialOn, typedCode } from './home';
 import { render } from './pieces';
 import { clearTable, openSetup, showPane } from './screens';
@@ -133,7 +134,31 @@ export function onRoom(room: Room | null): void {
     if (S.net.host) referee();
   }
   if (S.net.host) hostDuties();
+  recordResult();
   drawLobby();
+}
+
+/** The matches this page has already recorded (or tried to), by key. */
+const recorded = new Set<string>();
+/**
+ * At the end of an online match, an account records how it went for its seat in its statistics
+ * (src/net/stats.ts, the profile window): once, under the room code and the match's seed (a room
+ * can host several matches). A guest has no statistics.
+ */
+function recordResult(): void {
+  const n = S.net, saved = S.saved, seat = mySeat();
+  if (!n || !saved || !g || g.winner === null || seat < 0) return;
+  const key = `${n.code}-${saved.setup.seed.slice(0, 12)}`;
+  if (recorded.has(key)) return;
+  recorded.add(key);
+  const setup = saved.setup, choices = saved.choices.slice(), store = n.store, uid = n.uid;
+  void (async () => {
+    if (!await hasAccount()) return;
+    const path = userPath(uid, 'results', key);
+    if (await store.read(path) !== null) return;
+    const result = resultOf(setup, choices, seat, Date.now());
+    if (result) await store.write(path, result);
+  })().catch(e => console.warn('Statistiche non salvate', e));
 }
 
 /** Host: accepts the intents that answer the pending decision, one after the other. */

@@ -9,7 +9,8 @@
 
 import { getApp, getApps, initializeApp, type FirebaseApp } from 'firebase/app';
 import {
-  GoogleAuthProvider, getAuth, linkWithPopup, onAuthStateChanged, signInWithCredential, signInWithPopup, signOut, type User,
+  GoogleAuthProvider, deleteUser, getAuth, linkWithPopup, onAuthStateChanged, reauthenticateWithPopup, signInWithCredential, signInWithPopup, signOut,
+  type User,
 } from 'firebase/auth';
 import type { FirebaseError } from 'firebase/app';
 import { get, getDatabase, ref } from 'firebase/database';
@@ -21,6 +22,8 @@ export interface AdminUser {
   email: string | null;
   name: string | null;
   anonymous: boolean;
+  /** When the account was created, ms since 1970 (unknown: absent). */
+  since?: number;
 }
 
 /** Sign-in, sign-out and the admin check, bound to one Firebase app. */
@@ -33,6 +36,13 @@ export interface AdminAuth {
   signOut(): Promise<void>;
   /** True when `admins/<uid>` is `true`; false when it is missing, not true, or not readable. */
   isAdmin(uid: string): Promise<boolean>;
+  /**
+   * Deletes the signed-in Google account for good (the profile window, 2026-11-22): Google's popup
+   * asks to sign in again first (it wants a recent sign-in), then `wipe` deletes the account's data
+   * while it can still write it, then the account goes. Rejects (and deletes nothing) if the popup
+   * is closed or another account is chosen.
+   */
+  deleteAccount(wipe: () => Promise<void>): Promise<void>;
 }
 
 /**
@@ -43,7 +53,10 @@ export function firebaseApp(config: FirebaseConfig): FirebaseApp {
   return getApps().length ? getApp() : initializeApp(config);
 }
 
-const toUser = (u: User): AdminUser => ({ uid: u.uid, email: u.email, name: u.displayName, anonymous: u.isAnonymous });
+const toUser = (u: User): AdminUser => {
+  const since = Date.parse(u.metadata.creationTime ?? '');
+  return { uid: u.uid, email: u.email, name: u.displayName, anonymous: u.isAnonymous, ...(Number.isFinite(since) ? { since } : {}) };
+};
 
 /**
  * Admin sign-in on the project in `config`.
@@ -75,6 +88,16 @@ export function createAdminAuth(config: FirebaseConfig): AdminAuth {
       return toUser((await signInWithPopup(auth, provider)).user);
     },
     signOut: () => signOut(auth),
+    deleteAccount: async wipe => {
+      await auth.authStateReady();
+      const user = auth.currentUser;
+      if (!user || user.isAnonymous) throw new Error('Nessun account Google collegato.');
+      const provider = new GoogleAuthProvider();
+      provider.setCustomParameters({ prompt: 'select_account' });
+      await reauthenticateWithPopup(user, provider); // a different account rejects with auth/user-mismatch
+      await wipe();
+      await deleteUser(user);
+    },
     isAdmin: async uid => {
       try {
         return (await get(ref(db, `admins/${uid}`))).val() === true;

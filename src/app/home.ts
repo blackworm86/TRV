@@ -11,6 +11,7 @@ import {
 import { NAME_KEY, crewColor, hasAccount, joinByCode, netError, openStore, randomBytes } from './online';
 import { showPane, type Pane } from './screens';
 import { S } from './state';
+import { avatarHtml, paintAvatar } from './avatars';
 import { $, esc, sure } from './util';
 
 /** What the first screen knows of the player's online side. */
@@ -62,8 +63,8 @@ export function ago(at: number, now = Date.now()): string {
   return s < 172800 ? 'ieri' : `${Math.floor(s / 86400)} giorni fa`;
 }
 
-const initial = (name: string): string => esc((name.trim()[0] ?? '?').toUpperCase());
-const avatar = (name: string, color = '#6b5440'): string => `<span class="av" style="--c:${color}">${initial(name)}</span>`;
+/** A player's round picture in the lists: its chosen avatar (profile window), else its initial. */
+const avatar = (name: string, uid?: string): string => avatarHtml(name, uid ? H.profiles[uid]?.avatar : null);
 const dots = (crews: string[], seats: number): string => `<span class="dots">${crews.map(c => `<i style="--c:${crewColor(c)}"></i>`).join('')}${'<i class="e"></i>'.repeat(Math.max(0, seats - crews.length))}</span>`;
 const expTags = (e: { leaders: boolean; upgrades: boolean; carnage: boolean; teams: boolean }): string => {
   const t = [e.leaders || e.upgrades ? 'CHOPPE' : '', e.carnage ? 'CARNAGE' : '', e.teams ? 'BIG RIG' : ''].filter(Boolean);
@@ -73,7 +74,7 @@ const expTags = (e: { leaders: boolean; upgrades: boolean; carnage: boolean; tea
 /** Shows the player's card in the header: initial, name, user name and friend code. */
 function drawMe(): void {
   const p = H.social.profile, name = myName();
-  $('meav').textContent = (name[0] ?? '?').toUpperCase();
+  paintAvatar($('meav'), name, p?.avatar);
   $('mecode').textContent = p ? `@${p.user} · ${showFriendCode(p.code)}` : H.needUser ? 'scegli il nome utente' : H.store && !H.account ? 'ospite' : H.store ? '' : 'solo in locale';
   $('fcode').textContent = p ? showFriendCode(p.code) : '—';
   const field = $('myname') as HTMLInputElement;
@@ -127,7 +128,7 @@ export async function invite(uid: string, code: string): Promise<void> {
 export function roomFriendsHtml(code: string, seated: string[]): string {
   return friends().filter(f => !seated.includes(f.uid)).map(f => {
     const sent = H.invited.has(`${code}/${f.uid}`);
-    return `<div class="prow">${avatar(f.name)}<span class="t"><b>${esc(f.name)}</b><small>${at(f.uid)}${f.online ? 'online' : 'non in linea'}</small></span>${sent ? '<small>invitato</small>' : `<button class="tool linv" data-uid="${esc(f.uid)}">Invita</button>`}</div>`;
+    return `<div class="prow">${avatar(f.name, f.uid)}<span class="t"><b>${esc(f.name)}</b><small>${at(f.uid)}${f.online ? 'online' : 'non in linea'}</small></span>${sent ? '<small>invitato</small>' : `<button class="tool linv" data-uid="${esc(f.uid)}">Invita</button>`}</div>`;
   }).join('');
 }
 
@@ -150,7 +151,7 @@ function drawHome(): void {
   $('homeGames').innerHTML = homeGames();
   const fr = friends(), on = fr.filter(f => f.online), asks = Object.keys(H.social.requests).length;
   $('homeFriends').innerHTML = !H.store ? `<p class="empty-note">${noStore()}</p>` : !friendsOn() ? `<p class="empty-note">${noFriends()}</p>` : !fr.length ? '<p class="empty-note">Ancora nessun amico: aggiungili dalla voce Amici.</p>'
-    : fr.slice(0, 5).map(f => `<div class="prow">${avatar(f.name)}<span class="t"><b>${esc(f.name)}</b><small>${at(f.uid)}${f.online ? f.room ? `in stanza ${esc(f.room)}` : 'nel menu' : 'non in linea'}</small></span>${f.online && !f.room ? `<button class="tool fplay" data-uid="${esc(f.uid)}">Invita</button>` : ''}</div>`).join('');
+    : fr.slice(0, 5).map(f => `<div class="prow">${avatar(f.name, f.uid)}<span class="t"><b>${esc(f.name)}</b><small>${at(f.uid)}${f.online ? f.room ? `in stanza ${esc(f.room)}` : 'nel menu' : 'non in linea'}</small></span>${f.online && !f.room ? `<button class="tool fplay" data-uid="${esc(f.uid)}">Invita</button>` : ''}</div>`).join('');
   const turns = Object.values(H.rows).filter(r => r?.state === 'turn').length;
   $('mineBadge').textContent = turns ? `${turns} tocca a te` : '';
   $('friendsBadge').textContent = asks ? `${asks} ${asks === 1 ? 'richiesta' : 'richieste'}` : on.length ? `${on.length} online` : '';
@@ -197,7 +198,7 @@ function drawMine(): void {
       <td>${r.state === 'waiting' ? 'In attesa' : r.state === 'ended' ? 'Conclusa' : 'In corso'}</td><td>${ago(r.moveAt)}</td><td>${turn}</td><td>${act}${out}</td></tr>`;
   }).join('') : `<tr><td colspan="6" class="empty-note">${H.store ? 'Nessuna partita qui.' : noStore()}</td></tr>`);
   const inv = Object.entries(H.social.invites).sort((a, b) => b[1].at - a[1].at);
-  $('invites').innerHTML = inv.length ? inv.map(([code, i]) => `<div class="prow">${avatar(i.name)}<span class="t"><b>${esc(i.name)} ti invita nella stanza ${esc(code)}</b><small>${ago(i.at)}</small></span>
+  $('invites').innerHTML = inv.length ? inv.map(([code, i]) => `<div class="prow">${avatar(i.name, i.from)}<span class="t"><b>${esc(i.name)} ti invita nella stanza ${esc(code)}</b><small>${ago(i.at)}</small></span>
     <button class="go small ijoin" data-code="${esc(code)}">Entra</button><button class="tool idrop" data-code="${esc(code)}">No grazie</button></div>`).join('') : '<p class="empty-note">Nessun invito.</p>';
 }
 
@@ -207,21 +208,21 @@ function drawFriends(): void {
   $('fguest').style.display = H.account ? 'none' : '';
   $('fmain').style.display = H.account ? '' : 'none';
   const req = Object.entries(H.social.requests);
-  $('frequests').innerHTML = req.length ? req.map(([uid, r]) => `<div class="prow">${avatar(nameOf(uid, r.name))}<span class="t"><b>${esc(nameOf(uid, r.name))}</b><small>${at(uid)}${ago(r.at)}</small></span>
+  $('frequests').innerHTML = req.length ? req.map(([uid, r]) => `<div class="prow">${avatar(nameOf(uid, r.name), uid)}<span class="t"><b>${esc(nameOf(uid, r.name))}</b><small>${at(uid)}${ago(r.at)}</small></span>
     <button class="tool facc" data-uid="${esc(uid)}">Accetta</button><button class="tool danger fdec" data-uid="${esc(uid)}" title="Rifiuta">✕</button></div>`).join('') : '<p class="empty-note">Nessuna richiesta.</p>';
   const fr = friends();
   const waiting = Object.entries(H.social.friends).filter(([uid]) => !H.mutual.has(uid));
   $('fcount').textContent = `I tuoi amici (${fr.length})`;
   const seen = (uid: string): string => H.presence[uid] ? `visto ${ago(H.presence[uid]!.at)}` : 'non in linea';
-  $('flist').innerHTML = (fr.length ? fr.map(f => `<div class="prow">${avatar(f.name)}<span class="t"><b>${esc(f.name)} ${f.online ? '<em class="pill on">online</em>' : ''}</b><small>${at(f.uid)}${f.online ? f.room ? `in stanza ${esc(f.room)}` : 'nel menu' : seen(f.uid)}</small></span>
+  $('flist').innerHTML = (fr.length ? fr.map(f => `<div class="prow">${avatar(f.name, f.uid)}<span class="t"><b>${esc(f.name)} ${f.online ? '<em class="pill on">online</em>' : ''}</b><small>${at(f.uid)}${f.online ? f.room ? `in stanza ${esc(f.room)}` : 'nel menu' : seen(f.uid)}</small></span>
     <button class="tool fplay" data-uid="${esc(f.uid)}">Invita</button><button class="tool danger fdel" data-uid="${esc(f.uid)}" title="Togli dagli amici">✕</button></div>`).join('') : '<p class="empty-note">Ancora nessun amico.</p>')
-    + waiting.map(([uid, f]) => `<div class="prow">${avatar(nameOf(uid, f.name))}<span class="t"><b>${esc(nameOf(uid, f.name))}</b><small>${at(uid)}richiesta mandata, in attesa</small></span><button class="tool danger fdel" data-uid="${esc(uid)}" title="Annulla la richiesta">✕</button></div>`).join('');
+    + waiting.map(([uid, f]) => `<div class="prow">${avatar(nameOf(uid, f.name), uid)}<span class="t"><b>${esc(nameOf(uid, f.name))}</b><small>${at(uid)}richiesta mandata, in attesa</small></span><button class="tool danger fdel" data-uid="${esc(uid)}" title="Annulla la richiesta">✕</button></div>`).join('');
 }
 
 /** Draws the create pane's friends to invite. */
 function drawCreateFriends(): void {
   const fr = friends();
-  $('ofriends').innerHTML = !friendsOn() ? `<p class="empty-note">${noFriends()} Puoi invitare chiunque con il link o il codice della stanza.</p>` : fr.length ? fr.map(f => `<label class="check prow"><input type="checkbox" value="${esc(f.uid)}">${avatar(f.name)}<span class="t"><b>${esc(f.name)}</b><small>${at(f.uid)}${f.online ? 'online' : 'non in linea'}</small></span></label>`).join('')
+  $('ofriends').innerHTML = !friendsOn() ? `<p class="empty-note">${noFriends()} Puoi invitare chiunque con il link o il codice della stanza.</p>` : fr.length ? fr.map(f => `<label class="check prow"><input type="checkbox" value="${esc(f.uid)}">${avatar(f.name, f.uid)}<span class="t"><b>${esc(f.name)}</b><small>${at(f.uid)}${f.online ? 'online' : 'non in linea'}</small></span></label>`).join('')
     : '<p class="empty-note">Nessun amico ancora: potrai invitare chiunque con il link o il codice della stanza.</p>';
 }
 

@@ -15,7 +15,8 @@ export { esc } from '../core/markup';
  * takes no keys (Tab, arrows and shortcuts belong to the menu).
  */
 export const menuOpen = (): boolean => getComputedStyle(document.getElementById('setup')!).display !== 'none'
-  || document.getElementById('lobby')?.style.display === 'grid';
+  || document.getElementById('lobby')?.style.display === 'grid'
+  || !!document.getElementById('profile')?.classList.contains('show');
 /**
  * Asks to confirm something that cannot be undone, on the first screen's own card (design/ux/chiudi-partite):
  * `title` and `text` say what goes, `ok` names the action. Resolves true on the action, false on
