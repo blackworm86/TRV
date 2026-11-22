@@ -30,6 +30,7 @@ import './hudDice';
 import './quality';
 import './menus';
 import './dock';
+import './touch';
 import { commandTips } from './cmdtip';
 import './loop';
 import * as THREE from 'three';

@@ -1003,3 +1003,44 @@
    are recomputed at every frame over the moving table, which slow computers cannot afford. */
 body.lite *, body.lite *::before, body.lite *::after { backdrop-filter: none !important; -webkit-backdrop-filter: none !important; }
 body.lite #strip > svg, body.lite #steps, body.lite #botcards img, body.lite #cmddock .mytok svg { filter: none !important; }
+
+/* ---- Tablet (asked by the user, 2026-11-22): the lens, bigger targets, landscape only ---- */
+/* What CSS shows on hover, the long press shows too (touch.ts marks the element .lens). */
+.pl.lens .drop { display: block; }
+#top:has(.pl.lens) { z-index: 8; }
+#strip .upcard.lens { transform: translateY(var(--rise)); }
+#strip .upcard.lens .upbody { opacity: 1; }
+#cmdhand .mslot.lens .mcard { transform: translateY(-3px); box-shadow: 0 0 0 2px #f3e6d0, 0 4px 10px rgba(0,0,0,.6); }
+#hand .ucard.lens { transform: translateY(-6px); }
+.rcflag.lens { box-shadow: 0 0 0 2px rgba(243,230,208,.9); z-index: 3; }
+.rcflag.lens .rcpop { display: block; }
+/* A touch browser keeps :hover on the last thing tapped: on a tablet only the lens opens these. */
+html.touch .pl:hover:not(.lens):not(.open) .drop { display: none; }
+html.touch #strip .upcard:hover:not(.lens) { transform: none; }
+html.touch #strip .upcard:hover:not(.lens) .upbody { opacity: 0; }
+html.touch #hand .ucard:hover:not(.lens):not([data-sel]) { transform: none; }
+html.touch #cmdhand .mslot:hover:not(.lens):not(.hot) .mcard { transform: none; box-shadow: 0 2px 6px rgba(0,0,0,.55); }
+html.touch .rcflag:hover:not(.lens):not(.pin) { box-shadow: none; z-index: auto; }
+html.touch .rcflag:hover:not(.lens) .rcpop { display: none; }
+/* No double-tap zoom of the page, no text picked up or callout on a long press (fields excepted). */
+html.touch { touch-action: manipulation; -webkit-tap-highlight-color: transparent; }
+html.touch body { -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; }
+html.touch input, html.touch textarea { -webkit-user-select: text; user-select: text; }
+/* Fingers need room: at least 44 px for what is pressed. */
+html.touch #bar .tool { min-height: 50px; min-width: 60px; }
+html.touch .seg button, html.touch .pop .seg button { min-height: 44px; }
+html.touch #actions button, html.touch #cmddock .row button, html.touch #cmddock .endturn { min-height: 46px; }
+html.touch #menupop .mlist button { min-height: 48px; }
+html.touch .tool, html.touch .go.small { min-height: 42px; }
+html.touch #setup label.switch input { width: 50px; height: 28px; border-radius: 14px; }
+html.touch #setup label.switch input::after { width: 22px; height: 22px; }
+html.touch #setup label.switch input:checked::after { transform: translateX(22px); }
+html.touch #cmddock .mydie { width: calc(var(--u, 1) * 40px); height: calc(var(--u, 1) * 40px); }
+html.touch #cmddock .mytok { width: calc(var(--u, 1) * 38px); height: calc(var(--u, 1) * 38px); }
+/* Landscape only (the platforms: desktop and tablet, 1024x768 at least): upright, a notice. */
+#rotate { display: none; }
+@media (orientation: portrait) and (pointer: coarse) {
+  #rotate { position: fixed; inset: 0; z-index: 200; display: grid; place-items: center; text-align: center; background: #120c07; color: var(--ink); }
+  #rotate b { display: block; font-size: 72px; color: var(--acc); }
+  #rotate p { font: 400 28px 'League Gothic', Impact, sans-serif; letter-spacing: .5px; }
+}

@@ -131,6 +131,38 @@ test.describe('game', () => {
     expect(errors).toEqual([]);
   });
 
+  test('on a tablet a long press shows what the mouse shows by pointing, and chooses nothing', async ({ browser }) => {
+    // Asked by the user (2026-11-22): the whole game on a tablet, with no mouse hover.
+    const context = await browser.newContext({ hasTouch: true, viewport: { width: 1180, height: 820 } });
+    const page = await context.newPage();
+    const errors = await open(page, { save: [] });
+    await expect(page.locator('#turnsplash')).toHaveCount(1, { timeout: 60_000 });
+    await page.touchscreen.tap(600, 400);
+    await expect(page.locator('#turnsplash')).toHaveCount(0);
+    await expect(page.locator('html')).toHaveClass(/touch/);
+    const cdp = await context.newCDPSession(page);
+    const press = async (x: number, y: number, ms: number): Promise<void> => {
+      await cdp.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [{ x, y }] });
+      await page.waitForTimeout(ms);
+      await cdp.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });
+    };
+    // Arrange: a command of the owner's board, where the pop-up of the command is.
+    const quarter = page.locator('#strip [data-cmd-name]').first();
+    await expect(quarter).toBeVisible();
+    const box = (await quarter.boundingBox())!;
+    const before = await page.evaluate(() => window.trv!.choices);
+    // Act: a long press on it.
+    await press(box.x + box.width / 2, box.y + box.height / 2, 700);
+    // Assert: the pop-up stays up after the finger lifts, and nothing was chosen.
+    await expect(page.locator('#cmdtip')).toHaveClass(/show/);
+    expect(await page.evaluate(() => window.trv!.choices)).toBe(before);
+    // A touch somewhere else takes it away.
+    await press(600, 80, 60);
+    await expect(page.locator('#cmdtip')).not.toHaveClass(/show/);
+    expect(errors).toEqual([]);
+    await context.close();
+  });
+
   test('the local game can be deleted from the menu, after a confirmation', async ({ page }) => {
     // Arrange: a saved hot seat game, the menu opened over it.
     const errors = await open(page, { save: [] });

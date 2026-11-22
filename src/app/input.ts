@@ -8,6 +8,7 @@ import { dieHtml, drawHud } from './hud';
 import { markerAt } from './inspect';
 import { typing } from './keys';
 import { aheadDecision, drawMarkers } from './markers';
+import { wasLens } from './touch';
 import { addPoint, planDecision, planning } from './waypoints';
 import { renderer } from './stage';
 import { S } from './state';
@@ -109,7 +110,7 @@ export const pointer = new THREE.Vector2();
 export let downAt = { x: 0, y: 0 };
 renderer.domElement.addEventListener('pointerdown', e => { downAt = { x: e.clientX, y: e.clientY }; });
 renderer.domElement.addEventListener('pointerup', e => {
-  if (e.button !== 0 || drag || Math.hypot(e.clientX - downAt.x, e.clientY - downAt.y) > 6 || !decision) return;
+  if (e.button !== 0 || drag || Math.hypot(e.clientX - downAt.x, e.clientY - downAt.y) > 6 || !decision || wasLens()) return;
   const m = markerAt(e);
   if (m && planning()) addPoint(m.option);
   else if (m?.ahead) chooseAhead(m.option);

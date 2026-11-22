@@ -175,6 +175,11 @@
     "_module": "hud.ts: the players' bubbles in turn order; seconds a bubble takes to slide to its new place when the order changes (the roll for the first player, a new round).",
     "slide_s": 0.7
   },
+  "touch": {
+    "_module": "touch.ts: playing on a tablet (asked by the user, 2026-11-22). hold_ms: how long a finger stays still for the lens (the window the mouse shows by pointing); slop_px: how far it may move and still count as still.",
+    "hold_ms": 450,
+    "slop_px": 10
+  },
   "end_turn": {
     "_module": "dock.ts: End Turn pressed by itself when the option is on (asked by the user, 2026-11-22); milliseconds after the turn's last thing is shown.",
     "auto_ms": 700
