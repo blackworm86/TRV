@@ -36,6 +36,7 @@ import * as THREE from 'three';
 import { ROWS, COLS, snapshot, terrainAt, type Pos, type Frame } from '../game/trv/engine';
 import { bootAccount, bootOnline } from './account';
 import { betaGate } from './beta';
+import { openReportGame } from './report';
 import { playBeats, queue, skipBeats } from './beats';
 import { sceneState, shownLog } from './scenePlayer';
 import { carObjs, hazardObjs } from './board';
@@ -62,6 +63,12 @@ syncInert();
 void betaGate().then(() => {
   void bootAccount().catch(e => console.error(e));
   const invited = bootOnline();
+  // From the admin page: a tester's report, its game opened at the point it was sent (report.ts).
+  const report = new URLSearchParams(location.search).get('report');
+  if (report) {
+    void openReportGame(report).then(ok => { if (!ok) alert('Questa segnalazione non ha una partita allegata.'); }, e => { console.error(e); alert('Segnalazione non disponibile.'); });
+    return;
+  }
   try {
     const raw = invited ? null : localStorage.getItem(SAVE_KEY);
     if (raw) {

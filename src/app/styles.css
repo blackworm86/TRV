@@ -503,6 +503,27 @@
   #beta .go:disabled { opacity: .6; cursor: default; }
   #beta .row { display: flex; gap: 8px; justify-content: center; margin-top: 12px; }
   #beta .err { color: #ff8a6a; min-height: 1.3em; }
+  /* The testers' report (report.ts), above the table and the menus. */
+  #report { display: none; position: fixed; inset: 0; z-index: 70; background: rgba(10,6,3,.6); place-items: center; padding: 16px; box-sizing: border-box; }
+  #report.show { display: grid; }
+  #report .box { width: min(560px, 100%); max-height: 100%; overflow: auto; box-sizing: border-box; padding: 18px 22px; border-radius: 14px; background: var(--card); border: 1px solid #5a4330; box-shadow: 0 16px 40px rgba(0,0,0,.6); }
+  #report h2 { font: 400 32px/1 'League Gothic', Impact, sans-serif; color: var(--acc); margin: 0 0 12px; }
+  #report .kinds { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 10px; }
+  #report .kinds button { font: inherit; padding: 6px 10px; border-radius: 999px; border: 1px solid #5a4330; background: #120c07; color: var(--ink); cursor: pointer; }
+  #report .kinds button.on { background: var(--acc); color: #16100b; border-color: var(--acc); font-weight: 600; }
+  #report textarea { width: 100%; box-sizing: border-box; font: inherit; padding: 8px 10px; border-radius: 8px; border: 1px solid #5a4330; background: #120c07; color: var(--ink); resize: vertical; }
+  #report .check { display: flex; align-items: center; gap: 8px; margin: 10px 0 4px; }
+  #report .check.off { opacity: .5; }
+  #report .check img { margin-left: auto; height: 54px; border-radius: 6px; border: 1px solid #5a4330; }
+  #report .check.off img { display: none; }
+  #report .hint { margin: 4px 0; font-size: 12px; opacity: .7; }
+  #report .err { color: #ff8a6a; min-height: 1.2em; margin: 6px 0; }
+  #report .row { display: flex; justify-content: flex-end; gap: 8px; }
+  #report .go { min-height: 40px; padding: 0 22px; font-size: 16px; background: #e8742a; color: #1a120c; border: 0; border-radius: 10px; font-weight: 700; cursor: pointer; }
+  #report .go:disabled { opacity: .6; cursor: default; }
+  #rep-thanks { position: fixed; left: 50%; bottom: 28px; transform: translate(-50%, 20px); z-index: 70; padding: 10px 18px; border-radius: 10px; background: var(--acc); color: #16100b; font-weight: 600; opacity: 0; pointer-events: none; transition: opacity .25s, transform .25s; }
+  #rep-thanks.show { opacity: 1; transform: translate(-50%, 0); }
+  #reporthome { margin-right: 8px; }
   #setup { position: fixed; inset: 0; display: grid; place-items: center; z-index: 10; overflow: auto;
     background: radial-gradient(ellipse at 50% 30%, #3a2416 0%, #1a110b 55%, #0d0805 100%); }
   #setup .card { background: transparent; padding: 18px 24px; width: min(1000px, 96vw); max-height: 100vh; overflow: auto; box-sizing: border-box; align-self: start; }

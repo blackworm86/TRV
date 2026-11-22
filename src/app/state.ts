@@ -32,6 +32,8 @@ export const S = {
   level: settings.quality === 'auto' ? 'high' : settings.quality as Level,
   markers: [] as Marker[],
   net: null as Net | null,
+  /** A game opened from a tester's report (report.ts): never saved over this browser's own game. */
+  scratch: false,
   nextBeatAt: 0,
   /**
    * The last beat has played: until when (performance.now seconds) the table may still be coming to

@@ -308,7 +308,7 @@ export function dropLocal(): void {
 }
 
 export function persist(): void {
-  if (S.net) return; // an online match lives in the room, not in this browser
+  if (S.net || S.scratch) return; // an online match lives in the room; a report's game is only looked at
   try { localStorage.setItem(SAVE_KEY, JSON.stringify(S.saved)); } catch { /* storage off: no resume */ }
 }
 

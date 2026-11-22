@@ -140,6 +140,31 @@
   .testers li small { color: var(--muted); }
   .testers li.wait { border-style: dashed; color: var(--muted); }
   .testers h3 span { color: var(--muted); font-weight: 400; }
+  .st-nuova { color: #ff9a85; border-color: #ff9a8566; background: #ff9a8514; }
+  .st-vista { color: #f6c46a; border-color: #f6c46a66; background: #f6c46a14; }
+  .st-risolta { color: #8fe0a0; border-color: #8fe0a066; background: #8fe0a014; }
+  .st-scartata { color: var(--muted); border-color: var(--line); }
+  .reports .chips { margin-bottom: 12px; }
+  .reps { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; max-width: 980px; }
+  .reps li.wait { color: var(--muted); padding: 10px; border: 1px dashed var(--line); border-radius: 8px; }
+  .rep { border: 1px solid var(--line); border-radius: 10px; overflow: hidden; }
+  .rep.open { border-color: var(--accent); }
+  .rep-head { width: 100%; display: grid; grid-template-columns: auto auto 1fr; grid-template-rows: auto auto; gap: 4px 10px; align-items: center; text-align: left; background: none; border: 0; color: var(--ink); padding: 10px 12px; cursor: pointer; font: inherit; }
+  .rep-head .who { color: var(--muted); justify-self: end; font-size: 12px; }
+  .rep-head .txt { grid-column: 1 / -1; color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .rep.open .rep-head .txt { display: none; }
+  .rep-body { padding: 0 12px 12px; display: grid; gap: 10px; }
+  .rep-text { white-space: pre-wrap; margin: 0; line-height: 1.45; }
+  .rep-pic { display: flex; flex-wrap: wrap; gap: 12px; align-items: flex-start; }
+  .rep-pic img { max-width: min(560px, 100%); border-radius: 8px; border: 1px solid var(--line); display: block; }
+  .rep-pic .btn { text-decoration: none; }
+  .rep-pic .wait { color: var(--muted); }
+  .rep-body dl { display: grid; grid-template-columns: max-content 1fr; gap: 4px 12px; margin: 0; font-size: 12px; }
+  .rep-body dt { color: var(--muted); }
+  .rep-body dd { margin: 0; overflow-wrap: anywhere; }
+  .rep-note { display: grid; gap: 6px; }
+  .rep-note textarea { font: inherit; padding: 8px 10px; border-radius: 8px; border: 1px solid var(--line); background: var(--bg); color: var(--ink); resize: vertical; }
+  .rep-note .btn { justify-self: start; }
   ul.legend { margin: 0; padding-left: 18px; display: grid; gap: 6px; max-width: 90ch; }
   /* Produzione modelli: lists, sheets, rules and the specification (src/admin/produzione-view.ts). */
   .prod { max-width: 1100px; }

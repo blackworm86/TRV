@@ -137,6 +137,47 @@ test.describe('game', () => {
     expect(errors).toEqual([]);
   });
 
+  test('a tester’s report carries the game and the table, and the admin page opens it at that point', async ({ page, context }) => {
+    test.setTimeout(300_000); // three pages, two of them tables drawn in software
+    // Arrange: a local game a few choices in.
+    const errors = await open(page, { save: [] });
+    const made = await playFirst(page, 6);
+    const round = await page.evaluate(() => window.trv!.game!.round);
+    // Act: Menu > Segnala, a kind, a text, send.
+    await page.locator('#menu').click();
+    await page.locator('#reportopen').click({ force: true });
+    await expect(page.locator('#report')).toBeVisible();
+    await expect(page.locator('#rep-shot')).toBeChecked();
+    // The table behind is drawn in software and never rests: the window's own controls are clicked as they are.
+    await page.locator('#rep-kinds [data-kind="regola"]').click({ force: true });
+    await page.locator('#rep-text').fill('Lo slam non doveva spingere la Grande.');
+    await page.locator('#rep-send').click({ force: true });
+    // Sent: kept in this browser's store (?net=local) and the window closed. (The thanks shows for 3 s
+    // only: with tables drawn in software a check could miss it.)
+    await expect.poll(() => page.evaluate(() => Object.keys(JSON.parse(localStorage.getItem('trv-reports') ?? '{"cards":{}}').cards).length)).toBe(1);
+    await expect(page.locator('#report')).toBeHidden();
+    // Assert: the admin page lists it with its picture, and its game opens at that point.
+    const admin = await context.newPage();
+    const adminErrors = watchErrors(admin);
+    await admin.goto('/admin.html?admin=local#segnalazioni');
+    const head = admin.locator('.rep-head', { hasText: 'Lo slam non doveva spingere la Grande.' });
+    await expect(head).toContainText('Regola applicata male');
+    await head.click();
+    await expect(admin.locator('.rep-pic img')).toBeVisible();
+    await expect(admin.locator('.rep.open .st')).toHaveText('Vista');
+    const href = await admin.locator('.rep-pic a.btn').getAttribute('href');
+    const saveBefore = await page.evaluate(k => localStorage.getItem(k), SAVE_KEY);
+    const again = await context.newPage();
+    const againErrors = watchErrors(again);
+    await again.goto(`/${href!.replace(/^\.\//, '')}`);
+    await expect.poll(() => again.evaluate(() => window.trv?.choices ?? -1)).toBe(made);
+    expect(await again.evaluate(() => window.trv!.game!.round)).toBe(round);
+    // A report's game is only looked at: playing on in it leaves the browser's own game as it was.
+    await again.evaluate(() => { window.trv!.choose(0); window.trv!.skipBeats(); });
+    expect(await again.evaluate(k => localStorage.getItem(k), SAVE_KEY)).toBe(saveBefore);
+    expect([...errors, ...adminErrors, ...againErrors]).toEqual([]);
+  });
+
   test('the same seed and choices give the same game (resumed from storage)', async ({ page, context }) => {
     const errors = await open(page, { save: [] });
     const made = await playFirst(page, 40);

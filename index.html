@@ -54,6 +54,7 @@
 <div class="pop" id="menupop">
   <button id="newgame"><span>⟳</span> Nuova partita</button>
   <button id="roomopen"><span>⌁</span> Stanza online</button>
+  <button id="reportopen"><span>✎</span> Segnala un problema</button>
   <button id="adminopen"><span>⚿</span> Pannello admin</button>
   <button id="quit"><span>⏏</span> Esci dalla partita (menu principale)</button>
   <small id="buildtag"></small>
@@ -82,6 +83,19 @@
     <p class="err" id="beta-err"></p>
   </div>
 </div>
+<div id="report" role="dialog" aria-modal="true" aria-labelledby="rep-title">
+  <div class="box">
+    <h2 id="rep-title">Segnala</h2>
+    <div class="kinds" id="rep-kinds"></div>
+    <textarea id="rep-text" rows="6" maxlength="4000" placeholder="Che cosa è successo? Che cosa ti aspettavi? Se è una regola, cita la pagina del regolamento."></textarea>
+    <label class="check" id="rep-shotrow"><input type="checkbox" id="rep-shot"> Allega l’immagine del tavolo<img id="rep-pic" alt=""></label>
+    <p class="hint" id="rep-what"></p>
+    <p class="hint">Mandi anche la versione del gioco, il browser e la dimensione della finestra.</p>
+    <p class="err" id="rep-err"></p>
+    <div class="row"><button class="tool" id="rep-cancel">Annulla</button><button class="go" id="rep-send">Invia</button></div>
+  </div>
+</div>
+<div id="rep-thanks">Grazie, segnalazione inviata.</div>
 <div id="setup">
   <div class="card">
     <header class="hdr">
@@ -93,6 +107,7 @@
         <span class="av" id="meav">?</span>
         <span class="who"><input id="myname" maxlength="24" placeholder="Il tuo nome" title="Il nome con cui ti vedono gli altri giocatori" autocomplete="nickname"><small id="mecode"></small></span>
       </div>
+      <button class="tool" id="reporthome" title="Segnala un problema o un’idea agli sviluppatori">✎ Segnala</button>
       <div id="account">
         <span id="accwho"></span>
         <button class="tool" id="acclogin">Accedi con Google</button>

@@ -28,6 +28,8 @@ import { FIREBASE_CONFIG } from '../net/firebase-config';
 import { assetKey, firebaseCommentStore, localCommentStore, type CommentStore } from '../net/asset-comments';
 import { firebaseTesterStore, localTesterStore, type TesterStore } from '../net/testers';
 import { drawTesters } from './tester-view';
+import { firebaseReportStore, localReportStore, unseen, type ReportStore } from '../net/reports';
+import { drawReports } from './report-view';
 import { BASE_CATALOG, commandBoardImage, dashboardImage, dieFaceImage, roadTileImage, tokenImage } from '../game/trv/catalog';
 import { ASSET_CATALOG, entryFor, officialPath, type ItemEntry } from './catalog';
 import { dieSolid, flatSolid, inlineImages, type Face } from './solids';
@@ -618,6 +620,11 @@ let prod: string | null = null;
 /** True while the "Tester della Beta" section is on show (tester-view.ts). */
 let testerView = false;
 let testers: TesterStore | null = null;
+/** True while the "Segnalazioni" section is on show (report-view.ts); the reports and how many are new. */
+let reportsView = false;
+let reports: ReportStore | null = null;
+let newReports = 0;
+const localMode = new URLSearchParams(location.search).get('admin') === 'local';
 let statusFilter: string | null = null;
 let shown: Item[] = [];
 let openItem: Item | null = null;
@@ -629,7 +636,7 @@ const statusName = (s: string): string => ASSET_CATALOG.statuses[s]?.name ?? s;
 const badge = (s: string): string => `<span class="st st-${esc(s)}">${esc(statusName(s))}</span>`;
 
 function drawNav(): void {
-  let html = `<button data-view="" class="${view || prod !== null || testerView ? '' : 'on'}">Riepilogo<span>${ALL.length}</span></button>`;
+  let html = `<button data-view="" class="${view || prod !== null || testerView || reportsView ? '' : 'on'}">Riepilogo<span>${ALL.length}</span></button>`;
   for (const [g, name] of Object.entries(ASSET_CATALOG.games)) {
     const types = Object.keys(ASSET_CATALOG.types).filter(t => itemsOf({ game: g, type: t }).length);
     if (!types.length) continue;
@@ -644,7 +651,8 @@ function drawNav(): void {
     const on = prod !== null && (prod === page || (!page && !!sheetById(prod)));
     html += `<button data-view="produzione${page ? `/${page}` : ''}" class="${on ? 'on' : ''}">${esc(name)}<span>${n ?? ''}</span></button>`;
   }
-  html += `<h2>Beta</h2><button data-view="tester" class="${testerView ? 'on' : ''}">Tester della Beta<span></span></button>`;
+  html += `<h2>Beta</h2><button data-view="tester" class="${testerView ? 'on' : ''}">Tester della Beta<span></span></button>`
+    + `<button data-view="segnalazioni" class="${reportsView ? 'on' : ''}">Segnalazioni<span>${newReports ? `${newReports} nuove` : ''}</span></button>`;
   $('nav').innerHTML = html;
 }
 
@@ -698,6 +706,13 @@ function showDima(bar: HTMLElement): void {
 }
 
 function drawView(): void {
+  if (reportsView) {
+    stopViewer();
+    $('main').scrollTop = 0;
+    const url = (id: string): string => `./index.html?${localMode ? 'net=local&' : ''}report=${encodeURIComponent(id)}`;
+    void drawReports($('main'), reports!, url, () => reportsView, toast, n => { if (n !== newReports) { newReports = n; drawNav(); } });
+    return;
+  }
   if (testerView) {
     stopViewer();
     $('main').scrollTop = 0;
@@ -821,15 +836,19 @@ async function downloadAll(items: Item[]): Promise<void> {
 
 function goTo(hash: string): void {
   testerView = hash === 'tester' && !!testers;
+  reportsView = hash === 'segnalazioni' && !!reports;
   prod = hash === 'produzione' ? '' : hash.startsWith('produzione/') ? hash.slice('produzione/'.length) : null;
   const [g, t] = prod === null ? hash.split('/') : [];
   view = g && t && itemsOf({ game: g, type: t }).length ? { game: g, type: t } : null;
   statusFilter = null;
 }
 
-function startInspector(who: string, onSignOut: (() => void) | null, store: CommentStore, beta: TesterStore): void {
+function startInspector(who: string, onSignOut: (() => void) | null, store: CommentStore, beta: TesterStore, sent: ReportStore): void {
   comments = store;
   testers = beta;
+  reports = sent;
+  // How many reports wait, beside the section's name.
+  void sent.list().then(list => { newReports = unseen(list); drawNav(); }).catch(() => { /* rules not yet published */ });
   author = onSignOut ? who : 'Admin (locale)';
   $('app').hidden = false;
   $('who').textContent = who;
@@ -935,7 +954,7 @@ function show(id: 'login' | 'denied' | 'nocfg' | null): void {
 async function boot(): Promise<void> {
   if (new URLSearchParams(location.search).get('admin') === 'local') {
     show(null);
-    startInspector('Modalità locale (?admin=local): accesso non verificato', null, localCommentStore(localStorage), localTesterStore(localStorage));
+    startInspector('Modalità locale (?admin=local): accesso non verificato', null, localCommentStore(localStorage), localTesterStore(localStorage), localReportStore(localStorage));
     return;
   }
   if (!FIREBASE_CONFIG) { show('nocfg'); return; }
@@ -965,7 +984,7 @@ async function boot(): Promise<void> {
     if (!user || user.anonymous) { if (!started) show('login'); return; }
     if (await auth.isAdmin(user.uid)) {
       show(null);
-      if (!started) { started = true; startInspector(user.email ?? user.name ?? user.uid, out, await firebaseCommentStore(FIREBASE_CONFIG!), await firebaseTesterStore(FIREBASE_CONFIG!)); }
+      if (!started) { started = true; startInspector(user.email ?? user.name ?? user.uid, out, await firebaseCommentStore(FIREBASE_CONFIG!), await firebaseTesterStore(FIREBASE_CONFIG!), await firebaseReportStore(FIREBASE_CONFIG!)); }
     } else {
       $('denied-who').textContent = user.email ?? user.name ?? 'utente senza email';
       $('uid').textContent = user.uid;

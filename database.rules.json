@@ -117,6 +117,20 @@
           }
         }
       }
+    },
+    "reports": {
+      ".read": "auth != null && root.child('admins').child(auth.uid).val() === true",
+      "$id": {
+        ".write": "auth != null && (root.child('admins').child(auth.uid).val() === true || ((auth.token.firebase.sign_in_provider !== 'anonymous' && (root.child('admins').child(auth.uid).val() === true || root.child('testerUids').child(auth.uid).exists() || (auth.token.email != null && auth.token.email_verified === true && root.child('testers').child(auth.token.email.toLowerCase().replace('.', ',')).exists()))) && !data.exists() && newData.child('uid').val() === auth.uid && newData.child('status').val() === 'nuova' && root.child('reportData').child($id).child('uid').val() === auth.uid))",
+        ".validate": "newData.child('text').isString() && newData.child('text').val().length > 0 && newData.child('text').val().length <= 4000 && newData.child('at').isNumber() && newData.child('kind').isString() && newData.child('uid').isString() && newData.child('name').isString() && newData.child('name').val().length <= 24 && newData.child('status').val().matches(/^(nuova|vista|risolta|scartata)$/) && newData.child('note').isString() && newData.child('note').val().length <= 2000"
+      }
+    },
+    "reportData": {
+      ".read": "auth != null && root.child('admins').child(auth.uid).val() === true",
+      "$id": {
+        ".write": "auth != null && (auth.token.firebase.sign_in_provider !== 'anonymous' && (root.child('admins').child(auth.uid).val() === true || root.child('testerUids').child(auth.uid).exists() || (auth.token.email != null && auth.token.email_verified === true && root.child('testers').child(auth.token.email.toLowerCase().replace('.', ',')).exists()))) && !data.exists() && newData.child('uid').val() === auth.uid && !root.child('reports').child($id).exists()",
+        ".validate": "newData.child('uid').isString() && (!newData.child('game').exists() || (newData.child('game').isString() && newData.child('game').val().length <= 400000)) && (!newData.child('shot').exists() || (newData.child('shot').isString() && newData.child('shot').val().length <= 600000))"
+      }
     }
   }
 }

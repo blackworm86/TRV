@@ -102,6 +102,14 @@ restano nel browser, e la scheda **Confronta con la fonte** mostra le scansioni 
    chiusa solo dalla pagina: il codice è pubblico, quindi chi lo scarica può
    comunque avviarla da sé.
 
+10. **Segnalazioni dei tester** (dal 2026-11-22): `database.rules.json` ha le
+    sezioni `reports` (la scheda di ogni segnalazione) e `reportData` (partita e
+    immagine del tavolo). I tester scrivono solo segnalazioni nuove; gli admin le
+    leggono e ne cambiano stato e nota. Incolla di nuovo il file nella scheda
+    **Regole** e **Pubblica**. Le segnalazioni si leggono in **Pannello admin →
+    Segnalazioni**; **Apri la partita a quel punto** la carica nel gioco in una
+    scheda nuova, senza toccare la partita in locale del tuo browser.
+
 ## Come si gioca online
 
 - Gli amici richiedono un **account** (accesso con Google). Al primo accesso si
