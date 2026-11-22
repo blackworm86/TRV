@@ -24,7 +24,8 @@ cercare i pericoli, aspettare il momento per l'elicottero.
 1. Una taglia coperta a ogni persona, dopo le altre carte; i TRV9000 non ne ricevono.
 2. Il gioco controlla l'impresa nel suo momento e, se è completa, chiede al proprietario se
    giocarla. Se la tiene, dovrà completarla di nuovo (decisione dell'utente, 2026-11-22).
-3. La carta si gira in grande al centro del tavolo (mockup approvato); giocata, il premio si
+3. La carta si gira in grande nella colonna di sinistra, sopra la mano (layout chiesto
+   dall'utente il 2026-11-22: comandi e domande a sinistra); giocata, il premio si
    risolve subito.
 
 | Taglia | Impresa (quando si controlla) | Premio |
@@ -60,8 +61,8 @@ cercare i pericoli, aspettare il momento per l'elicottero.
 - Regole base (`rules-core.md`): slam, sparo, elicottero, pericoli, riparazione.
 - One Shots (`one-shots.md`): la stessa domanda "giocare la carta?" (`offerOneShot`).
 - TRV9000 (`trv9000-bots.md`): i bot non ricevono carte; possono essere bersagli.
-- Interfaccia: `src/app/minis.ts` (mano in alto a sinistra) e `src/app/hud.ts` (la taglia
-  completata al centro).
+- Interfaccia: `src/app/minis.ts` (mano nel vassoio di dadi e segnalini sopra la plancia dei
+  comandi; puntando una carta la si vede grande) e `src/app/hud.ts` (la taglia completata, a sinistra sopra la mano).
 
 ## Tuning Knobs
 

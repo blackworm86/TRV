@@ -501,6 +501,12 @@ export interface CommandBoardArt {
   leader?: { name: string; title: string; power: string; powerText: string; tokens: number; portrait?: string };
   /** The Undo plate on the strip's command board: 'on' when there is something to undo, 'off' when not; none without it. */
   undo?: 'on' | 'off';
+  /**
+   * The Bonus Command (mini expansion): one more die space off the board's top left corner, the
+   * board's shape grown to hold it (data-drop="bonus"). `slot`: the dice it takes ("3-4", "1-6");
+   * `hot`: a die or a token can go on it now; `used`: what went on it this round.
+   */
+  bonus?: { slot: string; name: string; hot: boolean; used?: 'die' | 'token' };
 }
 
 /** The four commands in the board's corners, with the die values each accepts (data/trv/game_base.json). */

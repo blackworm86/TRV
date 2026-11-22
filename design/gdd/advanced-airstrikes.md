@@ -23,7 +23,7 @@ pacchetto lasciato sulla strada.
 
 1. Una carta coperta a ogni persona; i TRV9000 non ne ricevono.
 2. Nel momento scritto sulla carta il gioco chiede al proprietario se giocarla (la carta vera nel
-   riquadro della domanda).
+   riquadro della domanda, a sinistra sopra la mano).
 
 | Carta | Momento | Effetto |
 |---|---|---|

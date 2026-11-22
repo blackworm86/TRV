@@ -323,16 +323,29 @@ export function buildTile(tile: TileData, o: TileMeshOptions): THREE.Group {
   const c = document.createElement('canvas');
   c.width = 1024; c.height = 96;
   const x2 = c.getContext('2d')!;
-  x2.fillStyle = '#2a1c14'; x2.fillRect(0, 0, 1024, 96);
-  x2.fillStyle = '#f6c46a'; x2.font = 'bold 64px Impact, "Arial Narrow", sans-serif'; x2.fillText(tile.name.toUpperCase(), 24, 72);
   const tex = new THREE.CanvasTexture(c);
   tex.colorSpace = THREE.SRGBColorSpace;
+  /** Paints the banner, the name `indent` px further right (room for a Road Condition at its left). */
+  const paintBanner = (indent: number): void => {
+    x2.fillStyle = '#2a1c14'; x2.fillRect(0, 0, 1024, 96);
+    x2.fillStyle = '#f6c46a'; x2.font = 'bold 64px Impact, "Arial Narrow", sans-serif'; x2.fillText(tile.name.toUpperCase(), 24 + indent, 72);
+    tex.needsUpdate = true;
+  };
+  paintBanner(0);
   const stripPx = GRID.y0 - GRID.rowPitch / 2; // strip from y = 0 to the top of row 0
   const banner = new THREE.Mesh(new THREE.PlaneGeometry(o.width * 0.86, stripPx * 0.7 * kz), new THREE.MeshStandardMaterial({ map: tex, roughness: 0.8 }));
   banner.rotation.x = -Math.PI / 2;
   banner.position.set(-o.width * 0.04, o.thickness, (stripPx * 0.55 - GRID.frameH / 2) * kz);
   banner.receiveShadow = true;
   group.add(banner);
+  // The banner's left end, length and depth, in the tile's frame, and its painter: the interface
+  // prints the tile's Road Condition at its left, the name moved over (src/app/minis.ts).
+  group.userData.banner = {
+    start: new THREE.Vector3(banner.position.x - o.width * 0.43, o.thickness, banner.position.z),
+    length: o.width * 0.86, depth: stripPx * 0.7 * kz,
+    /** Moves the name right by `room` (in the tile's units; 0: back in its place). */
+    indent: (room: number) => paintBanner(Math.round(room / (o.width * 0.86) * 1024)),
+  };
   return group;
 }
 

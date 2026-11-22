@@ -82,8 +82,11 @@ scoperta a ogni persona; i TRV9000 non ne ricevono.
 - Choppe Shoppe (`choppe-shoppe.md`): i segnalini comando.
 - TRV9000 (`trv9000-bots.md`): i bot non ricevono carte.
 - Big Rig e Final Five (`big-rig-final-five.md`): ricevono la carta e la usano come le auto (§2.4).
-- Interfaccia: `src/app/minis.ts` (la carta sopra la plancia dei comandi, ci si trascina il dado
-  o il segnalino).
+- Interfaccia: un riquadro dado in più, bordato di verde, in alto a sinistra della plancia dei
+  comandi, che si allunga per accoglierlo (`src/view/vector/boards.ts`), con l'intervallo della
+  carta: ci si trascina il dado o il segnalino; la carta, grande, si vede puntando il riquadro
+  (`src/app/minis.ts`). Big Rig e Final Five: per ora un rombo a parte nello stesso punto. Layout
+  chiesto dall'utente il 2026-11-22.
 
 ## Tuning Knobs
 

@@ -57,7 +57,9 @@ sorpresa da leggere prima di lanciarsi.
 - Regole base (`rules-core.md`): avanzamento della tavola, dado direzione, pericoli, sparo.
 - Carnage at Devil's Run (`carnage-at-devils-run.md`): il terremoto, di cui Tremors riusa il movimento.
 - Big Rig (`big-rig-final-five.md`), TRV9000 (`trv9000-bots.md`): la condizione vale anche per loro.
-- Interfaccia: `src/app/minis.ts` (bandierina gialla per tessera, la carta si apre puntandola).
+- Interfaccia: `src/app/minis.ts` (il simbolo giallo e nero della carta stampato sulla barra del
+  nome della tessera, a sinistra del nome, come parte della mappa; puntandolo si vede la carta grande,
+  cliccandolo il testo resta fisso sopra la barra. Layout chiesto dall'utente il 2026-11-22).
 
 ## Tuning Knobs
 

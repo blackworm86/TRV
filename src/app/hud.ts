@@ -29,7 +29,7 @@ import { S, shown } from './state';
 import { syncTableDice } from './tableDice';
 import { $, esc } from './util';
 import { miniCardSvg, type MiniFamily } from '../view/minicards';
-import { drawMinis } from './minis';
+import { bonusArt, drawMinis } from './minis';
 
 /** The data family of each hand of mini expansion cards. */
 const FAMILY: Record<CardHand, MiniFamily> = { oneShots: 'one_shots', airstrikes: 'advanced_airstrikes', bounties: 'bounties' };
@@ -292,16 +292,17 @@ export function drawHud(): void {
   // The upgrades' own questions are asked in full: they name the card.
   const asked = planning() ? '' : d && (d.kind === 'command' || d.kind === 'token') ? '' : d ? ASK[d.kind] ?? (['plow', 'rollCage', 'dispense', 'radar', 'swap', 'redButton'].includes(d.kind) ? d.prompt.replace(/^[^:]+: /, '') : '') : '';
   if (asked) actions.insertAdjacentHTML('afterbegin', `<span class="q">${esc(asked)}</span>`);
-  // A card of a mini expansion in hand: the real card heads the question, so it moves with it and
-  // hides nothing. A bounty completed is turned over in the middle of the table (the approved mockup).
+  // A card of a mini expansion in hand: the real card beside the question, in the left column with
+  // the commands (src/app/dock.ts, placeActions). A bounty completed is turned over there, its
+  // title over the question.
   const playing = d?.kind === 'playCard' ? d.options[1].card ?? null : null;
   const fam = playing ? FAMILY[handOf(playing) ?? 'oneShots'] : null;
   const os = !!playing && !!fam;
   if (playing && fam) {
     const bounty = fam === 'bounties';
     actions.insertAdjacentHTML('afterbegin', `<div class="oscard${bounty ? ' bounty' : ''}" style="--c:${g.players[d!.player].color}">`
-      + `<div class="mc">${miniCardSvg(fam, playing)}</div>`
-      + (bounty ? `<div class="bt"><small>TAGLIA COMPLETATA · ${esc(g.players[d!.player].name.toUpperCase())}</small><b class="gothic">${esc(miniCardName(playing))}</b></div>` : '') + '</div>');
+      + `<div class="mc">${miniCardSvg(fam, playing)}</div></div>`
+      + (bounty ? `<div class="bt"><small>TAGLIA COMPLETATA · ${esc(g.players[d!.player].name.toUpperCase())}</small><b class="gothic">${esc(miniCardName(playing))}</b></div>` : ''));
   }
   actions.classList.toggle('reveal', !!playing && fam === 'bounties');
   actions.classList.toggle('only', !actions.querySelector('button'));
@@ -347,6 +348,7 @@ export function drawHud(): void {
     // Undo on the board: lit when there is a choice to take back (online, only this player's own).
     undo: (!canUndo() || S.playing ? 'off' : 'on') as 'on' | 'off',
     ...(cmds ? { commands: cmds } : {}),
+    ...bonusArt(me, hot.has('bonus') || (d?.kind === 'token' && !!mine && d.options.some(o => o.bonus))),
     ...(lead ? { leader: {
       name: lead.name, title: lead.title, power: POWER_INFO[lead.power]?.[0] ?? lead.power, powerText: POWER_INFO[lead.power]?.[1] ?? '',
       tokens: me.tokens, ...(PORTRAITS[lead.id] ? { portrait: PORTRAITS[lead.id] } : {}),
@@ -387,7 +389,7 @@ export function drawHud(): void {
   for (const el of document.querySelectorAll<SVGElement>('#bottom [data-drop]')) {
     if (hot.has(el.dataset.drop!)) el.classList.add('hotzone');
     // A command token goes on the slot clicked.
-    const tokenAt = d?.kind === 'token' && mine ? d.options.findIndex(o => o.command && `cmd:${o.command}` === el.dataset.drop) : -1;
+    const tokenAt = d?.kind === 'token' && mine ? d.options.findIndex(o => (o.command && `cmd:${o.command}` === el.dataset.drop) || (o.bonus && el.dataset.drop === 'bonus')) : -1;
     if (tokenAt > 0) { el.classList.add('hotzone'); el.addEventListener('click', () => choose(tokenAt)); continue; }
     el.addEventListener('click', () => {
       // No die selected: use the first free die that fits this slot.

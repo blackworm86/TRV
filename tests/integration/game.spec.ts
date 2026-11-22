@@ -207,6 +207,11 @@ test.describe('game', () => {
     // The play button is the one on Enter (the bar is redrawn while the car models load, so the
     // button is pressed through its key rather than waited on to stand still).
     await expect(page.locator('#actions button[data-key="Enter"]')).toHaveText(/^Gioca /);
+    // A turn splash still up from the turns played above takes the first key for itself: closed first.
+    if (await page.locator('#turnsplash').count()) {
+      await page.keyboard.press('Shift');
+      await expect(page.locator('#turnsplash')).toHaveCount(0);
+    }
     await page.keyboard.press('Enter');
     await expect.poll(() => page.evaluate(s => window.trv!.game!.oneShots![s], seat)).toBeNull();
     // The question about that card is gone (the other person, holding the same card, may be asked next).
@@ -225,13 +230,33 @@ test.describe('game', () => {
     const g = await page.evaluate(() => { const x = window.trv!.game!; return { b: x.bonusCommands, o: x.oneShots, t: x.bounties, a: x.airstrikes, r: x.roads?.cards }; });
     for (const hand of [g.b, g.o, g.t, g.a]) expect(hand?.every(c => typeof c === 'string')).toBe(true);
     expect(g.r?.filter(Boolean)).toHaveLength(2);
-    await expect(page.locator('#minis .mhand .mcard')).toHaveCount(3);
-    await expect(page.locator('#minis .mbonus svg')).toHaveCount(1);
+    // The hand is in the tray over the command board; the Bonus Command is a die space of the board.
+    await expect(page.locator('#cmdhand .mslot')).toHaveCount(3);
+    await expect(page.locator('#strip [data-bonus]')).toHaveCount(1);
     await expect(page.locator('#fx .rcflag')).toHaveCount(2);
     await expect(page.locator('#players .pl .mini .mbacks').first().locator('.mb')).toHaveCount(4);
-    // Pointing at a flag opens its card.
-    await page.locator('#fx .rcflag').first().hover();
-    await expect(page.locator('#fx .rcflag').first().locator('.rcpop')).toBeVisible();
+    const spots = await page.evaluate(() => ({
+      hand: document.querySelector('#cmdhand')!.getBoundingClientRect().bottom,
+      // The command board's die diamonds that are drawn (the strip keeps others, unseen).
+      corner: Math.min(...[...document.querySelectorAll('#strip path[data-drop^="cmd:"]')].map(e => e.getBoundingClientRect()).filter(r => r.width > 0).map(r => r.top)),
+    }));
+    expect(spots.hand).toBeLessThan(spots.corner);
+    // Pointing at a card of the hand, or at the Bonus Command's space, shows the card large.
+    const zoom = page.locator('#minis .mzoom');
+    await expect(zoom).toBeHidden();
+    await page.locator('#cmdhand .mslot').first().hover();
+    await expect(zoom).toBeVisible();
+    await page.mouse.move(5, 300);
+    await expect(zoom).toBeHidden();
+    await page.locator('#strip [data-bonus]').hover();
+    await expect(zoom.locator('svg[data-id]')).toHaveAttribute('data-id', await page.evaluate(() => window.trv!.game!.bonusCommands![window.trv!.decision!.player]!));
+    // Pointing at a Road Condition's symbol opens its card; a click keeps its text over the banner.
+    const flag = page.locator('#fx .rcflag').first();
+    await flag.hover();
+    await expect(flag.locator('.rcpop')).toBeVisible();
+    await expect(flag.locator('.rctext')).toBeHidden();
+    await flag.click();
+    await expect(flag.locator('.rctext')).toBeVisible();
     expect(errors).toEqual([]);
   });
 

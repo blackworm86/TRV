@@ -73,14 +73,18 @@
   .pl .mb.used { opacity: .2; }
   /* A card of a mini expansion in hand: the real card heads the question about it. */
   #actions .oscard { flex-basis: 100%; display: flex; gap: 14px; align-items: center; justify-content: center; margin: 2px 0 6px; }
-  #actions .oscard .mc { width: 150px; flex: none; aspect-ratio: 744 / 1040; border-radius: 9px; overflow: hidden; box-shadow: 0 0 0 2px var(--c), 0 10px 24px rgba(0,0,0,.6); }
+  #actions .oscard .mc { width: 170px; flex: none; aspect-ratio: 744 / 1040; border-radius: 9px; overflow: hidden; box-shadow: 0 0 0 2px var(--c), 0 10px 24px rgba(0,0,0,.6); }
   #actions .oscard .mc svg { display: block; }
-  #actions .oscard .bt small { display: block; font: 700 12px system-ui; letter-spacing: 2px; color: #b9b9b9; }
-  #actions .oscard .bt b { display: block; margin-top: 4px; font-size: 36px; font-weight: 400; line-height: 1; color: #f2c230; }
-  #actions:has(> .oscard) { max-width: 460px; justify-content: center; }
+  #actions .bt small { display: block; font: 700 12px system-ui; letter-spacing: 2px; color: #b9b9b9; }
+  #actions .bt b { display: block; margin-top: 4px; font-size: 36px; font-weight: 400; line-height: 1; color: #f2c230; }
+  /* On the left, over the hand (src/app/minis.ts): the card beside the question and its answers. */
+  #actions:has(> .oscard) { display: grid !important; grid-template-columns: auto minmax(0, 1fr); align-content: center; justify-items: start; column-gap: 14px; row-gap: 10px; max-width: 440px; padding: 12px 14px 12px 12px; border-radius: 16px; transform: translateX(-50%); }
+  #actions:has(> .oscard) > .oscard { grid-column: 1; grid-row: 1 / span 6; margin: 0; }
+  #actions:has(> .oscard) > :not(.oscard) { grid-column: 2; }
+  #actions:has(> .oscard) .q { white-space: normal; line-height: 1.05; }
   /* A bounty completed: turned over in the middle of the table (the approved mockup). */
-  #actions.reveal { left: 50% !important; top: 50% !important; transform: translate(-50%, -50%) !important; max-width: 520px; padding: 16px 20px; border-radius: 18px; border: 2px solid #b9b9b9; }
-  #actions.reveal .oscard .mc { width: 176px; transform: rotate(-3deg); }
+  #actions.reveal { max-width: 440px; padding: 16px 20px; border-radius: 18px; border: 2px solid #b9b9b9; }
+  #actions.reveal .oscard .mc { width: 180px; transform: rotate(-3deg); }
   .pl .tok i { position: absolute; right: -6px; bottom: -4px; font: 700 10px system-ui; color: #f3e6d0; background: #26232b; border-radius: 6px; padding: 0 3px; font-style: normal; }
   .pl .dice { display: flex; gap: 3px; align-items: center; min-height: 22px; }
   .pl .dice svg { width: 21px; height: 21px; }
@@ -897,29 +901,42 @@
 #sure p { margin: 8px 0 14px; font-size: 15px; line-height: 1.4; }
 #sure div { display: flex; gap: 8px; justify-content: flex-end; }
 
-/* Mini expansions on the table (src/app/minis.ts, the approved mockup design/ux/mockup/). */
-#minis { position: fixed; inset: 0; pointer-events: none; z-index: 3; }
+/* Mini expansions on the table (src/app/minis.ts): with the commands, on the left. */
+#minis { position: fixed; inset: 0; pointer-events: none; z-index: 6; }
 #minis .mcard, .rcflag .mcard { aspect-ratio: 744 / 1040; overflow: hidden; }
-#minis .mcard svg, .rcflag .mcard svg, #minis .mbonus svg { display: block; }
-/* The viewer's face-down cards, small top left, under the round box; pointed at, large. */
-#minis .mhand { position: absolute; left: 12px; top: 76px; display: flex; gap: 8px; padding: 12px 10px 10px; background: rgba(20,14,10,.86); border: 1px solid #5a4632; border-radius: 12px; pointer-events: auto; }
-#minis .mhand h4 { position: absolute; top: -10px; left: 10px; margin: 0; padding: 1px 7px; background: #2a1f17; border-radius: 5px; font: 700 11px system-ui; letter-spacing: 2px; color: #f2c230; }
-#minis .mhand .mcard { width: 44px; border-radius: 5px; box-shadow: 0 4px 10px rgba(0,0,0,.6); transform-origin: top left; transition: transform .15s; cursor: zoom-in; }
-#minis .mhand .mcard.hot { box-shadow: 0 0 0 3px #fff, 0 0 18px 4px rgba(255,214,120,.85); transform: translateY(-8px); }
-#minis .mhand .mcard:hover { position: relative; z-index: 6; transform: scale(3.6); border-radius: 2px; }
-/* The Bonus Command: a command more, face up above the command board, by the starting area. */
-#minis .mbonus { position: absolute; left: 8px; bottom: calc(var(--stripw) / 4.1 + 40px); width: 96px; aspect-ratio: 744 / 1040; border-radius: 7px; overflow: hidden; box-shadow: 0 8px 20px rgba(0,0,0,.6); pointer-events: auto; cursor: pointer; transform-origin: bottom left; transition: transform .15s; }
-#minis .mbonus:hover { transform: scale(2.4); z-index: 6; }
-#minis .mbonus.hotzone { box-shadow: 0 0 0 3px #39d353, 0 0 18px #39d353, 0 8px 20px rgba(0,0,0,.6); }
-#minis .mbonus.used svg { filter: brightness(.55); }
-#minis .mbonus .on { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%) rotate(-12deg); padding: 2px 6px; border-radius: 4px; background: #f2c230; color: #17130f; font: 700 11px system-ui; letter-spacing: 1px; }
-#minis .mbonuslabel { position: absolute; left: 4px; bottom: calc(var(--stripw) / 4.1 + 22px); width: 104px; text-align: center; font: 700 10px system-ui; letter-spacing: 1.5px; color: #39d353; }
-/* Road Conditions: a yellow flag by the tile's name; pointed at (or tapped), the card under it. */
-.rcflag { position: absolute; transform: translate(-50%, -100%); height: 28px; display: flex; align-items: center; padding: 0 10px; background: #f2c230; color: #17130f; border-radius: 4px 14px 14px 4px;
-  font: 400 20px/1 'League Gothic', Impact, sans-serif; letter-spacing: .5px; box-shadow: 0 3px 10px rgba(0,0,0,.6); cursor: help; pointer-events: auto; white-space: nowrap; }
-.rcflag .rcpop { display: none; position: absolute; left: 0; top: 34px; width: 196px; border-radius: 10px; box-shadow: 0 16px 40px rgba(0,0,0,.75); }
-.rcflag:hover, .rcflag.open { box-shadow: 0 0 0 3px #fff, 0 3px 10px rgba(0,0,0,.6); z-index: 2; }
-.rcflag:hover .rcpop, .rcflag.open .rcpop { display: block; }
+#minis .mcard svg, .rcflag .mcard svg, #cmdhand .mcard svg { display: block; }
+/* The card pointed at, large: right of the tray for the hand, above the space for the Bonus Command. */
+#minis .mzoom { display: none; position: fixed; width: 280px; border-radius: 14px; box-shadow: 0 18px 44px rgba(0,0,0,.8); pointer-events: none; }
+#minis .mzoom.show { display: block; }
+/* The viewer's face-down cards, in the tray over the command board, above the dice (minis.ts). */
+#cmddock .hand { display: flex; justify-content: center; gap: calc(var(--u, 1) * 6px); padding: calc(var(--u, 1) * 2px) 0 calc(var(--u, 1) * 3px); }
+#cmddock .hand:empty { display: none; }
+#cmdhand .mcard { width: calc(var(--u, 1) * 34px); aspect-ratio: 744 / 1040; overflow: hidden; border-radius: calc(var(--u, 1) * 3px); box-shadow: 0 2px 6px rgba(0,0,0,.55); cursor: zoom-in; transition: transform .15s; }
+#cmdhand .mslot:hover .mcard { transform: translateY(-3px); box-shadow: 0 0 0 2px #f3e6d0, 0 4px 10px rgba(0,0,0,.6); }
+#cmdhand .mslot.hot .mcard { box-shadow: 0 0 0 3px #fff, 0 0 14px 3px rgba(255,214,120,.85); transform: translateY(-4px); }
+/* The owner's strip may reach past its frame: the Bonus Command's space off the board's corner. */
+#strip svg[data-strip="2"] { overflow: visible; }
+#strip [data-bonus] { cursor: pointer; }
+/* The Big Rig's and the Final Five's boards: the Bonus Command as a diamond of its own (minis.ts). */
+#minis .mbonus { --s: 52px; position: absolute; left: 8px; bottom: calc(var(--stripw) / 4.1 + 40px); width: var(--s); height: var(--s); pointer-events: auto; cursor: pointer; }
+#minis .mbonus > svg { position: absolute; inset: 0; width: 100%; height: 100%; overflow: visible; }
+#minis .mbonus > svg path { fill: #26232b; stroke: #39d353; stroke-width: 2.5; stroke-linejoin: round; filter: drop-shadow(0 3px 5px rgba(0,0,0,.6)); }
+#minis .mbonus:hover > svg path { stroke: #f3e6d0; }
+#minis .mbonus.hotzone > svg path { fill: #1f5a30; stroke: #4cff7a; stroke-width: 6; }
+#minis .mbonus > b { position: absolute; inset: 0; display: grid; place-items: center; font-size: calc(var(--s) * .42); font-weight: 400; color: #f3e6d0; pointer-events: none; }
+#minis .mbonus::before { content: 'BONUS'; position: absolute; left: 50%; bottom: 100%; transform: translate(-50%, -1px); font: 700 9px system-ui; letter-spacing: 1.5px; color: #39d353; text-shadow: 0 1px 2px #000; pointer-events: none; }
+#minis .mbonus.used > svg path, #minis .mbonus.used > b { opacity: .45; }
+#minis .mbonus > i { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%) rotate(-12deg); padding: 1px 5px; border-radius: 4px; background: #f2c230; color: #17130f; font: 700 9px system-ui; font-style: normal; letter-spacing: 1px; pointer-events: none; }
+/* Road Conditions: the card's symbol is printed on its tile's name banner (3D, minis.ts); this is
+   the pointer's spot over it: pointed at, the card large; clicked, its text kept over the banner. */
+.rcflag { position: absolute; border-radius: 3px; cursor: pointer; pointer-events: auto; }
+.rcflag:hover, .rcflag.pin { box-shadow: 0 0 0 2px rgba(243,230,208,.9); }
+.rcflag .rcpop { display: none; position: absolute; left: 0; top: calc(100% + 8px); width: 280px; border-radius: 14px; box-shadow: 0 18px 44px rgba(0,0,0,.8); pointer-events: none; }
+.rcflag:hover { z-index: 3; }
+.rcflag:hover .rcpop { display: block; }
+.rcflag .rctext { display: none; position: absolute; left: 0; bottom: calc(100% + 6px); width: 250px; padding: 7px 10px 9px; background: #f2c230; color: #17130f; border: 2px solid #17130f; border-radius: 6px; box-shadow: 0 6px 16px rgba(0,0,0,.55); font: 600 13px/1.3 system-ui, sans-serif; }
+.rcflag .rctext b { display: block; font-size: 21px; font-weight: 400; line-height: 1; margin-bottom: 3px; }
+.rcflag.pin .rctext { display: block; }
 
 /* Graphics quality "low" (src/app/quality.ts): no blur behind the panels, no shadow filters. They
    are recomputed at every frame over the moving table, which slow computers cannot afford. */

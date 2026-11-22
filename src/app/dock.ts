@@ -12,6 +12,7 @@ import { camera, renderer } from './stage';
 import { S } from './state';
 import { fxDiceRect, tableDiceRect } from './tableDice';
 import { previewSpots } from './markers';
+import { cardAskSpot, handCards } from './minis';
 import { P } from './presentation';
 import { $, cssPx, menuOpen } from './util';
 
@@ -112,7 +113,9 @@ export function drawDock(d: Decision | null, mine: boolean, me?: Player): void {
   end.onclick = ending ? () => choose(0) : null;
   // Out while there are dice to play or a token to place; back behind the board otherwise.
   const live = !!me && mine && me.dice.some((_, i) => !me.used[i] && dieUsable(i));
-  dock.classList.toggle('ask', asking || live || ending);
+  // Out too while the player holds mini expansion cards: the hand is in the tray (minis.ts).
+  const cards = !!me && handCards(me).length > 0;
+  dock.classList.toggle('ask', asking || live || ending || cards);
   $('cmdwrap').classList.toggle('on', !!g && !menuOpen());
 }
 /** How far the drawer reaches behind the command board's top edge (hidden by the board), in px. */
@@ -172,6 +175,15 @@ export function placeActions(): void {
   const w = el.offsetWidth, h = el.offsetHeight;
   let x = innerWidth / 2, top = floor - h;
   const dice = tableDiceRect();
+  // A card of a mini expansion asked about: on the left, with the commands and the hand (asked by
+  // the user, 2026-11-22), never somewhere on the table.
+  const card = el.querySelector('.oscard') ? cardAskSpot(w, h) : null;
+  if (card) {
+    el.classList.remove('wait');
+    el.style.left = `${card.x}px`;
+    el.style.top = `${card.top}px`;
+    return;
+  }
   if (dice) {
     // Beside the dice on the table: "no command" and the questions about the dice.
     x = dice.right + 18 + w / 2;

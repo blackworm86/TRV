@@ -82,6 +82,8 @@ const TAB_LEFT = -175;
 const STRIP_LEFT = 30;
 /** The die slots of the corners, as in the first drawing (40.14-unit squares turned 45°). */
 const SLOT = 40.14;
+/** The Bonus Command's die space: its step from the top left one (in die-space radii), the rim of board around it, its colour. */
+const BONUS_STEP = 1.12, BONUS_RIM = 6, BONUS_GREEN = '#39d353';
 /** The tab's grey and its shape in the second drawing's units: the drawing's tab, 6 units longer so the power's text fits beside a narrower portrait (mockup approved 2026-11-17). */
 const TAB_PATH = 'M280,76.1 L272,68 c-0.9-0.9-2.2-1.5-3.5-1.5 H27.9 c-1.3,0-2.6,0.5-3.5,1.5 l-8.1,8.1 c-0.9,0.9-1.5,2.2-1.5,3.5 v151 c0,1.3,0.5,2.6,1.5,3.5 l8.1,8.1 c0.9,0.9,2.2,1.5,3.5,1.5 h242.6 c1.3,0,2.6-0.5,3.5-1.5 l6-6 c0.9-0.9,1.5-2.2,1.5-3.5 V79.6 z';
 /** The portrait's window on the tab: its left 90 units. */
@@ -430,7 +432,8 @@ export function makeBoards(raw: string, base: BoardBase, stripRaw?: string): {
     }
     const corner: El[] = s.slots.map(([x, y]) => ({ layer: '', tag: 'rect', cls: '', x: x + dx, attrs: `x="${x + dx - SLOT / 2}" y="${y + dy - SLOT / 2}" width="${SLOT}" height="${SLOT}"` }));
     const panel = s.panel.map((v, i) => v + (i % 2 ? dy : dx));
-    let out = `<g transform="translate(${dx} ${dy})">${b}</g>`;
+    let out = `<g transform="translate(${dx} ${dy})">${c.bonus ? bonusLobe(s.slots[0]) : ''}${b}</g>`;
+    if (c.bonus) out += `<g transform="translate(${dx} ${dy})">${bonusSlot(c, s.slots[0])}</g>`;
     out += commandsPart(c, { corner, midX: s.mid[0] + dx, midY: s.mid[1] + dy, panel, yTop: panel[1] + 27, yBottom: s.mid[1] + dy + 23, arm: s.arm }, ink);
     // The command tokens left, heaped at the board's foot as a player leaves them (asked by the user, 2026-11-17).
     const n = c.leader?.tokens ?? 0;
@@ -442,6 +445,31 @@ export function makeBoards(raw: string, base: BoardBase, stripRaw?: string): {
     }
     if (heap) out += `<g class="tokenheap" transform="translate(${dx} ${dy})" pointer-events="none">${heap}</g>`;
     return out;
+  }
+
+  /** Where the Bonus Command's die space sits: a step up and to the left of the top left one. */
+  function bonusCentre([sx, sy]: [number, number]): [number, number] {
+    const a = (SLOT / Math.SQRT2) * BONUS_STEP;
+    return [sx - a, sy - a];
+  }
+  /**
+   * The board's shape grown toward the Bonus Command's space (asked by the user, 2026-11-22): the
+   * hull of the two die spaces, widened by the board's rim, in the board's colour, under the board.
+   */
+  function bonusLobe(slot: [number, number]): string {
+    const [bx, by] = bonusCentre(slot), [sx, sy] = slot, R = SLOT / Math.SQRT2 + BONUS_RIM;
+    const pts = [[bx, by - R], [sx, sy - R], [sx + R, sy], [sx, sy + R], [bx, by + R], [bx - R, by]];
+    return `<polygon points="${pts.map(p => p.map(v => v.toFixed(2)).join(',')).join(' ')}" fill="${DARK}" stroke="${DARK}" stroke-width="${BONUS_RIM}" stroke-linejoin="round"/>`;
+  }
+  /** The Bonus Command's die space: lit when a die or a token can go on it, marked once used. */
+  function bonusSlot(c: CommandBoardArt, slot: [number, number]): string {
+    const k = c.bonus!, [x, y] = bonusCentre(slot), r = SLOT / Math.SQRT2;
+    let b = `<path d="${diamond(x, y, r)}" fill="${k.hot ? '#1f5a30' : DARK}" stroke="${k.hot ? HOT : BONUS_GREEN}" stroke-width="${k.hot ? 3 : 1.6}" stroke-linejoin="round" data-drop="bonus" data-bonus="1"><title>${esc(`Comando bonus: ${k.name}`)}</title></path>`;
+    if (k.used === 'token') b += base.commandToken(x, y, r * 1.35);
+    else b += text(k.slot, x, y + 5.5, 16, CREAM, 'middle', `opacity="${k.used ? 0.35 : 1}"`);
+    if (k.used === 'die') b += text('USATO', x, y + 17, 8, BONUS_GREEN, 'middle', 'font-style="italic"');
+    b += text('BONUS', x, y - r - 3, 9, BONUS_GREEN, 'middle', 'letter-spacing="1"');
+    return b;
   }
 
   /**

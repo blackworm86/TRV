@@ -37,19 +37,22 @@ export const miniCardArt = (family: MiniFamily, id: string): string | undefined 
 
 /** The card's size, in the units of the drawing (the cleaned card's pixels). */
 export const MINI_CARD = { w: 744, h: 1040 } as const;
+/** The radius of the card's corners, in the same units (3 mm of the card's 63). */
+const CORNER = 35;
 
 /**
  * How the text is set on each kind of card: its colour, whether lines are centred (the Bonus
  * Commands), the lowest the text may go (Italian runs longer than English: it may take the panel's
- * room under the printed text), and the printed size it starts from.
+ * room under the printed text), and the size it starts from: larger than the printed one, for the
+ * screen (asked by the user, 2026-11-22), shrunk where the text does not fit.
  */
 const STYLE: Record<MiniFamily, { ink: string[]; center?: boolean; bottom?: number; right?: number; size: number }> = {
-  bonus_commands: { ink: ['#efe6d2'], center: true, bottom: 962, right: 668, size: 40 },
-  one_shots: { ink: ['#17130f'], bottom: 964, right: 672, size: 40 },
-  road_conditions: { ink: ['#17130f'], bottom: 964, right: 680, size: 41 },
-  advanced_airstrikes: { ink: ['#101418'], bottom: 952, right: 670, size: 40 },
+  bonus_commands: { ink: ['#efe6d2'], center: true, bottom: 962, right: 668, size: 50 },
+  one_shots: { ink: ['#17130f'], bottom: 964, right: 672, size: 50 },
+  road_conditions: { ink: ['#17130f'], bottom: 964, right: 680, size: 50 },
+  advanced_airstrikes: { ink: ['#101418'], bottom: 952, right: 670, size: 50 },
   // The task on the purple box, the reward on the orange one: each fills its own box.
-  bounties: { ink: ['#f4efe6', '#17130f'], size: 40 },
+  bounties: { ink: ['#f4efe6', '#17130f'], size: 50 },
 };
 
 /**
@@ -62,7 +65,10 @@ export function miniCardSvg(family: MiniFamily, id: string): string {
   const card = miniCard(family, id), art = miniCardArt(family, id);
   const boxes = (LAYOUT as Record<string, Record<string, number[][]>>)[family]?.[id] ?? [];
   const style = STYLE[family];
-  let b = art ? `<image href="${art}" width="${w}" height="${h}"/>` : `<rect width="${w}" height="${h}" rx="30" fill="#2b2630"/>`;
+  // Rounded as the printed card (3 mm on 63 mm): the scans' corners are cut away.
+  const clip = `mc-${family}-${id}`;
+  let b = art ? `<clipPath id="${esc(clip)}"><rect width="${w}" height="${h}" rx="${CORNER}"/></clipPath><image href="${art}" width="${w}" height="${h}" clip-path="url(#${esc(clip)})"/>`
+    : `<rect width="${w}" height="${h}" rx="${CORNER}" fill="#2b2630"/>`;
   const texts = card ? (Array.isArray(card.text) ? card.text : [card.text]) : [];
   texts.forEach((text, i) => {
     const box = boxes[i];
