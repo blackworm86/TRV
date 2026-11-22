@@ -201,7 +201,7 @@
   .pop label.check input { width: 17px; height: 17px; }
   .pop .fps { margin: 6px 0 0; font-size: 12px; opacity: .7; }
   /* The menu with the options inside, in tabs (asked by the user, 2026-11-22). */
-  #menupop { min-width: 260px; width: 420px; max-width: calc(100vw - 24px); max-height: calc(100vh - var(--bar) - 24px); overflow: auto; padding: 8px; box-sizing: border-box; }
+  #menupop { min-width: 260px; width: 420px; max-width: calc(100vw - 24px); max-height: calc(100dvh - var(--bar) - 24px); overflow: auto; padding: 8px; box-sizing: border-box; }
   #menupop .mtabs { margin: 0 0 8px; }
   #menupop .mpane { display: none; padding: 4px 6px 2px; } #menupop .mpane.on { display: block; }
   #menupop .mlist { padding: 0; }
@@ -612,7 +612,7 @@
   #profile .pf-soon p { margin: 8px 0 0; opacity: .8; }
   #setup { position: fixed; inset: 0; display: grid; place-items: center; z-index: 10; overflow: auto;
     background: radial-gradient(ellipse at 50% 30%, #3a2416 0%, #1a110b 55%, #0d0805 100%); }
-  #setup .card { background: transparent; padding: 18px 24px; width: min(1000px, 96vw); max-height: 100vh; overflow: auto; box-sizing: border-box; align-self: start; }
+  #setup .card { background: transparent; padding: 18px 24px; width: min(1000px, 96vw); max-height: 100dvh; overflow: auto; box-sizing: border-box; align-self: start; }
   #setup h1 { font: 400 44px 'League Gothic', Impact, sans-serif; color: var(--acc); margin: 0 0 8px; }
   #setup label { display: block; margin: 10px 0 4px; font-weight: 600; }
   #setup input, #setup select { font: inherit; padding: 8px; border-radius: 6px; border: 1px solid #5a4330; background: #120c07; color: var(--ink); }
@@ -1043,4 +1043,25 @@ html.touch #cmddock .mytok { width: calc(var(--u, 1) * 38px); height: calc(var(-
   #rotate { position: fixed; inset: 0; z-index: 200; display: grid; place-items: center; text-align: center; background: #120c07; color: var(--ink); }
   #rotate b { display: block; font-size: 72px; color: var(--acc); }
   #rotate p { font: 400 28px 'League Gothic', Impact, sans-serif; letter-spacing: .5px; }
+}
+/* The one-panel screens (local setup, room) fit the height the browser leaves (dvh: a tablet's
+   Chrome and Android bars excluded, asked by the user, 2026-11-22): the columns scroll inside,
+   the footer with the start button always shows. */
+#lobby .card { max-height: calc(100dvh - 12px); display: flex; flex-direction: column; overflow: hidden; }
+#lobby .card > .hot.one { flex: 0 1 auto; min-height: 0; grid-template-rows: minmax(0, 1fr) auto; }
+#setup .card:has(.pane.on .hot.one) { max-height: 100dvh; display: flex; flex-direction: column; overflow: hidden; }
+#setup .card:has(.pane.on .hot.one) > .pane.on { flex: 0 1 auto; min-height: 0; display: flex; flex-direction: column; }
+#setup .pane.on > .hot.one { flex: 0 1 auto; min-height: 0; grid-template-rows: minmax(0, 1fr) auto; }
+:is(#setup, #lobby) .hot.one > .col { overflow: auto; overscroll-behavior: contain; }
+@media (max-height: 760px) {
+  #lobby .card { padding: 10px 16px; }
+  #lobby h1 { font-size: 34px; }
+  #lobby .bar { margin-bottom: 6px; }
+  #lobby .hot.one #lqr { width: 88px; height: 88px; padding: 4px; }
+  #lobby .hot.one .invite { margin-top: 10px; }
+  #setup .card:has(.pane.on .hot.one) { padding-top: 8px; padding-bottom: 8px; }
+  #setup .card:has(.pane.on .hot.one) .logo img { height: 48px; }
+  #setup .card:has(.pane.on .hot.one) .hdr { margin-bottom: 4px; }
+  #setup .card:has(.pane.on .hot.one) .bar { margin-bottom: 6px; }
+  :is(#setup, #lobby) .hot.one > .foot { padding: 8px 18px; }
 }
