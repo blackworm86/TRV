@@ -18,7 +18,7 @@ import { resultOf } from '../net/stats';
 import { FIREBASE_CONFIG } from '../net/firebase-config';
 import qrcode from 'qrcode-generator';
 import { applyChoice, deciders, g, mySeat, pending, setPending, startGame, takeBack } from './game';
-import { checkedFriends, drawOnline, friendState, friendsOn, invite, myName, roomFriendsHtml, segValue, socialOn, typedCode } from './home';
+import { drawOnline, friendState, friendsOn, invite, myName, roomFriendsHtml, socialOn, typedCode } from './home';
 import { render } from './pieces';
 import { clearTable, openSetup, showPane } from './screens';
 import { S } from './state';
@@ -203,34 +203,6 @@ function hostDuties(): void {
 
 /** The levels of the Basic Protocol, as the hot seat setup names them (index.html, #botlevel). */
 const BOT_LEVEL_TEXT: Record<number, string> = Object.fromEntries([...document.querySelectorAll<HTMLOptionElement>('#botlevel option')].map(o => [Number(o.value), o.textContent ?? o.value]));
-$('obotlevel').innerHTML = BOT_LEVELS.map(l => `<option value="${l}">${esc(BOT_LEVEL_TEXT[l])}</option>`).join('');
-
-// Making a room: the TRV9000 teams, their level and the starting tile are buttons over the selects
-// the room is made from, as in the hot seat setup (asked by the user, 2026-11-22).
-const oBots = $('obots') as HTMLSelectElement, oBotLevel = $('obotlevel') as HTMLSelectElement, oSide = $('oside') as HTMLSelectElement;
-function syncCreate(): void {
-  const max = Number(segValue('omax')) || 4;
-  // A room keeps a seat for a person: at most one bot fewer than the players.
-  if (Number(oBots.value) > max - 1) oBots.value = String(max - 1);
-  for (const b of $('obotseg').querySelectorAll<HTMLButtonElement>('[data-v]')) {
-    b.classList.toggle('on', b.dataset.v === oBots.value);
-    b.disabled = Number(b.dataset.v) > max - 1;
-  }
-  $('obotrow').style.display = oBots.value !== '0' ? '' : 'none';
-  $('obotlvseg').innerHTML = [...oBotLevel.options].map(o => `<button type="button" data-v="${o.value}" class="${o.value === oBotLevel.value ? 'on' : ''}">${o.value}</button>`).join('');
-  $('obotwhat').textContent = oBotLevel.selectedOptions[0]?.textContent?.replace(/^\d+\s*—\s*/, `Livello ${oBotLevel.value}: `) ?? '';
-  for (const b of $('osideseg').querySelectorAll<HTMLElement>('[data-v]')) b.classList.toggle('on', b.dataset.v === oSide.value);
-}
-const pick = (id: string, set: (v: string) => void) => $(id).addEventListener('click', e => {
-  const b = (e.target as Element).closest<HTMLButtonElement>('[data-v]');
-  if (b && !b.disabled) { set(b.dataset.v!); syncCreate(); }
-});
-pick('obotseg', v => { oBots.value = v; });
-pick('obotlvseg', v => { oBotLevel.value = v; });
-pick('osideseg', v => { oSide.value = v; });
-// After the segment has its new choice lit (home.ts): the players' count limits the bots.
-$('omax').addEventListener('click', () => queueMicrotask(syncCreate));
-syncCreate();
 
 const VIS_TEXT: Record<Visibility, string> = { public: 'Tutti (in lobby)', friends: 'Solo amici', invite: 'Solo su invito' };
 
@@ -317,6 +289,7 @@ export function drawLobby(): void {
     const push = (patch: Partial<RoomOptions> = {}): void => {
       const next: RoomOptions = { startSide: o.startSide, leaders: chk('lleaders'), upgrades: chk('lupgrades'), carnage: chk('lcarnage'),
         botLevel: level, vis: o.vis ?? 'invite', maxPlayers: roomSeats(o), teams: chk('lteams'), ...readMinis('l'), ...patch };
+      saveRoomOptions(next);
       void n.store.write(roomPath(n.code, 'options'), next).then(() => clearReady(n.store, n.code, r)).catch(netError);
     };
     const pick = (id: string, set: (v: string) => Partial<RoomOptions>): void => {
@@ -423,26 +396,41 @@ export async function joinByCode(code: string): Promise<void> {
   } catch (e) { netError(e); }
 }
 
-$('ocreate').onclick = async () => {
+/** Where the options of the last room made are kept: a new room starts from them (asked by the user, 2026-11-22). */
+const LAST_ROOM = 'trv-room-last';
+/** The options a new room starts from: the last ones set, else public, four seats, nothing added. */
+function lastRoomOptions(): RoomOptions {
+  const base: RoomOptions = { startSide: 'a', leaders: false, upgrades: false, vis: 'public', maxPlayers: 4, teams: false };
+  try {
+    const raw = JSON.parse(localStorage.getItem(LAST_ROOM) ?? 'null') as unknown;
+    // Read as a room would read it, so a stored value never makes a room the rules refuse.
+    const o = raw ? readRoom({ host: '-', options: raw })?.options : null;
+    return o ? { ...base, ...o } : base;
+  } catch { return base; }
+}
+/** Keeps `o` as the options of the next room. */
+function saveRoomOptions(o: RoomOptions): void {
+  try { localStorage.setItem(LAST_ROOM, JSON.stringify(o)); } catch { /* storage off: nothing remembered */ }
+}
+
+/** Makes a room at once with the last options, inviting `friends`, and opens its waiting room, where everything is set. */
+async function createRoomNow(friends: string[] = []): Promise<void> {
   const name = nameOrAsk();
   if (!name) return;
   $('oerr').textContent = 'Creo la stanza…';
   try {
     const store = await openStore();
-    const bots = Number(($('obots') as HTMLSelectElement).value), max = Number(segValue('omax')) || 4;
-    const options: RoomOptions = { startSide: ($('oside') as HTMLSelectElement).value as 'a' | 'b', leaders: ($('oleaders') as HTMLInputElement).checked, upgrades: ($('oupgrades') as HTMLInputElement).checked,
-      ...(($('ocarnage') as HTMLInputElement).checked ? { carnage: true } : {}), vis: (segValue('ovis') || 'public') as Visibility, maxPlayers: max,
-      teams: ($('oteams') as HTMLInputElement).checked, ...readMinis('o'), ...(bots ? { botLevel: Number(($('obotlevel') as HTMLSelectElement).value) } : {}) };
-    const code = await createRoom(store, { name, crew: CREW_IDS[0] }, options, randomBytes, Date.now());
-    for (let i = 0; i < Math.min(bots, max - 1); i++) {
-      const room = readRoom(await store.read(roomPath(code)));
-      if (room) await addBot(store, code, room, CREW_IDS, Date.now() + i + 1);
-    }
-    for (const uid of checkedFriends()) await invite(uid, code).catch(e => console.warn(e));
+    const code = await createRoom(store, { name, crew: CREW_IDS[0] }, lastRoomOptions(), randomBytes, Date.now());
+    for (const uid of friends) await invite(uid, code).catch(e => console.warn(e));
     enterRoom(store, code, await store.uid());
   } catch (e) { netError(e); }
-};
+}
+$('mCreate').onclick = () => { void createRoomNow(); };
+document.addEventListener('trv:create', e => { void createRoomNow((e as CustomEvent<string[]>).detail ?? []); });
 $('ojoin').onclick = () => { void joinByCode(typedCode()); };
+// The home's code field: straight into a room, without the lobby (asked by the user, 2026-11-22).
+$('hjoin').onclick = () => { void joinByCode(typedCode('hcode')); };
+($('hcode') as HTMLInputElement).addEventListener('keydown', e => { if (e.key === 'Enter') $('hjoin').click(); });
 ($('ocode') as HTMLInputElement).addEventListener('keydown', e => { if (e.key === 'Enter') $('ojoin').click(); });
 $('jjoin').onclick = () => { void joinByCode(cleanCode(new URLSearchParams(location.search).get('room') ?? '')); };
 

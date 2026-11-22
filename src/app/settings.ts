@@ -20,9 +20,10 @@ export type MoveMode = 'step' | 'path';
  * 2026-11-20: everything on the new motion); a stored value of it is ignored. So is `testCar`, the
  * test car standing in for the Medium Car: the Medium Car itself is now mounted from its parts.
  */
-export interface Settings { quality: Quality; speed: Speed; dice: DiceThrow; move: MoveMode; grid: boolean; actionCam: boolean; director2: boolean; effects: boolean; words: boolean; zenith: boolean }
+/** `autoEnd`: the turn passes on without pressing End Turn (asked by the user, 2026-11-22; off unless chosen). */
+export interface Settings { quality: Quality; speed: Speed; dice: DiceThrow; move: MoveMode; grid: boolean; actionCam: boolean; director2: boolean; effects: boolean; words: boolean; zenith: boolean; autoEnd: boolean }
 export const SETTINGS_KEY = 'trv-settings';
-export const settings: Settings = { quality: 'auto', speed: 'full', dice: 'auto', move: 'step', grid: true, actionCam: true, director2: true, effects: true, words: true, zenith: false };
+export const settings: Settings = { quality: 'auto', speed: 'full', dice: 'auto', move: 'step', grid: true, actionCam: true, director2: true, effects: true, words: true, zenith: false, autoEnd: false };
 try { Object.assign(settings, JSON.parse(localStorage.getItem(SETTINGS_KEY) ?? '{}') as Partial<Settings>); } catch { /* defaults */ }
 export function saveSettings(): void {
   try { localStorage.setItem(SETTINGS_KEY, JSON.stringify(settings)); } catch { /* storage off */ }

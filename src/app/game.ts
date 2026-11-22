@@ -9,6 +9,7 @@ import { render } from './pieces';
 import { keepReplay } from './replay';
 import { resetScenes } from './scenePlayer';
 import { S } from './state';
+import { stepAfter } from './pathsim';
 import { $, SAVE_KEY } from './util';
 
 export interface Saved {
@@ -205,6 +206,21 @@ export function choose(i: number, sure = false): void {
   const n = S.saved.choices.length;
   applyChoice(i);
   if (S.net) void S.net.store.write(roomPath(S.net.code, 'log', String(n)), i).catch(netError);
+}
+
+/**
+ * While "a command?" is asked, a click on a space of the move: "no command" (option 0) and the
+ * step `i` of the decision that follows, sent as one path (markers.ts, aheadDecision). A face-down
+ * hazard is asked about first, before anything is chosen.
+ */
+export function chooseAhead(i: number): void {
+  if (!decision || decision.kind !== 'command' || !S.saved) return;
+  const next = stepAfter(S.saved.setup, S.saved.choices, 0);
+  const to = next?.options[i]?.pos;
+  if (!next || !to) return;
+  const h = g?.hazards.get(key(to));
+  if (h && !h.faceUp) confirmHazard(() => choosePath([0, i]));
+  else choosePath([0, i]);
 }
 
 /**

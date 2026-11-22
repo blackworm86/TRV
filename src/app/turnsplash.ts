@@ -63,6 +63,9 @@ export function showTurnSplash(p: Player): void {
   document.getElementById('rolls')?.classList.remove('show');
   const pic = p.leader ? PORTRAITS[p.leader] : undefined;
   const me = !!S.net && p.id === mySeat();
+  // Online, or one person against TRV9000s, there is no device to pass: the splash waits for nobody,
+  // clicks and keys go through and it goes sooner (asked by the user, 2026-11-22).
+  const soft = !!S.net || g!.players.filter(x => !x.bot).length === 1;
   const el = document.createElement('div');
   el.id = 'turnsplash';
   el.style.setProperty('--c', p.color);
@@ -71,10 +74,13 @@ export function showTurnSplash(p: Player): void {
     + `<div class="row"><div class="av">${pic ? `<img src="${pic}" alt="">` : avatarSvg(p.color, p.name)}</div>`
     + `<div class="txt"><small>ROUND ${g!.round} · TURNO ${Math.min(turnOfRound(p), 3)} DI 3</small>`
     + `<b class="gothic">${me ? 'TOCCA A TE!' : `TOCCA A ${esc(p.name.toUpperCase())}!`}</b></div></div></div>`
-    + `<div class="hint">Clicca o premi un tasto per iniziare</div>`;
-  el.onclick = closeTurnSplash;
+    + (soft ? '' : `<div class="hint">Clicca o premi un tasto per iniziare</div>`);
+  if (soft) el.classList.add('soft');
+  else {
+    el.onclick = closeTurnSplash;
+    addEventListener('keydown', onKey, true);
+  }
   document.body.append(el);
-  addEventListener('keydown', onKey, true);
   clearTimeout(timer);
-  timer = window.setTimeout(closeTurnSplash, P.turnSplash.seconds * 1000);
+  timer = window.setTimeout(closeTurnSplash, (soft ? P.turnSplash.softSeconds : P.turnSplash.seconds) * 1000);
 }

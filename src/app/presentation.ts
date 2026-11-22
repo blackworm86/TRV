@@ -61,7 +61,9 @@ export interface Presentation {
   /** The players' bubbles (app/hud.ts): how long one slides when the turn order changes. */
   bubbles: { slideS: number };
   /** The "Tocca a..." splash at the start of a turn (app/turnsplash.ts). */
-  turnSplash: { seconds: number };
+  turnSplash: { seconds: number; softSeconds: number };
+  /** End Turn pressed by itself (settings.autoEnd, app/dock.ts). */
+  endTurn: { autoMs: number };
   /** A gun's burst; it fires after the shooting die (aimBeat, afterDie), hitting (debris) or missing (missOffset). */
   burst: { aim: number; rounds: number; gap: number; speed: number; spread: number; aimBeat: number; afterDie: number; missOffset: number; debris: { pieces: number; speed: number; lift: number; life: number; size: number };
     /** The spent casings thrown out at every round (app/motion/casing.ts). */

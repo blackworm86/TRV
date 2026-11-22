@@ -167,7 +167,7 @@ export function drawHud(): void {
     const w = g.players[pending.player];
     $('prompt').innerHTML = `<b style="color:${w.color}">${esc(w.name)}</b>${pending.player === mySeat() ? 'invio…' : 'sta decidendo…'}`;
   }
-  ($('skip') as HTMLButtonElement).style.display = S.playing ? '' : 'none';
+  ($('skip') as HTMLButtonElement).style.display = S.playing ? '' : 'none'; // and while a scene is filmed (styles.css)
   // The choices float by the car they are about (see placeActions), not in the bar.
   const actions = $('actions');
   actions.innerHTML = '';
@@ -292,6 +292,12 @@ export function drawHud(): void {
   // The upgrades' own questions are asked in full: they name the card.
   const asked = planning() ? '' : d && (d.kind === 'command' || d.kind === 'token') ? '' : d ? ASK[d.kind] ?? (['plow', 'rollCage', 'dispense', 'radar', 'swap', 'redButton'].includes(d.kind) ? d.prompt.replace(/^[^:]+: /, '') : '') : '';
   if (asked) actions.insertAdjacentHTML('afterbegin', `<span class="q">${esc(asked)}</span>`);
+  // One instruction (asked by the user, 2026-11-22): when the left side says what to do, the bar
+  // says only who decides (and, in hot seat, to pass the device).
+  if (d && (asked || planning() || ['assign', 'command', 'token', 'endTurn', 'leader'].includes(d.kind))) {
+    const who = g.players[d.player];
+    $('prompt').innerHTML = `${!S.net && performance.now() < passUntil ? '<span class="passing">Passa il dispositivo ·</span>' : ''}<b style="color:${who.color}">${esc(who.name)}</b>tocca a te`;
+  }
   // A card of a mini expansion in hand: the real card beside the question, in the left column with
   // the commands (src/app/dock.ts, placeActions). A bounty completed is turned over there, its
   // title over the question.

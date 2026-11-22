@@ -20,6 +20,7 @@ type Trv = {
   game: { round: number; frames: unknown[]; vehicles: { id: string; owner: number | null; size: string }[] } | null;
   decision: { kind: string; player: number; options: unknown[] } | null;
   choose(i: number): void;
+  render(): void;
   undo(): void;
   canUndo(): boolean;
   choices: number;
@@ -30,6 +31,7 @@ type Trv = {
   camera: { fov: number };
   scenes: { played: { scene: { kind: string }; from: number; to: number }[]; phase: string; clock: number; shown: number; log: { frame: { kind: string; snap: unknown } }[] };
   shownSnap: unknown;
+  markers: { option: number; ahead: boolean; x: number; y: number }[];
   cam: { chase: string | null; action: boolean; back: boolean; settings: { zenith: boolean } };
 };
 declare global { interface Window { trv?: Trv } }
@@ -91,8 +93,7 @@ async function playFirst(page: Page, n: number): Promise<number> {
 async function createRoom(page: Page, name: string): Promise<void> {
   await page.locator('#myname').fill(name);
   await page.locator('#mPlay').click();
-  await page.locator('#mCreate').click();
-  await page.locator('#ocreate').click();
+  await page.locator('#mCreate').click(); // the room is made at once, with the last options
   await expect.poll(() => page.locator('#lcode').textContent()).toMatch(/^[A-Z0-9]{5}$/);
 }
 
@@ -104,6 +105,29 @@ test.describe('game', () => {
     await expect(page.locator('#mMine')).toBeVisible();
     await expect(page.locator('#mFriends')).toBeVisible();
     await same(page, 'first-screen.png', 0.02);
+    expect(errors).toEqual([]);
+  });
+
+  test('while a command is asked, a click on a lit space is no command and that step', async ({ page }) => {
+    // Asked by the user (2026-11-22): moving the car is "no command" (rulebook p. 8: the command comes before the move).
+    const errors = await open(page, { save: [] });
+    await expect(page.locator('#turnsplash')).toHaveCount(1, { timeout: 60_000 });
+    await page.keyboard.press('Shift');
+    await expect(page.locator('#turnsplash')).toHaveCount(0);
+    // Arrange: dice on the cars until the rules ask for a command.
+    await expect.poll(async () => {
+      const k = await page.evaluate(() => window.trv!.decision?.kind);
+      if (k && k !== 'command') await playFirst(page, 1);
+      return k;
+    }, { timeout: 60_000 }).toBe('command');
+    await page.evaluate(() => window.trv!.render());
+    await expect.poll(() => page.evaluate(() => window.trv!.markers.filter(m => m.ahead).length)).toBeGreaterThan(0);
+    const before = await page.evaluate(() => window.trv!.choices);
+    const m = (await page.evaluate(() => window.trv!.markers.find(x => x.ahead)))!;
+    // Act
+    await page.mouse.click(m.x, m.y);
+    // Assert: "no command" and the step were both chosen.
+    await expect.poll(() => page.evaluate(() => window.trv!.choices)).toBeGreaterThanOrEqual(before + 2);
     expect(errors).toEqual([]);
   });
 
@@ -608,9 +632,7 @@ test.describe('game', () => {
 
     // Ada invites Bo from the friends' list into a new public room.
     await page.locator('#flist .fplay').click();
-    await expect(page.locator('#pCreate')).toHaveClass(/on/);
-    await expect(page.locator('#ofriends input')).toBeChecked();
-    await page.locator('#ocreate').click();
+    // The room is made at once, with Bo invited.
     await expect.poll(() => page.locator('#lcode').textContent()).toMatch(/^[A-Z0-9]{5}$/);
     const code = (await page.locator('#lcode').textContent())!;
 
@@ -620,9 +642,9 @@ test.describe('game', () => {
     await expect(bo.locator('#lobbyList')).toContainText('Ada');
     await expect(bo.locator('#lobbyList tr.friend')).toHaveCount(1);
     await bo.locator('#lobbyList [data-back], #pLobby [data-back]').first().click();
-    await bo.locator('#mMine').click();
-    await expect(bo.locator('#invites')).toContainText(code);
-    await bo.locator('#invites .ijoin').click();
+    // The invitation is on the home, under one's games.
+    await expect(bo.locator('#homeGames')).toContainText(code);
+    await bo.locator('#homeGames .ijoin').click();
     await expect(page.locator('#lseats')).toContainText('Bo Rossi');
     await bo.locator('#lready').click();
     await expect(page.locator('#lstart')).toBeEnabled();
@@ -746,8 +768,7 @@ test.describe('game', () => {
     await page.locator('#myname').fill('Host');
     await page.locator('#mPlay').click();
     await page.locator('#mCreate').click();
-    await page.locator('#oleaders').check();
-    await page.locator('#ocreate').click();
+    await page.locator('#lleaders').check(); // set in the waiting room
     await expect.poll(() => page.locator('#lcode').textContent()).toMatch(/^[A-Z0-9]{5}$/);
     const code = (await page.locator('#lcode').textContent())!;
     const guest = await context.newPage();

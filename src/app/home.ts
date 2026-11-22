@@ -139,8 +139,11 @@ function homeGames(): string {
   if (!H.store) return `<p class="empty-note">${noStore()}</p>`;
   const order = { turn: 0, waiting: 1, playing: 2, ended: 3 };
   const rows = Object.values(H.rows).filter((r): r is GameRow => !!r && r.state !== 'ended').sort((a, b) => order[a.state] - order[b.state] || b.moveAt - a.moveAt);
-  if (!rows.length) return '<p class="empty-note">Nessuna partita aperta. Entra nella lobby o crea una partita.</p>';
-  return rows.slice(0, 4).map(r => {
+  // The invitations received come first, with Entra at a click (asked by the user, 2026-11-22).
+  const inv = Object.entries(H.social.invites).sort((a, b) => b[1].at - a[1].at).map(([code, i]) => `<div class="prow">${avatar(i.name, i.from)}<span class="t"><b>${esc(i.name)} ti invita</b><small>Stanza ${esc(code)} · ${ago(i.at)}</small></span>
+    <button class="go small ijoin" data-code="${esc(code)}">Entra</button><button class="tool idrop" data-code="${esc(code)}" title="No grazie">✕</button></div>`).join('');
+  if (!rows.length) return inv || '<p class="empty-note">Nessuna partita aperta. Entra nella lobby o crea una partita.</p>';
+  return inv + rows.slice(0, 4).map(r => {
     const what = r.state === 'turn' ? `Tocca a te · ${ago(r.moveAt)}` : r.state === 'waiting' ? `In attesa · ${r.players.length} di ${r.seats} giocatori`
       : `Tocca a ${esc(r.turnName ?? '…')} · ${ago(r.moveAt)}`;
     const act = r.state === 'turn' ? `<button class="tool gplay" data-code="${r.code}">Gioca</button>` : `<button class="tool gplay" data-code="${r.code}">Apri</button>`;
@@ -172,7 +175,7 @@ function drawLobbyList(): void {
     return `<tr class="${friend ? 'friend' : ''}"><td><b>${esc(e.host)}</b> ${friend ? '<em class="pill on">amico</em>' : ''}${e.bots ? ` <em class="pill">TRV9000 ×${e.bots}</em>` : ''}</td>
       <td>${dots(e.crews, e.seats)}</td><td>${expTags(e)}</td><td>${e.startSide === 'b' ? '1b · Runway to Ruin' : '1a · The Parking Lot'}</td><td>${ago(e.at)}</td>
       <td><button class="${friend ? 'go small' : 'tool'} ljoin" data-code="${e.code}">Entra</button></td></tr>`;
-  }).join('') : `<tr><td colspan="6" class="empty-note">${H.store ? 'Nessuna partita aperta adesso: creane una tu.' : noStore()}</td></tr>`);
+  }).join('') : `<tr><td colspan="6" class="empty-note">${H.store ? 'Nessuna partita aperta adesso: creane una tu. <button class="go small lcreate">+ Crea partita</button>' : noStore()}</td></tr>`);
 }
 
 /** Draws the list of one's games on the chosen tab, and the invitations received. */
@@ -221,12 +224,6 @@ function drawFriends(): void {
     + waiting.map(([uid, f]) => `<div class="prow">${avatar(nameOf(uid, f.name), uid)}<span class="t"><b>${esc(nameOf(uid, f.name))}</b><small>${at(uid)}richiesta mandata, in attesa</small></span><button class="tool danger fdel" data-uid="${esc(uid)}" title="Annulla la richiesta">✕</button></div>`).join('');
 }
 
-/** Draws the create pane's friends to invite. */
-function drawCreateFriends(): void {
-  const fr = friends();
-  $('ofriends').innerHTML = !friendsOn() ? `<p class="empty-note">${noFriends()} Puoi invitare chiunque con il link o il codice della stanza.</p>` : fr.length ? fr.map(f => `<label class="check prow"><input type="checkbox" value="${esc(f.uid)}">${avatar(f.name, f.uid)}<span class="t"><b>${esc(f.name)}</b><small>${at(f.uid)}${f.online ? 'online' : 'non in linea'}</small></span></label>`).join('')
-    : '<p class="empty-note">Nessun amico ancora: potrai invitare chiunque con il link o il codice della stanza.</p>';
-}
 
 /** Redraws everything the first screen and the room's card show of the online side. */
 export function drawOnline(): void {
@@ -239,9 +236,6 @@ export function drawOnline(): void {
 }
 
 /** Friends checked in the create pane. */
-export function checkedFriends(): string[] {
-  return [...$('ofriends').querySelectorAll<HTMLInputElement>('input:checked')].map(i => i.value);
-}
 
 /** Follows the rooms of one's games: a watch per room in the list, dropped when it leaves it. */
 function followGames(): void {
@@ -334,16 +328,14 @@ export async function bootHome(): Promise<void> {
 /** Sets the online buttons for a page where online is off. */
 export function offline(): void {
   H.off = true;
-  for (const id of ['mPlay', 'mMine', 'mFriends']) ($(id) as HTMLButtonElement).disabled = true;
+  for (const id of ['mPlay', 'mMine', 'mFriends', 'hjoin']) ($(id) as HTMLButtonElement).disabled = true;
   $('onlinehint').textContent = 'Il gioco online non è ancora attivo su questo sito.';
   drawOnline();
 }
 
-/** The value of a segmented choice (the button marked on). */
-export const segValue = (id: string): string => $(id).querySelector<HTMLButtonElement>('button.on')?.dataset.v ?? '';
 
 /** The code typed in the lobby's field, tidied ('' when it cannot be one). */
-export const typedCode = (): string => cleanCode(($('ocode') as HTMLInputElement).value);
+export const typedCode = (field = 'ocode'): string => cleanCode(($(field) as HTMLInputElement).value);
 
 // ---- Buttons ----
 
@@ -356,11 +348,10 @@ const go = (p: Pane) => (): void => {
 $('mPlay').onclick = go('pLobby');
 $('mMine').onclick = go('pMine');
 $('mFriends').onclick = go('pFriends');
-$('mCreate').onclick = () => { drawCreateFriends(); showPane('pCreate'); };
 ($('myname') as HTMLInputElement).addEventListener('change', () => { void saveName(); });
 ($('myname') as HTMLInputElement).addEventListener('input', drawMe);
 
-for (const seg of ['ovis', 'omax', 'lobbyFilter', 'mineTab']) {
+for (const seg of ['lobbyFilter', 'mineTab']) {
   $(seg).addEventListener('click', e => {
     const b = (e.target as HTMLElement).closest('button');
     if (!b || b.disabled) return;
@@ -376,7 +367,8 @@ $('setup').addEventListener('click', e => {
   if (!b || !H.store) return;
   const store = H.store, code = b.dataset.code ?? '', uid = b.dataset.uid ?? '';
   const fail = (err: unknown): void => { netError(err); };
-  if (b.classList.contains('ljoin') || b.classList.contains('gplay')) void joinByCode(code);
+  if (b.classList.contains('lcreate')) $('mCreate').click();
+  else if (b.classList.contains('ljoin') || b.classList.contains('gplay')) void joinByCode(code);
   else if (b.classList.contains('ijoin')) { void dropInvite(store, code).catch(() => {}); void joinByCode(code); }
   else if (b.classList.contains('idrop')) void dropInvite(store, code).catch(fail);
   else if (b.classList.contains('gforget')) {
@@ -406,9 +398,8 @@ $('setup').addEventListener('click', e => {
     // Invite a friend: into my room waiting for players if there is one, else into a new one.
     const mine = Object.values(H.rows).find(r => r?.state === 'waiting' && r.host);
     if (mine && confirm(`Invitare nella tua stanza ${mine.code}, che aspetta giocatori?`)) { void invite(uid, mine.code).then(() => joinByCode(mine.code)).catch(fail); return; }
-    drawCreateFriends();
-    for (const i of $('ofriends').querySelectorAll<HTMLInputElement>('input')) i.checked = i.value === uid;
-    showPane('pCreate');
+    // Else a new room straight away, with the friend invited (online.ts).
+    document.dispatchEvent(new CustomEvent('trv:create', { detail: [uid] }));
   }
 });
 

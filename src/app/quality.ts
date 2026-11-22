@@ -77,5 +77,5 @@ export function frameTimes(dt: number): void {
     S.fpsSlow = 0;
     applyLevel(ORDER[ORDER.indexOf(S.level) + 1]);
   }
-  if ($('optspop').classList.contains('show')) syncOptions();
+  if ($('menupop').classList.contains('show')) syncOptions();
 }

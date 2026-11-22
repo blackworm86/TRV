@@ -61,4 +61,5 @@ export const FX_ORDER = ['road', 'stunt', 'slam', 'shooting', 'direction', 'fire
 export const FORWARD = new THREE.Vector3(1, 0, 0), AWAY = new THREE.Vector3(0, 0, -1);
 export const ringGeo = new THREE.RingGeometry(0.42, 0.56, 32);
 export const carRingGeo = new THREE.RingGeometry(0.55, 0.78, 40);
-export interface Marker { mesh: THREE.Mesh; option: number; at: THREE.Vector3 }
+/** A lit space or car; `ahead`: an option of the step decision after "no command" (markers.ts). */
+export interface Marker { mesh: THREE.Mesh; option: number; at: THREE.Vector3; ahead?: true }

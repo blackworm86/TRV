@@ -84,6 +84,8 @@ void betaGate().then(() => {
   get game() { return g; }, get decision() { return decision; }, choose, undo, canUndo, get choices() { return S.saved?.choices.length ?? 0; }, render, snapshot: () => g && snapshot(g), terrain: (p: Pos) => g && terrainAt(g, p), zoneOption, scene, hazardObjs, camera, controls,
   get take() { return takeNow(); }, get queue() { return queue; }, get playing() { return S.playing; }, skipBeats, playBeats, // playBeats: replays frames (presentation only), for checks
   get rows() { return ROWS; }, get cols() { return COLS; },
+  // The lit spaces and cars, where they are on the screen; `ahead`: a move offered while "a command?" is asked (markers.ts).
+  get markers() { return S.markers.map(m => { const v = m.at.clone().project(camera); return { option: m.option, ahead: !!m.ahead, x: (v.x + 1) / 2 * innerWidth, y: (1 - v.y) / 2 * innerHeight }; }); },
   // "Movimento nuovo": the scenes played and every frame shown with its scene (scenePlayer.ts), and what the bubbles show.
   get scenes() { return { ...sceneState(), log: shownLog }; }, get shownSnap() { return S.shownSnap; },
   get cam() { return { chase, chaseSet: CHASE, chaseLens, action: !!S.shot, back: !!S.shotBack, focusGoal: S.focusGoal?.toArray(), focusDist: S.focusDist, settings }; },

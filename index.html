@@ -25,33 +25,15 @@
   <div class="road" title="Dado strada"><div id="roaddie"></div><span class="gothic">DADO<br>STRADA</span></div>
   <div id="steps"></div>
   <div id="prompt"></div>
-  <button class="tool" id="skipscene" title="Salta la scena (barra spaziatrice)"><span><svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor"><path d="M2 5l9 7-9 7zM12 5l9 7-9 7z"/></svg></span><small>Salta scena</small></button>
   <button class="tool" id="skip" title="Salta l’animazione (barra spaziatrice)"><span>⏭</span><small>Salta</small></button>
   <button class="tool" id="replay" title="Rivedi al rallentatore l’ultimo danno o l’ultima distruzione (R)" disabled><span>⟲</span><small>Replay</small></button>
   <button class="tool" id="home" title="Reimposta la vista: tutta la mappa (Home). V: mappa dall’alto o inclinata"><span>⌂</span><small>Vista</small></button>
-  <button class="tool" id="opts" title="Opzioni di visualizzazione"><span>⚙</span><small>Opzioni</small></button>
   <button class="tool" id="ticker" title="Cronaca della partita"><span>☰</span><small>Log</small></button>
   <button class="tool" id="menu" title="Menu"><span>≡</span><small>Menu</small></button>
 </div>
-<div class="pop" id="optspop">
-  <h3>Qualità grafica</h3>
-  <div class="seg" data-set="quality"><button data-v="auto">Automatica</button><button data-v="high">Alta</button><button data-v="medium">Media</button><button data-v="low">Bassa</button></div>
-  <p class="fps" id="fps"></p>
-  <h3>Velocità animazioni</h3>
-  <div class="seg" data-set="speed"><button data-v="full">Complete</button><button data-v="fast">Veloci</button><button data-v="skip">Salta</button></div>
-  <h3>Tiro dei dadi</h3>
-  <div class="seg" data-set="dice" title="A mano: durante il tuo turno lanci tu i dadi d’effetto con TIRA (o Spazio); quelli di inizio round restano automatici"><button data-v="auto">Automatico</button><button data-v="hand">A mano</button></div>
-  <h3>Movimento delle auto</h3>
-  <div class="seg" data-set="move" title="Percorso: tocchi gli spazi uno dopo l’altro e premi Vai! (Enter); P lo accende e lo spegne"><button data-v="step">Un passo alla volta</button><button data-v="path">Percorso</button></div>
-  <h3>Tavolo</h3>
-  <label class="check"><input type="checkbox" data-set="grid"> Griglia delle caselle (G)</label>
-  <h3>Animazioni avanzate</h3>
-  <label class="check"><input type="checkbox" data-set="actionCam"> Camera d’azione su slam, spari ed esplosioni</label>
-  <label class="check"><input type="checkbox" data-set="director2"> Regia nuova: inquadra nello spazio libero e schiva gli ostacoli (in prova)</label>
-  <label class="check"><input type="checkbox" data-set="effects"> Fumo, scintille ed esplosioni</label>
-  <label class="check"><input type="checkbox" data-set="words"> Scritte a fumetto (SLAM!, BOOM!)</label>
-</div>
 <div class="pop" id="menupop">
+  <div class="seg mtabs" id="mtabs"><button type="button" data-tab="menu" class="on">Menu</button><button type="button" data-tab="game">Partita</button><button type="button" data-tab="gfx">Grafica</button></div>
+  <div class="mpane mlist on" data-pane="menu">
   <button id="newgame"><span>⟳</span> Nuova partita</button>
   <button id="roomopen"><span>⌁</span> Stanza online</button>
   <button id="profileopen"><span>☺</span> Il tuo profilo</button>
@@ -59,6 +41,33 @@
   <button id="adminopen"><span>⚿</span> Pannello admin</button>
   <button id="quit"><span>⏏</span> Esci dalla partita (menu principale)</button>
   <small id="buildtag"></small>
+  </div>
+  <!-- The options, in the menu (asked by the user, 2026-11-22): the match's and the graphics'. -->
+  <div id="optspop">
+    <div class="mpane" data-pane="game">
+      <h3>Tiro dei dadi</h3>
+      <div class="seg" data-set="dice" title="A mano: durante il tuo turno lanci tu i dadi d’effetto con TIRA (o Spazio); quelli di inizio round restano automatici"><button data-v="auto">Automatico</button><button data-v="hand">A mano</button></div>
+      <h3>Movimento delle auto</h3>
+      <div class="seg" data-set="move" title="Percorso: tocchi gli spazi uno dopo l’altro e premi Vai! (Enter); P lo accende e lo spegne"><button data-v="step">Un passo alla volta</button><button data-v="path">Percorso</button></div>
+      <h3>Fine del turno</h3>
+      <label class="check"><input type="checkbox" data-set="autoEnd"> Passa al giocatore successivo senza premere Fine turno</label>
+      <h3>Tavolo</h3>
+      <label class="check"><input type="checkbox" data-set="grid"> Griglia delle caselle (G)</label>
+    </div>
+    <div class="mpane" data-pane="gfx">
+      <h3>Qualità grafica</h3>
+      <div class="seg" data-set="quality"><button data-v="auto">Automatica</button><button data-v="high">Alta</button><button data-v="medium">Media</button><button data-v="low">Bassa</button></div>
+      <p class="fps" id="fps"></p>
+      <h3>Velocità animazioni</h3>
+      <div class="seg" data-set="speed"><button data-v="full">Complete</button><button data-v="fast">Veloci</button><button data-v="skip">Salta</button></div>
+      <h3>Animazioni</h3>
+      <label class="check"><input type="checkbox" data-set="actionCam"> Camera d’azione su slam, spari ed esplosioni</label>
+      <label class="check"><input type="checkbox" data-set="effects"> Fumo, scintille ed esplosioni</label>
+      <label class="check"><input type="checkbox" data-set="words"> Scritte a fumetto (SLAM!, BOOM!)</label>
+      <h3>Sperimentale</h3>
+      <label class="check"><input type="checkbox" data-set="director2"> Regia nuova: inquadra nello spazio libero e schiva gli ostacoli</label>
+    </div>
+  </div>
 </div>
 <div id="actions"></div>
 <div id="cmdwrap"><div id="cmddock"><i class="stripe"></i><div class="hand" id="cmdhand"></div><div class="dice" id="cmddice"></div><div class="q" id="cmdq"></div><div class="row" id="cmdbtns"></div><button class="endturn" id="endturn" data-key="Enter" style="display:none" title="Passa al giocatore successivo (Invio)">FINE TURNO <span>▶</span></button><button class="undo" id="undo2" title="Annulla l’ultima scelta (Ctrl+Z)">↶ Annulla <kbd>Ctrl+Z</kbd></button></div></div>
@@ -162,18 +171,16 @@
             <button class="tool danger" id="mDrop" title="Elimina la partita in locale"><i>🗑</i>Elimina</button>
           </div>
           <button class="big main" id="mPlay"><i>🏁</i><span><b>Gioca online</b><small>La lobby: partite aperte da tutti, o creane una</small></span></button>
-          <button class="big" id="mMine"><i>📋</i><span><b>Le mie partite</b><small>Quelle in corso e quelle in attesa di giocatori</small></span><em class="pill turn" id="mineBadge"></em></button>
-          <button class="big" id="mFriends"><i>👥</i><span><b>Amici</b><small>Aggiungi amici e invitali a una partita diretta</small></span><em class="pill on" id="friendsBadge"></em></button>
           <button class="big" id="mHot"><i>🪑</i><span><b>Partita in locale</b><small>Hot seat: tutti sullo stesso computer, a turno</small></span></button>
-          <div class="two">
-            <button class="big" id="mRanked" disabled><i>🏆</i><span><b>Classificate</b><small>Contano per il ranking</small></span><em class="pill soon">presto</em></button>
-            <button class="big" id="mRank" disabled><i>📈</i><span><b>Classifica</b><small>Il ranking dei giocatori</small></span><em class="pill soon">presto</em></button>
-          </div>
+          <div class="joinrow"><span>Hai un codice?</span>
+            <input id="hcode" maxlength="5" placeholder="CODICE" autocapitalize="characters" autocomplete="off" spellcheck="false" title="Il codice di cinque caratteri di una stanza">
+            <button class="tool" id="hjoin">Entra</button></div>
+          <p class="soonrow">🏆 Partite classificate e classifica <em class="pill soon">presto</em></p>
           <p class="hint" id="onlinehint"></p>
         </div>
         <div class="side">
-          <section class="panel"><h3>Le tue partite</h3><div id="homeGames"></div></section>
-          <section class="panel"><h3>Amici online</h3><div id="homeFriends"></div></section>
+          <section class="panel"><div class="hh"><h3>Le tue partite</h3><em class="pill turn" id="mineBadge"></em><span class="sp"></span><button class="tool more" id="mMine">Tutte →</button></div><div id="homeGames"></div></section>
+          <section class="panel"><div class="hh"><h3>Amici</h3><em class="pill on" id="friendsBadge"></em><span class="sp"></span><button class="tool more" id="mFriends">Gestisci →</button></div><div id="homeFriends"></div></section>
         </div>
       </div>
     </div>
@@ -184,48 +191,6 @@
       <div class="bar"><div class="seg" id="lobbyFilter"><button type="button" data-f="all" class="on">Tutte</button><button type="button" data-f="base">Solo base</button><button type="button" data-f="exp">Con espansioni</button><button type="button" data-f="friends">Di amici</button></div>
         <span class="sp"></span><span class="hint" id="lobbyCount"></span></div>
       <div class="panel list"><table id="lobbyList"></table></div>
-    </div>
-    <div class="pane" id="pCreate">
-      <div class="bar"><button class="back" data-to="pLobby">← Lobby</button><h2>Crea partita</h2></div>
-      <div class="hot one panel">
-        <section class="col">
-          <div class="hh"><h3>Stanza</h3><span class="sp"></span><span class="lbl">Giocatori</span>
-            <div class="seg" id="omax"><button type="button" data-v="2">2</button><button type="button" data-v="3">3</button><button type="button" data-v="4" class="on">4</button></div></div>
-          <div class="hh orow"><span class="lbl">Chi può entrare</span><span class="sp"></span>
-            <div class="seg" id="ovis"><button type="button" data-v="public" class="on">Tutti (in lobby)</button><button type="button" data-v="invite">Solo su invito</button><button type="button" data-v="friends">Solo amici</button></div></div>
-          <div class="hh orow"><span class="lbl">Squadre TRV9000</span><span class="sp"></span>
-            <div class="seg" id="obotseg"><button type="button" data-v="0" class="on">nessuna</button><button type="button" data-v="1">1</button><button type="button" data-v="2">2</button><button type="button" data-v="3">3</button></div>
-            <select id="obots" hidden><option value="0">nessuna</option><option value="1">1</option><option value="2">2</option><option value="3">3</option></select></div>
-          <div id="obotrow" style="display:none">
-            <div class="hh orow"><span class="lbl">Difficoltà TRV9000 <small>(Basic Protocol)</small></span><span class="sp"></span><div class="seg" id="obotlvseg"></div></div>
-            <p class="hint" id="obotwhat"></p>
-            <select id="obotlevel" hidden></select>
-          </div>
-          <div class="hh orow"><span class="lbl">Tempo per turno</span><span class="sp"></span>
-            <div class="seg"><button type="button" class="on">In diretta</button><button type="button" disabled title="Arriva con il server arbitro: oggi la partita va avanti solo con l’host collegato">24 ore</button><button type="button" disabled title="Arriva con il server arbitro: oggi la partita va avanti solo con l’host collegato">72 ore</button></div></div>
-          <h3>Invita amici</h3>
-          <p class="hint">Ricevono l’invito nella home e possono entrare con un clic.</p>
-          <div id="ofriends"></div>
-        </section>
-        <section class="col">
-          <h3>Tessera di partenza</h3>
-          <div class="sides" id="osideseg">
-            <button type="button" data-v="a" class="on"><b>1a</b><span>The Parking Lot</span></button>
-            <button type="button" data-v="b"><b>1b</b><span>Runway to Ruin</span></button>
-          </div>
-          <select id="oside" hidden><option value="a">1a — The Parking Lot</option><option value="b">1b — Runway to Ruin</option></select>
-          <h3>Espansioni</h3>
-          <label class="switch"><input type="checkbox" id="oleaders"><span><b>Capisquadra</b><small>Choppe Shoppe · capisquadra e segnalini comando</small></span></label>
-          <label class="switch"><input type="checkbox" id="oupgrades"><span><b>Potenziamenti</b><small>Choppe Shoppe · carte potenziamento</small></span></label>
-          <label class="switch"><input type="checkbox" id="ocarnage"><span><b>Carnage at Devil’s Run</b><small>Tessere, pericoli e fuoco</small></span></label>
-          <label class="switch"><input type="checkbox" id="oteams"><span><b>The Big Rig and The Final Five</b><small>Ognuno sceglie la sua squadra nella stanza</small></span></label>
-        </section>
-        <section class="col">
-          <h3>Mini espansioni <small class="allnone"><a href="#" data-minis="1" data-for="ominichecks">tutte</a> · <a href="#" data-minis="0" data-for="ominichecks">nessuna</a></small></h3>
-          <div id="ominichecks"></div>
-        </section>
-        <footer class="foot"><div><p class="hint">I TRV9000 non ricevono carte; le Road Conditions valgono per tutti.</p></div><button class="go" id="ocreate">Crea la stanza</button></footer>
-      </div>
     </div>
     <div class="pane" id="pMine">
       <div class="bar"><button class="back" data-back>← Menu</button><h2>Le mie partite</h2><span class="sp"></span>

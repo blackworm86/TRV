@@ -39,22 +39,28 @@ for (const box of $('optspop').querySelectorAll<HTMLInputElement>('input[data-se
   box.addEventListener('change', () => { settings[box.dataset.set as BoolSetting] = box.checked; saveSettings(); syncOptions(); });
 }
 export function closePops(): void {
-  for (const id of ['optspop', 'menupop']) $(id).classList.remove('show');
-  for (const id of ['opts', 'menu']) $(id).classList.remove('on');
+  $('menupop').classList.remove('show');
+  $('menu').classList.remove('on');
 }
+/** Shows the menu's tab `tab`: the menu itself, the match's options or the graphics'. */
+function showTab(tab: string): void {
+  for (const b of $('mtabs').querySelectorAll<HTMLElement>('[data-tab]')) b.classList.toggle('on', b.dataset.tab === tab);
+  for (const p of $('menupop').querySelectorAll<HTMLElement>('.mpane')) p.classList.toggle('on', p.dataset.pane === tab);
+  if (tab !== 'menu') syncOptions();
+}
+$('mtabs').addEventListener('click', e => { const b = (e.target as HTMLElement).closest<HTMLElement>('[data-tab]'); if (b) showTab(b.dataset.tab!); });
 export function togglePop(pop: string, btn: string): void {
   const open = !$(pop).classList.contains('show');
   closePops();
   if (!open) return;
   $(pop).classList.add('show');
   $(btn).classList.add('on');
-  if (pop === 'optspop') syncOptions();
+  syncOptions();
 }
-$('opts').addEventListener('click', e => { e.stopPropagation(); togglePop('optspop', 'opts'); });
 $('menu').addEventListener('click', e => { e.stopPropagation(); togglePop('menupop', 'menu'); });
 // The version built (vite.config.ts), at the foot of the Menu.
 declare const __BUILD__: string;
 $('buildtag').textContent = `Versione ${typeof __BUILD__ === 'string' ? __BUILD__ : 'locale'}`;
-for (const id of ['optspop', 'menupop']) $(id).addEventListener('pointerdown', e => e.stopPropagation());
+$('menupop').addEventListener('pointerdown', e => e.stopPropagation());
 addEventListener('pointerdown', closePops);
 addEventListener('keydown', e => { if (e.key === 'Escape') closePops(); });

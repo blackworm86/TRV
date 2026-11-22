@@ -175,9 +175,15 @@
     "_module": "hud.ts: the players' bubbles in turn order; seconds a bubble takes to slide to its new place when the order changes (the roll for the first player, a new round).",
     "slide_s": 0.7
   },
+  "end_turn": {
+    "_module": "dock.ts: End Turn pressed by itself when the option is on (asked by the user, 2026-11-22); milliseconds after the turn's last thing is shown.",
+    "auto_ms": 700
+  },
   "turn_splash": {
     "_module": "app/turnsplash.ts: the \"Tocca a...\" band at the start of a person's turn; seconds before it goes by itself (a click or a key closes it sooner).",
-    "seconds": 3.2
+    "seconds": 3.2,
+    "_soft": "online, or one person against TRV9000s: nobody to pass the device to, the band lets clicks through and goes sooner (asked by the user, 2026-11-22).",
+    "soft_seconds": 1.6
   },
   "burst": {
     "_module": "effects.ts: a gun's burst",

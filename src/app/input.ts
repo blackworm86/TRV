@@ -2,12 +2,12 @@
 
 import * as THREE from 'three';
 import { skipBeats } from './beats';
-import { choose, decision, dieUsable, g, zoneOption } from './game';
+import { choose, chooseAhead, decision, dieUsable, g, zoneOption } from './game';
 import { commandTokenSvg } from '../view/vector/art';
 import { dieHtml, drawHud } from './hud';
 import { markerAt } from './inspect';
 import { typing } from './keys';
-import { drawMarkers } from './markers';
+import { aheadDecision, drawMarkers } from './markers';
 import { addPoint, planDecision, planning } from './waypoints';
 import { renderer } from './stage';
 import { S } from './state';
@@ -112,6 +112,7 @@ renderer.domElement.addEventListener('pointerup', e => {
   if (e.button !== 0 || drag || Math.hypot(e.clientX - downAt.x, e.clientY - downAt.y) > 6 || !decision) return;
   const m = markerAt(e);
   if (m && planning()) addPoint(m.option);
+  else if (m?.ahead) chooseAhead(m.option);
   else if (m) choose(m.option);
 });
 export let hovered = -1;
@@ -125,6 +126,6 @@ renderer.domElement.addEventListener('pointermove', e => {
   if (decision && g) {
     const nm = g.players[decision.player].name;
     $('prompt').innerHTML = `<b style="color:${g.players[decision.player].color}">${esc(nm)}</b>` +
-      esc(m ? ((planDecision() ?? decision).options[m.option]?.label ?? '') : decision.prompt.replace(`${nm}: `, ''));
+      esc(m ? ((planDecision() ?? (m.ahead ? aheadDecision() : null) ?? decision).options[m.option]?.label ?? '') : decision.prompt.replace(`${nm}: `, ''));
   }
 });

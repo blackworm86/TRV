@@ -8,6 +8,8 @@ import { HAZ_SIZE, carObjs, carRingGeo, markerGroup, ringGeo } from './board';
 import { decision, g } from './game';
 import { upgradeName } from './info';
 import { planDecision, planning } from './waypoints';
+import { commandLastChance } from './dock';
+import { stepAfter } from './pathsim';
 import { BOARD_X0, KX, PITCH_W, TILE_H, TILE_T, TILE_W, camera, world } from './stage';
 import { S } from './state';
 import { $, esc } from './util';
@@ -116,7 +118,9 @@ export function drawMarkers(): void {
   for (const o of carObjs.values()) o.userData.glow = null;
   if (!g || !decision || S.playing) return;
   // Planning a path: the spaces the path can go on to from its last point (waypoints.ts).
-  const d = planning() ? planDecision() : decision;
+  // While "a command?" is asked, the spaces of the move after "no command" (see aheadDecision).
+  const ahead = aheadDecision();
+  const d = planning() ? planDecision() : ahead ?? decision;
   if (!d) return;
   // A slam reroll: where the current result would move which car, as a glass car and an arrow.
   if (d.preview) markPreview(d.preview.carId, d.preview.to);
@@ -202,6 +206,20 @@ export function drawMarkers(): void {
     }
     mesh.renderOrder = 10;
     markerGroup.add(mesh);
-    S.markers.push({ mesh, option: i, at });
+    S.markers.push({ mesh, option: i, at, ...(ahead ? { ahead: true as const } : {}) });
   });
+}
+
+let aheadMemo: { key: string; d: Decision | null } = { key: '', d: null };
+/**
+ * While a person is asked "a command?" and may also not use one, the step decision that "no
+ * command" leads to (asked by the user, 2026-11-22: moving the car is "no command", one click
+ * fewer). Null otherwise. Worked out once per question.
+ */
+export function aheadDecision(): Decision | null {
+  const d = decision;
+  if (!g || !d || S.playing || d.kind !== 'command' || !S.saved || g.players[d.player].bot || commandLastChance(d)) return null;
+  const key = `${S.saved.setup.seed}:${S.saved.choices.length}`;
+  if (aheadMemo.key !== key) aheadMemo = { key, d: stepAfter(S.saved.setup, S.saved.choices, 0) };
+  return aheadMemo.d;
 }

@@ -19,7 +19,6 @@ import { miniSwitches, readMinis } from './minisetup';
 // The mini expansions' switches, with their fans of cards: hot seat and a new room alike (asked by
 // the user, 2026-11-22). "tutte · nessuna" sets the switches of its own screen.
 $('miniswitches').innerHTML = miniSwitches();
-$('ominichecks').innerHTML = miniSwitches('o');
 for (const a of document.querySelectorAll<HTMLElement>('[data-minis]')) a.onclick = e => {
   e.preventDefault();
   for (const i of $(a.dataset.for ?? 'miniswitches').querySelectorAll<HTMLInputElement>('input')) i.checked = a.dataset.minis === '1';
@@ -121,6 +120,33 @@ $('npseg').addEventListener('click', e => {
   if (b) { ($('np') as HTMLSelectElement).value = b.dataset.v!; closePalette(); syncNames(); }
 });
 $('np').onchange = syncNames;
+
+/** Where the last hot seat setup is kept, to come back as it was (asked by the user, 2026-11-22). */
+const LAST_HOT = 'trv-hot-last';
+interface LastHot { n: number; rows: typeof rows; names: string[]; side: string; level: string; switches: Record<string, boolean> }
+/** The switches of the hot seat setup remembered with it: the expansions and the mini expansions. */
+const hotSwitches = (): HTMLInputElement[] => [...document.querySelectorAll<HTMLInputElement>('#pHot label.switch:not(.bot) input')];
+function saveHot(): void {
+  const last: LastHot = { n: playerCount(), rows, names: rows.map((_, i) => ($(`n${i}`) as HTMLInputElement).value), side: ($('side') as HTMLSelectElement).value,
+    level: ($('botlevel') as HTMLSelectElement).value, switches: Object.fromEntries(hotSwitches().map(i => [i.id, i.checked])) };
+  try { localStorage.setItem(LAST_HOT, JSON.stringify(last)); } catch { /* storage off: nothing remembered */ }
+}
+function loadHot(): void {
+  let last: Partial<LastHot> | null = null;
+  try { last = JSON.parse(localStorage.getItem(LAST_HOT) ?? 'null') as Partial<LastHot> | null; } catch { last = null; }
+  if (!last) return;
+  if ([2, 3, 4].includes(Number(last.n))) ($('np') as HTMLSelectElement).value = String(last.n);
+  last.rows?.slice(0, 4).forEach((r, i) => {
+    if (CAT.crews.some(c => c.id === r.crew)) rows[i].crew = r.crew;
+    rows[i].team = (Object.keys(TEAM_TEXT) as RowTeam[]).includes(r.team) ? r.team : 'cars';
+    rows[i].bot = !!r.bot;
+  });
+  last.names?.slice(0, 4).forEach((v, i) => { if (typeof v === 'string' && v.trim()) ($(`n${i}`) as HTMLInputElement).value = v.slice(0, 24); });
+  if (last.side === 'a' || last.side === 'b') ($('side') as HTMLSelectElement).value = last.side;
+  if ([...($('botlevel') as HTMLSelectElement).options].some(o => o.value === last!.level)) ($('botlevel') as HTMLSelectElement).value = last.level!;
+  for (const i of hotSwitches()) if (typeof last.switches?.[i.id] === 'boolean') i.checked = last.switches[i.id];
+}
+loadHot();
 syncNames();
 
 // The bot level and the starting tile: buttons over the selects the game reads.
@@ -137,7 +163,7 @@ syncChoices();
 // The first screen: the home and its panes (design/ux/menu-lobby/mockup.html); the online
 // panes are filled by home.ts.
 
-export type Pane = 'pMain' | 'pHot' | 'pLobby' | 'pCreate' | 'pMine' | 'pFriends' | 'pJoin' | 'pUser';
+export type Pane = 'pMain' | 'pHot' | 'pLobby' | 'pMine' | 'pFriends' | 'pJoin' | 'pUser';
 export function showPane(id: Pane): void {
   for (const el of document.querySelectorAll<HTMLElement>('#setup .pane')) el.classList.toggle('on', el.id === id);
   $('oerr').textContent = '';
@@ -146,7 +172,7 @@ export function showPane(id: Pane): void {
   $('mResumeRow').style.display = id === 'pMain' && resumable ? '' : 'none';
   if (resumable) $('mResumeWhat').textContent = localWhat();
   const name = $('myname') as HTMLInputElement;
-  if ((id === 'pCreate' || id === 'pJoin') && !name.value.trim()) name.focus();
+  if (id === 'pJoin' && !name.value.trim()) name.focus();
   if (id === 'pLobby') ($('ocode') as HTMLInputElement).focus();
 }
 /** Opens the first screen on `pane` (the menu by default). */
@@ -231,6 +257,7 @@ $('start').onclick = () => {
     const team = k !== 'cars' && !bots[i] ? { team: k } : {};
     return { name: ($(`n${i}`) as HTMLInputElement).value.trim() || c.name, color: c.color, crew, ...(bots[i] ? { bot: { protocol } } : {}), ...team };
   });
+  saveHot();
   clearTable();
   $('setup').style.display = 'none';
   const leaders = ($('leaders') as HTMLInputElement).checked, cards = ($('upgrades') as HTMLInputElement).checked;

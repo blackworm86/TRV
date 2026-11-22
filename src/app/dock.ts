@@ -14,6 +14,7 @@ import { fxDiceRect, tableDiceRect } from './tableDice';
 import { previewSpots } from './markers';
 import { cardAskSpot, handCards } from './minis';
 import { P } from './presentation';
+import { settings } from './settings';
 import { $, cssPx, menuOpen } from './util';
 
 /**
@@ -35,6 +36,8 @@ export function commandLastChance(d: Decision): boolean {
   const fresh = g!.vehicles.filter(v => v.owner === p.id && v.status === 'ok' && !v.placed.some(x => !x.coast)).length;
   return !p.commandUsed && fresh === 0 && p.used.some(u => !u);
 }
+/** The question End Turn was pressed for by itself (settings.autoEnd), so it is pressed once. */
+let autoEndAt = -1;
 /** The command drawer is asking "are you sure?" before skipping the command. */
 export let skipConfirm = false;
 
@@ -78,7 +81,8 @@ export function drawDock(d: Decision | null, mine: boolean, me?: Player): void {
       back.onclick = () => { skipConfirm = false; drawDock(d, mine); };
       row.append(back);
     } else if (d!.kind === 'command') {
-      q.textContent = 'Metti un dado su un comando';
+      // Moving the car is "no command" too (rulebook p. 8: the command comes before the move; markers.ts).
+      q.textContent = commandLastChance(d!) ? 'Metti un dado su un comando' : 'Un dado su un comando, oppure muovi l’auto';
       if (commandLastChance(d!)) {
         const b = document.createElement('button');
         b.textContent = 'Nessun comando';
@@ -104,6 +108,8 @@ export function drawDock(d: Decision | null, mine: boolean, me?: Player): void {
   // the user, 2026-11-18: a reminder over the dice, no button over the rig).
   if (d && mine && d.kind === 'steer') q.textContent = 'Piazza Sterzo Idraulico';
   else if (d && mine && d.kind === 'assign' && me?.rig) q.textContent = 'Un dado su un comando di una sezione';
+  // The question of a turn's first step, on the left with the dice (one instruction only, asked by the user, 2026-11-22).
+  else if (d && mine && d.kind === 'assign' && !q.textContent) q.textContent = d.options.some(o => o.command) ? 'Un dado su un’auto o su un comando' : 'Un dado su un’auto';
   // End Turn (asked by the user, 2026-11-18): on the tab, once everything of the turn is done.
   const ending = !!d && mine && d.kind === 'endTurn';
   const end = $('endturn');
@@ -111,6 +117,12 @@ export function drawDock(d: Decision | null, mine: boolean, me?: Player): void {
   // Alone on the tab: the dice, all used by now, are not shown with it (asked by the user, 2026-11-18).
   if (ending) $('cmddice').innerHTML = '';
   end.onclick = ending ? () => choose(0) : null;
+  // End Turn by itself, when chosen in the options (asked by the user, 2026-11-22): once per question.
+  const at = S.saved?.choices.length ?? -1;
+  if (ending && settings.autoEnd && autoEndAt !== at) {
+    autoEndAt = at;
+    setTimeout(() => { if ((S.saved?.choices.length ?? -1) === at && $('endturn').style.display !== 'none') choose(0); }, P.endTurn.autoMs);
+  }
   // Out while there are dice to play or a token to place; back behind the board otherwise.
   const live = !!me && mine && me.dice.some((_, i) => !me.used[i] && dieUsable(i));
   // Out too while the player holds mini expansion cards: the hand is in the tray (minis.ts).
@@ -240,6 +252,9 @@ export function placeActions(): void {
   el.style.left = `${Math.max(w / 2 + 8, Math.min(innerWidth - w / 2 - 8, x))}px`;
   el.style.top = `${top}px`;
 }
-$('skip').addEventListener('click', () => skipBeats());
-// While the director films a scene the bar has only this: it ends the scene and its animations.
-$('skipscene').addEventListener('click', () => { skipBeats(); actionDone(); });
+// One Skip (asked by the user, 2026-11-22): while the director films a scene it also ends the scene.
+$('skip').addEventListener('click', () => {
+  const scene = document.body.classList.contains('directing');
+  skipBeats();
+  if (scene) actionDone();
+});

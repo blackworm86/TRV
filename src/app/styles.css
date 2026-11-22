@@ -29,8 +29,6 @@
   /* A director's scene: everything but the top bar fades out, the bar offers "Salta scena" (app/director.ts, veil). */
   #top, #bottom, #cmdwrap, #actions, #hand, #rolls, #roundbox, #toast, #drawer, #huddice, #fx .blocktip, #rigpick, #cmdtip { transition: opacity .35s ease; }
   body.directing :is(#top, #bottom, #cmdwrap, #actions, #hand, #rolls, #roundbox, #toast, #drawer, #huddice, #fx .blocktip, #rigpick, #cmdtip) { opacity: 0 !important; pointer-events: none !important; }
-  body:not(.directing) #bar #skipscene { display: none; }
-  #bar #skipscene { background: var(--acc); color: #16100b; }
   body.directing #skip { display: none !important; }
   /* The players' bubbles (redrawn 2026-11-18): avatar, name and tokens, dice, then the three cars with their pieces. */
   /* The strip (2026-11-19): one thin row per player; its full bubble opens under it on hover or tap. */
@@ -202,12 +200,18 @@
   .pop label.check { display: flex; align-items: center; gap: 8px; margin: 4px 0; cursor: pointer; }
   .pop label.check input { width: 17px; height: 17px; }
   .pop .fps { margin: 6px 0 0; font-size: 12px; opacity: .7; }
-  #menupop { min-width: 260px; padding: 8px; }
-  #menupop button { display: flex; align-items: center; gap: 10px; width: 100%; padding: 10px 12px; font: inherit; font-size: 15px; text-align: left;
+  /* The menu with the options inside, in tabs (asked by the user, 2026-11-22). */
+  #menupop { min-width: 260px; width: 420px; max-width: calc(100vw - 24px); max-height: calc(100vh - var(--bar) - 24px); overflow: auto; padding: 8px; box-sizing: border-box; }
+  #menupop .mtabs { margin: 0 0 8px; }
+  #menupop .mpane { display: none; padding: 4px 6px 2px; } #menupop .mpane.on { display: block; }
+  #menupop .mlist { padding: 0; }
+  #bar #replay:disabled { display: none; }
+  body.directing #bar #skip { display: flex !important; background: var(--acc); color: #16100b; }
+  #menupop .mlist button { display: flex; align-items: center; gap: 10px; width: 100%; padding: 10px 12px; font: inherit; font-size: 15px; text-align: left;
     border: 0; border-radius: 8px; background: none; color: var(--ink); cursor: pointer; }
-  #menupop button span { width: 20px; text-align: center; font-size: 18px; }
-  #menupop button:hover:not(:disabled) { background: #3b2d22; }
-  #menupop button:disabled { opacity: .35; cursor: default; }
+  #menupop .mlist button span { width: 20px; text-align: center; font-size: 18px; }
+  #menupop .mlist button:hover:not(:disabled) { background: #3b2d22; }
+  #menupop .mlist button:disabled { opacity: .35; cursor: default; }
   /* A new player to decide: the prompt flashes in their colour (it replaces the hand-off box). */
   #prompt.pass { animation: pass 1.8s ease-out; border-radius: 10px; }
   @keyframes pass { 0%, 60% { background: color-mix(in srgb, var(--who) 45%, transparent); box-shadow: 0 0 0 2px var(--who); } 100% { background: transparent; box-shadow: none; } }
@@ -325,6 +329,7 @@
   /* "Tocca a...": the slanted band in the player's colour, the avatar in a circle over it (turnsplash.ts). */
   #turnsplash { position: fixed; inset: 0; z-index: 60; display: grid; place-items: center; cursor: pointer; animation: tsin .35s ease-out; }
   #turnsplash.out { animation: tsout .3s ease-in forwards; }
+  #turnsplash.soft { pointer-events: none; } #turnsplash.soft .veil { background: rgba(0,0,0,.3); }
   #turnsplash .veil { position: absolute; inset: 0; background: rgba(0,0,0,.55); }
   #turnsplash .stage { position: relative; width: 100vw; height: 190px; }
   #turnsplash .slash { position: absolute; left: -6vw; right: -6vw; top: 0; bottom: 0; transform: rotate(-6deg); background: var(--c); overflow: hidden;
@@ -755,7 +760,14 @@
   /* Home: the big buttons on the left, one's games and friends online on the right. */
   #setup .home { display: grid; grid-template-columns: 1.25fr 1fr; gap: 18px; align-items: start; }
   #setup .bigs { display: flex; flex-direction: column; gap: 10px; }
-  #setup .bigs .two { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+  /* The home, cleaned up (asked by the user, 2026-11-22): two big choices, a room code, the lists beside. */
+  #setup .joinrow { display: flex; align-items: center; gap: 8px; padding: 10px 16px; border: 1px solid #4a3523; border-radius: 10px; background: var(--card); }
+  #setup .joinrow span { flex: 1; font-weight: 600; opacity: .85; }
+  #setup .joinrow input { width: 120px; text-transform: uppercase; letter-spacing: 3px; text-align: center; }
+  #setup .soonrow { margin: 2px 0 0; padding: 0 4px; font-size: 14px; opacity: .55; }
+  #setup .side .hh { margin-bottom: 6px; } #setup .side .hh h3 { margin: 0; }
+  #setup .side .more { font-size: 13px; padding: 4px 10px; }
+  #setup .side .pill:empty { display: none; }
   #setup .side { display: grid; gap: 14px; }
   #setup .side .panel + .panel { margin-top: 0; }
   #setup .big { display: flex; align-items: center; gap: 14px; width: 100%; margin: 0; padding: 12px 16px; text-align: left; cursor: pointer; box-sizing: border-box;

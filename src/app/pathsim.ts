@@ -83,3 +83,24 @@ export function simulatePath(setup: Setup, choices: readonly number[], path: rea
   }
   return { start, steps };
 }
+
+/**
+ * The decision after option `c` of the decision the game has reached with `choices`, when that
+ * option draws on no die and no pile and the same player then moves a car (a step decision).
+ * Used to light the spaces of the move while "a command?" is still asked: a click on one of them
+ * is "no command" and that step (markers.ts; rulebook p. 8, the command comes before the move).
+ */
+export function stepAfter(setup: Setup, choices: readonly number[], c: number): Decision | null {
+  const g = newGame(setup);
+  const it = play(g);
+  let r = it.next(0);
+  for (const x of choices) {
+    if (r.done) return null;
+    r = it.next(x);
+  }
+  if (r.done || c < 0 || c >= r.value.options.length) return null;
+  const who = r.value.player, luck = g.rng, seen = g.frames.length;
+  r = it.next(c);
+  if (r.done || g.rng !== luck || g.frames.slice(seen).some(f => STOP_FRAMES.has(f.kind))) return null;
+  return r.value.kind === 'step' && r.value.player === who ? r.value : null;
+}
