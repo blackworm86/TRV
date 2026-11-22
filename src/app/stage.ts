@@ -8,8 +8,13 @@ import { TILE_COLS, type Pos } from '../game/trv/engine';
 import { BASE_CATALOG as CAT, sizeOf } from '../game/trv/catalog';
 import { Pieces, TextureBank } from '../view/pieces3d';
 import { spaceCenterPx, GRID, TILE_PITCH_PX } from '../view/board3d';
+import { settings } from './settings';
 
-export const renderer = new THREE.WebGLRenderer({ antialias: true, stencil: true });
+// high-performance: on a laptop with two graphics cards the browser uses the dedicated one (it
+// otherwise often draws on the integrated chip: an Intel HD 620 beside a GeForce 940MX, 2026-11-22).
+// At the "low" level no antialiasing (slow computers, 2026-11-22): it is chosen when the page
+// loads, so a change of level takes it on the next load.
+export const renderer = new THREE.WebGLRenderer({ antialias: settings.quality !== 'low', stencil: true, powerPreference: 'high-performance' });
 renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
 renderer.shadowMap.enabled = true;
 renderer.shadowMap.type = THREE.PCFShadowMap;

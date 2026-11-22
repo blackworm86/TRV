@@ -368,6 +368,11 @@ test.describe('game', () => {
 
   test('map and zenith views switch and come back; the chase view is switched off', async ({ page }) => {
     const errors = await open(page, { save: [] });
+    // The turn splash comes once the opening roll has played, sooner the faster the table is drawn:
+    // it is waited for and closed (any key), so the picture never depends on that timing.
+    await expect(page.locator('#turnsplash')).toHaveCount(1, { timeout: 60_000 });
+    await page.keyboard.press('Shift');
+    await expect(page.locator('#turnsplash')).toHaveCount(0);
     await page.waitForTimeout(1500);
     await same(page, 'map-angled.png', 0.03);
     // V: from the angled map to the view from above, and back.

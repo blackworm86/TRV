@@ -29,10 +29,14 @@ export function saveSettings(): void {
 }
 /** How fast the beats play for each speed setting (full: 1, back from 0.6, which the user judged too slow on 2026-11-20). */
 export const SPEED_SCALE: Record<Speed, number> = P.beats.speedScale;
-/** What each quality level changes: render resolution, the lamp's shadow, model texture size, effects. */
-export const LEVELS: Record<Level, { pixelRatio: number; shadow: number; texture: number; particles: number }> = {
-  high: { pixelRatio: 2, shadow: 4096, texture: 4096, particles: 1 },
-  medium: { pixelRatio: 1.25, shadow: 2048, texture: 1024, particles: 0.6 },
-  low: { pixelRatio: 0.85, shadow: 0, texture: 512, particles: 0.3 },
+/**
+ * What each quality level changes: render resolution, the lamp's shadow, model texture size,
+ * effects, and how finely the road tiles' relief is drawn (`relief`: share of the full detail on
+ * each side, so 0.25 draws a sixteenth of the triangles; slow computers, reported 2026-11-22).
+ */
+export const LEVELS: Record<Level, { pixelRatio: number; shadow: number; texture: number; particles: number; relief: number }> = {
+  high: { pixelRatio: 2, shadow: 4096, texture: 4096, particles: 1, relief: 1 },
+  medium: { pixelRatio: 1.25, shadow: 2048, texture: 1024, particles: 0.6, relief: 0.5 },
+  low: { pixelRatio: 0.85, shadow: 0, texture: 512, particles: 0.3, relief: 0.25 },
 };
 /** The level in use now (under `auto`, the one the frame rate allows). */

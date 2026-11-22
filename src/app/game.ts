@@ -33,6 +33,9 @@ export let deciders: number[] = [];
  */
 export function canUndo(): boolean {
   if (!S.saved || S.saved.choices.length <= (S.saved.lock ?? 0)) return false;
+  // A guest that has just sent its move waits for the host: an Undo now would overwrite that request
+  // (one intent per player) and ask to take back a choice the host has already moved past.
+  if (S.net && !S.net.host && pending && pending.player === mySeat() && !decision) return false;
   return !S.net || (S.net.room?.status === 'playing' && deciders[S.saved.choices.length - 1] === mySeat());
 }
 export let g: Game | null = null;

@@ -9,6 +9,7 @@ import { fit } from './mapView';
 import { syncOptions } from './menus';
 import { LEVELS, Level, settings } from './settings';
 import { lamp, renderer } from './stage';
+import { setReliefDetail } from '../view/board3d';
 import { S } from './state';
 import { $ } from './util';
 
@@ -53,6 +54,9 @@ export function applyLevel(l: Level): void {
     lamp.shadow.map = null;
   }
   for (const t of modelTextures.keys()) fitTexture(t, L.texture);
+  setReliefDetail(L.relief);
+  // "low": no blur behind the panels and no shadow filters, recomputed at every frame over the table.
+  document.body.classList.toggle('lite', l === 'low');
   fit();
   syncOptions();
 }

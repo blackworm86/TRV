@@ -74,8 +74,33 @@ const TERRAIN_COLOR: Record<string, string> = {
 
 // ------------------------------------------------------------------------------- relief terrain
 
-/** Relief segments of the terrain mesh along the road and across it. */
+/**
+ * Relief segments of the terrain mesh along the road and across it, at full detail. A tile has two
+ * such surfaces (the ground and its information layer): 760,000 triangles at full detail, the
+ * heaviest thing on the table by far (measured 2026-11-22: 2.3 of 2.4 million triangles drawn).
+ */
 const RELIEF_SEG: [number, number] = [500, 380];
+/** The share of {@link RELIEF_SEG} in use (graphics quality, src/app/settings.ts LEVELS.relief). */
+let reliefDetail = 1;
+/** The relief surfaces built, so a new detail rebuilds them (the tiles are cached). */
+const reliefMeshes = new Set<THREE.Mesh>();
+/** A displaced plane of the relief, at the detail in use, remembered for {@link setReliefDetail}. */
+function reliefPlane(width: number, depth: number): THREE.PlaneGeometry {
+  return new THREE.PlaneGeometry(width, depth, Math.max(8, Math.round(RELIEF_SEG[0] * reliefDetail)), Math.max(8, Math.round(RELIEF_SEG[1] * reliefDetail)));
+}
+/**
+ * Sets how finely the tiles' relief is drawn (1: full; 0.25: a sixteenth of the triangles), for
+ * new tiles and for those already built. The rules' heights (`heightAt`) do not change.
+ */
+export function setReliefDetail(k: number): void {
+  if (k === reliefDetail) return;
+  reliefDetail = k;
+  for (const m of reliefMeshes) {
+    const p = (m.geometry as THREE.PlaneGeometry).parameters;
+    m.geometry.dispose();
+    m.geometry = reliefPlane(p.width, p.height);
+  }
+}
 
 /** Textures of a relief face; the height texture gives world height `scale * grey + bias` above `top`. */
 interface ReliefTextures {
@@ -93,7 +118,8 @@ function reliefMesh(t: ReliefTextures, width: number, depth: number, top: number
     alphaTest: 0.5, roughness: 1, metalness: 0,
     ...(t.glow ? { emissiveMap: t.glow, emissive: new THREE.Color('#ff5a12'), emissiveIntensity: 1.6 } : {}),
   });
-  const mesh = new THREE.Mesh(new THREE.PlaneGeometry(width, depth, ...RELIEF_SEG), mat);
+  const mesh = new THREE.Mesh(reliefPlane(width, depth), mat);
+  reliefMeshes.add(mesh);
   mesh.rotation.x = -Math.PI / 2;
   mesh.position.y = top + 0.001;
   mesh.receiveShadow = true;
@@ -177,7 +203,7 @@ function proceduralRelief(tile: TileData, players: number | undefined, width: nu
   }
   const { textures, height, w, h } = hit;
   // The information layer: same relief, a hair above the ground, lit by nothing (its own colours).
-  const info = new THREE.Mesh(new THREE.PlaneGeometry(width, depth, ...RELIEF_SEG), new THREE.MeshStandardMaterial({
+  const info = new THREE.Mesh(reliefPlane(width, depth), new THREE.MeshStandardMaterial({
     map: hit.info, emissiveMap: hit.info, emissive: 0xffffff, emissiveIntensity: 1, color: 0x000000,
     displacementMap: textures.height, displacementScale: textures.scale, displacementBias: textures.bias,
     transparent: true, depthWrite: false, toneMapped: false, roughness: 1, metalness: 0,
@@ -187,6 +213,7 @@ function proceduralRelief(tile: TileData, players: number | undefined, width: nu
   info.position.y = top + 0.006;
   info.renderOrder = 1;
   info.name = 'info';
+  reliefMeshes.add(info);
   return {
     mesh: reliefMesh(textures, width, depth, top), info,
     heightAt: (px, py) => amp * (sampleGrid(height, w, h, 1, px, py) + 1) + 0.001,
