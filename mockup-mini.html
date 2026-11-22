@@ -1,0 +1,146 @@
+<!doctype html>
+<html lang="it">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Mini espansioni — mockup</title>
+<!-- Development only (not in any build): how the five mini expansions enter the game.
+     src/mockup/mini.ts draws it. -->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:ital,wght@0,500;0,700;1,500&family=League+Gothic&display=swap" rel="stylesheet">
+<style>
+  :root { --bg: #1b130e; --panel: #2a1f17; --line: #4a3a2c; --ink: #f3e6d0; --muted: #bfae94; --gold: #f2b84b; --hot: #e8742a; }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: radial-gradient(circle at 30% 0%, #33241a, var(--bg) 60%); color: var(--ink); font: 16px/1.4 'Barlow Condensed', 'Arial Narrow', sans-serif; min-height: 100vh; }
+  header { display: flex; align-items: center; gap: 24px; padding: 14px 28px; border-bottom: 1px solid var(--line); background: rgba(27,19,14,.95); }
+  header h1 { margin: 0; font: 400 30px/1 'League Gothic', Impact, sans-serif; letter-spacing: .6px; color: var(--gold); }
+  nav { display: flex; gap: 6px; }
+  nav button { background: #3b2d22; color: var(--ink); border: 0; border-radius: 9px; padding: 7px 14px; font: 600 16px 'Barlow Condensed', sans-serif; cursor: pointer; }
+  nav button.on { background: var(--gold); color: #1b130e; }
+  main { padding: 24px 28px 60px; }
+  section[data-tab] { display: none; }
+  section[data-tab].on { display: block; }
+  h2 { font: 400 28px/1 'League Gothic', Impact, sans-serif; letter-spacing: .5px; color: var(--gold); margin: 0 0 6px; }
+  .lead { color: var(--muted); max-width: 900px; margin: 0 0 18px; font-size: 17px; }
+  .lead b { color: var(--ink); }
+  .note { color: var(--muted); font-size: 16px; max-width: 1366px; }
+  .note b { color: var(--ink); }
+  .note ol { padding-left: 22px; }
+  .note li { margin: 4px 0; }
+
+  /* ---------- 1. setup panel ---------- */
+  .setup { display: grid; grid-template-columns: 430px 1fr; gap: 26px; align-items: start; }
+  .panel { background: var(--panel); border: 1px solid var(--line); border-radius: 14px; padding: 18px 20px; }
+  .panel h3 { margin: 6px 0 12px; font: 400 22px/1 'League Gothic', Impact, sans-serif; letter-spacing: .4px; color: var(--gold); display: flex; align-items: baseline; gap: 10px; }
+  .panel h3 small { font: 500 14px 'Barlow Condensed', sans-serif; color: var(--muted); letter-spacing: 0; margin-left: auto; }
+  .panel h3 small a { color: var(--gold); cursor: pointer; text-decoration: underline; }
+  .sw { display: flex; gap: 12px; align-items: center; margin: 0 0 12px; cursor: pointer; }
+  .sw i { flex: none; width: 42px; height: 24px; border-radius: 12px; background: #4a3a2c; position: relative; }
+  .sw i::after { content: ''; position: absolute; top: 3px; left: 3px; width: 18px; height: 18px; border-radius: 50%; background: #d9c9ad; transition: left .15s; }
+  .sw.on i, .mini.on .sw i { background: var(--gold); }
+  .sw.on i::after, .mini.on .sw i::after { left: 21px; background: #1b130e; }
+  .sw b { display: block; font-size: 18px; line-height: 1.1; }
+  .sw small { color: var(--muted); font-size: 14px; line-height: 1.15; display: block; }
+  .mini { display: grid; grid-template-columns: 1fr auto; gap: 12px; align-items: center; padding: 10px 0; border-top: 1px solid var(--line); }
+  .mini .sw { margin: 0; }
+  .fan { position: relative; width: 104px; height: 70px; cursor: zoom-in; }
+  .fan .c { position: absolute; top: 4px; width: 44px; aspect-ratio: 744 / 1040; border-radius: 4px; overflow: hidden; box-shadow: 0 3px 8px rgba(0,0,0,.5); transform-origin: 50% 130%; }
+  .mini:not(.on) .fan { opacity: .45; filter: grayscale(.7); }
+  .tags { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 14px; align-items: center; color: var(--muted); font-size: 14px; }
+  .tag { font: 700 12px system-ui; letter-spacing: 1px; padding: 3px 7px; border-radius: 5px; background: #3b2d22; color: var(--gold); }
+  .go { margin-top: 14px; width: 100%; padding: 12px; border: 0; border-radius: 10px; background: var(--hot); color: #1b130e; font: 700 20px 'Barlow Condensed', sans-serif; }
+  .explain { display: grid; gap: 14px; }
+  .explain h4 { margin: 0 0 4px; font: 400 22px/1 'League Gothic', Impact, sans-serif; color: var(--gold); letter-spacing: .4px; }
+  .explain .card-row { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 8px; }
+  .explain .card-row .c { width: 128px; aspect-ratio: 744 / 1040; border-radius: 7px; overflow: hidden; box-shadow: 0 6px 16px rgba(0,0,0,.5); }
+
+  /* ---------- 2. in game ---------- */
+  .scenes { display: flex; gap: 6px; margin: 0 0 12px; }
+  .scenes button { background: #3b2d22; color: var(--ink); border: 0; border-radius: 999px; padding: 5px 14px; font: 600 15px 'Barlow Condensed', sans-serif; cursor: pointer; }
+  .scenes button.on { background: var(--ink); color: #1b130e; }
+  .stage { position: relative; width: 1366px; height: 768px; background: url('./design/ux/mockup/sfondo-partita.jpg') 0 0 / 1366px 768px; border-radius: 10px; overflow: hidden; box-shadow: 0 14px 40px rgba(0,0,0,.6); }
+  .scene { display: none; }
+  .scene.on { display: block; }
+  .callout { position: absolute; display: grid; place-items: center; width: 26px; height: 26px; border-radius: 50%; background: var(--hot); color: #fff; font: 700 14px system-ui; box-shadow: 0 0 0 3px #fff, 0 4px 12px rgba(0,0,0,.6); z-index: 40; }
+  .c svg { display: block; }
+  /* road condition flag by the tile's name */
+  .rc { position: absolute; top: 147px; height: 28px; display: flex; align-items: center; gap: 6px; padding: 0 10px 0 3px; background: #f2c230; color: #17130f; border-radius: 4px 14px 14px 4px; font: 400 20px/1 'League Gothic', Impact, sans-serif; letter-spacing: .5px; box-shadow: 0 3px 10px rgba(0,0,0,.6); cursor: help; }
+  .rc .c { width: 18px; aspect-ratio: 744 / 1040; border-radius: 2px; overflow: hidden; }
+  .rc.open { box-shadow: 0 0 0 3px #fff, 0 3px 10px rgba(0,0,0,.6); }
+  .pop { position: absolute; width: 196px; aspect-ratio: 744 / 1040; border-radius: 10px; overflow: hidden; box-shadow: 0 16px 40px rgba(0,0,0,.75); z-index: 20; }
+  /* the hand */
+  .hand { position: absolute; left: 12px; top: 76px; display: flex; gap: 8px; padding: 12px 10px 10px; background: rgba(20,14,10,.86); border: 1px solid #5a4632; border-radius: 12px; }
+  .hand h4 { position: absolute; top: -10px; left: 10px; margin: 0; padding: 1px 7px; background: #2a1f17; border-radius: 5px; font: 700 11px system-ui; letter-spacing: 2px; color: var(--gold); }
+  .hand .c { width: 52px; aspect-ratio: 744 / 1040; border-radius: 5px; overflow: hidden; box-shadow: 0 4px 10px rgba(0,0,0,.6); }
+  .hand .c.hot { box-shadow: 0 0 0 3px #fff, 0 0 18px 4px rgba(255,214,120,.85); transform: translateY(-8px); }
+  .hand .c.gone { opacity: .2; }
+  .bonus { position: absolute; left: 8px; top: 326px; width: 96px; aspect-ratio: 744 / 1040; border-radius: 7px; overflow: hidden; box-shadow: 0 0 0 3px #39d353, 0 8px 20px rgba(0,0,0,.6); }
+  .bonuslabel { position: absolute; left: 4px; top: 466px; width: 104px; text-align: center; font: 700 10px system-ui; letter-spacing: 1.5px; color: #39d353; }
+  /* backs in the bubbles */
+  .backs { position: absolute; top: 109px; display: flex; gap: 3px; padding: 2px 4px; background: rgba(20,14,10,.8); border-radius: 5px; }
+  .backs i { width: 11px; height: 15px; border-radius: 2px; border: 1px solid rgba(0,0,0,.6); }
+  .backs i.os { background: #a83a2c; } .backs i.bo { background: #a5a5a5; } .backs i.aa { background: #5aa0ab; } .backs i.bc { background: #4a4a4a; }
+  .backs i.used { opacity: .2; }
+  /* the question with its card */
+  .ask { position: absolute; display: flex; gap: 14px; align-items: center; padding: 12px 16px 12px 12px; background: rgba(20,14,10,.95); border: 2px solid var(--gold); border-radius: 16px; box-shadow: 0 12px 34px rgba(0,0,0,.7); }
+  .ask .c { width: 150px; aspect-ratio: 744 / 1040; border-radius: 9px; overflow: hidden; flex: none; }
+  .ask p { margin: 0 0 12px; font: 400 23px/1.1 'League Gothic', Impact, sans-serif; letter-spacing: .4px; max-width: 260px; }
+  .ask .btns { display: flex; gap: 8px; }
+  .ask button { border: 0; border-radius: 999px; padding: 6px 14px; font: 700 15px 'Barlow Condensed', sans-serif; background: #f3e6d0; color: #17130f; }
+  .ask button.q { background: transparent; color: #f3e6d0; box-shadow: inset 0 0 0 1.5px rgba(243,230,208,.55); }
+  .reveal { position: absolute; left: 50%; top: 184px; transform: translateX(-50%); display: flex; gap: 20px; align-items: center; padding: 16px 24px 16px 18px; background: rgba(20,14,10,.94); border-radius: 18px; border: 2px solid #b9b9b9; box-shadow: 0 16px 40px rgba(0,0,0,.7); }
+  .reveal .c { width: 176px; aspect-ratio: 744 / 1040; border-radius: 10px; overflow: hidden; transform: rotate(-3deg); box-shadow: 0 14px 30px rgba(0,0,0,.7); }
+  .reveal small { font: 700 12px system-ui; letter-spacing: 2px; color: #b9b9b9; }
+  .reveal h5 { margin: 4px 0 0; font: 400 36px/1 'League Gothic', Impact, sans-serif; color: var(--gold); }
+  .reveal p { margin: 8px 0 12px; max-width: 300px; font-size: 18px; }
+
+  /* ---------- 3. gallery ---------- */
+  .fam { margin: 0 0 34px; }
+  .fam h3 { font: 400 26px/1 'League Gothic', Impact, sans-serif; color: var(--gold); margin: 0 0 4px; letter-spacing: .4px; }
+  .fam p { margin: 0 0 12px; color: var(--muted); }
+  .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 18px; }
+  .grid figure { margin: 0; }
+  .grid .c { width: 100%; aspect-ratio: 744 / 1040; border-radius: 12px; overflow: hidden; box-shadow: 0 8px 20px rgba(0,0,0,.55); }
+  .grid figcaption { margin-top: 6px; font-size: 13px; color: var(--muted); }
+</style>
+</head>
+<body>
+<header>
+  <h1>Mini espansioni · mockup</h1>
+  <nav>
+    <button data-go="setup" class="on">1 · Creazione partita</button>
+    <button data-go="game">2 · In partita</button>
+    <button data-go="cards">3 · Le carte tradotte</button>
+  </nav>
+</header>
+<main>
+  <section data-tab="setup" class="on">
+    <h2>Scegliere le mini espansioni</h2>
+    <p class="lead">Nel pannello della partita (in locale e online) le espansioni si dividono in due gruppi: le <b>espansioni</b> e le <b>mini espansioni</b>. Ogni mini espansione è un interruttore con il nome, una riga che dice cosa fa e tre sue carte vere a ventaglio: si capisce a colpo d'occhio cosa si sta aggiungendo. Cliccando il ventaglio, a destra si vedono tutte le sue carte.</p>
+    <div class="setup">
+      <div class="panel" id="setuppanel"></div>
+      <div class="explain" id="setupexplain"></div>
+    </div>
+  </section>
+
+  <section data-tab="game">
+    <h2>Le carte durante la partita</h2>
+    <p class="lead">Lo stesso tavolo di oggi, con le aggiunte numerate (sotto la spiegazione). Le scene mostrano tre momenti: il turno normale, una carta che si può giocare, una taglia completata.</p>
+    <div class="scenes" id="scenes">
+      <button data-s="turn" class="on">Turno normale</button>
+      <button data-s="play">Carta da giocare</button>
+      <button data-s="bounty">Taglia completata</button>
+    </div>
+    <div class="stage" id="stage"></div>
+    <div class="note" id="legend"></div>
+  </section>
+
+  <section data-tab="cards">
+    <h2>Le carte tradotte</h2>
+    <p class="lead">Ogni carta è quella originale, raddrizzata e ripulita dal testo inglese (ricostruendo lo sfondo stampato); il testo italiano è scritto al suo posto, con un carattere simile. Nome e tipo della carta restano come stampati, come per i potenziamenti di Choppe Shoppe.</p>
+    <div id="gallery"></div>
+  </section>
+</main>
+<script type="module" src="./src/mockup/mini.ts"></script>
+</body>
+</html>

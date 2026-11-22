@@ -330,6 +330,8 @@ export function zoneOption(zone: string, dieIdx: number): number {
     if (o.dieValue !== v) return false;
     // The Big Rig: the steering slot, and a die on a command of a section (BRaFF p4).
     if (decision!.kind === 'steer') return zone === 'steer';
+    // Bonus Commands: the die on the player's Bonus Command card (src/app/minis.ts).
+    if (o.bonus) return zone === 'bonus';
     if (decision!.kind === 'assign' && o.rig) return zone === `rig:${o.rig}`;
     // The Final Five assign their command die among the motorcycles' dice (BRaFF p7).
     if (decision!.kind === 'assign' && o.command) return kind === 'cmd' && o.command === id;
@@ -355,6 +357,7 @@ export function hotZones(): Set<string> {
     if (decision.kind === 'assign' && o.rig) out.add(`rig:${o.rig}`);
     if (decision.kind === 'assign' && o.carId) out.add(`${o.coast ? 'coast' : 'move'}:${o.carId}`);
     if ((decision.kind === 'command' || decision.kind === 'assign') && o.command) out.add(`cmd:${o.command}`);
+    if (o.bonus) out.add('bonus');
   }
   return out;
 }

@@ -168,6 +168,73 @@ test.describe('game', () => {
     expect(errors).toEqual([]);
   });
 
+  test('with One Shots on, each person holds a card that is shown when it can be played and leaves once played', async ({ page }) => {
+    // Arrange: a hot seat game started from the panel with the One Shots switch on.
+    const errors = await open(page);
+    await page.locator('#mHot').click();
+    await page.locator('label.switch:has(#oneshots)').click();
+    await page.locator('#start').click();
+    await expect.poll(() => page.evaluate(() => window.trv!.decision?.kind)).toBeTruthy();
+    const held = await page.evaluate(() => window.trv!.game!.oneShots);
+    expect(held?.every(c => typeof c === 'string')).toBe(true);
+    await expect(page.locator('#players .pl .mini .mbacks .mb.os')).toHaveCount(held!.length);
+    // Act: every hand becomes Radar Array, offered at the start of each turn while face-down hazards
+    // are on the table (the deal is random: some cards may never come up in a short game); then the
+    // first options, until it is offered.
+    await page.evaluate(() => { const x = window.trv!.game!; x.oneShots = x.oneShots!.map(c => (c ? 'radar_array' : c)); });
+    // Between two questions the page may still be playing beats (no decision yet): it waits for them.
+    // Targets are shot, so that the cards played when shooting come up too.
+    let offered: string | null = null;
+    for (let k = 0; k < 3000 && !offered; k++) {
+      const r = await page.evaluate(() => {
+        const t = window.trv!;
+        t.skipBeats();
+        const d = t.decision;
+        if (!d) return { wait: true, card: null };
+        if (d.kind === 'playCard') return { wait: false, card: d.options[1].card! };
+        const safe = d.options.findIndex(o => !o.danger);
+        t.choose(d.kind === 'shoot' && d.options.length > 1 ? 1 : Math.max(0, safe));
+        return { wait: false, card: null };
+      });
+      offered = r.card;
+      if (r.wait) await page.waitForTimeout(50);
+    }
+    expect(offered).not.toBeNull();
+    await expect.poll(() => page.evaluate(() => { window.trv!.skipBeats(); return window.trv!.playing; })).toBe(false);
+    // Assert: the card heads the question, with its play button; played, it leaves the hand.
+    await expect(page.locator('#actions .oscard')).toBeVisible();
+    const seat = await page.evaluate(() => window.trv!.decision!.player);
+    // The play button is the one on Enter (the bar is redrawn while the car models load, so the
+    // button is pressed through its key rather than waited on to stand still).
+    await expect(page.locator('#actions button[data-key="Enter"]')).toHaveText(/^Gioca /);
+    await page.keyboard.press('Enter');
+    await expect.poll(() => page.evaluate(s => window.trv!.game!.oneShots![s], seat)).toBeNull();
+    // The question about that card is gone (the other person, holding the same card, may be asked next).
+    await expect.poll(() => page.evaluate(s => { const d = window.trv!.decision; return !!d && d.kind === 'playCard' && d.player === s; }, seat)).toBe(false);
+    expect(errors).toEqual([]);
+  });
+
+  test('with every mini expansion on, the hand, the Bonus Command and the Road Condition flags are on the table', async ({ page }) => {
+    // Arrange: a hot seat game started from the panel with "tutte" the mini expansions.
+    const errors = await open(page);
+    await page.locator('#mHot').click();
+    await page.locator('[data-minis="1"]').click();
+    await page.locator('#start').click();
+    await expect.poll(() => page.evaluate(() => window.trv!.decision?.kind)).toBeTruthy();
+    // Assert: every module is on, and the table shows its cards.
+    const g = await page.evaluate(() => { const x = window.trv!.game!; return { b: x.bonusCommands, o: x.oneShots, t: x.bounties, a: x.airstrikes, r: x.roads?.cards }; });
+    for (const hand of [g.b, g.o, g.t, g.a]) expect(hand?.every(c => typeof c === 'string')).toBe(true);
+    expect(g.r?.filter(Boolean)).toHaveLength(2);
+    await expect(page.locator('#minis .mhand .mcard')).toHaveCount(3);
+    await expect(page.locator('#minis .mbonus svg')).toHaveCount(1);
+    await expect(page.locator('#fx .rcflag')).toHaveCount(2);
+    await expect(page.locator('#players .pl .mini .mbacks').first().locator('.mb')).toHaveCount(4);
+    // Pointing at a flag opens its card.
+    await page.locator('#fx .rcflag').first().hover();
+    await expect(page.locator('#fx .rcflag').first().locator('.rcpop')).toBeVisible();
+    expect(errors).toEqual([]);
+  });
+
   test('the Beta gate over the first screen takes the click on its Google button', async ({ page }) => {
     // Arrange: the first screen, with the gate shown over it as on the real site.
     const errors = await open(page);

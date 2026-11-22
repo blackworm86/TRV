@@ -162,10 +162,12 @@ export function drawMarkers(): void {
   // The Big Rig's Cow Catcher (asked by the user, 2026-11-18): the two spaces the vehicle can be
   // sent to, lit on the table, each with the glass copy of the vehicle and its arrow, as in a bump.
   if (d.kind === 'cowCatcher') for (const o of d.options) if (o.carId && o.pos) markPreview(o.carId, o.pos);
-  if (!['step', 'airstrike', 'shoot', 'peek', 'peekResult', 'plow', 'rollCage', 'dispense', 'radar', 'cowCatcher'].includes(d.kind)) return;
+  if (!['step', 'airstrike', 'shoot', 'peek', 'peekResult', 'plow', 'rollCage', 'dispense', 'radar', 'cowCatcher', 'dodge', 'space', 'pickVehicle'].includes(d.kind)) return;
   const MARK_COLOR: Partial<Record<Decision['kind'], number>> = {
     step: 0x4cff7a, shoot: 0xff2d2d, airstrike: 0x7fd4ff,
-    dispense: 0x2f7bff, plow: 0x2f7bff, rollCage: 0x2f7bff, radar: 0x2f7bff, peek: 0x2f7bff, peekResult: 0x2f7bff, cowCatcher: 0x2f7bff,
+    dispense: 0x2f7bff, plow: 0x2f7bff, rollCage: 0x2f7bff, radar: 0x2f7bff, peek: 0x2f7bff, peekResult: 0x2f7bff, cowCatcher: 0x2f7bff, dodge: 0x2f7bff,
+    // The mini expansions' spaces and vehicles (Guardrails, Blockaded, Nav System, Slow and Steady, the chopper's cards).
+    space: 0x2f7bff, pickVehicle: 0x2f7bff,
   };
   d.options.forEach((o, i) => {
     if (!o.pos) return;

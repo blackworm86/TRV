@@ -60,7 +60,7 @@ addEventListener('pointerup', e => {
   ghost.style.display = 'none';
   if (!moved || decision?.kind !== 'token') return;
   const zone = document.elementFromPoint(e.clientX, e.clientY)?.closest<SVGElement>('[data-drop]')?.dataset.drop;
-  const i = zone ? decision.options.findIndex(o => o.command && `cmd:${o.command}` === zone) : -1;
+  const i = zone ? decision.options.findIndex(o => (o.command && `cmd:${o.command}` === zone) || (o.bonus && zone === 'bonus')) : -1;
   if (i > 0) choose(i);
 });
 addEventListener('pointermove', e => {

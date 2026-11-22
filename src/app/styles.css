@@ -66,6 +66,21 @@
   .pl .hd small { font: 600 12px system-ui, sans-serif; color: #f3e6d0; opacity: .6; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .pl .tok { margin-left: auto; position: relative; width: 20px; height: 20px; flex: none; align-self: center; }
   .pl .tok svg { width: 100%; height: 100%; }
+  /* Mini expansions: a card back beside the name for each card dealt (src/app/minis.ts). */
+  .pl .mbacks { flex: none; align-self: center; display: flex; gap: 2px; margin-left: 4px; padding: 2px 3px; background: rgba(20,14,10,.8); border-radius: 4px; }
+  .pl .mb { display: block; width: 10px; height: 14px; border-radius: 2px; border: 1px solid rgba(0,0,0,.6); cursor: help; }
+  .pl .mb.os { background: #a83a2c; } .pl .mb.bo { background: #a5a5a5; } .pl .mb.aa { background: #5aa0ab; } .pl .mb.bc { background: #4a4a4a; }
+  .pl .mb.used { opacity: .2; }
+  /* A card of a mini expansion in hand: the real card heads the question about it. */
+  #actions .oscard { flex-basis: 100%; display: flex; gap: 14px; align-items: center; justify-content: center; margin: 2px 0 6px; }
+  #actions .oscard .mc { width: 150px; flex: none; aspect-ratio: 744 / 1040; border-radius: 9px; overflow: hidden; box-shadow: 0 0 0 2px var(--c), 0 10px 24px rgba(0,0,0,.6); }
+  #actions .oscard .mc svg { display: block; }
+  #actions .oscard .bt small { display: block; font: 700 12px system-ui; letter-spacing: 2px; color: #b9b9b9; }
+  #actions .oscard .bt b { display: block; margin-top: 4px; font-size: 36px; font-weight: 400; line-height: 1; color: #f2c230; }
+  #actions:has(> .oscard) { max-width: 460px; justify-content: center; }
+  /* A bounty completed: turned over in the middle of the table (the approved mockup). */
+  #actions.reveal { left: 50% !important; top: 50% !important; transform: translate(-50%, -50%) !important; max-width: 520px; padding: 16px 20px; border-radius: 18px; border: 2px solid #b9b9b9; }
+  #actions.reveal .oscard .mc { width: 176px; transform: rotate(-3deg); }
   .pl .tok i { position: absolute; right: -6px; bottom: -4px; font: 700 10px system-ui; color: #f3e6d0; background: #26232b; border-radius: 6px; padding: 0 3px; font-style: normal; }
   .pl .dice { display: flex; gap: 3px; align-items: center; min-height: 22px; }
   .pl .dice svg { width: 21px; height: 21px; }
@@ -631,6 +646,14 @@
   #setup label.switch input::after { content: ''; position: absolute; left: 2px; top: 2px; width: 18px; height: 18px; border-radius: 50%; background: #cdbb9c; transition: transform .15s, background .15s; }
   #setup label.switch input:checked { background: var(--acc); border-color: var(--acc); }
   #setup label.switch input:checked::after { transform: translateX(18px); background: #16100b; }
+  /* The mini expansions: each switch with a fan of three of its cards (the approved mockup). */
+  #setup label.switch.mini { padding: 4px 0; }
+  #setup label.switch.mini .fan { position: relative; flex: none; width: 78px; height: 52px; margin-left: auto; }
+  #setup label.switch.mini .fan i { position: absolute; top: 2px; width: 36px; aspect-ratio: 744 / 1040; border-radius: 3px; overflow: hidden; box-shadow: 0 3px 8px rgba(0,0,0,.55); transform-origin: 50% 100%; }
+  #setup label.switch.mini .fan svg { display: block; }
+  #setup label.switch.mini:not(:has(input:checked)) .fan { opacity: .45; filter: grayscale(.7); }
+  #setup h3 .allnone { margin-left: 8px; font: 500 12px system-ui; letter-spacing: 0; text-transform: none; }
+  #setup h3 .allnone a { color: inherit; opacity: .8; }
   #setup label.switch input:focus-visible { outline: 2px solid var(--acc); outline-offset: 2px; }
   #setup label.switch > span { display: flex; flex-direction: column; gap: 1px; }
   #setup label.switch small { font-size: 12px; opacity: .65; }
@@ -873,3 +896,27 @@
 #sure b { display: block; font: 400 28px/1.05 'League Gothic', Impact, sans-serif; letter-spacing: .3px; }
 #sure p { margin: 8px 0 14px; font-size: 15px; line-height: 1.4; }
 #sure div { display: flex; gap: 8px; justify-content: flex-end; }
+
+/* Mini expansions on the table (src/app/minis.ts, the approved mockup design/ux/mockup/). */
+#minis { position: fixed; inset: 0; pointer-events: none; z-index: 3; }
+#minis .mcard, .rcflag .mcard { aspect-ratio: 744 / 1040; overflow: hidden; }
+#minis .mcard svg, .rcflag .mcard svg, #minis .mbonus svg { display: block; }
+/* The viewer's face-down cards, small top left, under the round box; pointed at, large. */
+#minis .mhand { position: absolute; left: 12px; top: 76px; display: flex; gap: 8px; padding: 12px 10px 10px; background: rgba(20,14,10,.86); border: 1px solid #5a4632; border-radius: 12px; pointer-events: auto; }
+#minis .mhand h4 { position: absolute; top: -10px; left: 10px; margin: 0; padding: 1px 7px; background: #2a1f17; border-radius: 5px; font: 700 11px system-ui; letter-spacing: 2px; color: #f2c230; }
+#minis .mhand .mcard { width: 44px; border-radius: 5px; box-shadow: 0 4px 10px rgba(0,0,0,.6); transform-origin: top left; transition: transform .15s; cursor: zoom-in; }
+#minis .mhand .mcard.hot { box-shadow: 0 0 0 3px #fff, 0 0 18px 4px rgba(255,214,120,.85); transform: translateY(-8px); }
+#minis .mhand .mcard:hover { position: relative; z-index: 6; transform: scale(3.6); border-radius: 2px; }
+/* The Bonus Command: a command more, face up above the command board, by the starting area. */
+#minis .mbonus { position: absolute; left: 8px; bottom: calc(var(--stripw) / 4.1 + 40px); width: 96px; aspect-ratio: 744 / 1040; border-radius: 7px; overflow: hidden; box-shadow: 0 8px 20px rgba(0,0,0,.6); pointer-events: auto; cursor: pointer; transform-origin: bottom left; transition: transform .15s; }
+#minis .mbonus:hover { transform: scale(2.4); z-index: 6; }
+#minis .mbonus.hotzone { box-shadow: 0 0 0 3px #39d353, 0 0 18px #39d353, 0 8px 20px rgba(0,0,0,.6); }
+#minis .mbonus.used svg { filter: brightness(.55); }
+#minis .mbonus .on { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%) rotate(-12deg); padding: 2px 6px; border-radius: 4px; background: #f2c230; color: #17130f; font: 700 11px system-ui; letter-spacing: 1px; }
+#minis .mbonuslabel { position: absolute; left: 4px; bottom: calc(var(--stripw) / 4.1 + 22px); width: 104px; text-align: center; font: 700 10px system-ui; letter-spacing: 1.5px; color: #39d353; }
+/* Road Conditions: a yellow flag by the tile's name; pointed at (or tapped), the card under it. */
+.rcflag { position: absolute; transform: translate(-50%, -100%); height: 28px; display: flex; align-items: center; padding: 0 10px; background: #f2c230; color: #17130f; border-radius: 4px 14px 14px 4px;
+  font: 400 20px/1 'League Gothic', Impact, sans-serif; letter-spacing: .5px; box-shadow: 0 3px 10px rgba(0,0,0,.6); cursor: help; pointer-events: auto; white-space: nowrap; }
+.rcflag .rcpop { display: none; position: absolute; left: 0; top: 34px; width: 196px; border-radius: 10px; box-shadow: 0 16px 40px rgba(0,0,0,.75); }
+.rcflag:hover, .rcflag.open { box-shadow: 0 0 0 3px #fff, 0 3px 10px rgba(0,0,0,.6); z-index: 2; }
+.rcflag:hover .rcpop, .rcflag.open .rcpop { display: block; }

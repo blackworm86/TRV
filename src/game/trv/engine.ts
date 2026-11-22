@@ -11,6 +11,11 @@ import carnageData from '../../../data/trv/carnage.json';
 import finishData from '../../../data/trv/finish_lines.json';
 import trv9000 from '../../../data/trv/trv9000.json';
 import brff from '../../../data/trv/big_rig_final_five.json';
+import oneShotsData from '../../../data/trv/one_shots.json';
+import airstrikesData from '../../../data/trv/advanced_airstrikes.json';
+import bountiesData from '../../../data/trv/bounties.json';
+import bonusData from '../../../data/trv/bonus_commands.json';
+import roadsData from '../../../data/trv/road_conditions.json';
 import {
   createRng, roll, shuffle, applyPermutation, type RngState,
 } from '../../core/rng/rng';
@@ -128,6 +133,8 @@ export interface Player {
   tokens: number;
   /** Commands holding a die or a command token this round. */
   slots: Partial<Record<CommandId, 'die' | 'token'>>;
+  /** Bonus Commands: the player's Bonus Command card holds a die or a command token this round. */
+  bonusUsed?: 'die' | 'token';
   /** The crew is not three cars: the Final Five's motorcycles or the Big Rig (BRaFF p3). */
   team?: Team;
   /** The Big Rig's boards (BRaFF p4-6); absent for any other crew. */
@@ -181,6 +188,13 @@ export interface Option {
   hazard?: string;
   /** The Big Rig: the command (`section:command`) a die goes on, or a shot or a minor damage token hits. */
   rig?: string;
+  /** A card of a mini expansion in hand (One Shots, Advanced Airstrikes, Bounties): the card the choice plays. */
+  card?: string;
+  /** Bonus Commands: the choice puts the die (or a command token) on the player's Bonus Command card. */
+  bonus?: boolean;
+  /** A road tile (0 rear, 1 middle, 2 lead), or a value chosen (Bounties: a die set to any number, a number of spaces). */
+  tile?: number;
+  value?: number;
 }
 
 /** A vehicle in range that cannot be chosen because of an ability (an upgrade id), for the UI to explain. */
@@ -196,7 +210,14 @@ export interface Decision {
     /** Final Five: which motorcycle moves first, and which of two motorcycles a slam moves. */
     | 'first' | 'bikeSlam'
     /** The Big Rig: the steering die, the command a shot aims at, where a minor damage goes, the cow catcher's push. */
-    | 'steer' | 'rigTarget' | 'rigDamage' | 'cowCatcher';
+    | 'steer' | 'rigTarget' | 'rigDamage' | 'cowCatcher'
+    /** A card of a mini expansion in hand: whether to play it now; where AI Danger Avoidance sends the vehicle. */
+    | 'playCard' | 'dodge'
+    /**
+     * Mini expansions: a space on the table (Guardrails, Blockaded, Nav System, the chopper's cards,
+     * a vehicle's step of Slow and Steady), a vehicle, a die, a value, a road tile.
+     */
+    | 'space' | 'pickVehicle' | 'pickDie' | 'pickValue' | 'pickTile';
   player: number;
   prompt: string;
   options: Option[];
@@ -328,9 +349,31 @@ export interface Game {
   dealUpgrades: boolean;
   /** Effects that last for the current turn. */
   fx: { bump: boolean; calledShot: boolean; slams: number; /** Flamethrower (Emberco): this turn a hit also sets the target on fire. */ flamethrower: boolean;
-    /** Targeting Computer (Big Rig): this turn the shooting die may be rerolled. */ targeting?: boolean };
+    /** Targeting Computer (Big Rig): this turn the shooting die may be rerolled. */ targeting?: boolean;
+    /** Bonus Commands played this turn (design/gdd/bonus-commands.md): their effect for the turn. */
+    tireSpikes?: boolean; rocketFuel?: number; rapidReload?: boolean; positraction?: boolean; navSystem?: 'ready' | 'used'; targetingAi?: boolean;
+    /** Bounties: what happened this turn that a bounty may ask for (design/gdd/bounties.md). */
+    hazardsEntered?: number; eliminated?: number; allSlams?: number; feats?: string[]; declined?: string[];
+    /** Road Conditions: the vehicles moved this turn (Marauders); a hazard to place after one is resolved (Blockaded). */
+    moved?: string[]; blockade?: { tile: number; player: number }[] };
   /** Spaces the Big Rig turned off-road (BRaFF p5): they count as off-road for everyone. */
   offroad: Set<string>;
+  /**
+   * One Shots (design/gdd/one-shots.md): per seat, the card in hand (null: none, or played). Null
+   * when the module is off. Face down: the interface shows it to its owner only.
+   */
+  oneShots: (string | null)[] | null;
+  /** Advanced Airstrikes (design/gdd/advanced-airstrikes.md): per seat, the face-down card in hand. Null when off. */
+  airstrikes: (string | null)[] | null;
+  /** Bounties (design/gdd/bounties.md): per seat, the face-down bounty in hand. Null when off. */
+  bounties: (string | null)[] | null;
+  /** Bonus Commands (design/gdd/bonus-commands.md): per seat, the face-up card, kept all game. Null when off. */
+  bonusCommands: (string | null)[] | null;
+  /**
+   * Road Conditions (design/gdd/road-conditions.md): the card next to each tile on the table (rear,
+   * middle, lead; null: none, as the starting tile), the deck and the discards. Null when off.
+   */
+  roads: { cards: (string | null)[]; deck: string[]; discard: string[] } | null;
   /** Upgrade cards not dealt, and those discarded (Tinker draws from the first). */
   upgradeDeck: string[];
   upgradeDiscard: string[];
@@ -357,6 +400,16 @@ export interface Setup {
    * still missing there); an object gives them directly (tests).
    */
   carnage?: boolean | CarnageNumbers;
+  /** One Shots (mini expansion, design/gdd/one-shots.md): one face-down card to each person. */
+  oneShots?: boolean;
+  /** Advanced Airstrikes (mini expansion): one face-down card for the chopper to each person. */
+  airstrikes?: boolean;
+  /** Bounties (mini expansion): one face-down bounty to each person. */
+  bounties?: boolean;
+  /** Bonus Commands (mini expansion): one face-up extra command to each person. */
+  bonusCommands?: boolean;
+  /** Road Conditions (mini expansion): a condition next to each road tile but the starting one. */
+  roadConditions?: boolean;
 }
 
 type Gen<T> = Generator<Decision, T, number>;
@@ -426,6 +479,51 @@ export function commandsOf(p: Player): CommandSlot[] {
 
 const hasPower = (g: Game, player: number | null, power: string): boolean =>
   player !== null && leaderOf(g.players[player])?.power === power;
+
+/** A One Shot card (data/trv/one_shots.json): its name, when it can be played, what it does in Italian. */
+export interface OneShotCard { id: string; name: string; when: string; text: string }
+const ONE_SHOTS = oneShotsData.cards as OneShotCard[];
+/** Every One Shot card. */
+export const oneShotCards = (): OneShotCard[] => ONE_SHOTS;
+
+/** The mini expansions whose cards are held face down and played once. */
+export type CardHand = 'oneShots' | 'airstrikes' | 'bounties';
+const HAND_CARDS: Record<CardHand, { id: string; name: string }[]> = {
+  oneShots: ONE_SHOTS, airstrikes: airstrikesData.cards, bounties: bountiesData.cards,
+};
+/** Which hand a card of a mini expansion belongs to (the ids are unique across them). */
+export const handOf = (id: string): CardHand | null =>
+  (Object.keys(HAND_CARDS) as CardHand[]).find(h => HAND_CARDS[h].some(c => c.id === id)) ?? null;
+/** A mini expansion card's printed name. */
+export const miniCardName = (id: string): string =>
+  [...Object.values(HAND_CARDS).flat(), ...bonusData.cards, ...roadsData.cards].find(c => c.id === id)?.name ?? id;
+const HAND_WORD: Record<CardHand, string> = { oneShots: 'la One Shot', airstrikes: "l'Advanced Airstrike", bounties: 'la taglia' };
+
+/**
+ * A card of a mini expansion in hand (One Shots, Advanced Airstrikes, Bounties): `player` (a person,
+ * never a TRV9000) holds card `id` and can still play it.
+ */
+const holds = (g: Game, player: number | null | undefined, id: string): boolean => {
+  const h = handOf(id);
+  return h !== null && player !== null && player !== undefined && g[h]?.[player] === id && !g.players[player]?.bot && g.winner === null;
+};
+
+/**
+ * Asks `player`, who holds card `id`, whether to play it now (`what`: the moment, said in the
+ * question). Played, the card leaves the game. Resolves true when it was played.
+ */
+function* offerOneShot(g: Game, player: number, id: string, what: string): Gen<boolean> {
+  const name = miniCardName(id), h = handOf(id)!;
+  const bounty = h === 'bounties';
+  const i = yield* ask(g, {
+    kind: 'playCard', player, prompt: `${g.players[player].name}: ${bounty ? `hai completato la taglia ${name}! La giochi adesso e riscuoti il premio? Se aspetti, dovrai completarla di nuovo.` : `${what} Giocare ${name}?`}`,
+    options: [{ label: bounty ? 'Tienila' : 'Non ora', card: id }, { label: bounty ? 'Gioca e riscuoti' : `Gioca ${name}`, card: id }],
+  });
+  if (i === 0) return false;
+  g[h]![player] = null;
+  say(g, `${g.players[player].name} gioca ${HAND_WORD[h]} ${name}.`, 'good');
+  return true;
+}
 
 const UPGRADES = shoppe.upgrades as Upgrade[];
 /** Every upgrade card. */
@@ -528,13 +626,28 @@ export function vehiclesAt(g: Game, p: Pos): Vehicle[] {
 const TERRAIN_HAZARDS = new Set<HazardType>(['road', 'mud', 'oil', 'desert_glass', 'ramp', 'fire']);
 
 /** The spaces where a chopper may be placed (Airstrike, p. 8): empty, but a revealed terrain hazard does not count. */
+/** Road Conditions: the condition of the tile a space is on (null: none, or the module is off). */
+export function roadAt(g: Game, p: Pos | null | undefined): string | null {
+  if (!g.roads || !p) return null;
+  const slot = Math.floor(p.c / TILE_COLS);
+  return slot >= 0 && slot < 3 ? g.roads.cards[slot] : null;
+}
+
+/** Road Conditions: the next card of the deck, the discards shuffled back when it is empty. */
+function drawRoad(g: Game): string | null {
+  const r = g.roads!;
+  if (!r.deck.length && r.discard.length) { r.deck = shuffled(g, r.discard, 'road-conditions'); r.discard = []; }
+  return r.deck.shift() ?? null;
+}
+
 export function chopperSpaces(g: Game): Pos[] {
   const out: Pos[] = [];
   for (let r = 0; r < ROWS; r++) {
     for (let c = 0; c < COLS; c++) {
       const p = { r, c }, h = g.hazards.get(key(p));
       const clearHazard = !h || (h.faceUp && TERRAIN_HAZARDS.has(h.type));
-      if (terrainAt(g, p) !== 'X' && clearHazard && !vehiclesAt(g, p).length && !g.players.some(pl => samePos(pl.chopper, p))) out.push(p);
+      // Windy (Road Conditions): no chopper is placed on that tile.
+      if (terrainAt(g, p) !== 'X' && clearHazard && !vehiclesAt(g, p).length && !g.players.some(pl => samePos(pl.chopper, p)) && roadAt(g, p) !== 'windy') out.push(p);
     }
   }
   return out;
@@ -665,6 +778,11 @@ export function newGame(s: Setup): Game {
     current: 0, roadDie: 0, winner: null, log: [], zTop: 0, activeCar: null, lastRoll: [], pendingDice: [], frames: [],
     tokenSupply: shoppe.command_tokens, dealLeaders: !!s.leaders, dealUpgrades: !!s.upgrades, fx: { bump: false, calledShot: false, slams: 0, flamethrower: false },
     carnage: null, upgradeDeck: [], upgradeDiscard: [], trv9000: null, offroad: new Set(),
+    oneShots: s.oneShots ? s.players.map(() => null) : null,
+    airstrikes: s.airstrikes ? s.players.map(() => null) : null,
+    bounties: s.bounties ? s.players.map(() => null) : null,
+    bonusCommands: s.bonusCommands ? s.players.map(() => null) : null,
+    roads: s.roadConditions ? { cards: [null, null, null], deck: [], discard: [] } : null,
   };
   if (s.carnage) {
     if (s.carnage === true && !carnageTilesReady()) throw new Error("Carnage at Devil's Run: missing data in carnage.json: tiles");
@@ -783,6 +901,7 @@ function eliminate(g: Game, v: Vehicle, why: string, into?: Pos, by?: Frame['by'
   v.status = 'elim';
   v.pos = null;
   v.inStart = false;
+  g.fx.eliminated = (g.fx.eliminated ?? 0) + 1; // Rubbing Is Racing (Bounties)
   if (v.onFire) putOut(g, v);
   for (const t of v.damage) discardCard(g, t);
   // Minor damage tokens are not part of the damage pile (BRaFF p3).
@@ -846,6 +965,15 @@ function advanceBoard(g: Game): void {
   g.board.push(g.pile.shift()!);
   g.tilesPlaced++;
   placeHazards(g, 2, null);
+  // Road Conditions: the rear tile's card goes to the discards (decided by the user, 2026-11-22),
+  // the new lead tile gets one.
+  if (g.roads) {
+    const [gone, ...rest] = g.roads.cards;
+    if (gone) g.roads.discard.push(gone);
+    g.roads.cards = [...rest, drawRoad(g)];
+    const c = g.roads.cards[2];
+    if (c) say(g, `Road Conditions: ${tileDef(g.board[2]).name} è ${miniCardName(c)}.`, 'info');
+  }
   if (g.players.length === 2 && g.tilesPlaced >= base.two_player_final_tile) g.finalTile = true;
   beat(g, 'tile');
   if (g.finalTile) say(g, `${tileDef(g.board[2]).name} è la tessera finale: c'è il traguardo!`, 'info');
@@ -864,6 +992,8 @@ interface MoveCtx {
 /** The terrain as a car feels it: mud counts as road with Deep Treads. */
 function groundFor(g: Game, v: Vehicle, p: Pos): Terrain {
   const t = terrainAt(g, p);
+  // Positraction (Bonus Commands): this turn mud is road for the player's vehicles.
+  if (t === 'M' && g.fx.positraction && v.owner === g.current) return 'R';
   return t === 'M' && up(v, 'deep_treads') ? 'R' : t;
 }
 
@@ -894,8 +1024,41 @@ function* enter(g: Game, v: Vehicle, to: Pos, ctx: MoveCtx | null, dir?: Dir, wh
     advanceBoard(g);
     to = { r: to.r, c: to.c - TILE_COLS };
   }
+  // Guardrails (Road Conditions): off the side of that tile, the vehicle goes to a space next to it instead.
+  if (!onBoard(to) && (to.r < 0 || to.r >= ROWS) && v.pos && !isRig(v) && v.status !== 'elim' && roadAt(g, v.pos) === 'guardrails') {
+    const here = v.pos;
+    const around = ALL_DIRS.map(d => ({ d, q: neighbor(here, d) })).filter(x => onBoard(x.q) && terrainAt(g, x.q) !== 'X');
+    if (around.length) {
+      const who = v.owner ?? g.current;
+      const i = yield* ask(g, {
+        kind: 'space', player: who, prompt: `${g.players[who].name}: Guardrails, dove va ${carName(g, v)} invece di uscire dalla strada?`,
+        options: around.map(x => ({ ...spaceOption(x.q), carId: v.id })),
+      });
+      say(g, `Guardrails: ${carName(g, v)} resta in strada.`, 'good');
+      return yield* enter(g, v, around[i].q, ctx, around[i].d, 'dodge');
+    }
+  }
   if (!onBoard(to)) { eliminate(g, v, 'è uscita dalla strada', to); return true; }
-  if (terrainAt(g, to) === 'X') { eliminate(g, v, 'è entrata in una casella invalicabile', to, pitAt(g, to)); return true; }
+  if (terrainAt(g, to) === 'X') {
+    // AI Danger Avoidance (One Shots): the vehicle goes to a space next to its current one instead,
+    // on the board and not impassable. A free space: the move goes on from there. An occupied one:
+    // the move stops there with a slam, no drift (decided by the user, 2026-11-22; one-shots.md).
+    const here = v.pos;
+    const around = here && !v.isWreck && v.status === 'ok'
+      ? ALL_DIRS.map(d => ({ d, q: neighbor(here, d) })).filter(x => onBoard(x.q) && terrainAt(g, x.q) !== 'X' && !samePos(x.q, to)) : [];
+    if (around.length && holds(g, v.owner, 'ai_danger_avoidance')
+      && (yield* offerOneShot(g, v.owner!, 'ai_danger_avoidance', `${carName(g, v)} sta per entrare in una casella invalicabile.`))) {
+      const i = yield* ask(g, {
+        kind: 'dodge', player: v.owner!, prompt: `${g.players[v.owner!].name}: AI Danger Avoidance, dove va ${carName(g, v)}?`,
+        options: around.map(x => ({ ...spaceOption(x.q), carId: v.id })),
+      });
+      const busy = vehiclesAt(g, around[i].q).length > 0;
+      if (busy && ctx) ctx.left = 0;
+      const stop = yield* enter(g, v, around[i].q, busy ? null : ctx, around[i].d, 'dodge');
+      return busy || stop;
+    }
+    eliminate(g, v, 'è entrata in una casella invalicabile', to, pitAt(g, to)); return true;
+  }
   v.pos = { ...to };
   v.inStart = false;
   v.z = ++g.zTop;
@@ -908,6 +1071,25 @@ function* enter(g: Game, v: Vehicle, to: Pos, ctx: MoveCtx | null, dir?: Dir, wh
     say(g, `Basic Protocol: ${carName(g, v)} ignora il pericolo coperto.`, 'info');
     h = undefined;
   }
+  // Nav System (Bonus Commands): the first face-down hazard entered this turn goes to an adjacent empty space.
+  if (h && !h.faceUp && g.fx.navSystem === 'ready' && v.owner === g.current && ctx) {
+    g.fx.navSystem = 'used';
+    const free = ALL_DIRS.map(d => neighbor(to, d)).filter(q => onBoard(q) && isEmpty(g, q));
+    if (free.length) {
+      const i = yield* ask(g, {
+        kind: 'space', player: g.current, prompt: `${g.players[g.current].name}: Nav System, dove spostare il pericolo coperto?`,
+        options: free.map(spaceOption),
+      });
+      g.hazards.delete(k);
+      g.hazards.set(key(free[i]), h);
+      say(g, `Nav System: il pericolo coperto si sposta in ${free[i].r + 1}-${free[i].c + 1}, senza essere scoperto.`, 'info');
+      h = undefined;
+    }
+  }
+  // Trash Collector (Bounties): the spaces with hazards the player's vehicles enter this turn.
+  if (h && v.owner === g.current) g.fx.hazardsEntered = (g.fx.hazardsEntered ?? 0) + 1;
+  // Blockaded (Road Conditions): a face-down hazard resolved on that tile brings another, placed after it.
+  if (h && !h.faceUp && !(ctx?.quiet) && roadAt(g, to) === 'blockaded') (g.fx.blockade ??= []).push({ tile: Math.floor(to.c / TILE_COLS), player: v.owner ?? g.current });
   // Basic Protocol 1 (TRV9000): mud, toxic goo and salt flats are road to a bot's cars.
   const botRoad = isBot(g, v.owner);
   // Tank Treads: a face-down hazard is passed over; moveCar reveals the one the car stops on.
@@ -946,6 +1128,7 @@ function* enter(g: Game, v: Vehicle, to: Pos, ctx: MoveCtx | null, dir?: Dir, wh
       const d = rollFx(g, 'direction', 'oil-slick', to);
       say(g, `Olio! Dado direzione: ${DIR_NAME[d]}.`, 'dice');
       const stop = yield* enter(g, v, neighbor(to, d), ctx, d, 'oil');
+      yield* icy(g, v, d, to);
       yield* baldTires(g, v, d);
       return stop;
     } else if (h.type === 'quake') {
@@ -1077,6 +1260,7 @@ function* slam(g: Game, at: Pos): Gen<void> {
       biker = bikes[i];
     }
     // Bump! (Bumpo): the first time the player slams this turn, only the direction die, and the other car moves.
+    g.fx.allSlams = (g.fx.allSlams ?? 0) + 1; // Pinball Wizard (Bounties): every slam on the turn
     const mine = top.owner === g.current && !top.isWreck;
     const bump = !biker && mine && g.fx.bump && g.fx.slams === 0;
     if (mine) g.fx.slams++;
@@ -1141,8 +1325,11 @@ function* slam(g: Game, at: Pos): Gen<void> {
     const other = affected === top ? bottom : top;
     const wasEmpty = onBoard(dest) && isEmpty(g, dest);
     yield* enter(g, affected, dest, null, d, 'slam');
+    yield* icy(g, affected, d, at);
+    yield* blockades(g);
     // Tire Spikes (TRV9000 Bomb Squad): the car it moved in a slam takes damage when it went to an empty space.
-    if (wasEmpty && up(other, 'tire_spikes') && !affected.isWreck && affected.status !== 'elim' && samePos(affected.pos, dest) && g.winner === null) {
+    // Tire Spikes (Bonus Commands): the same this turn, when the player's car moves the other.
+    if (wasEmpty && (up(other, 'tire_spikes') || (g.fx.tireSpikes && other.owner === g.current && !other.isWreck)) && !affected.isWreck && affected.status !== 'elim' && samePos(affected.pos, dest) && g.winner === null) {
       say(g, 'Tire Spikes: l\'auto spostata subisce danno.', 'bad');
       yield* damage(g, affected);
     }
@@ -1156,8 +1343,15 @@ function* slam(g: Game, at: Pos): Gen<void> {
 }
 
 /** Taking damage (pp. 6, 12). */
-function* damage(g: Game, v: Vehicle): Gen<void> {
+function* damage(g: Game, v: Vehicle, pick: { player: number; how: 'two' | 'all'; what: string } | null = null): Gen<void> {
   if (g.winner !== null || v.status === 'elim') return;
+  // Camouflage Coating (One Shots): the vehicle does not take the damage. Not asked for a wreck,
+  // nor for an inoperable car, whose damage is ignored anyway.
+  if (!v.isWreck && v.status === 'ok' && holds(g, v.owner, 'camouflage_coating')
+    && (yield* offerOneShot(g, v.owner!, 'camouflage_coating', `${carName(g, v)} sta per subire danno.`))) {
+    say(g, `Camouflage Coating: ${carName(g, v)} non subisce danno.`, 'good');
+    return;
+  }
   if (isRig(v)) { yield* rigHit(g, g.players[v.owner!], 'danno'); return; }
   if (v.isWreck) { eliminate(g, v, 'ha subito danno'); return; }
   if (v.status === 'inop') { say(g, `${capital(carName(g, v))} è già fuori uso: il danno è ignorato.`); return; }
@@ -1178,8 +1372,28 @@ function* damage(g: Game, v: Vehicle): Gen<void> {
   let token = draw();
   // Jury-Rigging (Asha) and Onboard Computer: the token is placed face down and its effect is ignored.
   const hidden = !!token && (hasPower(g, v.owner, 'jury_rigging') || up(v, 'onboard_computer'));
+  // Target Practice: two tokens drawn, the shooter keeps one. Targeting AI: the shooter chooses from the supply.
+  if (token && !hidden && pick) {
+    const offer = pick.how === 'two' ? (g.damagePile.length ? [token, draw()!] : [token])
+      : [token, ...g.damagePile].filter((t, i, a) => a.findIndex(x => x.type === t.type && x.dir === t.dir) === i);
+    if (offer.length > 1) {
+      const i = yield* ask(g, {
+        kind: 'pickDamage', player: pick.player, prompt: `${g.players[pick.player].name}: ${pick.what}, quale danno prende ${carName(g, v)}?`,
+        options: offer.map(t => ({ label: `${DAMAGE_NAME[t.type]}${t.dir ? ` (${DIR_NAME[t.dir]})` : ''}`, token: { ...t }, carId: v.id })),
+      });
+      if (pick.how === 'two') { g.damagePile.push(offer[1 - i]); token = offer[i]; }
+      else {
+        const want = offer[i];
+        if (want !== token) {
+          g.damagePile.push(token);
+          token = g.damagePile.splice(g.damagePile.findIndex(x => x.type === want.type && x.dir === want.dir), 1)[0];
+        }
+      }
+      say(g, `${pick.what}: scelto ${DAMAGE_NAME[token.type]}.`, 'info');
+    }
+  }
   // Crumple Zones: draw two damage tokens, pick one and discard the other.
-  if (token && !hidden && up(v, 'crumple_zones') && g.damagePile.length) {
+  else if (token && !hidden && up(v, 'crumple_zones') && g.damagePile.length) {
     const pair = [token, draw()!];
     const i = yield* ask(g, {
       kind: 'pickDamage', player: v.owner!, prompt: `${g.players[v.owner!].name}: Crumple Zones, quale danno prende ${carName(g, v)}?`,
@@ -1440,12 +1654,17 @@ const onRoad = (g: Game): Vehicle[] => g.vehicles.filter(v => v.status !== 'elim
  * resolved "as simultaneously as possible, failing that randomly": all vehicles move first, then
  * each landing is resolved in an order rolled at random; vehicles ending on one space slam.
  */
-function* quake(g: Game): Gen<void> {
-  const d = rollFx(g, 'direction', 'quake');
-  say(g, `Terremoto! Tutti i veicoli si spostano di una casella ${DIR_NAME[d]}.`, 'dice');
+function* quake(g: Game, tile: number | null = null): Gen<void> {
+  const d = rollFx(g, 'direction', tile === null ? 'quake' : 'tremors');
+  if (tile === null) say(g, `Terremoto! Tutti i veicoli si spostano di una casella ${DIR_NAME[d]}.`, 'dice');
+  else say(g, `Tremors: su ${tileDef(g.board[tile]).name} tutti i veicoli si spostano di una casella ${DIR_NAME[d]}.`, 'dice');
   const landed: Vehicle[] = [], ahead: Vehicle[] = [];
+  const from = new Map<string, Pos>();
   for (const v of onRoad(g)) {
     if (isRig(v)) continue;
+    // Tremors (Road Conditions): only the vehicles on that tile.
+    if (tile !== null && Math.floor(v.pos!.c / TILE_COLS) !== tile) continue;
+    from.set(v.id, { ...v.pos! });
     const to = neighbor(v.pos!, d);
     if (to.c >= COLS && to.r >= 0 && to.r < ROWS) { ahead.push(v); continue; }
     if (!onBoard(to)) { eliminate(g, v, 'è uscita dalla strada nel terremoto', to); continue; }
@@ -1459,10 +1678,13 @@ function* quake(g: Game): Gen<void> {
   for (const v of shuffled(g, landed, 'quake-order')) {
     if (v.status === 'elim' || !v.pos || g.winner !== null) continue;
     yield* enter(g, v, v.pos, null, d);
+    yield* icy(g, v, d, from.get(v.id) ?? null);
     yield* baldTires(g, v, d);
   }
+  yield* blockades(g);
   // Sturdy (BRaFF FAQ): the quake does not move the Big Rig; one minor damage, no off-road space.
   for (const p of g.players) {
+    if (tile !== null) break; // Tremors are a road condition, not the Earthquake token: the Big Rig is not on it
     if (!p.rig || p.out || g.winner !== null || !onRoad(g).some(v => v.owner === p.id && isRig(v))) continue;
     say(g, `Il Big Rig di ${p.name} è Robusto: il terremoto non lo sposta.`, 'info');
     yield* rigHit(g, p, 'terremoto');
@@ -1506,6 +1728,15 @@ export const __test = {
   quake,
   sandWorm,
   advanceBoard,
+  /** Mini expansions (design/gdd/advanced-airstrikes.md, bounties.md, road-conditions.md, bonus-commands.md). */
+  airstrike,
+  marauders,
+  tremors,
+  blockades,
+  bountyCheck,
+  activateBonus,
+  moveCar,
+  groundFor,
 };
 
 // ---------------------------------------------------------------- shooting
@@ -1529,6 +1760,8 @@ function* shootFrom(g: Game, player: number, from: Pos, who: string, shooter: Ve
   if (up(shooter, 'punt_gun')) spaces.push(...longArc(from, upN('punt_gun')));
   if (up(shooter, 'rail_gun')) { let q = from; for (let n = 0; n < upN('rail_gun'); n++) { q = neighbor(q, 'F'); spaces.push(q); } }
   if (up(shooter, 'rear_guns')) spaces.push(...ALL_DIRS.map(d => neighbor(from, d)));
+  // Sandstorm (Road Conditions): from that tile, only the space straight ahead.
+  if (roadAt(g, from) === 'sandstorm') spaces.splice(0, spaces.length, neighbor(from, 'F'));
   for (const p of spaces.filter((q, i, a) => a.findIndex(x => samePos(x, q)) === i)) {
     if (!onBoard(p)) continue;
     const st = vehiclesAt(g, p);
@@ -1551,6 +1784,24 @@ function* shootFrom(g: Game, player: number, from: Pos, who: string, shooter: Ve
   });
   if (i === 0) return null;
   const t = targets[i - 1];
+  yield* fireAt(g, player, from, shooter, t);
+  // Grapeshot (One Shots): after the shot, a second one at the same target if it is still in the
+  // arc (the same spaces as this shot). Also from the chopper (decided by the user, 2026-11-22).
+  if (holds(g, player, 'grapeshot') && t.status !== 'elim' && t.pos && spaces.some(q => samePos(q, t.pos)) && (!isRig(t) || rigAims(g, t).length)
+    && (yield* offerOneShot(g, player, 'grapeshot', `hai sparato ${carName(g, t).replace(/^l'/, "all'").replace(/^il /, 'al ').replace(/^la /, 'alla ')}.`))) {
+    yield* fireAt(g, player, from, shooter, t);
+  }
+  // Rapid Reload (Bonus Commands): the next shot this turn is followed by a second one, at a new target.
+  if (g.fx.rapidReload && player === g.current && g.winner === null) {
+    g.fx.rapidReload = false;
+    say(g, 'Rapid Reload: secondo sparo, contro un nuovo bersaglio.', 'info');
+    yield* shootFrom(g, player, from, who, shooter, [...exclude, t.id], arcs);
+  }
+  return t;
+}
+
+/** One shot of `player` from `from` at target `t` (chosen): the Big Rig's command aimed at, the roll, the damage and what follows a hit. */
+function* fireAt(g: Game, player: number, from: Pos, shooter: Vehicle | null, t: Vehicle): Gen<void> {
   // BRaFF p5: shooting the Big Rig, the shooter picks the command to hit before rolling.
   let aim: string | null = null;
   if (isRig(t)) {
@@ -1565,9 +1816,14 @@ function* shootFrom(g: Game, player: number, from: Pos, who: string, shooter: Ve
   const spotter = hasPower(g, player, 'spotter') && g.vehicles.some(v => v.owner === player && v.status === 'ok'
     && v.pos && !samePos(v.pos, from) && ALL_DIRS.some(d => samePos(neighbor(t.pos!, d), v.pos)));
   const called = g.fx.calledShot && player === g.current;
-  let hit = spotter || called;
+  // The chopper's shot: no shooting vehicle, from the space of the player's chopper.
+  const fromChopper = !shooter && samePos(g.players[player].chopper, from);
+  // Guided Missile (One Shots): played when shooting, the shot hits by itself.
+  const guided = !spotter && !called && holds(g, player, 'guided_missile')
+    && (yield* offerOneShot(g, player, 'guided_missile', `stai sparando ${carName(g, t).replace(/^l'/, "all'").replace(/^il /, 'al ').replace(/^la /, 'alla ')}.`));
+  let hit = spotter || called || guided;
   beat(g, 'shot', { from: { ...from }, at: { ...t.pos! }, vehicleId: t.id, ...(hit ? { auto: true } : {}) });
-  if (hit) say(g, `${spotter ? 'Spotter' : 'Called Shot'}: colpo automatico!`, 'good');
+  if (hit) say(g, `${spotter ? 'Spotter' : called ? 'Called Shot' : 'Guided Missile'}: colpo automatico!`, 'good');
   else {
     const shot = (cause: string): boolean => {
       const f = rollFx(g, 'shooting', cause, from);
@@ -1593,10 +1849,23 @@ function* shootFrom(g: Game, player: number, from: Pos, who: string, shooter: Ve
       });
       if (r === 1) hit = shot('objection');
     }
+    // Dual Guns (Advanced Airstrikes): the chopper missed, its shooting die is rerolled.
+    if (!hit && fromChopper && holds(g, player, 'dual_guns') && (yield* offerOneShot(g, player, 'dual_guns', "l'elicottero ha mancato."))) hit = shot('dual-guns');
   }
-  if (!hit) return t;
-  if (aim) { yield* rigHit(g, g.players[t.owner!], 'colpo', aim); return t; }
-  yield* damage(g, t);
+  if (!hit) return;
+  if (aim) { yield* rigHit(g, g.players[t.owner!], 'colpo', aim); return; }
+  const wasOk = t.status === 'ok';
+  // Target Practice (Advanced Airstrikes): the chopper hit a car, two damage tokens and one is chosen.
+  // Targeting AI (Bonus Commands): this turn, a car hit takes the damage token the shooter chooses.
+  const car = !t.isWreck && !isBike(t) && !isRig(t);
+  const practice = car && fromChopper && holds(g, player, 'target_practice')
+    && (yield* offerOneShot(g, player, 'target_practice', `l'elicottero ha colpito ${carName(g, t)}.`));
+  const pick = practice ? { player, how: 'two' as const, what: 'Target Practice' }
+    : car && g.fx.targetingAi && player === g.current ? { player, how: 'all' as const, what: 'Targeting AI' } : null;
+  yield* damage(g, t, pick);
+  // Hit and Run, Death From Above (Bounties): what the shot did, for the bounties asked after the turn.
+  if (wasOk && t.status === 'inop') (g.fx.feats ??= []).push(`${player}:hit_and_run`);
+  if (fromChopper && t.status === 'elim') (g.fx.feats ??= []).push(`${player}:death_from_above`);
   // Flamethrower (Emberco): the target hit this turn also catches fire. The TRV9000 Bomb Squad's
   // Flamethrower card: the same, for a car hit by the car that has it.
   if (((g.fx.flamethrower && player === g.current) || (up(shooter, 'flamethrower') && !t.isWreck)) && t.status === 'ok') catchFire(g, t);
@@ -1619,7 +1888,6 @@ function* shootFrom(g: Game, player: number, from: Pos, who: string, shooter: Ve
     say(g, 'Soul Siphon: un danno in meno su una propria auto.', 'good');
     yield* repair(g, p);
   }
-  return t;
 }
 
 const ALL_DIRS: Dir[] = ['F', 'FL', 'FR', 'B', 'BL', 'BR'];
@@ -1661,20 +1929,25 @@ function* moveCar(g: Game, car: Vehicle, moves: number, drift: boolean, coast: b
   const startedOff = !onlyRoad;
   // Off-Road Suspension: starting on road is enough. Spoiler: the road die is always 2.
   const anywhere = up(car, 'off_road_suspension') && !startedOff;
-  const roadDie = up(car, 'spoiler') ? upN('spoiler') : g.roadDie;
+  // Rocket Fuel (Bonus Commands): this turn the road die is the value of the die on the card, and
+  // those moves go straight ahead only.
+  const rocket = g.fx.rocketFuel && car.owner === g.current ? g.fx.rocketFuel : 0;
+  const roadDie = rocket || (up(car, 'spoiler') ? upN('spoiler') : g.roadDie);
+  let rocketing = false;
   let stopped = false;
   let bonusUsed = coast;
   for (;;) {
     while (ctx.left > 0 && car.status === 'ok' && g.winner === null) {
       const opts: Option[] = [];
-      const targets: Pos[] = car.inStart || !car.pos
-        ? Array.from({ length: ROWS }, (_, r) => ({ r, c: 0 }))
-        : frontArc(car.pos);
       const start = car.inStart || !car.pos;
+      const straight = rocketing && !start;
+      const targets: Pos[] = start
+        ? Array.from({ length: ROWS }, (_, r) => ({ r, c: 0 }))
+        : straight ? [neighbor(car.pos!, 'F')] : frontArc(car.pos!);
       // The way each step goes: out of the starting area straight on, then the front arc.
-      const dirs: Dir[] = start ? targets.map(() => 'F') : ['FL', 'F', 'FR'];
+      const dirs: Dir[] = start || straight ? targets.map(() => 'F') : ['FL', 'F', 'FR'];
       targets.forEach((to, k) => opts.push(stepOption(g, car, to, ctx.left,
-        start ? `Corsia ${to.r + 1}` : ['Avanti-sinistra', 'Avanti', 'Avanti-destra'][k], dirs[k])));
+        start ? `Corsia ${to.r + 1}` : straight ? 'Avanti (Rocket Fuel)' : ['Avanti-sinistra', 'Avanti', 'Avanti-destra'][k], dirs[k])));
       // Skull Shift Knob: the car does not have to use all of its moves (unless the fire die says so).
       if (!start && up(car, 'skull_shift_knob') && !mustMoveAll) opts.push({ label: 'Fermati qui' });
       const i = yield* ask(g, {
@@ -1693,6 +1966,12 @@ function* moveCar(g: Game, car: Vehicle, moves: number, drift: boolean, coast: b
       if (t !== 'R') onlyRoad = false;
       ctx.left = Math.max(0, ctx.left - (t === 'M' ? 2 : 1));
       if (yield* enter(g, car, to, ctx, dirs[i])) { stopped = true; ctx.left = 0; }
+      yield* blockades(g);
+      // Torrential Downpour (Road Conditions): entering mud on that tile, the vehicle loses its remaining moves.
+      if (!stopped && car.status === 'ok' && car.pos && onBoard(car.pos) && roadAt(g, car.pos) === 'torrential_downpour' && groundFor(g, car, car.pos) === 'M') {
+        if (ctx.left > 0) say(g, `Torrential Downpour: ${carName(g, car)} affonda nel fango e perde i movimenti rimasti.`, 'info');
+        ctx.left = 0; stopped = true;
+      }
       // Mud revealed on entering: the car entered a mud space this turn, no road die (asked by the
       // rules owner, 2026-11-17).
       if (onBoard(to) && groundFor(g, car, to) === 'M') onlyRoad = false;
@@ -1708,11 +1987,12 @@ function* moveCar(g: Game, car: Vehicle, moves: number, drift: boolean, coast: b
     if (fixed) { say(g, 'Transmission Failure: niente dado strada, l’auto non può guadagnare movimenti.', 'info'); break; }
     const i = yield* ask(g, {
       kind: 'roadDie', player: car.owner!,
-      prompt: `${anywhere ? 'Off-Road Suspension' : 'Sempre su strada'}! Usare il dado strada (+${roadDie})? Se lo usi devi muovere tutto.`,
+      prompt: `${anywhere ? 'Off-Road Suspension' : 'Sempre su strada'}! Usare il dado strada (+${roadDie}${rocket ? ', Rocket Fuel: solo dritto' : ''})? Se lo usi devi muovere tutto.`,
       options: [{ label: 'No, fermati qui' }, { label: `Sì, altri ${roadDie} movimenti`, dieValue: roadDie }],
     });
     if (i === 0) break;
     ctx.left = roadDie;
+    rocketing = !!rocket;
   }
   // Tank Treads, Spotter's Tower: the face-down hazard the car ends its move on is revealed.
   const under = car.pos ? g.hazards.get(key(car.pos)) : undefined;
@@ -1793,12 +2073,24 @@ function* turn(g: Game, p: Player): Gen<void> {
         cmds.push({ die: d, cmd: slot.id });
       }
     }
-    if (cmds.length) {
+    // Bonus Commands: the card is one more command, in place of the round's command (decided by the
+    // user, 2026-11-22), with a die of the values printed in its diamond.
+    const bonus = g.bonusCommands?.[p.id] ?? null;
+    const bonusDice = bonus && !p.bonusUsed ? rest.filter(d => rest.find(j => p.dice[j] === p.dice[d]) === d && bonusFits(bonus, p.dice[d])) : [];
+    if (cmds.length || bonusDice.length) {
       const ci = yield* ask(g, {
         kind: 'command', player: p.id, prompt: `${p.name}: attivare un comando (una volta per round)?`,
-        options: [{ label: 'Nessun comando' }, ...cmds.map(c => ({ label: `${COMMAND_NAME[c.cmd]} con il dado ${p.dice[c.die]}`, die: c.die, command: c.cmd, dieValue: p.dice[c.die] }))],
+        options: [{ label: 'Nessun comando' }, ...cmds.map(c => ({ label: `${COMMAND_NAME[c.cmd]} con il dado ${p.dice[c.die]}`, die: c.die, command: c.cmd, dieValue: p.dice[c.die] })),
+          ...bonusDice.map(d => ({ label: `${miniCardName(bonus!)} (comando bonus) con il dado ${p.dice[d]}`, die: d, bonus: true, dieValue: p.dice[d] }))],
       });
-      if (ci > 0) {
+      if (ci > cmds.length) {
+        const d = bonusDice[ci - 1 - cmds.length];
+        p.used[d] = true;
+        p.commandUsed = true;
+        p.bonusUsed = 'die';
+        say(g, `${p.name} attiva il comando bonus ${miniCardName(bonus!)}.`, 'info');
+        yield* activateBonus(g, p, bonus!, p.dice[d], car);
+      } else if (ci > 0) {
         const c = cmds[ci - 1];
         p.used[c.die] = true;
         p.command = { cmd: c.cmd, value: p.dice[c.die] };
@@ -1812,12 +2104,21 @@ function* turn(g: Game, p: Player): Gen<void> {
   // Command token (Choppe Shoppe): one per turn, on a command without a die or a token, not when coasting.
   if (!a.coast && p.tokens > 0 && g.winner === null) {
     const free = board.filter(s => !p.slots[s.id] && canActivate(g, p, s.id));
-    if (free.length) {
+    // Bonus Commands: a token may go on the card too, never twice in a round (decided by the user, 2026-11-22).
+    const bonus = g.bonusCommands?.[p.id] && !p.bonusUsed ? g.bonusCommands[p.id]! : null;
+    if (free.length || bonus) {
       const ti = yield* ask(g, {
         kind: 'token', player: p.id, prompt: `${p.name}: usare un segnalino comando (${p.tokens} rimasti)?`,
-        options: [{ label: 'Nessun segnalino' }, ...free.map(s => ({ label: `${COMMAND_NAME[s.id]} con un segnalino`, command: s.id }))],
+        options: [{ label: 'Nessun segnalino' }, ...free.map(s => ({ label: `${COMMAND_NAME[s.id]} con un segnalino`, command: s.id })),
+          ...(bonus ? [{ label: `${miniCardName(bonus)} (comando bonus) con un segnalino`, bonus: true }] : [])],
       });
-      if (ti > 0) {
+      if (ti > free.length) {
+        p.tokens--;
+        p.bonusUsed = 'token';
+        say(g, `${p.name} attiva il comando bonus ${miniCardName(bonus!)} con un segnalino comando.`, 'info');
+        // A token on a range of values counts as the lowest, as on the command board.
+        yield* activateBonus(g, p, bonus!, bonusLowest(bonus!), car);
+      } else if (ti > 0) {
         const s = free[ti - 1];
         p.tokens--;
         p.slots[s.id] = 'token';
@@ -1841,6 +2142,7 @@ function* turn(g: Game, p: Player): Gen<void> {
  */
 function* drive(g: Game, p: Player, car: Vehicle, coast: boolean, die: number, mv: { moves: number; drift: boolean }): Gen<void> {
   g.activeCar = car.id;
+  (g.fx.moved ??= []).push(car.id); // Marauders (Road Conditions)
   const a = { coast };
   // Boost Switch: the car gains +1 move.
   if (up(car, 'boost_switch')) { mv.moves += upN('boost_switch'); say(g, `Boost Switch: +${upN('boost_switch')} movimento.`, 'good'); }
@@ -1848,7 +2150,9 @@ function* drive(g: Game, p: Player, car: Vehicle, coast: boolean, die: number, m
   if (hasOngoing(car, 'loose_wiring') && car.pos && car.status === 'ok' && g.winner === null) {
     const d = rollFx(g, 'direction', 'loose-wiring', car.pos);
     say(g, `Loose Wiring: una casella ${DIR_NAME[d]}.`, 'dice');
+    const from = car.pos;
     yield* enter(g, car, neighbor(car.pos, d), null, d, 'skid');
+    yield* icy(g, car, d, from);
     yield* baldTires(g, car, d);
   }
   const { fixed, mustMoveAll } = beforeMove(g, car, mv);
@@ -1899,7 +2203,10 @@ function* bikesTurn(g: Game, p: Player): Gen<void> {
   };
   type Pick = { die: number; car: Vehicle; coast: boolean };
   const picks: Pick[] = [];
-  let cmd: { die: number; cmd: CommandId } | null = null;
+  // `bonus`: the die went on the Bonus Command card (Bonus Commands: as the cars' teams, decided by
+  // the user, 2026-11-22), in place of the round's command.
+  let cmd: { die: number; cmd: CommandId | null; bonus?: boolean } | null = null;
+  const bonus = g.bonusCommands?.[p.id] ?? null;
   for (let n = 0; n < FF.turn.dice_per_turn && g.winner === null; n++) {
     const fresh = ok().filter(v => !v.moved && !picks.some(x => x.car === v));
     const assign: Pick[] = [];
@@ -1910,11 +2217,12 @@ function* bikesTurn(g: Game, p: Player): Gen<void> {
       }
     }
     // The command die goes with a motorcycle that moves, so only next to (or before) a move.
-    const cmds: { die: number; cmd: CommandId }[] = [];
+    const cmds: { die: number; cmd: CommandId | null; bonus?: boolean }[] = [];
     if (!p.commandUsed && !cmd && (n === 0 ? fresh.length > 0 : picks.length === 1 && !picks[0].coast)) {
       for (const d of freeDice()) for (const slot of commandsOf(p)) {
         if (!p.slots[slot.id] && slot.values.includes(p.dice[d]) && canActivate(g, p, slot.id)) cmds.push({ die: d, cmd: slot.id });
       }
+      if (bonus && !p.bonusUsed) for (const d of freeDice()) if (bonusFits(bonus, p.dice[d])) cmds.push({ die: d, cmd: null, bonus: true });
     }
     if (!assign.length && !cmds.length) break;
     if (n === 0) say(g, `— Turno di ${p.name} (round ${g.round}) —`, 'turn');
@@ -1926,7 +2234,8 @@ function* bikesTurn(g: Game, p: Player): Gen<void> {
           label: `${a.coast ? 'Inerzia' : `Dado ${p.dice[a.die]}`} → ${vehicleLabel(a.car)}`,
           die: a.die, carId: a.car.id, coast: a.coast, dieValue: p.dice[a.die], ...(a.car.pos ? { pos: a.car.pos } : {}),
         })),
-        ...cmds.map(c => ({ label: `${COMMAND_NAME[c.cmd]} con il dado ${p.dice[c.die]}`, die: c.die, command: c.cmd, dieValue: p.dice[c.die] })),
+        ...cmds.map(c => (c.bonus ? { label: `${miniCardName(bonus!)} (comando bonus) con il dado ${p.dice[c.die]}`, die: c.die, bonus: true, dieValue: p.dice[c.die] }
+          : { label: `${COMMAND_NAME[c.cmd!]} con il dado ${p.dice[c.die]}`, die: c.die, command: c.cmd!, dieValue: p.dice[c.die] })),
       ],
     });
     if (i < assign.length) {
@@ -1937,18 +2246,26 @@ function* bikesTurn(g: Game, p: Player): Gen<void> {
     } else {
       cmd = cmds[i - assign.length];
       p.used[cmd.die] = true;
-      p.command = { cmd: cmd.cmd, value: p.dice[cmd.die] };
       p.commandUsed = true;
-      p.slots[cmd.cmd] = 'die';
+      if (cmd.bonus) p.bonusUsed = 'die';
+      else {
+        p.command = { cmd: cmd.cmd!, value: p.dice[cmd.die] };
+        p.slots[cmd.cmd!] = 'die';
+      }
     }
   }
   if (!picks.length) { say(g, `${p.name} non ha mosse disponibili e salta il turno.`, 'turn'); return; }
   const mvs = picks.map(a => ({ moves: a.coast ? 1 : p.dice[a.die], drift: false }));
-  if (cmd && g.winner === null) {
-    say(g, `${p.name} attiva ${COMMAND_NAME[cmd.cmd]}.`, 'info');
+  for (const a of picks) (g.fx.moved ??= []).push(a.car.id); // Marauders (Road Conditions)
+  if (cmd?.bonus && g.winner === null) {
+    say(g, `${p.name} attiva il comando bonus ${miniCardName(bonus!)}.`, 'info');
+    g.activeCar = picks[0].car.id;
+    yield* activateBonus(g, p, bonus!, p.dice[cmd.die], picks[0].car);
+  } else if (cmd && g.winner === null) {
+    say(g, `${p.name} attiva ${COMMAND_NAME[cmd.cmd!]}.`, 'info');
     g.activeCar = picks[0].car.id;
     // Nitro: the motorcycle with the other die gains the moves.
-    yield* activate(g, p, cmd.cmd, p.dice[cmd.die], mvs[0]);
+    yield* activate(g, p, cmd.cmd!, p.dice[cmd.die], mvs[0]);
   }
   let order = picks.map((_, k) => k);
   if (picks.length === 2 && picks[0].car !== picks[1].car && g.winner === null) {
@@ -2005,7 +2322,20 @@ function* chopperCheck(g: Game): Gen<void> {
           continue;
         }
       }
+      // Discerning Pilot (Advanced Airstrikes): the chopper moves instead of eliminating its owner's vehicle.
+      if (v.owner === pl.id && holds(g, pl.id, 'discerning_pilot')
+        && (yield* offerOneShot(g, pl.id, 'discerning_pilot', `${carName(g, v)} è nella casella del tuo elicottero.`))) {
+        const spaces = chopperSpaces(g);
+        if (spaces.length) {
+          const i = yield* ask(g, { kind: 'airstrike', player: pl.id, prompt: `${pl.name}: Discerning Pilot, dove spostare l'elicottero?`, options: spaces.map(spaceOption) });
+          pl.chopper = { ...spaces[i] };
+          beat(g, 'chopper', { at: { ...pl.chopper } });
+          say(g, `Discerning Pilot: l'elicottero di ${pl.name} si sposta e ${carName(g, v)} è salva.`, 'good');
+          break;
+        }
+      }
       eliminate(g, v, `è nella casella dell'elicottero di ${pl.name}`);
+      (g.fx.feats ??= []).push(`${pl.id}:death_from_above`);
     }
   }
 }
@@ -2086,15 +2416,47 @@ function* repair(g: Game, p: Player): Gen<void> {
 }
 
 function* airstrike(g: Game, p: Player): Gen<void> {
-  const spaces = chopperSpaces(g);
+  let spaces = chopperSpaces(g);
+  // Low Flying (Advanced Airstrikes): on a space with a face-up hazard, which is discarded.
+  const low = lowFlyingSpaces(g);
+  const lowFlying = low.length > 0 && holds(g, p.id, 'low_flying')
+    && (yield* offerOneShot(g, p.id, 'low_flying', "stai piazzando l'elicottero."));
+  if (lowFlying) spaces = low;
   if (!spaces.length) { say(g, 'Nessuna casella vuota per l\'elicottero.'); return; }
   const i = yield* ask(g, {
-    kind: 'airstrike', player: p.id, prompt: `${p.name}: clicca la casella vuota dove piazzare l'elicottero.`,
+    kind: 'airstrike', player: p.id, prompt: `${p.name}: clicca la casella ${lowFlying ? 'con il pericolo scoperto' : 'vuota'} dove piazzare l'elicottero.`,
     options: spaces.map(s => ({ label: `Casella ${s.r + 1}-${s.c + 1}`, pos: s })),
   });
+  const left = p.chopper;
   p.chopper = spaces[i];
   beat(g, 'chopper', { at: { ...p.chopper } });
-  if (g.round > 1) yield* shootFrom(g, p.id, p.chopper, 'l\'elicottero');
+  if (lowFlying) {
+    const h = g.hazards.get(key(p.chopper))!;
+    g.hazards.delete(key(p.chopper));
+    g.hazardDiscard.push(h.type);
+    say(g, `Low Flying: l'elicottero scarta ${HAZARD_NAME[h.type]}.`, 'good');
+  }
+  // Care Package (Advanced Airstrikes): when the chopper leaves a space, a face-down hazard there.
+  if (left && !samePos(left, p.chopper) && holds(g, p.id, 'care_package') && onBoard(left) && isEmpty(g, left)
+    && (yield* offerOneShot(g, p.id, 'care_package', "l'elicottero lascia la sua casella."))) {
+    const t = drawHazard(g);
+    if (t) { g.hazards.set(key(left), { type: t, faceUp: false }); say(g, `Care Package: un pericolo coperto in ${left.r + 1}-${left.c + 1}.`, 'info'); }
+  }
+  const trick = yield* chopperPlaced(g, p);
+  if (g.round > 1 && p.chopper) {
+    const shot = yield* shootFrom(g, p.id, p.chopper, 'l\'elicottero', null, [], trick ? ALL_DIRS.map(d => neighbor(p.chopper!, d)) : undefined);
+    // Strafing Run (Advanced Airstrikes): after the chopper shoots, it goes to any empty space.
+    if (shot && p.chopper && g.winner === null && holds(g, p.id, 'strafing_run')
+      && (yield* offerOneShot(g, p.id, 'strafing_run', "l'elicottero ha sparato."))) {
+      const free = chopperSpaces(g);
+      if (free.length) {
+        const k = yield* ask(g, { kind: 'airstrike', player: p.id, prompt: `${p.name}: Strafing Run, dove spostare l'elicottero?`, options: free.map(spaceOption) });
+        p.chopper = { ...free[k] };
+        beat(g, 'chopper', { at: { ...p.chopper } });
+        say(g, `Strafing Run: l'elicottero di ${p.name} si sposta.`, 'info');
+      }
+    }
+  }
 }
 
 // ---------------------------------------------------------------- the Big Rig
@@ -2378,6 +2740,7 @@ function* rigTurn(g: Game, p: Player): Gen<void> {
     return all.filter(i => all.find(j => p.dice[j] === p.dice[i]) === i);
   };
   g.activeCar = rigParts(g, p)[0].id;
+  (g.fx.moved ??= []).push(rigParts(g, p)[0].id); // Marauders (Road Conditions): the cab leads the Big Rig
   say(g, `— Turno di ${p.name} (round ${g.round}) —`, 'turn');
   if (r.steer === null && freeDice().length) {
     const dice = freeDice();
@@ -2388,6 +2751,23 @@ function* rigTurn(g: Game, p: Player): Gen<void> {
     p.used[dice[i]] = true;
     r.steer = p.dice[dice[i]];
     say(g, `${p.name} mette ${r.steer} sullo sterzo idraulico.`, 'info');
+  }
+  // Bonus Commands (as the cars' teams, decided by the user, 2026-11-22): once a round, a free die
+  // of the card's values goes on it, when another die is left for this turn's section.
+  const bonus = g.bonusCommands?.[p.id] ?? null;
+  const bonusDice = bonus && !p.bonusUsed && freeDice().length > 1 ? freeDice().filter(d => bonusFits(bonus, p.dice[d])) : [];
+  if (bonusDice.length && g.winner === null) {
+    const bi = yield* ask(g, {
+      kind: 'command', player: p.id, prompt: `${p.name}: attivare il comando bonus ${miniCardName(bonus!)}?`,
+      options: [{ label: 'Nessun comando' }, ...bonusDice.map(d => ({ label: `${miniCardName(bonus!)} (comando bonus) con il dado ${p.dice[d]}`, die: d, bonus: true, dieValue: p.dice[d] }))],
+    });
+    if (bi > 0) {
+      const d = bonusDice[bi - 1];
+      p.used[d] = true;
+      p.bonusUsed = 'die';
+      say(g, `${p.name} attiva il comando bonus ${miniCardName(bonus!)}.`, 'info');
+      yield* activateBonus(g, p, bonus!, p.dice[d], rigParts(g, p)[0]);
+    }
   }
   const assign: { die: number; key: string; sec: RigSection; id: string }[] = [];
   for (const d of freeDice()) for (const sec of RIG_BOARD) {
@@ -2675,6 +3055,7 @@ function* botTurn(g: Game, p: Player): Gen<void> {
   if (!coast) bot.line = line + 1;
   bot.active = coast ? card.lines.findIndex(l => botCar(g, p, l.car) === car) : line;
   g.activeCar = car.id;
+  (g.fx.moved ??= []).push(car.id); // Marauders (Road Conditions)
   if (car.inStart) yield* botEnter(g, car);
   // Double Barrel (Trigger Happy): it shoots before moving too.
   if (up(car, 'double_barrel') && g.round > 1 && car.pos && g.winner === null) yield* shootFrom(g, p.id, car.pos, carName(g, car), car);
@@ -2751,6 +3132,30 @@ function nextActive(g: Game, from: number): number {
 export function* play(g: Game): Gen<void> {
   if (g.dealLeaders) yield* chooseLeaders(g);
   if (g.dealUpgrades) yield* draftUpgrades(g);
+  // One Shots: one face-down card to each person, the Big Rig and the Final Five too; not to the
+  // TRV9000 teams (decided by the user, 2026-11-22). The cards left over stay out of the game.
+  if (g.oneShots) {
+    const deck = shuffled(g, ONE_SHOTS.map(c => c.id), 'one-shots');
+    for (const p of g.players) if (!p.bot) g.oneShots[p.id] = deck.shift() ?? null;
+    say(g, 'One Shots: ogni giocatore riceve una carta coperta.', 'info');
+  }
+  // The other mini expansions, dealt the same way, each from its own shuffled deck (the cards left
+  // over stay out). A Bonus Command lies face up; Road Conditions go next to the middle and the lead
+  // tile, not the starting one.
+  for (const [hand, cards, name] of [['airstrikes', airstrikesData.cards, 'Advanced Airstrikes: ogni giocatore riceve una carta coperta per il suo elicottero.'],
+    ['bounties', bountiesData.cards, 'Bounties: ogni giocatore riceve una taglia coperta.'],
+    ['bonusCommands', bonusData.cards, 'Bonus Commands: ogni giocatore riceve un comando in più.']] as const) {
+    const h = g[hand];
+    if (!h) continue;
+    const deck = shuffled(g, cards.map(c => c.id), hand);
+    for (const p of g.players) if (!p.bot) h[p.id] = deck.shift() ?? null;
+    say(g, name, 'info');
+  }
+  if (g.roads) {
+    g.roads.deck = shuffled(g, roadsData.cards.map(c => c.id), 'road-conditions');
+    g.roads.cards = [null, drawRoad(g), drawRoad(g)];
+    say(g, `Road Conditions: ${[1, 2].map(t => `${tileDef(g.board[t]).name} è ${miniCardName(g.roads!.cards[t]!)}`).join(', ')}.`, 'info');
+  }
   // Setup step 6: lowest total goes first; a tie for lowest rerolls everyone.
   for (;;) {
     // Every crew rolls its own dice, the Final Five and the Big Rig too (decided by the user, 2026-11-18).
@@ -2771,8 +3176,9 @@ export function* play(g: Game): Gen<void> {
       p.commandUsed = false;
       p.command = null;
       // End of round: assigned command tokens go back to the supply.
-      g.tokenSupply += Object.values(p.slots).filter(x => x === 'token').length;
+      g.tokenSupply += Object.values(p.slots).filter(x => x === 'token').length + (p.bonusUsed === 'token' ? 1 : 0);
       p.slots = {};
+      delete p.bonusUsed;
       if (p.rig) Object.assign(p.rig, { steer: null, used: [], placed: {} });
       if (g.round > 1 && !p.out && !p.bot) rollMovement(g, p, `round-${g.round}`);
       // TRV9000: the round's card goes to the discards (design 2).
@@ -2788,15 +3194,40 @@ export function* play(g: Game): Gen<void> {
       dice: g.players.filter(p => !p.out && !p.bot).map(p => ({ player: p.id, values: [...p.dice] })),
     } });
     say(g, `Round ${g.round}: ${g.players[g.firstPlayer].name} tira il dado strada: ${g.roadDie}.`, 'dice');
-    for (const p of g.players) if (!p.out && hasPower(g, p.id, 'third_eye')) yield* thirdEye(g, p);
+    yield* tremors(g);
+    // Flux Capacitor (One Shots): after the round's dice, a player may reroll all of them.
+    for (const p of g.players) {
+      if (p.out || !p.dice.length || !holds(g, p.id, 'flux_capacitor')) continue;
+      if (yield* offerOneShot(g, p.id, 'flux_capacitor', `i tuoi dadi sono ${p.dice.join(', ')}.`)) {
+        rollMovement(g, p, `flux-${g.round}`);
+        say(g, `Flux Capacitor: ${p.name} ritira i dadi: ${p.dice.join(', ')}.`, 'dice');
+      }
+    }
+    for (const p of g.players) if (!p.out && hasPower(g, p.id, 'third_eye')) yield* peekHazards(g, p, 'Third Eye', 1);
     for (let t = 0; t < base.turns_per_round && g.winner === null; t++) {
       let i = g.firstPlayer;
       for (let k = 0; k < g.players.length && g.winner === null; k++) {
         const p = g.players[i];
-        if (!p.out) yield* (p.bot ? botTurn(g, p) : turn(g, p));
+        if (!p.out) {
+          g.fx = { bump: false, calledShot: false, slams: 0, flamethrower: false };
+          g.current = p.id;
+          // Radar Array (One Shots): at the start of the turn, peek at two face-down hazards. Asked
+          // once the turn is the player's, so the table announces whose turn it is.
+          if (holds(g, p.id, 'radar_array') && [...g.hazards.values()].some(h => !h.faceUp)
+            && (yield* offerOneShot(g, p.id, 'radar_array', 'è l’inizio del tuo turno.'))) yield* peekHazards(g, p, 'Radar Array', oneShotsData.radar_peeks);
+          // Bounties asked at the start of a turn (Down and Dirty, Frontrunner).
+          yield* bountyCheck(g, 'start');
+          yield* (p.bot ? botTurn(g, p) : turn(g, p));
+          // Road Conditions, Marauders: at the end of the turn, against the vehicle moved.
+          yield* marauders(g);
+          // Bounties completed during the turn, by anyone's doing (a chopper may eliminate on another's turn).
+          yield* bountyCheck(g, 'turn');
+        }
         i = (i + 1) % g.players.length;
       }
     }
+    // Bounties asked at the end of the round (Slow and Steady).
+    yield* bountyCheck(g, 'round');
     if (g.winner === null) g.firstPlayer = nextActive(g, g.firstPlayer);
   }
   g.round--;
@@ -2917,21 +3348,340 @@ function* draftUpgrades(g: Game): Gen<void> {
   }
 }
 
-/** Third Eye (Madame Boudreaux): at the beginning of the round, peek at one hazard token. */
-function* thirdEye(g: Game, p: Player): Gen<void> {
-  const down = [...g.hazards].filter(([, h]) => !h.faceUp);
-  if (!down.length) return;
-  const pos = down.map(([k]) => { const [r, c] = k.split(',').map(Number); return { r, c }; });
-  const i = yield* ask(g, {
-    kind: 'peek', player: p.id, prompt: `${p.name}: Third Eye, quale pericolo coperto guardare?`,
-    options: pos.map(q => ({ label: `Casella ${q.r + 1}-${q.c + 1}`, pos: q })),
-  });
-  say(g, `Third Eye: ${p.name} guarda un pericolo coperto.`, 'info');
-  // Shown only in the prompt: the log is public.
-  yield* ask(g, {
-    kind: 'peekResult', player: p.id, prompt: `Solo per ${p.name}: è ${HAZARD_NAME[down[i][1].type]}.`,
-    options: [{ label: 'Visto', pos: pos[i], hazard: down[i][1].type }],
-  });
+/**
+ * Peeking at face-down hazard tokens, one after the other, up to `n` (`what` names the ability):
+ * Third Eye (Madame Boudreaux) at the beginning of the round, one; Radar Array (One Shots), two.
+ */
+function* peekHazards(g: Game, p: Player, what: string, n: number): Gen<void> {
+  const seen: string[] = [];
+  for (let k = 0; k < n; k++) {
+    const down = [...g.hazards].filter(([key, h]) => !h.faceUp && !seen.includes(key));
+    if (!down.length) return;
+    const pos = down.map(([q]) => { const [r, c] = q.split(',').map(Number); return { r, c }; });
+    const i = yield* ask(g, {
+      kind: 'peek', player: p.id, prompt: `${p.name}: ${what}, quale pericolo coperto guardare?`,
+      options: pos.map(q => ({ label: `Casella ${q.r + 1}-${q.c + 1}`, pos: q })),
+    });
+    seen.push(down[i][0]);
+    say(g, `${what}: ${p.name} guarda un pericolo coperto.`, 'info');
+    // Shown only in the prompt: the log is public.
+    yield* ask(g, {
+      kind: 'peekResult', player: p.id, prompt: `Solo per ${p.name}: ${what}, è ${HAZARD_NAME[down[i][1].type]}.`,
+      options: [{ label: 'Visto', pos: pos[i], hazard: down[i][1].type }],
+    });
+  }
+}
+
+// ---------------------------------------------------------------- mini expansions
+
+/** How far forward a vehicle is: odd rows sit half a space forward (game_base.json). */
+const ahead = (v: Vehicle): number => v.pos!.c + (v.pos!.r % 2 ? 0.5 : 0);
+/** The road tile (0 rear, 1 middle, 2 lead) a space is on. */
+const tileOf = (q: Pos): number => Math.floor(q.c / TILE_COLS);
+/** A player's vehicles on the road, wrecks aside. */
+const ownOnRoad = (g: Game, player: number): Vehicle[] => onRoad(g).filter(v => v.owner === player && !v.isWreck);
+/** The opponents' vehicles on the road, wrecks aside. */
+const othersOnRoad = (g: Game, player: number): Vehicle[] => onRoad(g).filter(v => v.owner !== null && v.owner !== player && !v.isWreck);
+
+/**
+ * Icy (Road Conditions): the direction die moved `v` from `from`, on an icy tile: it goes one
+ * space more the same way.
+ */
+function* icy(g: Game, v: Vehicle, d: Dir, from: Pos | null): Gen<void> {
+  if (!from || !onBoard(from) || roadAt(g, from) !== 'icy') return;
+  if (v.status === 'elim' || !v.pos || v.inStart || samePos(v.pos, from) || g.winner !== null || isRig(v)) return;
+  say(g, `Icy: ${carName(g, v)} scivola di una casella in più.`, 'info');
+  yield* enter(g, v, neighbor(v.pos, d), null, d, 'icy');
+}
+
+/**
+ * Blockaded (Road Conditions): after a face-down hazard was resolved on that tile, the player
+ * puts a face-down hazard from the supply on an empty space of the tile.
+ */
+function* blockades(g: Game): Gen<void> {
+  while (g.fx.blockade?.length && g.winner === null) {
+    const { tile, player } = g.fx.blockade.shift()!;
+    const free: Pos[] = [];
+    for (let r = 0; r < ROWS; r++) for (let c = tile * TILE_COLS; c < (tile + 1) * TILE_COLS; c++) if (isEmpty(g, { r, c })) free.push({ r, c });
+    if (!free.length) continue;
+    const i = yield* ask(g, {
+      kind: 'space', player, prompt: `${g.players[player].name}: Blockaded, su quale casella vuota mettere un pericolo coperto?`,
+      options: free.map(spaceOption),
+    });
+    const t = drawHazard(g);
+    if (!t) return;
+    g.hazards.set(key(free[i]), { type: t, faceUp: false });
+    beat(g, 'log');
+    say(g, `Blockaded: un pericolo coperto in ${free[i].r + 1}-${free[i].c + 1}.`, 'info');
+  }
+}
+
+/** Tremors (Road Conditions): at the start of the round, the vehicles of that tile move together. */
+function* tremors(g: Game): Gen<void> {
+  if (!g.roads) return;
+  for (let t = 0; t < 3 && g.winner === null; t++) {
+    if (g.roads.cards[t] === 'tremors' && onRoad(g).some(v => !isRig(v) && tileOf(v.pos!) === t)) yield* quake(g, t);
+  }
+}
+
+/**
+ * Marauders (Road Conditions): at the end of the turn, the vehicle the player moved, when it leads
+ * (or ties) on that tile, is shot with the shooting die (the normal die, decided by the user).
+ */
+function* marauders(g: Game): Gen<void> {
+  const ids = [...new Set(g.fx.moved ?? [])];
+  for (const id of ids) {
+    const v = g.vehicles.find(x => x.id === id);
+    if (!v || v.status === 'elim' || !v.pos || v.inStart || v.isWreck || g.winner !== null) continue;
+    const t = tileOf(v.pos);
+    if (roadAt(g, v.pos) !== 'marauders') continue;
+    const there = onRoad(g).filter(x => tileOf(x.pos!) === t);
+    if (there.some(x => ahead(x) > ahead(v))) continue;
+    say(g, `Marauders: i predoni sparano a ${carName(g, v)}.`, 'bad');
+    beat(g, 'shot', { from: { ...v.pos }, at: { ...v.pos }, vehicleId: v.id });
+    const f = rollFx(g, 'shooting', 'marauders', v.pos);
+    const hit = f === 'ANY' ? !up(v, 'armor_plating') : f === v.size || (f === 'SM' && (v.size === 'S' || v.size === 'M'));
+    const rolled = [...g.frames].reverse().find(x => x.kind === 'roll' && x.die?.die === 'shooting');
+    if (rolled) rolled.hit = hit;
+    say(g, `Dado sparo dei predoni: ${hit ? 'COLPITO!' : 'mancato.'}`, 'dice');
+    if (!hit) continue;
+    if (isRig(v)) yield* rigHit(g, g.players[v.owner!], 'predoni');
+    else yield* damage(g, v);
+  }
+}
+
+/** Bonus Commands: whether a movement die of `value` fits the card's diamond ('ANY', '6', '3-6'). */
+export function bonusFits(id: string, value: number): boolean {
+  const r = bonusData.cards.find(c => c.id === id)?.range ?? 'ANY';
+  if (r === 'ANY') return true;
+  const [a, b] = r.split('-').map(Number);
+  return value >= a && value <= (b ?? a);
+}
+/** Bonus Commands: the value a command token counts as on the card, the lowest of its diamond. */
+function bonusLowest(id: string): number {
+  const r = bonusData.cards.find(c => c.id === id)?.range ?? 'ANY';
+  return r === 'ANY' ? Math.min(...DICE.movement) : Number(r.split('-')[0]);
+}
+
+/** Bonus Commands: the effect of the card `id`, activated with a die (or a token) of `value`. */
+function* activateBonus(g: Game, p: Player, id: string, value: number, car: Vehicle): Gen<void> {
+  switch (id) {
+    case 'tire_spikes': g.fx.tireSpikes = true; return;
+    case 'rocket_fuel': g.fx.rocketFuel = value; say(g, `Rocket Fuel: il dado strada vale ${value}, solo dritto.`, 'info'); return;
+    case 'rapid_reload': g.fx.rapidReload = true; return;
+    case 'positraction': g.fx.positraction = true; return;
+    case 'nav_system': g.fx.navSystem = 'ready'; return;
+    case 'targeting_ai': g.fx.targetingAi = true; return;
+    case 'torque_booster': {
+      const free = p.dice.map((_, i) => i).filter(i => !p.used[i]);
+      if (!free.length) return;
+      const faces = DICE.movement;
+      const rolled = rollDice(g, free.map(() => ({ id: `move-${p.id}`, n: faces.length })), 'torque-booster').map(f => faces[f]);
+      free.forEach((d, k) => { p.dice[d] = rolled[k]; });
+      say(g, `Torque Booster: ${p.name} ritira i dadi liberi: ${rolled.join(', ')}.`, 'dice');
+      return;
+    }
+    case 'hands_free': {
+      // The active car (decided by the user, 2026-11-22): the direction die, then up to the die's value.
+      if (car.status !== 'ok' || car.inStart || !car.pos) { say(g, 'Hands Free: l\'auto non è sulla strada.', 'info'); return; }
+      // The Big Rig moves only by its own rules (BRaFF p4): Hands Free does not move it.
+      if (isRig(car)) { say(g, 'Hands Free: il Big Rig si muove solo con le sue regole, la carta non lo sposta.', 'info'); return; }
+      const d = rollFx(g, 'direction', 'hands-free', car.pos);
+      say(g, `Hands Free: dado direzione ${DIR_NAME[d]}.`, 'dice');
+      const n = yield* ask(g, {
+        kind: 'pickValue', player: p.id, prompt: `${p.name}: Hands Free, di quante caselle muovere ${DIR_NAME[d]}?`,
+        options: Array.from({ length: value + 1 }, (_, k) => ({ label: k === 0 ? 'Resta ferma' : `${k} ${k === 1 ? 'casella' : 'caselle'}`, value: k, carId: car.id })),
+      });
+      const ctx: MoveCtx = { left: n, drift: false, driftUsed: false };
+      while (ctx.left > 0 && car.status === 'ok' && car.pos && g.winner === null) {
+        ctx.left--;
+        const stop = yield* enter(g, car, neighbor(car.pos, d), ctx, d, 'hands-free');
+        yield* blockades(g);
+        if (stop) break;
+      }
+      return;
+    }
+    default: return;
+  }
+}
+
+/** Low Flying (Advanced Airstrikes): the spaces with a face-up hazard and nothing else on them. */
+function lowFlyingSpaces(g: Game): Pos[] {
+  return [...g.hazards].filter(([, h]) => h.faceUp).map(([q]) => { const [r, c] = q.split(',').map(Number); return { r, c }; })
+    .filter(q => !vehiclesAt(g, q).length && !g.players.some(pl => samePos(pl.chopper, q)) && roadAt(g, q) !== 'windy');
+}
+
+/**
+ * The Advanced Airstrikes played when the chopper is placed: Air to Air Missile, Scouting Mission,
+ * Bag of Wrenches, Trick Shot. Resolves true when Trick Shot was played (any adjacent space).
+ */
+function* chopperPlaced(g: Game, p: Player): Gen<boolean> {
+  const at = (): Pos | null => p.chopper;
+  // Air to Air Missile: a shot at an opposing chopper, a medium hit eliminates it.
+  const foes = (): Player[] => g.players.filter(o => o.id !== p.id && o.chopper);
+  if (at() && foes().length && holds(g, p.id, 'air_to_air_missile')
+    && (yield* offerOneShot(g, p.id, 'air_to_air_missile', "hai piazzato l'elicottero."))) {
+    const f = foes();
+    const i = f.length > 1 ? yield* ask(g, {
+      kind: 'space', player: p.id, prompt: `${p.name}: Air to Air Missile, a quale elicottero sparare?`,
+      options: f.map(o => ({ label: `Elicottero di ${o.name}`, pos: { ...o.chopper! } })),
+    }) : 0;
+    const o = f[i];
+    beat(g, 'shot', { from: { ...at()! }, at: { ...o.chopper! } });
+    const face = rollFx(g, 'shooting', 'air-to-air', at());
+    const hit = face === 'ANY' || face === 'M' || face === 'SM';
+    const rolled = [...g.frames].reverse().find(x => x.kind === 'roll' && x.die?.die === 'shooting');
+    if (rolled) rolled.hit = hit;
+    if (hit) { o.chopper = null; beat(g, 'chopper', {}); say(g, `Air to Air Missile: l'elicottero di ${o.name} è abbattuto!`, 'good'); }
+    else say(g, 'Air to Air Missile: mancato.', 'dice');
+  }
+  // Scouting Mission: a look at every face-down hazard next to the chopper.
+  const near = (): Pos[] => at() ? ALL_DIRS.map(d => neighbor(at()!, d)).filter(q => onBoard(q) && g.hazards.get(key(q))?.faceUp === false) : [];
+  if (near().length && holds(g, p.id, 'scouting_mission')
+    && (yield* offerOneShot(g, p.id, 'scouting_mission', "hai piazzato l'elicottero."))) {
+    for (const q of near()) {
+      yield* ask(g, {
+        kind: 'peekResult', player: p.id, prompt: `Solo per ${p.name}: Scouting Mission, in ${q.r + 1}-${q.c + 1} c'è ${HAZARD_NAME[g.hazards.get(key(q))!.type]}.`,
+        options: [{ label: 'Visto', pos: q, hazard: g.hazards.get(key(q))!.type }],
+      });
+    }
+    say(g, `Scouting Mission: ${p.name} guarda i pericoli vicini all'elicottero.`, 'info');
+  }
+  // Bag of Wrenches: a damage token off a vehicle next to the chopper (any vehicle, the Big Rig aside).
+  const hurt = (): Vehicle[] => at() ? g.vehicles.filter(v => v.status !== 'elim' && !v.isWreck && !isRig(v) && v.damage.length && v.pos
+    && ALL_DIRS.some(d => samePos(neighbor(at()!, d), v.pos))) : [];
+  if (hurt().length && holds(g, p.id, 'bag_of_wrenches')
+    && (yield* offerOneShot(g, p.id, 'bag_of_wrenches', "hai piazzato l'elicottero."))) {
+    const cars = hurt();
+    const i = yield* ask(g, {
+      kind: 'pickVehicle', player: p.id, prompt: `${p.name}: Bag of Wrenches, da quale veicolo togliere un danno?`,
+      options: cars.map(c => ({ label: `${capital(carName(g, c))} (${c.damage.length} danni)`, carId: c.id, pos: c.pos! })),
+    });
+    fixOne(g, cars[i]);
+  }
+  // Trick Shot: the chopper shoots any adjacent space instead of its front arc.
+  return g.round > 1 && !!at() && holds(g, p.id, 'trick_shot')
+    && (yield* offerOneShot(g, p.id, 'trick_shot', "l'elicottero sta per sparare."));
+}
+
+/** One damage token off `c`, as a repair does. */
+function fixOne(g: Game, c: Vehicle): void {
+  const t = c.damage.pop()!;
+  discardCard(g, t);
+  if (t.type !== 'minor') g.damagePile.push(t);
+  if (c.status === 'inop' && c.damage.length < limit(c)) { c.status = 'ok'; say(g, `${capital(carName(g, c))} torna operativa!`, 'good'); }
+  else say(g, `${capital(carName(g, c))} ha un danno in meno.`, 'good');
+}
+
+/** Bounties: whether `player`'s bounty `id` is complete at this moment (`when`). */
+function bountyDone(g: Game, player: number, id: string, when: 'start' | 'turn' | 'round'): boolean {
+  const mine = ownOnRoad(g, player), others = othersOnRoad(g, player);
+  const own = g.current === player;
+  const did = (feat: string): boolean => (g.fx.feats ?? []).includes(`${player}:${feat}`);
+  switch (id) {
+    // At the start of your turn, none of your vehicles on road spaces.
+    case 'down_and_dirty': return when === 'start' && own && mine.length > 0 && mine.every(v => terrainAt(g, v.pos!) !== 'R');
+    // At the start of your turn, two of your vehicles in the lead (or tied).
+    case 'frontrunner': {
+      if (when !== 'start' || !own || mine.length < 2) return false;
+      const second = mine.map(ahead).sort((a, b) => b - a)[1];
+      return others.every(v => ahead(v) <= second);
+    }
+    // At the end of the round, none of your vehicles ahead of an opposing vehicle.
+    case 'slow_and_steady':
+      return when === 'round' && mine.length > 0 && others.length > 0 && Math.max(...mine.map(ahead)) <= Math.min(...others.map(ahead));
+    case 'pinball_wizard': return when === 'turn' && own && (g.fx.allSlams ?? 0) >= bountiesData.pinball_slams;
+    case 'trash_collector': return when === 'turn' && own && (g.fx.hazardsEntered ?? 0) >= bountiesData.trash_hazards;
+    case 'rubbing_is_racing': return when === 'turn' && own && (g.fx.eliminated ?? 0) >= 1;
+    case 'hit_and_run': return when === 'turn' && did('hit_and_run');
+    case 'death_from_above': return when === 'turn' && did('death_from_above');
+    default: return false;
+  }
+}
+
+/**
+ * Bounties: each player whose bounty is complete may play it and claim the reward, or keep it
+ * (then the task must be done again, decided by the user, 2026-11-22).
+ */
+function* bountyCheck(g: Game, when: 'start' | 'turn' | 'round'): Gen<void> {
+  if (!g.bounties) return;
+  for (const p of g.players) {
+    const id = g.bounties[p.id];
+    if (!id || p.out || g.winner !== null || !holds(g, p.id, id) || !bountyDone(g, p.id, id, when)) continue;
+    if (!(yield* offerOneShot(g, p.id, id, 'taglia completata!'))) continue;
+    yield* bountyReward(g, p, id);
+  }
+}
+
+/** Bounties: the reward of the bounty `id` (the orange box). */
+function* bountyReward(g: Game, p: Player, id: string): Gen<void> {
+  switch (id) {
+    case 'down_and_dirty': {
+      // A look at every face-down hazard of a road tile.
+      const i = yield* ask(g, {
+        kind: 'pickTile', player: p.id, prompt: `${p.name}: Down and Dirty, di quale tessera guardare i pericoli coperti?`,
+        options: [0, 1, 2].map(t => ({ label: tileDef(g.board[t]).name, tile: t })),
+      });
+      const down = [...g.hazards].filter(([q, h]) => !h.faceUp && Math.floor(Number(q.split(',')[1]) / TILE_COLS) === i);
+      if (!down.length) { say(g, 'Down and Dirty: su quella tessera non ci sono pericoli coperti.', 'info'); return; }
+      for (const [q, h] of down) {
+        const [r, c] = q.split(',').map(Number);
+        yield* ask(g, {
+          kind: 'peekResult', player: p.id, prompt: `Solo per ${p.name}: Down and Dirty, in ${r + 1}-${c + 1} c'è ${HAZARD_NAME[h.type]}.`,
+          options: [{ label: 'Visto', pos: { r, c }, hazard: h.type }],
+        });
+      }
+      say(g, `Down and Dirty: ${p.name} guarda i pericoli coperti di ${tileDef(g.board[i]).name}.`, 'info');
+      return;
+    }
+    case 'pinball_wizard': case 'hit_and_run': {
+      // One unused movement die set to any value.
+      const free = p.dice.map((_, k) => k).filter(k => !p.used[k]);
+      if (!free.length) { say(g, `${miniCardName(id)}: ${p.name} non ha dadi liberi.`, 'info'); return; }
+      const d = free.length > 1 ? free[yield* ask(g, {
+        kind: 'pickDie', player: p.id, prompt: `${p.name}: ${miniCardName(id)}, quale dado cambiare?`,
+        options: free.map(k => ({ label: `Dado ${p.dice[k]}`, die: k, dieValue: p.dice[k] })),
+      })] : free[0];
+      const faces = [...new Set(DICE.movement)].sort((a, b) => a - b);
+      const v = yield* ask(g, {
+        kind: 'pickValue', player: p.id, prompt: `${p.name}: ${miniCardName(id)}, che valore dare al dado?`,
+        options: faces.map(f => ({ label: `${f}`, value: f, die: d })),
+      });
+      p.dice[d] = faces[v];
+      say(g, `${miniCardName(id)}: un dado di ${p.name} vale ora ${faces[v]}.`, 'good');
+      return;
+    }
+    case 'slow_and_steady': {
+      // Each of your vehicles moves up to 3 spaces, into empty spaces only.
+      for (const v of ownOnRoad(g, p.id).filter(x => x.status === 'ok' && !isRig(x))) {
+        for (let n = 0; n < bountiesData.slow_moves && v.pos && v.status === 'ok' && g.winner === null; n++) {
+          const to = ALL_DIRS.map(d => ({ d, q: neighbor(v.pos!, d) })).filter(x => onBoard(x.q) && isEmpty(g, x.q));
+          if (!to.length) break;
+          const i = yield* ask(g, {
+            kind: 'space', player: p.id, prompt: `${p.name}: Slow and Steady, dove muovere ${carName(g, v)} (${bountiesData.slow_moves - n} caselle al massimo)?`,
+            options: [{ label: 'Basta così', carId: v.id }, ...to.map(x => ({ ...spaceOption(x.q), carId: v.id }))],
+          });
+          if (i === 0) break;
+          if (yield* enter(g, v, to[i - 1].q, null, to[i - 1].d, 'slow')) break;
+        }
+      }
+      return;
+    }
+    case 'trash_collector': case 'frontrunner': if (canRepair(g, p)) yield* repair(g, p); return;
+    case 'death_from_above': yield* airstrike(g, p); return;
+    case 'rubbing_is_racing': {
+      const cars = ownOnRoad(g, p.id).filter(v => v.status === 'ok');
+      if (!cars.length) return;
+      const i = cars.length > 1 ? yield* ask(g, {
+        kind: 'pickVehicle', player: p.id, prompt: `${p.name}: Rubbing Is Racing, con quale veicolo sparare?`,
+        options: cars.map(c => ({ label: capital(carName(g, c)), carId: c.id, pos: c.pos! })),
+      }) : 0;
+      const c = cars[i];
+      yield* shootFrom(g, p.id, c.pos!, carName(g, c), c);
+      return;
+    }
+    default: return;
+  }
 }
 
 function capital(s: string): string {

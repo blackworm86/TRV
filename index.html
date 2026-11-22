@@ -65,6 +65,7 @@
 <div id="leaderpick"></div>
 <div id="bottom"><div id="strip"></div></div>
 <div id="hand"></div>
+<div id="minis"></div>
 <div id="ghost"></div>
 <div id="cartip"></div>
 <div id="beta" hidden>
@@ -198,6 +199,9 @@
             <label class="check"><input type="checkbox" id="ocarnage"> Carnage at Devil’s Run: tessere, pericoli e fuoco</label>
             <label class="check"><input type="checkbox" id="oteams"> The Big Rig and The Final Five</label>
           </div>
+          <label class="top">Mini espansioni</label>
+          <div class="checks" id="ominichecks">
+          </div>
           <label>Squadre TRV9000</label><div class="row"><select id="obots"><option value="0">nessuna</option><option value="1">1</option><option value="2">2</option><option value="3">3</option></select><select id="obotlevel"></select></div>
           <label>Tempo per turno</label><div class="seg"><button type="button" class="on">In diretta</button><button type="button" disabled title="Arriva con il server arbitro: oggi la partita va avanti solo con l’host collegato">24 ore</button><button type="button" disabled title="Arriva con il server arbitro: oggi la partita va avanti solo con l’host collegato">72 ore</button></div>
         </div>
@@ -279,6 +283,9 @@
           <label class="switch"><input type="checkbox" id="leaders"><span><b>Capisquadra</b><small>Choppe Shoppe · capisquadra e segnalini comando</small></span></label>
           <label class="switch"><input type="checkbox" id="upgrades"><span><b>Potenziamenti</b><small>Choppe Shoppe · carte potenziamento</small></span></label>
           <label class="switch"><input type="checkbox" id="carnage"><span><b>Carnage at Devil’s Run</b><small>Tessere, pericoli e fuoco</small></span></label>
+          <h3>Mini espansioni <small class="allnone"><a href="#" data-minis="1">tutte</a> · <a href="#" data-minis="0">nessuna</a></small></h3>
+          <div id="miniswitches"></div>
+          <p class="hint">I TRV9000 non ricevono carte; le Road Conditions valgono per tutti.</p>
           <p class="hint">The Big Rig e The Final Five si scelgono nella riga della squadra.</p>
           <button class="go" id="start">Si parte!</button>
         </section>

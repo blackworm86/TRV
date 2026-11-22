@@ -14,6 +14,15 @@ import { render } from './pieces';
 import { scene } from './stage';
 import { S } from './state';
 import { $, esc, menuOpen, sure } from './util';
+import { miniChecks, miniSwitches, readMinis } from './minisetup';
+
+// The mini expansions' switches (hot seat, with their fans of cards) and checkboxes (a new room).
+$('miniswitches').innerHTML = miniSwitches();
+$('ominichecks').innerHTML = miniChecks('o');
+for (const a of document.querySelectorAll<HTMLElement>('[data-minis]')) a.onclick = e => {
+  e.preventDefault();
+  for (const i of $('miniswitches').querySelectorAll<HTMLInputElement>('input')) i.checked = a.dataset.minis === '1';
+};
 
 // The hot seat setup (redrawn as asked by the user, 2026-11-22): one row per team with its colour
 // as a swatch (a click opens the palette), its name, what it plays (three cars, the Final Five or
@@ -225,5 +234,5 @@ $('start').onclick = () => {
   $('setup').style.display = 'none';
   const leaders = ($('leaders') as HTMLInputElement).checked, cards = ($('upgrades') as HTMLInputElement).checked;
   const carnage = ($('carnage') as HTMLInputElement).checked;
-  startGame({ setup: { seed: seed.value, players, startSide: ($('side') as HTMLSelectElement).value as 'a' | 'b', ...(leaders ? { leaders } : {}), ...(cards ? { upgrades: cards } : {}), ...(carnage ? { carnage } : {}) }, choices: [] }, true);
+  startGame({ setup: { seed: seed.value, players, startSide: ($('side') as HTMLSelectElement).value as 'a' | 'b', ...(leaders ? { leaders } : {}), ...(cards ? { upgrades: cards } : {}), ...(carnage ? { carnage } : {}), ...readMinis('') }, choices: [] }, true);
 };

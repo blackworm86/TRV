@@ -15,6 +15,7 @@ import { hudCam, hudRenderer, hudScene, syncHudDice } from './hudDice';
 import { moveCamera } from './keys';
 import { tiltView } from './mapView';
 import { placeBlockTips } from './markers';
+import { placeRoadFlags } from './minis';
 import { placeRigPick } from './rigpick';
 import { placeBikePick } from './bikepick';
 import { placePath } from './waypoints';
@@ -216,6 +217,7 @@ renderer.setAnimationLoop(t => {
   placeActions();
   placeDock();
   placeBlockTips();
+  placeRoadFlags();
   placeRigPick();
   placeBikePick();
   placePath();

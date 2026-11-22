@@ -67,7 +67,7 @@ export function ongoingIllustration(id: string): string | undefined {
 
 /** The fonts: the titles' condensed capitals and the rules text's condensed sans. */
 const TITLE_FONT = `font-family="'League Gothic', Impact, 'Arial Narrow', sans-serif"`;
-const TEXT_FONT = `font-family="'Barlow Condensed', 'Arial Narrow', 'Roboto Condensed', sans-serif"`;
+export const TEXT_FONT = `font-family="'Barlow Condensed', 'Arial Narrow', 'Roboto Condensed', sans-serif"`;
 /** Titles lean like the printed ones (skewX, degrees). */
 const TITLE_LEAN = -9;
 

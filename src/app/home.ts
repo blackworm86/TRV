@@ -2,7 +2,7 @@
 // player's card, the home lists, the lobby, one's games, friends and invitations. The rooms
 // themselves (create, join, the room's card) are online.ts; the data is src/net/social.ts.
 
-import { NAME_MAX, cleanCode, closeRoom, readRoom, roomPath, type RoomStore } from '../net/room';
+import { MINI_KEYS, NAME_MAX, cleanCode, closeRoom, readRoom, roomPath, type MiniKey, type RoomStore } from '../net/room';
 import {
   HEARTBEAT_MS, acceptFriend, addFriend, claimUsername, cleanFriendCode, cleanUsername, declineFriend, earlierName, dropInvite, ensureProfile, forgetGame, gameRow, heartbeat, inviteFriend, isOnline,
   lobbyPath, mutualFriends, publishLobby, readLobby, readPresence, readProfile, readProfiles, readSocial, removeFriend, showFriendCode, userPath,
@@ -66,8 +66,10 @@ export function ago(at: number, now = Date.now()): string {
 /** A player's round picture in the lists: its chosen avatar (profile window), else its initial. */
 const avatar = (name: string, uid?: string): string => avatarHtml(name, uid ? H.profiles[uid]?.avatar : null);
 const dots = (crews: string[], seats: number): string => `<span class="dots">${crews.map(c => `<i style="--c:${crewColor(c)}"></i>`).join('')}${'<i class="e"></i>'.repeat(Math.max(0, seats - crews.length))}</span>`;
-const expTags = (e: { leaders: boolean; upgrades: boolean; carnage: boolean; teams: boolean }): string => {
-  const t = [e.leaders || e.upgrades ? 'CHOPPE' : '', e.carnage ? 'CARNAGE' : '', e.teams ? 'BIG RIG' : ''].filter(Boolean);
+const expTags = (e: { leaders: boolean; upgrades: boolean; carnage: boolean; teams: boolean } & Partial<Record<MiniKey, boolean>>): string => {
+  // The mini expansions in one tag, with how many are on (the approved mockup).
+  const minis = MINI_KEYS.filter(k => e[k]).length;
+  const t = [e.leaders || e.upgrades ? 'CHOPPE' : '', e.carnage ? 'CARNAGE' : '', e.teams ? 'BIG RIG' : '', minis ? `MINI ×${minis}` : ''].filter(Boolean);
   return t.length ? `<span class="exp">${t.map(x => `<span>${x}</span>`).join('')}</span>` : '<small>solo base</small>';
 };
 
@@ -161,7 +163,7 @@ function drawHome(): void {
 function drawLobbyList(): void {
   const all = readLobby(H.lobbyRaw, H.mutual).filter(e => !H.social.games[e.code]);
   const f = H.lobbyFilter;
-  const exp = (e: LobbyEntry): boolean => e.leaders || e.upgrades || e.carnage || e.teams;
+  const exp = (e: LobbyEntry): boolean => e.leaders || e.upgrades || e.carnage || e.teams || MINI_KEYS.some(k => e[k]);
   const list = all.filter(e => f === 'all' || (f === 'friends' ? H.mutual.has(e.hostUid) : f === 'base' ? !exp(e) : exp(e)));
   $('lobbyCount').textContent = H.store ? `${all.length} ${all.length === 1 ? 'partita aperta' : 'partite aperte'} · si aggiorna da sola` : '';
   const head = '<tr><th>Host</th><th>Giocatori</th><th>Espansioni</th><th>Partenza</th><th>Aperta da</th><th></th></tr>';

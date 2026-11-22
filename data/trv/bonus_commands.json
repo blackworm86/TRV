@@ -1,0 +1,31 @@
+{
+  "_source": "Bonus Commands, mini espansione: carte a pagina 1 di assets/sorgenti/TRV 02 All Expansions/TRV v2.pdf (fuori da git). Nessun regolamento oltre la carta delle regole: le ambiguità le decide l'utente (memoria project-mini-espansioni).",
+  "_rules": "Deal one Bonus Command card to each player at the beginning of the game. This is an additional command you can use.",
+  "_range": "range: the movement die values that can be assigned to the card, as printed in its diamond ('ANY' = any value).",
+  "cards": [
+    { "id": "tire_spikes", "name": "Tire Spikes", "range": "5-6",
+      "en": "When you move another car in a slam this turn, that car takes damage if it moved to an empty space.",
+      "text": "In questo turno, quando con uno slam sposti un'altra auto, quell'auto subisce un danno se è finita in una casella vuota." },
+    { "id": "rocket_fuel", "name": "Rocket Fuel", "range": "ANY",
+      "en": "If you would use the road die, use this die's value instead. You can only move directly forward during these moves.",
+      "text": "Quando useresti il dado strada, usa invece il valore di questo dado. Durante questi movimenti puoi muovere solo dritto in avanti." },
+    { "id": "rapid_reload", "name": "Rapid Reload", "range": "6",
+      "en": "The next time you shoot this turn, you may make a second shooting attack against a new target.",
+      "text": "La prossima volta che spari in questo turno, puoi fare un secondo sparo contro un nuovo bersaglio." },
+    { "id": "positraction", "name": "Positraction", "range": "ANY",
+      "en": "Muddy spaces count as road spaces this turn.",
+      "text": "In questo turno le caselle di fango contano come caselle di strada." },
+    { "id": "torque_booster", "name": "Torque Booster", "range": "ANY",
+      "en": "Reroll all of your unassigned dice.",
+      "text": "Ritira tutti i tuoi dadi non ancora assegnati." },
+    { "id": "nav_system", "name": "Nav System", "range": "3-6",
+      "en": "The first time you enter a space with a face-down hazard this turn, move it to an adjacent empty space instead of revealing it.",
+      "text": "La prima volta in questo turno che entri in una casella con un pericolo coperto, spostalo in una casella vuota adiacente invece di scoprirlo." },
+    { "id": "hands_free", "name": "Hands Free", "range": "5-6",
+      "en": "Roll the direction die. Move a number of spaces in that direction up to the number of the assigned die.",
+      "text": "Tira il dado direzione. Muovi in quella direzione di un numero di caselle fino al valore del dado assegnato." },
+    { "id": "targeting_ai", "name": "Targeting AI", "range": "3-4",
+      "en": "When you shoot a car this turn and hit, search the damage token supply and choose the damage token.",
+      "text": "In questo turno, quando spari a un'auto e la colpisci, cerca nella riserva dei segnalini danno e scegli tu il segnalino." }
+  ]
+}

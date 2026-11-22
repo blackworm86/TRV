@@ -1,7 +1,7 @@
 // The 2D interface: the players' bubbles, the prompt, the toasts and the log drawer, the
 // player's strip with command board and dashboards, the winner's card.
 
-import { leaderOf, leaders, commandName, finalFive, bigRig, RIG_BOARD, type Player, type Decision, type LogEntry, type Frame, type Vehicle } from '../game/trv/engine';
+import { leaderOf, leaders, commandName, finalFive, bigRig, handOf, miniCardName, RIG_BOARD, type CardHand, type Player, type Decision, type LogEntry, type Frame, type Vehicle } from '../game/trv/engine';
 import { drawBotCards } from './botcard';
 import { bubbleHtml } from './bubbles';
 import { closeTurnSplash, maybeTurnSplash } from './turnsplash';
@@ -28,6 +28,11 @@ import { P } from './presentation';
 import { S, shown } from './state';
 import { syncTableDice } from './tableDice';
 import { $, esc } from './util';
+import { miniCardSvg, type MiniFamily } from '../view/minicards';
+import { drawMinis } from './minis';
+
+/** The data family of each hand of mini expansion cards. */
+const FAMILY: Record<CardHand, MiniFamily> = { oneShots: 'one_shots', airstrikes: 'advanced_airstrikes', bounties: 'bounties' };
 
 /**
  * A dashboard's upgrade card: the car's own, else (online, while the cards go on the cars) the
@@ -182,6 +187,10 @@ export function drawHud(): void {
     else if (d.kind === 'roadDie') { btn(1, `+${g.roadDie} movimenti`, 'road'); btn(0, 'Fermati', 'quiet'); }
     else if (d.kind === 'slamReroll') { btn(0, 'Tieni', 'quiet'); btn(1, 'Ritira i dadi'); }
     else if (d.kind === 'shootReroll' || d.kind === 'dirReroll' || d.kind === 'stuntReroll') { btn(0, 'Tieni', 'quiet'); btn(1, 'Ritira il dado'); }
+    // One Shots: play the card now, or keep it for later.
+    else if (d.kind === 'playCard') { btn(1, d.options[1].label); btn(0, d.options[0].label, 'quiet'); }
+    // Mini expansions: a space on the table, lit; the answers that are not a space as buttons.
+    else if (d.kind === 'space') d.options.forEach((o, i) => { if (!o.pos) btn(i, o.label, 'quiet'); });
     // Choices on the table with a way out: the spaces are lit, the button says no.
     else if (['plow', 'rollCage', 'dispense', 'radar'].includes(d.kind)) btn(0, d.options[0].label, d.options[0].danger ? 'danger' : 'quiet');
     // Skull Shift Knob: the one step choice that is not a space.
@@ -190,7 +199,7 @@ export function drawHud(): void {
     // The Big Rig's choices are made on the board, on the table or on the rig itself (asked by the
     // user, 2026-11-18): the steering diamond, the cow catcher's spaces, the aims round the section
     // hit (rigpick.ts), the systems lit in red for a minor damage.
-    else if (!['assign', 'airstrike', 'repair', 'leader', 'peek', 'peekResult', 'draft', 'upgradeAssign', 'first', ...PICK_ASSETS, ...RIG_ON_BOARD].includes(d.kind)) d.options.forEach((o, i) => btn(i, o.label));
+    else if (!['assign', 'airstrike', 'repair', 'leader', 'peek', 'peekResult', 'draft', 'upgradeAssign', 'first', ...PICK_ASSETS, ...RIG_ON_BOARD, 'dodge', 'space'].includes(d.kind)) d.options.forEach((o, i) => btn(i, o.label));
   }
   // Choppe Shoppe setup: the upgrade cards to draft, then one for each car. Online everyone picks
   // at once from their own hand; the cards passed on come when all have picked.
@@ -238,7 +247,7 @@ export function drawHud(): void {
   if (d?.kind === 'peekResult') {
     const who = g.players[d.player];
     const type = d.options[0].hazard ?? null;
-    pick.innerHTML = `<h2 class="gothic" style="color:${who.color}">${esc(d.prompt.replace(/^Solo per [^:]+: /, 'Third Eye: '))}</h2>`
+    pick.innerHTML = `<h2 class="gothic" style="color:${who.color}">${esc(d.prompt.replace(/^Solo per [^:]+: ([^,]+), /, '$1: '))}</h2>`
       + `<div class="peektile">${hazardTokenSvg(type, true)}</div><button class="peekok" data-key="Enter">Visto<kbd>↵</kbd></button>`;
     pick.querySelector<HTMLElement>('.peekok')!.onclick = () => choose(0);
   }
@@ -270,7 +279,11 @@ export function drawHud(): void {
     step: left ? `${left} moviment${left === '1' ? 'o' : 'i'}` : 'Muovi', airstrike: 'Scegli una casella vuota', repair: 'Scegli l’auto da riparare',
     token: `Segnalino comando? (${d ? g.players[d.player].tokens : 0})`, shootReroll: 'Mancato: ritiri il dado sparo?', dirReroll: 'Slam: ritiri la direzione?',
     stuntReroll: 'Full-Froth Injector: ritiri il dado acrobazia?',
-    peek: 'Third Eye: scegli un pericolo coperto', transfer: d?.prompt.replace(/^[^:]+: /, '') ?? '',
+    peek: `${/: ([^,]+),/.exec(d?.prompt ?? '')?.[1] ?? 'Third Eye'}: scegli un pericolo coperto`,
+    dodge: d?.prompt.replace(/^[^:]+: /, '') ?? '',
+    playCard: d?.prompt.replace(/^[^:]+: /, '') ?? '', transfer: d?.prompt.replace(/^[^:]+: /, '') ?? '',
+    space: d?.prompt.replace(/^[^:]+: /, '') ?? '', pickVehicle: d?.prompt.replace(/^[^:]+: /, '') ?? '',
+    pickDie: d?.prompt.replace(/^[^:]+: /, '') ?? '', pickValue: d?.prompt.replace(/^[^:]+: /, '') ?? '', pickTile: d?.prompt.replace(/^[^:]+: /, '') ?? '',
     cowCatcher: 'Cow Catcher: dove mandi il veicolo?',
     rigDamage: 'Scegli il sistema da coprire con il danno minore',
   };
@@ -279,9 +292,21 @@ export function drawHud(): void {
   // The upgrades' own questions are asked in full: they name the card.
   const asked = planning() ? '' : d && (d.kind === 'command' || d.kind === 'token') ? '' : d ? ASK[d.kind] ?? (['plow', 'rollCage', 'dispense', 'radar', 'swap', 'redButton'].includes(d.kind) ? d.prompt.replace(/^[^:]+: /, '') : '') : '';
   if (asked) actions.insertAdjacentHTML('afterbegin', `<span class="q">${esc(asked)}</span>`);
+  // A card of a mini expansion in hand: the real card heads the question, so it moves with it and
+  // hides nothing. A bounty completed is turned over in the middle of the table (the approved mockup).
+  const playing = d?.kind === 'playCard' ? d.options[1].card ?? null : null;
+  const fam = playing ? FAMILY[handOf(playing) ?? 'oneShots'] : null;
+  const os = !!playing && !!fam;
+  if (playing && fam) {
+    const bounty = fam === 'bounties';
+    actions.insertAdjacentHTML('afterbegin', `<div class="oscard${bounty ? ' bounty' : ''}" style="--c:${g.players[d!.player].color}">`
+      + `<div class="mc">${miniCardSvg(fam, playing)}</div>`
+      + (bounty ? `<div class="bt"><small>TAGLIA COMPLETATA · ${esc(g.players[d!.player].name.toUpperCase())}</small><b class="gothic">${esc(miniCardName(playing))}</b></div>` : '') + '</div>');
+  }
+  actions.classList.toggle('reveal', !!playing && fam === 'bounties');
   actions.classList.toggle('only', !actions.querySelector('button'));
   // More than three answers, or a long question: the question on its own line, the answers under it.
-  actions.classList.toggle('many', !planning() && actions.querySelectorAll('button').length > 3 || (!!actions.querySelector('button') && asked.length > 34));
+  actions.classList.toggle('many', !planning() && actions.querySelectorAll('button').length > 3 || (!!actions.querySelector('button') && asked.length > 34) || !!os);
   // A new question finds its place again; the same one keeps it (see placeActions).
   const asking = d ? `${S.saved?.choices.length ?? 0}:${d.kind}:${d.prompt}` : '';
   if (actions.dataset.dec !== asking) { actions.dataset.dec = asking; delete actions.dataset.spot; }
@@ -342,6 +367,7 @@ export function drawHud(): void {
   const tall = g.players.some(p => leaderOf(p)); // class "tall": the strip has the leader's panel
   if (tall !== document.body.classList.contains('tall')) { document.body.classList.toggle('tall', tall); fit(); }
   drawHand(d);
+  drawMinis(d, me, !!mine);
   // One drawing, laid out as in the rulebook; without the owner's drawing, the boards side by side.
   const strip = $('strip');
   // The Final Five: stand-in boards until the project owner draws them (design/gdd/big-rig-final-five.md §1.5).

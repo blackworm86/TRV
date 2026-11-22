@@ -1,0 +1,25 @@
+{
+  "_source": "One Shots, mini espansione: carte a pagina 2 di assets/sorgenti/TRV 02 All Expansions/TRV v2.pdf (fuori da git). Nessun regolamento: le ambiguità le ha decise l'utente il 2026-11-22 (design/gdd/one-shots.md).",
+  "_rules": "Deal one face-down One Shot card to each player at the beginning of the game. The card tells you when you can play it. After you play a One Shot, remove it from the game.",
+  "radar_peeks": 2,
+  "cards": [
+    { "id": "guided_missile", "name": "Guided Missile", "when": "shoot",
+      "en": "Play when you shoot. Automatically hit the target.",
+      "text": "Quando spari: il colpo va a segno da solo, senza tirare il dado sparo." },
+    { "id": "ai_danger_avoidance", "name": "AI Danger Avoidance", "when": "impassable",
+      "en": "Play when one of your vehicles would move into an impassable space. Move it to any space adjacent to its current space instead.",
+      "text": "Quando un tuo veicolo entrerebbe in una casella invalicabile: spostalo invece in una casella adiacente alla sua casella attuale." },
+    { "id": "flux_capacitor", "name": "Flux Capacitor", "when": "round_dice",
+      "en": "Play after you roll your dice at the start of a round. Reroll all of your dice.",
+      "text": "Dopo il tiro dei tuoi dadi a inizio round: ritira tutti i tuoi dadi." },
+    { "id": "radar_array", "name": "Radar Array", "when": "turn_start",
+      "en": "Play at the start of your turn. Peek at two face-down hazard tokens.",
+      "text": "All'inizio del tuo turno: guarda due pericoli coperti." },
+    { "id": "camouflage_coating", "name": "Camouflage Coating", "when": "damage",
+      "en": "Play when one of your vehicles would take damage. That vehicle does not take damage.",
+      "text": "Quando un tuo veicolo subirebbe danno: quel veicolo non subisce danno." },
+    { "id": "grapeshot", "name": "Grapeshot", "when": "after_shot",
+      "en": "Play after you shoot. Make a second shot against the same target if it's still in your firing arc.",
+      "text": "Dopo aver sparato: un secondo sparo allo stesso bersaglio, se è ancora nel tuo arco di tiro." }
+  ]
+}

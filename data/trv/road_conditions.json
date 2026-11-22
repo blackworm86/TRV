@@ -1,0 +1,30 @@
+{
+  "_source": "Road Conditions, mini espansione: carte alle pagine 4-5 di assets/sorgenti/TRV 02 All Expansions/TRV v2.pdf (fuori da git). Le ambiguità le decide l'utente (memoria project-mini-espansioni).",
+  "_rules": "When you place a road tile, place a random Road Condition card face up next to it. The rule on the card applies to that tile. (At the beginning of the game, place one next to the middle and lead tiles, but not the starting tile.)",
+  "cards": [
+    { "id": "icy", "name": "Icy",
+      "en": "Whenever the direction die moves a vehicle on this road tile, move it one extra space in the same direction.",
+      "text": "Ogni volta che il dado direzione muove un veicolo su questa tessera, spostalo di una casella in più nella stessa direzione." },
+    { "id": "marauders", "name": "Marauders",
+      "en": "At the end of your turn, if the vehicle you moved is in the lead (or tied for the lead) on this road tile, marauders shoot your vehicle. Marauders will not shoot at choppers.",
+      "text": "Alla fine del tuo turno, se il veicolo che hai mosso è in testa (o a pari merito) su questa tessera, i predoni sparano al tuo veicolo. I predoni non sparano agli elicotteri." },
+    { "id": "blockaded", "name": "Blockaded",
+      "en": "After you resolve a face-down hazard, take a hazard token from the supply and place it face down on any empty space on this road tile.",
+      "text": "Dopo aver risolto un pericolo coperto, prendi un segnalino pericolo dalla riserva e mettilo coperto su una casella vuota di questa tessera." },
+    { "id": "guardrails", "name": "Guardrails",
+      "en": "If your vehicle would move off the side of this road tile, move it to any space adjacent to its current space instead.",
+      "text": "Se un tuo veicolo uscirebbe dal lato di questa tessera, spostalo invece in una casella adiacente alla sua casella attuale." },
+    { "id": "windy", "name": "Windy",
+      "en": "Players cannot place choppers on this road tile.",
+      "text": "Non si possono piazzare elicotteri su questa tessera." },
+    { "id": "tremors", "name": "Tremors",
+      "en": "At the start of the round, roll the direction die and simultaneously move all vehicles (except for choppers) one space in that direction.",
+      "text": "All'inizio del round, tira il dado direzione e sposta insieme tutti i veicoli (tranne gli elicotteri) di una casella in quella direzione." },
+    { "id": "torrential_downpour", "name": "Torrential Downpour",
+      "en": "If your vehicle enters a muddy space, it loses all remaining moves.",
+      "text": "Se un tuo veicolo entra in una casella di fango, perde tutti i movimenti rimasti." },
+    { "id": "sandstorm", "name": "Sandstorm",
+      "en": "You can only shoot vehicles directly in front of you.",
+      "text": "Puoi sparare solo ai veicoli direttamente davanti a te." }
+  ]
+}

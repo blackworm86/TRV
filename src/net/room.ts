@@ -48,8 +48,18 @@ const teamOf = (s: Seat): Team | undefined => (!s.bot && s.team && TEAMS.include
 export type Visibility = 'public' | 'friends' | 'invite';
 export const VISIBILITIES: Visibility[] = ['public', 'friends', 'invite'];
 
+/**
+ * The mini expansions, by their switch in the room options and in the game's setup (the same
+ * names): Bonus Commands, One Shots, Bounties, Road Conditions, Advanced Airstrikes.
+ */
+export const MINI_KEYS = ['bonusCommands', 'oneShots', 'bounties', 'roadConditions', 'airstrikes'] as const;
+export type MiniKey = typeof MINI_KEYS[number];
+/** The mini expansions switched on in `o`, each as `key: true` (absent when off). */
+export const minisOf = (o: Partial<Record<MiniKey, unknown>> | null | undefined): Partial<Record<MiniKey, true>> =>
+  Object.fromEntries(MINI_KEYS.filter(k => o?.[k] === true).map(k => [k, true]));
+
 /** What the host chooses before the start. */
-export interface RoomOptions {
+export interface RoomOptions extends Partial<Record<MiniKey, boolean>> {
   startSide: 'a' | 'b'; leaders: boolean; upgrades: boolean; carnage?: boolean;
   /** The Basic Protocol level of the TRV9000 teams (1-4), when there are any. */
   botLevel?: number;
@@ -151,7 +161,7 @@ export function readRoom(raw: unknown): Room | null {
     host: r.host,
     createdAt: Number(r.createdAt) || 0,
     status: r.status === 'playing' ? 'playing' : 'lobby',
-    options: { startSide: r.options?.startSide === 'b' ? 'b' : 'a', leaders: !!r.options?.leaders, upgrades: !!r.options?.upgrades, ...(r.options?.carnage ? { carnage: true } : {}),
+    options: { startSide: r.options?.startSide === 'b' ? 'b' : 'a', leaders: !!r.options?.leaders, upgrades: !!r.options?.upgrades, ...(r.options?.carnage ? { carnage: true } : {}), ...minisOf(r.options),
       ...(BOT_LEVELS.includes(Number(r.options?.botLevel)) ? { botLevel: Number(r.options!.botLevel) } : {}),
       ...(VISIBILITIES.includes(r.options?.vis as Visibility) ? { vis: r.options!.vis } : {}),
       ...(Number(r.options?.maxPlayers) >= MIN_PLAYERS && Number(r.options?.maxPlayers) <= MAX_PLAYERS ? { maxPlayers: Number(r.options!.maxPlayers) } : {}),
@@ -271,6 +281,7 @@ export async function startMatch(store: RoomStore, code: string, room: Room, see
     ...(room.options.leaders ? { leaders: true } : {}),
     ...(room.options.upgrades ? { upgrades: true } : {}),
     ...(room.options.carnage ? { carnage: true } : {}),
+    ...minisOf(room.options),
   };
   await store.write(roomPath(code, 'log'), null);
   await store.write(roomPath(code, 'intents'), null);

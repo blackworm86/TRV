@@ -21,7 +21,7 @@
  * Nothing here touches the page; the database rules (database.rules.json) say who may write what.
  */
 
-import { CODE_ALPHABET, NAME_MAX, closeRoom, isBotSeat, leaveRoom, readRoom, roomPath, roomSeats, seatOrder, type Room, type RoomStore } from './room';
+import { CODE_ALPHABET, NAME_MAX, closeRoom, isBotSeat, leaveRoom, minisOf, readRoom, roomPath, roomSeats, seatOrder, type Room, type RoomStore } from './room';
 
 /** Length of a friend code (without the shown `TRV-` prefix). */
 export const FRIEND_CODE_LENGTH = 6;
@@ -305,6 +305,8 @@ export interface LobbyEntry {
   bots: number;
   vis: 'public' | 'friends';
   startSide: 'a' | 'b'; leaders: boolean; upgrades: boolean; carnage: boolean; teams: boolean;
+  /** The mini expansions in play, each `true` when on (absent on cards written before them). */
+  bonusCommands?: boolean; oneShots?: boolean; bounties?: boolean; roadConditions?: boolean; airstrikes?: boolean;
   at: number;
 }
 
@@ -317,7 +319,7 @@ export function lobbyEntry(code: string, room: Room): LobbyEntry | null {
     code, host: room.seats[room.host]?.name ?? 'Host', hostUid: room.host,
     crews: ids.map(id => room.seats[id].crew), seats: roomSeats(room.options), bots: ids.filter(id => isBotSeat(room, id)).length,
     vis, startSide: room.options.startSide, leaders: room.options.leaders, upgrades: room.options.upgrades,
-    carnage: !!room.options.carnage, teams: room.options.teams !== false, at: room.createdAt,
+    carnage: !!room.options.carnage, teams: room.options.teams !== false, ...minisOf(room.options), at: room.createdAt,
   };
 }
 
@@ -346,7 +348,7 @@ export function readLobby(raw: unknown, friends: Set<string>): LobbyEntry[] {
     if (vis === 'friends' && !friends.has(r.hostUid)) continue;
     if (crews.length >= seats) continue;
     out.push({ code, host: r.host.slice(0, NAME_MAX), hostUid: r.hostUid, crews, seats, bots: Number(r.bots) || 0, vis,
-      startSide: r.startSide === 'b' ? 'b' : 'a', leaders: !!r.leaders, upgrades: !!r.upgrades, carnage: !!r.carnage, teams: r.teams !== false, at: Number(r.at) || 0 });
+      startSide: r.startSide === 'b' ? 'b' : 'a', leaders: !!r.leaders, upgrades: !!r.upgrades, carnage: !!r.carnage, teams: r.teams !== false, ...minisOf(r), at: Number(r.at) || 0 });
   }
   const fr = (e: LobbyEntry): number => friends.has(e.hostUid) ? 0 : 1;
   return out.sort((a, b) => fr(a) - fr(b) || b.at - a.at);

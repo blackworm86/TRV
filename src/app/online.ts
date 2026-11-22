@@ -10,8 +10,9 @@ import { BASE_CATALOG as CAT } from '../game/trv/catalog';
 import { newSeed } from '../platform/entropy';
 import {
   acceptable, addBot, isBotSeat, removeBot, BOT_LEVELS, undoable, backToLobby, cleanCode, closeRoom, createRoom, freeCrew, joinRoom, leaveRoom, readRoom,
-  roomPath, roomSeats, startMatch, startProblem, type RoomOptions, type Room, type RoomStore, type Visibility,
+  roomPath, roomSeats, startMatch, startProblem, MINI_KEYS, type RoomOptions, type Room, type RoomStore, type Visibility,
 } from '../net/room';
+import { miniChecks, miniId, miniNames, readMinis } from './minisetup';
 import { forgetGame, lobbyEntry, publishLobby, rememberGame, userPath } from '../net/social';
 import { resultOf } from '../net/stats';
 import { FIREBASE_CONFIG } from '../net/firebase-config';
@@ -271,18 +272,21 @@ export function drawLobby(): void {
       <label class="check"><input type="checkbox" id="lupgrades" ${o.upgrades ? 'checked' : ''}> Choppe Shoppe: carte potenziamento</label>
       <label class="check"><input type="checkbox" id="lcarnage" ${o.carnage ? 'checked' : ''}> Carnage at Devil’s Run: tessere, pericoli e fuoco</label>
       <label class="check"><input type="checkbox" id="lteams" ${teamsOn ? 'checked' : ''}> The Big Rig and The Final Five</label>
+      <label>Mini espansioni</label>
+      ${miniChecks('l', o)}
       <label ${bots.length ? '' : 'style="display:none"'}>Livello dei TRV9000</label>
       <select id="lbotlevel" ${bots.length ? '' : 'style="display:none"'}>${BOT_LEVELS.map(l => `<option value="${l}" ${(o.botLevel ?? 1) === l ? 'selected' : ''}>${BOT_LEVEL_TEXT[l]}</option>`).join('')}</select>`;
     const push = (): void => {
       const next: RoomOptions = { startSide: ($('lside') as HTMLSelectElement).value as 'a' | 'b', leaders: ($('lleaders') as HTMLInputElement).checked,
         upgrades: ($('lupgrades') as HTMLInputElement).checked, carnage: ($('lcarnage') as HTMLInputElement).checked,
         botLevel: Number(($('lbotlevel') as HTMLSelectElement).value), vis: ($('lvissel') as HTMLSelectElement).value as Visibility,
-        maxPlayers: Number(($('lmax') as HTMLSelectElement).value), teams: ($('lteams') as HTMLInputElement).checked };
+        maxPlayers: Number(($('lmax') as HTMLSelectElement).value), teams: ($('lteams') as HTMLInputElement).checked,
+        ...readMinis('l') };
       void n.store.write(roomPath(n.code, 'options'), next).catch(netError);
     };
-    for (const id of ['lside', 'lleaders', 'lupgrades', 'lcarnage', 'lbotlevel', 'lvissel', 'lmax', 'lteams']) $(id).onchange = push;
+    for (const id of ['lside', 'lleaders', 'lupgrades', 'lcarnage', 'lbotlevel', 'lvissel', 'lmax', 'lteams', ...MINI_KEYS.map(k => miniId('l', k))]) $(id).onchange = push;
   } else {
-    const exp = [o.leaders ? 'capisquadra' : '', o.upgrades ? 'carte potenziamento' : '', o.carnage ? 'Carnage at Devil’s Run' : '', teamsOn ? 'Big Rig e Final Five' : ''].filter(Boolean).join(', ');
+    const exp = [o.leaders ? 'capisquadra' : '', o.upgrades ? 'carte potenziamento' : '', o.carnage ? 'Carnage at Devil’s Run' : '', teamsOn ? 'Big Rig e Final Five' : '', ...miniNames(o)].filter(Boolean).join(', ');
     $('lopts').innerHTML = `<p class="hint">Partenza: tessera 1${o.startSide}. Espansioni: ${exp || 'nessuna'}.${bots.length ? ` TRV9000: livello ${o.botLevel ?? 1}.` : ''}</p>`;
   }
   $('lfriends').innerHTML = friendsOn() && !inGame ? roomFriendsHtml(n.code, ids) : '';
@@ -375,7 +379,7 @@ $('ocreate').onclick = async () => {
     const bots = Number(($('obots') as HTMLSelectElement).value), max = Number(segValue('omax')) || 4;
     const options: RoomOptions = { startSide: ($('oside') as HTMLSelectElement).value as 'a' | 'b', leaders: ($('oleaders') as HTMLInputElement).checked, upgrades: ($('oupgrades') as HTMLInputElement).checked,
       ...(($('ocarnage') as HTMLInputElement).checked ? { carnage: true } : {}), vis: (segValue('ovis') || 'public') as Visibility, maxPlayers: max,
-      teams: ($('oteams') as HTMLInputElement).checked, ...(bots ? { botLevel: Number(($('obotlevel') as HTMLSelectElement).value) } : {}) };
+      teams: ($('oteams') as HTMLInputElement).checked, ...readMinis('o'), ...(bots ? { botLevel: Number(($('obotlevel') as HTMLSelectElement).value) } : {}) };
     const code = await createRoom(store, { name, crew: CREW_IDS[0] }, options, randomBytes, Date.now());
     for (let i = 0; i < Math.min(bots, max - 1); i++) {
       const room = readRoom(await store.read(roomPath(code)));

@@ -9,13 +9,14 @@
 // pop-up; pointing at the avatar shows the leader's power; a click on a car takes the view to it.
 
 import { RIG_BOARD, bigRig, botTeams, finalFive, leaderOf, upgrades, type Player, type Vehicle } from '../game/trv/engine';
+import { miniBacks } from './minis';
 import { minorTokenSvg } from '../view/vector/ffboards';
 import { markingSvg } from '../view/vector/markings';
 import { ongoingCardSvg, ongoingCardText } from '../view/cards';
 import { avatarSvg, carSvg, commandTokenSvg, damageTokenSvg, dieSvg, onFireTokenSvg } from '../view/vector/art';
 import { carObjs } from './board';
 import { carThumb, thumbLate } from './carthumbs';
-import { g } from './game';
+import { g, viewer } from './game';
 import { cardHtml } from './hand';
 import { DAMAGE_INFO, PORTRAITS, POWER_INFO } from './info';
 import { focusOn } from './keys';
@@ -79,6 +80,9 @@ export function bubbleHtml(p: Player, cls: string, redraw: () => void): string {
   const cars = g!.vehicles.filter(v => v.owner === p.id).sort((a, b) => order(a) - order(b)).map(v => carSlot(p, v, redraw)).join('');
   // The Big Rig is out at six minor damage tokens (BRaFF p5): the count beside the name.
   const rigCount = p.rig ? `<span class="rigdmg" title="Danni minori del Big Rig">${p.rig.damaged.length}/${bigRig().damage.eliminated_at}</span>` : '';
+  // Mini expansions (the approved mockup): a card back beside the name for each card dealt, in the
+  // colour of its kind; one played stays, faded. Only the viewer reads their own face-down cards.
+  const osc = miniBacks(p, p.id === viewer()?.id);
   const tip = l || p.bot ? `data-tip="av" data-p="${p.id}"` : '';
   const av = pic ? `<img src="${pic}" alt="${esc(l!.name)}">` : avatarSvg(p.color, p.name);
   // The row: a pip per car, in the same order as the full bubble.
@@ -90,10 +94,10 @@ export function bubbleHtml(p: Player, cls: string, redraw: () => void): string {
   }).join('');
   const mdice = p.bot ? '<span class="botbadge">TRV9000</span>' : dice;
   return `<div class="bubble pl ${cls}${openBubbles.has(p.id) ? ' open' : ''}" data-p="${p.id}" style="--c:${p.color}">`
-    + `<div class="mini"><span class="mav">${av}</span><b class="gothic">${esc(p.name)}</b><span class="mdice">${mdice}</span><span class="pips">${pips}</span>${rigCount}${toks}</div>`
+    + `<div class="mini"><span class="mav">${av}</span><b class="gothic">${esc(p.name)}</b><span class="mdice">${mdice}</span><span class="pips">${pips}</span>${rigCount}${toks}${osc}</div>`
     + `<div class="drop"><div class="full">`
     + `<div class="av" ${tip}>${av}</div>`
-    + `<div class="hd"><b class="gothic">${esc(p.name)}</b>${rigCount}${toks}</div>`
+    + `<div class="hd"><b class="gothic">${esc(p.name)}</b>${rigCount}${toks}${osc}</div>`
     + `<div class="dice">${dice}</div><div class="cars${p.team === 'final_five' ? ' five' : ''}">${cars}</div></div></div></div>`;
 }
 

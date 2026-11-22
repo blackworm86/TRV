@@ -228,6 +228,11 @@ stanno. Le decisioni tecniche trasversali sono in `docs/architecture/` (ADR-0001
 | 35 | Carnage at Devil's Run (tiles, hazards, fire) | Gameplay | Full Vision | Bozza · Implemented | [carnage-at-devils-run.md](carnage-at-devils-run.md) | engine `g.carnage`; `src/view/terrain/carnage3d.ts` | #2, #3, #7, #10, #12, #13, #15 |
 | 36 | Movimento e animazione dei veicoli (fisica cinematica: guida, salti, spinte, sospensioni, parti) | UI | MVP | Bozza (2026-11-19) · in parte implementato senza GDD (`cars.ts`, `route.ts`) | [vehicle-motion.md](vehicle-motion.md) | `src/app/cars.ts`, `route.ts`, `stunts.ts`, `wreckage.ts`; previsto `src/app/motion/` | #1, #3, #19, #25, #37 |
 | 37 | Modelli strutturati (veicoli in parti ed equipaggio) | Core | Alpha | Bozza della specifica · pilota sull'Auto Media non iniziato | [modelli-strutturati.md](../art/modelli-strutturati.md) | previsto `src/view/vehicle-rig.ts`; oggi `src/view/models-config.ts` (tagli) | #5, #19 |
+| 38 | One Shots (mini espansione: una carta coperta a testa) | Gameplay | Full Vision | Bozza · Implemented | [one-shots.md](one-shots.md) | engine `g.oneShots`, `offerOneShot`; `data/trv/one_shots.json` | #7, #10, #12, #32, #33, #34, #35 |
+| 39 | Bonus Commands (mini espansione: un comando in più a testa) | Gameplay | Full Vision | Bozza · Implemented | [bonus-commands.md](bonus-commands.md) | engine `g.bonusCommands`, `activateBonus`; `data/trv/bonus_commands.json`; `src/app/minis.ts` | #7, #10, #12, #38 |
+| 40 | Bounties (mini espansione: una taglia segreta) | Gameplay | Full Vision | Bozza · Implemented | [bounties.md](bounties.md) | engine `g.bounties`, `bountyCheck`; `data/trv/bounties.json` | #7, #10, #38 |
+| 41 | Road Conditions (mini espansione: una condizione per tessera) | Gameplay | Full Vision | Bozza · Implemented | [road-conditions.md](road-conditions.md) | engine `g.roads`, `roadAt`; `data/trv/road_conditions.json` | #7, #10, #33 |
+| 42 | Advanced Airstrikes (mini espansione: una carta per l'elicottero) | Gameplay | Full Vision | Bozza · Implemented | [advanced-airstrikes.md](advanced-airstrikes.md) | engine `g.airstrikes`, `chopperPlaced`; `data/trv/advanced_airstrikes.json` | #7, #10, #38 |
 
 *#6 Match Session Flow non esiste più: assorbito da #24 (decisione dell'utente); i
 parametri di partita sono dati di #7. Numerazione lasciata stabile.*
@@ -447,7 +452,7 @@ catena mina → Skid → slam.
 |--------|-------|
 | Total systems identified | 34 |
 | Systems implemented (anche in parte) | 32 |
-| Design docs started | 9 (rules-core, dice-seeded-rng, interpretations-log, camera-director, terrain-generation, trv9000-bots, big-rig-final-five, choppe-shoppe, carnage-at-devils-run) |
+| Design docs started | 14 (rules-core, dice-seeded-rng, interpretations-log, camera-director, terrain-generation, trv9000-bots, big-rig-final-five, choppe-shoppe, carnage-at-devils-run, one-shots, bonus-commands, bounties, road-conditions, advanced-airstrikes) |
 | Design docs reviewed | 1 (dice-seeded-rng, revisioni applicate) |
 | Design docs approved | 0 |
 | MVP systems designed | 3/24 |

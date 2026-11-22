@@ -361,3 +361,18 @@ describe('host as referee', () => {
     expect(back.decision?.prompt).toBe(host.decision?.prompt);
   });
 });
+
+describe('One Shots room option', () => {
+  it('starts a match with One Shots in the setup when the host turns it on, and without it otherwise', async () => {
+    // Arrange: two rooms, one with the option on.
+    const on = await seated(2);
+    await on[0].write(roomPath(CODE, 'options'), { ...OPTIONS, oneShots: true });
+    // Act
+    await startMatch(on[0], CODE, await room(on[0]), SEED, COLOR);
+    const off = await seated(2);
+    await startMatch(off[0], CODE, await room(off[0]), SEED, COLOR);
+    // Assert
+    expect((await room(on[0])).setup!.oneShots).toBe(true);
+    expect((await room(off[0])).setup!.oneShots).toBeUndefined();
+  });
+});
