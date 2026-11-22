@@ -187,30 +187,44 @@
     </div>
     <div class="pane" id="pCreate">
       <div class="bar"><button class="back" data-to="pLobby">← Lobby</button><h2>Crea partita</h2></div>
-      <div class="cols2">
-        <div class="panel form">
-          <label>Chi può entrare</label><div class="seg" id="ovis"><button type="button" data-v="public" class="on">Tutti (in lobby)</button><button type="button" data-v="invite">Solo su invito</button><button type="button" data-v="friends">Solo amici</button></div>
-          <label>Giocatori</label><div class="seg" id="omax"><button type="button" data-v="2">2</button><button type="button" data-v="3">3</button><button type="button" data-v="4" class="on">4</button></div>
-          <label>Tessera di partenza</label><select id="oside"><option value="a">1a — The Parking Lot</option><option value="b">1b — Runway to Ruin</option></select>
-          <label class="top">Espansioni</label>
-          <div class="checks">
-            <label class="check"><input type="checkbox" id="oleaders"> Choppe Shoppe: capisquadra e segnalini comando</label>
-            <label class="check"><input type="checkbox" id="oupgrades"> Choppe Shoppe: carte potenziamento</label>
-            <label class="check"><input type="checkbox" id="ocarnage"> Carnage at Devil’s Run: tessere, pericoli e fuoco</label>
-            <label class="check"><input type="checkbox" id="oteams"> The Big Rig and The Final Five</label>
+      <div class="hot one panel">
+        <section class="col">
+          <div class="hh"><h3>Stanza</h3><span class="sp"></span><span class="lbl">Giocatori</span>
+            <div class="seg" id="omax"><button type="button" data-v="2">2</button><button type="button" data-v="3">3</button><button type="button" data-v="4" class="on">4</button></div></div>
+          <div class="hh orow"><span class="lbl">Chi può entrare</span><span class="sp"></span>
+            <div class="seg" id="ovis"><button type="button" data-v="public" class="on">Tutti (in lobby)</button><button type="button" data-v="invite">Solo su invito</button><button type="button" data-v="friends">Solo amici</button></div></div>
+          <div class="hh orow"><span class="lbl">Squadre TRV9000</span><span class="sp"></span>
+            <div class="seg" id="obotseg"><button type="button" data-v="0" class="on">nessuna</button><button type="button" data-v="1">1</button><button type="button" data-v="2">2</button><button type="button" data-v="3">3</button></div>
+            <select id="obots" hidden><option value="0">nessuna</option><option value="1">1</option><option value="2">2</option><option value="3">3</option></select></div>
+          <div id="obotrow" style="display:none">
+            <div class="hh orow"><span class="lbl">Difficoltà TRV9000 <small>(Basic Protocol)</small></span><span class="sp"></span><div class="seg" id="obotlvseg"></div></div>
+            <p class="hint" id="obotwhat"></p>
+            <select id="obotlevel" hidden></select>
           </div>
-          <label class="top">Mini espansioni</label>
-          <div class="checks" id="ominichecks">
-          </div>
-          <label>Squadre TRV9000</label><div class="row"><select id="obots"><option value="0">nessuna</option><option value="1">1</option><option value="2">2</option><option value="3">3</option></select><select id="obotlevel"></select></div>
-          <label>Tempo per turno</label><div class="seg"><button type="button" class="on">In diretta</button><button type="button" disabled title="Arriva con il server arbitro: oggi la partita va avanti solo con l’host collegato">24 ore</button><button type="button" disabled title="Arriva con il server arbitro: oggi la partita va avanti solo con l’host collegato">72 ore</button></div>
-        </div>
-        <div class="panel">
+          <div class="hh orow"><span class="lbl">Tempo per turno</span><span class="sp"></span>
+            <div class="seg"><button type="button" class="on">In diretta</button><button type="button" disabled title="Arriva con il server arbitro: oggi la partita va avanti solo con l’host collegato">24 ore</button><button type="button" disabled title="Arriva con il server arbitro: oggi la partita va avanti solo con l’host collegato">72 ore</button></div></div>
           <h3>Invita amici</h3>
           <p class="hint">Ricevono l’invito nella home e possono entrare con un clic.</p>
           <div id="ofriends"></div>
-          <button class="go" id="ocreate">Crea la stanza</button>
-        </div>
+        </section>
+        <section class="col">
+          <h3>Tessera di partenza</h3>
+          <div class="sides" id="osideseg">
+            <button type="button" data-v="a" class="on"><b>1a</b><span>The Parking Lot</span></button>
+            <button type="button" data-v="b"><b>1b</b><span>Runway to Ruin</span></button>
+          </div>
+          <select id="oside" hidden><option value="a">1a — The Parking Lot</option><option value="b">1b — Runway to Ruin</option></select>
+          <h3>Espansioni</h3>
+          <label class="switch"><input type="checkbox" id="oleaders"><span><b>Capisquadra</b><small>Choppe Shoppe · capisquadra e segnalini comando</small></span></label>
+          <label class="switch"><input type="checkbox" id="oupgrades"><span><b>Potenziamenti</b><small>Choppe Shoppe · carte potenziamento</small></span></label>
+          <label class="switch"><input type="checkbox" id="ocarnage"><span><b>Carnage at Devil’s Run</b><small>Tessere, pericoli e fuoco</small></span></label>
+          <label class="switch"><input type="checkbox" id="oteams"><span><b>The Big Rig and The Final Five</b><small>Ognuno sceglie la sua squadra nella stanza</small></span></label>
+        </section>
+        <section class="col">
+          <h3>Mini espansioni <small class="allnone"><a href="#" data-minis="1" data-for="ominichecks">tutte</a> · <a href="#" data-minis="0" data-for="ominichecks">nessuna</a></small></h3>
+          <div id="ominichecks"></div>
+        </section>
+        <footer class="foot"><div><p class="hint">I TRV9000 non ricevono carte; le Road Conditions valgono per tutti.</p></div><button class="go" id="ocreate">Crea la stanza</button></footer>
       </div>
     </div>
     <div class="pane" id="pMine">
@@ -254,8 +268,8 @@
     </div>
     <div class="pane" id="pHot">
       <div class="bar"><button class="back" data-back>← Menu</button><h2>Partita in locale</h2></div>
-      <div class="hot">
-        <section class="panel">
+      <div class="hot one panel">
+        <section class="col">
           <div class="hh"><h3>Squadre</h3><span class="sp"></span><span class="lbl">Giocatori</span>
             <div class="seg" id="npseg"><button type="button" data-v="2">2</button><button type="button" data-v="3">3</button><button type="button" data-v="4">4</button></div>
             <select id="np" hidden><option>2</option><option selected>3</option><option>4</option></select></div>
@@ -272,7 +286,7 @@
             <select id="botlevel" hidden><option value="1">1 — fuoristrada, fango, melma e saline come strada</option><option value="2">2 — ignora il primo pericolo coperto</option><option value="3">3 — può fermarsi sul proprio elicottero</option><option value="4">4 — attraversa le proprie auto senza slam</option></select>
           </div>
         </section>
-        <section class="panel">
+        <section class="col">
           <h3>Tessera di partenza</h3>
           <div class="sides" id="sideseg">
             <button type="button" data-v="a"><b>1a</b><span>The Parking Lot</span></button>
@@ -283,12 +297,12 @@
           <label class="switch"><input type="checkbox" id="leaders"><span><b>Capisquadra</b><small>Choppe Shoppe · capisquadra e segnalini comando</small></span></label>
           <label class="switch"><input type="checkbox" id="upgrades"><span><b>Potenziamenti</b><small>Choppe Shoppe · carte potenziamento</small></span></label>
           <label class="switch"><input type="checkbox" id="carnage"><span><b>Carnage at Devil’s Run</b><small>Tessere, pericoli e fuoco</small></span></label>
-          <h3>Mini espansioni <small class="allnone"><a href="#" data-minis="1">tutte</a> · <a href="#" data-minis="0">nessuna</a></small></h3>
-          <div id="miniswitches"></div>
-          <p class="hint">I TRV9000 non ricevono carte; le Road Conditions valgono per tutti.</p>
-          <p class="hint">The Big Rig e The Final Five si scelgono nella riga della squadra.</p>
-          <button class="go" id="start">Si parte!</button>
         </section>
+        <section class="col">
+          <h3>Mini espansioni <small class="allnone"><a href="#" data-minis="1" data-for="miniswitches">tutte</a> · <a href="#" data-minis="0" data-for="miniswitches">nessuna</a></small></h3>
+          <div id="miniswitches"></div>
+        </section>
+        <footer class="foot"><div><p class="hint">I TRV9000 non ricevono carte; le Road Conditions valgono per tutti.</p><p class="hint">The Big Rig e The Final Five si scelgono nella riga della squadra.</p></div><button class="go" id="start">Si parte!</button></footer>
       </div>
     </div>
     <p class="err" id="oerr"></p>
@@ -296,14 +310,11 @@
 </div>
 <div id="lobby"><div class="card">
   <div class="bar"><h1>Stanza <span id="lcode"></span></h1><em class="pill" id="lvis"></em></div>
-  <div class="cols2">
-    <div>
-      <label>Giocatori</label>
+  <div class="hot one panel">
+    <section class="col">
+      <div class="hh"><h3>Giocatori</h3><span class="sp"></span><div class="hh" id="lmaxbox"></div></div>
       <div id="lseats"></div>
-      <div id="lopts"></div>
-      <p class="hint" id="lstate"></p>
-    </div>
-    <div>
+      <div id="lvisrow"></div>
       <div class="invite">
         <div id="lqr"></div>
         <div class="how">
@@ -312,15 +323,21 @@
           <button class="tool" id="lcopy">Copia il link</button>
         </div>
       </div>
-      <div id="lfriendsbox"><label>Invita amici</label><div id="lfriends"></div></div>
-    </div>
-  </div>
-  <div class="btns">
-    <button class="go" id="lstart">Inizia la partita</button>
-    <button class="tool" id="lresume">Torna al tavolo</button>
-    <button class="tool" id="lrematch">Nuova partita (stessi giocatori)</button>
-    <button class="tool" id="lleave">Esci dalla stanza</button>
-    <button class="tool danger" id="lclose">Chiudi la stanza</button>
+      <div id="lfriendsbox"><h3>Invita amici</h3><div id="lfriends"></div></div>
+    </section>
+    <section class="col" id="lopts"></section>
+    <section class="col" id="lminis"></section>
+    <footer class="foot">
+      <p class="hint" id="lstate"></p>
+      <div class="btns">
+        <button class="tool" id="lresume">Torna al tavolo</button>
+        <button class="tool" id="lrematch">Nuova partita (stessi giocatori)</button>
+        <button class="tool" id="lleave">Esci dalla stanza</button>
+        <button class="tool danger" id="lclose">Chiudi la stanza</button>
+        <button class="go" id="lready">Sono pronto</button>
+        <button class="go" id="lstart">Inizia la partita</button>
+      </div>
+    </footer>
   </div>
 </div></div>
 <div id="roombadge"></div>

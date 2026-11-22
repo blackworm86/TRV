@@ -37,6 +37,8 @@ export interface Seat {
   name: string; crew: string; joinedAt: number; bot?: true;
   /** The Final Five or the Big Rig instead of three cars (BRaFF p3); a person's seat only, one of each per match. */
   team?: Team;
+  /** The player confirmed being ready to start (asked by the user, 2026-11-22); not needed of the host or a TRV9000. */
+  ready?: true;
 }
 
 /** The crews that are not three cars, as a seat may pick them. */
@@ -251,7 +253,7 @@ export async function removeBot(store: RoomStore, code: string, id: string): Pro
 }
 
 /** Why the host cannot start yet, or null when it can. A match needs at least one person. */
-export function startProblem(room: Room): 'few' | 'many' | 'crews' | 'bots' | 'teams' | null {
+export function startProblem(room: Room): 'few' | 'many' | 'crews' | 'bots' | 'teams' | 'ready' | null {
   const seats = Object.values(room.seats);
   if (seats.length < MIN_PLAYERS) return 'few';
   if (seats.length > MAX_PLAYERS) return 'many';
@@ -259,7 +261,23 @@ export function startProblem(room: Room): 'few' | 'many' | 'crews' | 'bots' | 't
   if (seats.every(s => s.bot)) return 'bots';
   // One Final Five and one Big Rig per match (confirmed by the user, 2026-11-18).
   if (TEAMS.some(t => seats.filter(s => teamOf(s) === t).length > 1)) return 'teams';
+  // Every player confirms being ready before the start (asked by the user, 2026-11-22): the host by
+  // starting, a TRV9000 always.
+  if (Object.keys(room.seats).some(id => !isReady(room, id))) return 'ready';
   return null;
+}
+
+/** Whether the seat `id` is ready to start: the host and a TRV9000 always, a guest once confirmed. */
+export const isReady = (room: Room, id: string): boolean => id === room.host || isBotSeat(room, id) || room.seats[id]?.ready === true;
+
+/** A guest: says they are ready to start, or not any more. */
+export async function setReady(store: RoomStore, code: string, on: boolean): Promise<void> {
+  await store.write(roomPath(code, 'seats', await store.uid(), 'ready'), on ? true : null);
+}
+
+/** Host: asks every guest to confirm again, when what the match will be has changed. */
+export async function clearReady(store: RoomStore, code: string, room: Room): Promise<void> {
+  for (const id of Object.keys(room.seats)) if (room.seats[id].ready) await store.write(roomPath(code, 'seats', id, 'ready'), null);
 }
 
 /**
@@ -292,7 +310,9 @@ export async function startMatch(store: RoomStore, code: string, room: Room, see
 }
 
 /** Host: ends the match and brings everybody back to the lobby (same room, same seats). */
-export async function backToLobby(store: RoomStore, code: string): Promise<void> {
+export async function backToLobby(store: RoomStore, code: string, room?: Room): Promise<void> {
+  // A new match: everyone confirms again.
+  if (room) await clearReady(store, code, room);
   await store.write(roomPath(code, 'status'), 'lobby');
   await store.write(roomPath(code, 'setup'), null);
   await store.write(roomPath(code, 'log'), null);

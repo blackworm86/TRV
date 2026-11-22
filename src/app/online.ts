@@ -10,9 +10,9 @@ import { BASE_CATALOG as CAT } from '../game/trv/catalog';
 import { newSeed } from '../platform/entropy';
 import {
   acceptable, addBot, isBotSeat, removeBot, BOT_LEVELS, undoable, backToLobby, cleanCode, closeRoom, createRoom, freeCrew, joinRoom, leaveRoom, readRoom,
-  roomPath, roomSeats, startMatch, startProblem, MINI_KEYS, type RoomOptions, type Room, type RoomStore, type Visibility,
+  roomPath, roomSeats, startMatch, startProblem, isReady, setReady, clearReady, MINI_KEYS, type RoomOptions, type Room, type RoomStore, type Visibility,
 } from '../net/room';
-import { miniChecks, miniId, miniNames, readMinis } from './minisetup';
+import { miniSwitches, miniId, readMinis } from './minisetup';
 import { forgetGame, lobbyEntry, publishLobby, rememberGame, userPath } from '../net/social';
 import { resultOf } from '../net/stats';
 import { FIREBASE_CONFIG } from '../net/firebase-config';
@@ -205,6 +205,33 @@ function hostDuties(): void {
 const BOT_LEVEL_TEXT: Record<number, string> = Object.fromEntries([...document.querySelectorAll<HTMLOptionElement>('#botlevel option')].map(o => [Number(o.value), o.textContent ?? o.value]));
 $('obotlevel').innerHTML = BOT_LEVELS.map(l => `<option value="${l}">${esc(BOT_LEVEL_TEXT[l])}</option>`).join('');
 
+// Making a room: the TRV9000 teams, their level and the starting tile are buttons over the selects
+// the room is made from, as in the hot seat setup (asked by the user, 2026-11-22).
+const oBots = $('obots') as HTMLSelectElement, oBotLevel = $('obotlevel') as HTMLSelectElement, oSide = $('oside') as HTMLSelectElement;
+function syncCreate(): void {
+  const max = Number(segValue('omax')) || 4;
+  // A room keeps a seat for a person: at most one bot fewer than the players.
+  if (Number(oBots.value) > max - 1) oBots.value = String(max - 1);
+  for (const b of $('obotseg').querySelectorAll<HTMLButtonElement>('[data-v]')) {
+    b.classList.toggle('on', b.dataset.v === oBots.value);
+    b.disabled = Number(b.dataset.v) > max - 1;
+  }
+  $('obotrow').style.display = oBots.value !== '0' ? '' : 'none';
+  $('obotlvseg').innerHTML = [...oBotLevel.options].map(o => `<button type="button" data-v="${o.value}" class="${o.value === oBotLevel.value ? 'on' : ''}">${o.value}</button>`).join('');
+  $('obotwhat').textContent = oBotLevel.selectedOptions[0]?.textContent?.replace(/^\d+\s*—\s*/, `Livello ${oBotLevel.value}: `) ?? '';
+  for (const b of $('osideseg').querySelectorAll<HTMLElement>('[data-v]')) b.classList.toggle('on', b.dataset.v === oSide.value);
+}
+const pick = (id: string, set: (v: string) => void) => $(id).addEventListener('click', e => {
+  const b = (e.target as Element).closest<HTMLButtonElement>('[data-v]');
+  if (b && !b.disabled) { set(b.dataset.v!); syncCreate(); }
+});
+pick('obotseg', v => { oBots.value = v; });
+pick('obotlvseg', v => { oBotLevel.value = v; });
+pick('osideseg', v => { oSide.value = v; });
+// After the segment has its new choice lit (home.ts): the players' count limits the bots.
+$('omax').addEventListener('click', () => queueMicrotask(syncCreate));
+syncCreate();
+
 const VIS_TEXT: Record<Visibility, string> = { public: 'Tutti (in lobby)', friends: 'Solo amici', invite: 'Solo su invito' };
 
 export function drawLobby(): void {
@@ -234,21 +261,24 @@ export function drawLobby(): void {
   const bots = ids.filter(id => isBotSeat(r, id));
   const teamsOn = r.options.teams !== false;
   $('lseats').innerHTML = ids.map((id, i) => {
-    const s = r.seats[id], mine = id === n.uid, bot = isBotSeat(r, id), mayPick = !inGame && (mine || (bot && n.host));
+    const s = r.seats[id], mine = id === n.uid, bot = isBotSeat(r, id), ready = isReady(r, id);
+    const mayPick = !inGame && ((mine && !(s.ready && !n.host)) || (bot && n.host));
     const taken = new Set(ids.filter(x => x !== id).map(x => r.seats[x].crew));
     const crew = mayPick
       ? `<select class="lcrew" data-seat="${esc(id)}">${CAT.crews.map(c => `<option value="${c.id}" ${c.id === s.crew ? 'selected' : ''} ${taken.has(c.id) ? 'disabled' : ''}>${esc(c.name)}</option>`).join('')}</select>`
       : `<small>${esc(CAT.crews.find(c => c.id === s.crew)?.name ?? s.crew)}</small>`;
     // The crew is three cars, the Final Five or the Big Rig (BRaFF p3): one of each per match.
     const others = new Set(ids.filter(x => x !== id).map(x => r.seats[x].team));
-    const team = bot || !teamsOn ? '' : mine && !inGame
+    const team = bot || !teamsOn ? '' : mine && !inGame && !s.ready
       ? `<select class="lteam" data-seat="${esc(id)}">${[['', 'Auto'], ['final_five', 'Final Five (moto)'], ['big_rig', 'Big Rig']].map(([v, l]) => `<option value="${v}" ${(s.team ?? '') === v ? 'selected' : ''} ${v && others.has(v as Team) ? 'disabled' : ''}>${l}</option>`).join('')}</select>`
       : s.team ? `<small>${s.team === 'big_rig' ? 'Big Rig' : 'Final Five'}</small>` : '';
     const tag = bot ? `<small class="bottag">TRV9000 · livello ${r.options.botLevel ?? 1}</small>` : '';
     const drop = bot && n.host && !inGame ? `<button class="ldrop" data-seat="${esc(id)}" title="Togli questa squadra TRV9000">✕</button>` : '';
     const fs = !bot && !mine && friendsOn() ? friendState(id) : 'friend';
     const befriend = fs === 'none' ? `<button class="lfriend" data-uid="${esc(id)}" title="Chiedi di diventare amici">+ amico</button>` : fs === 'asked' ? '<small>richiesta mandata</small>' : '';
-    return `<div class="seat ${bot ? 'bot' : ''}" style="--c:${crewColor(s.crew)}" data-i="${i}"><i></i><b>${esc(s.name)}</b>${id === r.host ? '<small>host</small>' : ''}${mine ? '<small>tu</small>' : ''}${tag}${befriend}${crew}${team}${drop}</div>`;
+    // Every guest confirms being ready (asked by the user, 2026-11-22); the host does by starting.
+    const state = inGame || bot || id === r.host ? '' : `<small class="lrdy ${ready ? 'on' : ''}">${ready ? '✓ pronto' : 'non ancora pronto'}</small>`;
+    return `<div class="seat ${bot ? 'bot' : ''}" style="--c:${crewColor(s.crew)}" data-i="${i}"><i></i><b>${esc(s.name)}</b>${id === r.host ? '<small>host</small>' : ''}${mine ? '<small>tu</small>' : ''}${tag}${state}${befriend}${crew}${team}${drop}</div>`;
   }).join('') + (inGame ? '' : Array.from({ length: Math.max(0, roomSeats(r.options) - ids.length) }, () =>
     `<div class="seat empty"><i></i><b>posto libero</b>${n.host ? '<button class="laddbot" title="Una squadra giocata dalle carte TRV9000">+ TRV9000</button>' : ''}</div>`).join(''));
   for (const sel of $('lseats').querySelectorAll<HTMLSelectElement>('select.lcrew')) {
@@ -257,46 +287,65 @@ export function drawLobby(): void {
   for (const sel of $('lseats').querySelectorAll<HTMLSelectElement>('select.lteam')) {
     sel.onchange = () => { void n.store.write(roomPath(n.code, 'seats', sel.dataset.seat!, 'team'), sel.value || null).catch(netError); };
   }
-  for (const b of $('lseats').querySelectorAll<HTMLButtonElement>('button.ldrop')) b.onclick = () => { void removeBot(n.store, n.code, b.dataset.seat!).catch(netError); };
-  for (const b of $('lseats').querySelectorAll<HTMLButtonElement>('button.laddbot')) b.onclick = () => { void addBot(n.store, n.code, r, CREW_IDS, Date.now()).catch(netError); };
-  // Options: the host's to set before the start.
-  const o = r.options;
-  if (n.host && !inGame) {
-    $('lopts').innerHTML = `<label>Chi può entrare</label>
-      <select id="lvissel">${(['public', 'friends', 'invite'] as Visibility[]).map(v => `<option value="${v}" ${(o.vis ?? 'invite') === v ? 'selected' : ''}>${VIS_TEXT[v]}</option>`).join('')}</select>
-      <select id="lmax" title="Posti nella stanza">${[2, 3, 4].map(k => `<option value="${k}" ${roomSeats(o) === k ? 'selected' : ''} ${k < ids.length ? 'disabled' : ''}>${k} posti</option>`).join('')}</select>
-      <label>Tessera di partenza</label>
-      <select id="lside"><option value="a" ${o.startSide === 'a' ? 'selected' : ''}>1a — The Parking Lot</option><option value="b" ${o.startSide === 'b' ? 'selected' : ''}>1b — Runway to Ruin</option></select>
-      <label>Espansioni</label>
-      <label class="check"><input type="checkbox" id="lleaders" ${o.leaders ? 'checked' : ''}> Choppe Shoppe: capisquadra e segnalini comando</label>
-      <label class="check"><input type="checkbox" id="lupgrades" ${o.upgrades ? 'checked' : ''}> Choppe Shoppe: carte potenziamento</label>
-      <label class="check"><input type="checkbox" id="lcarnage" ${o.carnage ? 'checked' : ''}> Carnage at Devil’s Run: tessere, pericoli e fuoco</label>
-      <label class="check"><input type="checkbox" id="lteams" ${teamsOn ? 'checked' : ''}> The Big Rig and The Final Five</label>
-      <label>Mini espansioni</label>
-      ${miniChecks('l', o)}
-      <label ${bots.length ? '' : 'style="display:none"'}>Livello dei TRV9000</label>
-      <select id="lbotlevel" ${bots.length ? '' : 'style="display:none"'}>${BOT_LEVELS.map(l => `<option value="${l}" ${(o.botLevel ?? 1) === l ? 'selected' : ''}>${BOT_LEVEL_TEXT[l]}</option>`).join('')}</select>`;
-    const push = (): void => {
-      const next: RoomOptions = { startSide: ($('lside') as HTMLSelectElement).value as 'a' | 'b', leaders: ($('lleaders') as HTMLInputElement).checked,
-        upgrades: ($('lupgrades') as HTMLInputElement).checked, carnage: ($('lcarnage') as HTMLInputElement).checked,
-        botLevel: Number(($('lbotlevel') as HTMLSelectElement).value), vis: ($('lvissel') as HTMLSelectElement).value as Visibility,
-        maxPlayers: Number(($('lmax') as HTMLSelectElement).value), teams: ($('lteams') as HTMLInputElement).checked,
-        ...readMinis('l') };
-      void n.store.write(roomPath(n.code, 'options'), next).catch(netError);
+  for (const b of $('lseats').querySelectorAll<HTMLButtonElement>('button.ldrop')) b.onclick = () => { void removeBot(n.store, n.code, b.dataset.seat!).then(() => clearReady(n.store, n.code, r)).catch(netError); };
+  for (const b of $('lseats').querySelectorAll<HTMLButtonElement>('button.laddbot')) b.onclick = () => { void addBot(n.store, n.code, r, CREW_IDS, Date.now()).then(() => clearReady(n.store, n.code, r)).catch(netError); };
+  // Options, laid out as in the setup screens (asked by the user, 2026-11-22): the host sets them
+  // before the start; the others see them, locked.
+  const o = r.options, edit = n.host && !inGame, lock = edit ? '' : 'disabled';
+  const seg = (id: string, items: [string, string, boolean?][], on: string): string =>
+    `<div class="seg" id="${id}">${items.map(([v, l, off]) => `<button type="button" data-v="${v}" class="${v === on ? 'on' : ''}" ${!edit || off ? 'disabled' : ''}>${esc(l)}</button>`).join('')}</div>`;
+  $('lmaxbox').innerHTML = `<span class="lbl">Posti</span>${seg('lmaxseg', [2, 3, 4].map(k => [String(k), String(k), k < ids.length]), String(roomSeats(o)))}`;
+  $('lvisrow').innerHTML = `<div class="hh orow"><span class="lbl">Chi può entrare</span><span class="sp"></span>${seg('lvisseg', (['public', 'invite', 'friends'] as Visibility[]).map(v => [v, VIS_TEXT[v]]), o.vis ?? 'invite')}</div>`;
+  const sw = (id: string, on: boolean | undefined, name: string, line: string): string =>
+    `<label class="switch"><input type="checkbox" id="${id}" ${on ? 'checked' : ''} ${lock}><span><b>${name}</b><small>${line}</small></span></label>`;
+  const level = o.botLevel ?? 1;
+  $('lopts').innerHTML = `<h3>Tessera di partenza</h3>
+    <div class="sides" id="lsideseg">${([['a', 'The Parking Lot'], ['b', 'Runway to Ruin']] as const).map(([v, l]) =>
+      `<button type="button" data-v="${v}" class="${o.startSide === v ? 'on' : ''}" ${lock}><b>1${v}</b><span>${l}</span></button>`).join('')}</div>
+    <h3>Espansioni</h3>
+    ${sw('lleaders', o.leaders, 'Capisquadra', 'Choppe Shoppe · capisquadra e segnalini comando')}
+    ${sw('lupgrades', o.upgrades, 'Potenziamenti', 'Choppe Shoppe · carte potenziamento')}
+    ${sw('lcarnage', o.carnage, 'Carnage at Devil’s Run', 'Tessere, pericoli e fuoco')}
+    ${sw('lteams', teamsOn, 'The Big Rig and The Final Five', 'Ognuno sceglie la sua squadra')}
+    ${bots.length ? `<div class="hh orow"><span class="lbl">Difficoltà TRV9000 <small>(Basic Protocol)</small></span><span class="sp"></span>${seg('lbotlvseg', BOT_LEVELS.map(l => [String(l), String(l)]), String(level))}</div>
+      <p class="hint">${esc(BOT_LEVEL_TEXT[level].replace(/^\d+\s*—\s*/, `Livello ${level}: `))}</p>` : ''}`;
+  $('lminis').innerHTML = `<h3>Mini espansioni${edit ? ' <small class="allnone"><a href="#" data-lminis="1">tutte</a> · <a href="#" data-lminis="0">nessuna</a></small>' : ''}</h3>
+    ${miniSwitches('l', o, !edit)}<p class="hint">I TRV9000 non ricevono carte; le Road Conditions valgono per tutti.</p>`;
+  if (edit) {
+    // Any change asks the guests to confirm again.
+    const chk = (id: string): boolean => ($(id) as HTMLInputElement).checked;
+    const push = (patch: Partial<RoomOptions> = {}): void => {
+      const next: RoomOptions = { startSide: o.startSide, leaders: chk('lleaders'), upgrades: chk('lupgrades'), carnage: chk('lcarnage'),
+        botLevel: level, vis: o.vis ?? 'invite', maxPlayers: roomSeats(o), teams: chk('lteams'), ...readMinis('l'), ...patch };
+      void n.store.write(roomPath(n.code, 'options'), next).then(() => clearReady(n.store, n.code, r)).catch(netError);
     };
-    for (const id of ['lside', 'lleaders', 'lupgrades', 'lcarnage', 'lbotlevel', 'lvissel', 'lmax', 'lteams', ...MINI_KEYS.map(k => miniId('l', k))]) $(id).onchange = push;
-  } else {
-    const exp = [o.leaders ? 'capisquadra' : '', o.upgrades ? 'carte potenziamento' : '', o.carnage ? 'Carnage at Devil’s Run' : '', teamsOn ? 'Big Rig e Final Five' : '', ...miniNames(o)].filter(Boolean).join(', ');
-    $('lopts').innerHTML = `<p class="hint">Partenza: tessera 1${o.startSide}. Espansioni: ${exp || 'nessuna'}.${bots.length ? ` TRV9000: livello ${o.botLevel ?? 1}.` : ''}</p>`;
+    const pick = (id: string, set: (v: string) => Partial<RoomOptions>): void => {
+      $(id).onclick = e => { const b = (e.target as Element).closest<HTMLButtonElement>('[data-v]'); if (b && !b.disabled) push(set(b.dataset.v!)); };
+    };
+    pick('lmaxseg', v => ({ maxPlayers: Number(v) }));
+    pick('lvisseg', v => ({ vis: v as Visibility }));
+    pick('lsideseg', v => ({ startSide: v as 'a' | 'b' }));
+    if (bots.length) pick('lbotlvseg', v => ({ botLevel: Number(v) }));
+    for (const id of ['lleaders', 'lupgrades', 'lcarnage', 'lteams', ...MINI_KEYS.map(k => miniId('l', k))]) $(id).onchange = () => push();
+    for (const a of $('lminis').querySelectorAll<HTMLElement>('[data-lminis]')) a.onclick = e => {
+      e.preventDefault();
+      for (const i of $('lminis').querySelectorAll<HTMLInputElement>('input')) i.checked = a.dataset.lminis === '1';
+      push();
+    };
   }
   $('lfriends').innerHTML = friendsOn() && !inGame ? roomFriendsHtml(n.code, ids) : '';
   const problem = startProblem(r);
+  const meReady = !!r.seats[n.uid]?.ready, waiting = ids.filter(id => !isReady(r, id)).length;
   $('lstate').textContent = inGame ? 'Partita in corso.'
-    : !n.host ? 'In attesa che l’host inizi la partita…'
+    : !n.host ? (meReady ? 'Sei pronto: in attesa che l’host inizi la partita…' : 'Scegli colore e squadra, poi premi «Sono pronto».')
+    : problem === 'ready' ? (waiting === 1 ? 'In attesa che un giocatore sia pronto.' : `In attesa che ${waiting} giocatori siano pronti.`)
     : problem === 'few' ? 'Servono almeno due giocatori (anche un TRV9000).' : problem === 'crews' ? 'Due giocatori hanno lo stesso colore.' : problem === 'many' ? 'Troppi giocatori: massimo quattro.'
     : problem === 'bots' ? 'Serve almeno una persona.' : problem === 'teams' ? 'Final Five e Big Rig: uno solo per partita.' : 'Tutto pronto.';
   const show = (id: string, on: boolean): void => { $(id).style.display = on ? '' : 'none'; };
   show('lstart', n.host && !inGame);
+  show('lready', !n.host && !inGame);
+  $('lready').textContent = meReady ? 'Non sono più pronto' : 'Sono pronto';
+  $('lready').classList.toggle('on', meReady);
   ($('lstart') as HTMLButtonElement).disabled = !!problem;
   show('lresume', inGame);
   show('lrematch', n.host && inGame);
@@ -317,8 +366,12 @@ $('lstart').onclick = () => {
   if (!seed.ok) { alert('Il browser non fornisce numeri casuali sicuri: impossibile iniziare.'); return; }
   void startMatch(S.net.store, S.net.code, S.net.room, seed.value, crewColor).catch(netError);
 };
+$('lready').onclick = () => {
+  if (!S.net?.room || S.net.host) return;
+  void setReady(S.net.store, S.net.code, !S.net.room.seats[S.net.uid]?.ready).catch(netError);
+};
 $('lrematch').onclick = () => {
-  if (S.net?.host && confirm('Chiudere questa partita e tornare alla sala d’attesa?')) void backToLobby(S.net.store, S.net.code).catch(netError);
+  if (S.net?.host && confirm('Chiudere questa partita e tornare alla sala d’attesa?')) void backToLobby(S.net.store, S.net.code, S.net.room ?? undefined).catch(netError);
 };
 $('lclose').onclick = () => {
   const n = S.net;

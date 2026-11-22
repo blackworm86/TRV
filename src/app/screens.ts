@@ -14,14 +14,15 @@ import { render } from './pieces';
 import { scene } from './stage';
 import { S } from './state';
 import { $, esc, menuOpen, sure } from './util';
-import { miniChecks, miniSwitches, readMinis } from './minisetup';
+import { miniSwitches, readMinis } from './minisetup';
 
-// The mini expansions' switches (hot seat, with their fans of cards) and checkboxes (a new room).
+// The mini expansions' switches, with their fans of cards: hot seat and a new room alike (asked by
+// the user, 2026-11-22). "tutte · nessuna" sets the switches of its own screen.
 $('miniswitches').innerHTML = miniSwitches();
-$('ominichecks').innerHTML = miniChecks('o');
+$('ominichecks').innerHTML = miniSwitches('o');
 for (const a of document.querySelectorAll<HTMLElement>('[data-minis]')) a.onclick = e => {
   e.preventDefault();
-  for (const i of $('miniswitches').querySelectorAll<HTMLInputElement>('input')) i.checked = a.dataset.minis === '1';
+  for (const i of $(a.dataset.for ?? 'miniswitches').querySelectorAll<HTMLInputElement>('input')) i.checked = a.dataset.minis === '1';
 };
 
 // The hot seat setup (redrawn as asked by the user, 2026-11-22): one row per team with its colour

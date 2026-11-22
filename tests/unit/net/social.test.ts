@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { addBot, createRoom, joinRoom, readRoom, roomPath, startMatch, type Room, type RoomStore } from '../../../src/net/room';
+import { addBot, createRoom, joinRoom, readRoom, roomPath, setReady, startMatch, type Room, type RoomStore } from '../../../src/net/room';
 import {
   FRIEND_CODE_LENGTH, ONLINE_MS, acceptFriend, claimUsername, cleanUsername, earlierName, readProfile, readProfiles, addFriend, cleanFriendCode, declineFriend, dropInvite, ensureProfile, forgetGame, gameRow, heartbeat,
   inviteFriend, isOnline, lobbyEntry, lobbyPath, mutualFriends, newFriendCode, publishLobby, readLobby, readPresence, readSocial, rememberGame,
@@ -215,6 +215,7 @@ describe('a room’s seats', () => {
     const code = await createRoom(a, { name: 'Ada', crew: 'red' }, { ...OPTIONS, teams: false }, filler(7), NOW);
     await joinRoom(b, code, { name: 'Bo' }, CREWS, NOW);
     await b.write(roomPath(code, 'seats', 'u1', 'team'), 'big_rig');
+    await setReady(b, code, true);
     await startMatch(a, code, readRoom(await a.read(roomPath(code)))!, 'ab'.repeat(32), c => c);
     expect(readRoom(await a.read(roomPath(code)))!.setup!.players.map(p => p.team)).toEqual([undefined, undefined]);
   });
@@ -227,6 +228,7 @@ describe('one’s games', () => {
     await rememberGame(a, code, NOW);
     expect(Object.keys((await social(a)).games)).toEqual([code]);
     await joinRoom(b, code, { name: 'Bo' }, CREWS, NOW + 1);
+    await setReady(b, code, true);
     let room = readRoom(await a.read(roomPath(code)))!;
     expect(gameRow(code, room, 'u1')).toMatchObject({ state: 'waiting', host: false, seats: 4, players: [{ name: 'Ada' }, { name: 'Bo' }] });
 

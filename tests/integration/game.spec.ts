@@ -223,7 +223,7 @@ test.describe('game', () => {
     // Arrange: a hot seat game started from the panel with "tutte" the mini expansions.
     const errors = await open(page);
     await page.locator('#mHot').click();
-    await page.locator('[data-minis="1"]').click();
+    await page.locator('#pHot [data-minis="1"]').click();
     await page.locator('#start').click();
     await expect.poll(() => page.evaluate(() => window.trv!.decision?.kind)).toBeTruthy();
     // Assert: every module is on, and the table shows its cards.
@@ -477,6 +477,12 @@ test.describe('game', () => {
     await guest.locator('#ojoin').click();
     await expect(page.locator('#lseats')).toContainText('Ospite');
 
+    // Every guest confirms being ready before the host can start (asked by the user, 2026-11-22).
+    await expect(page.locator('#lstart')).toBeDisabled();
+    await expect(page.locator('#lstate')).toContainText('pronto');
+    await guest.locator('#lready').click();
+    await expect(page.locator('#lseats .lrdy.on')).toHaveCount(1);
+    await expect(page.locator('#lstart')).toBeEnabled();
     await page.locator('#lstart').click();
     await expect.poll(() => page.evaluate(() => !!window.trv!.game)).toBe(true);
     await expect.poll(() => guest.evaluate(() => !!window.trv!.game)).toBe(true);
@@ -532,7 +538,7 @@ test.describe('game', () => {
     // A free seat lets the host add a team; its level is set with the options.
     await page.locator('#lseats .laddbot').first().click();
     await expect(page.locator('#lseats .seat.bot')).toHaveCount(1);
-    await page.locator('#lbotlevel').selectOption('2');
+    await page.locator('#lbotlvseg [data-v="2"]').click();
     await expect(page.locator('#lseats .bottag')).toContainText('livello 2');
     await expect(page.locator('#lstart')).toBeEnabled();
     await page.locator('#lstart').click();
@@ -618,6 +624,8 @@ test.describe('game', () => {
     await expect(bo.locator('#invites')).toContainText(code);
     await bo.locator('#invites .ijoin').click();
     await expect(page.locator('#lseats')).toContainText('Bo Rossi');
+    await bo.locator('#lready').click();
+    await expect(page.locator('#lstart')).toBeEnabled();
 
     // Started: the room leaves the lobby, and Bo's list says whose turn it is.
     await page.locator('#lstart').click();
@@ -751,6 +759,8 @@ test.describe('game', () => {
     await guest.locator('#ocode').fill(code);
     await guest.locator('#ojoin').click();
     await expect(page.locator('#lseats')).toContainText('Ospite');
+    await guest.locator('#lready').click();
+    await expect(page.locator('#lstart')).toBeEnabled();
     await page.locator('#lstart').click();
     // Act: both tables show their own two boards at once, whoever the rules ask first.
     for (const p of [page, guest]) await expect(p.locator('#leaderpick .leader')).toHaveCount(2, { timeout: 60_000 });

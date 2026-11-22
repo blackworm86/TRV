@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import {
   BOT_PREFIX, CODE_ALPHABET, CODE_LENGTH, acceptable, addBot, isBotSeat, removeBot, undoable, backToLobby, cleanCode, closeRoom, createRoom, freeCrew, joinRoom, leaveRoom,
-  newRoomCode, readRoom, roomPath, seatOf, startMatch, startProblem, type Room, type RoomStore,
+  newRoomCode, readRoom, roomPath, seatOf, startMatch, startProblem, setReady, clearReady, isReady, type Room, type RoomStore,
 } from '../../../src/net/room';
 import { createTreeStore, memoryBacking, type TreeBacking } from '../../../src/net/tree-store';
 import { newGame, play, type Decision, type Game } from '../../../src/game/trv/engine';
@@ -26,7 +26,10 @@ async function room(store: RoomStore, code = CODE): Promise<Room> {
 async function seated(n: number): Promise<RoomStore[]> {
   const { stores } = clients(n);
   await createRoom(stores[0], { name: 'Ada', crew: 'red' }, OPTIONS, fillWith(7), NOW);
-  for (let i = 1; i < n; i++) await joinRoom(stores[i], CODE, { name: `G${i}` }, CREWS, NOW + i);
+  for (let i = 1; i < n; i++) {
+    await joinRoom(stores[i], CODE, { name: `G${i}` }, CREWS, NOW + i);
+    await setReady(stores[i], CODE, true);
+  }
   return stores;
 }
 
@@ -78,7 +81,7 @@ describe('lobby', () => {
     const backing = memoryBacking();
     const s = Array.from({ length: 5 }, (_, i) => createTreeStore(backing, `u${i}`));
     await createRoom(s[0], { name: 'Ada', crew: 'red' }, OPTIONS, fillWith(7), NOW);
-    for (let i = 1; i < 4; i++) await joinRoom(s[i], CODE, { name: `G${i}` }, CREWS, NOW + i);
+    for (let i = 1; i < 4; i++) { await joinRoom(s[i], CODE, { name: `G${i}` }, CREWS, NOW + i); await setReady(s[i], CODE, true); }
     expect(await joinRoom(s[4], CODE, { name: 'x' }, CREWS, NOW + 9)).toEqual({ ok: false, error: 'full' });
     await leaveRoom(s[3], CODE);
     await startMatch(s[0], CODE, await room(s[0]), SEED, COLOR);
@@ -92,6 +95,22 @@ describe('lobby', () => {
     expect(startProblem(await room(two[0]))).toBe('crews');
     await two[1].write(roomPath(CODE, 'seats', 'u1', 'crew'), 'green');
     expect(startProblem(await room(two[0]))).toBe(null);
+  });
+  it('waits for every guest to say they are ready, and asks again when the host clears it', async () => {
+    // Arrange: the host and two guests, the second not ready yet.
+    const s = await seated(3);
+    await setReady(s[2], CODE, false);
+    // Act / Assert: the host and the first guest are ready, the second guest keeps the start.
+    let r = await room(s[0]);
+    expect([isReady(r, 'u0'), isReady(r, 'u1'), isReady(r, 'u2')]).toEqual([true, true, false]);
+    expect(startProblem(r)).toBe('ready');
+    await setReady(s[2], CODE, true);
+    expect(startProblem(await room(s[0]))).toBe(null);
+    // The host changes the match: every guest confirms again.
+    await clearReady(s[0], CODE, await room(s[0]));
+    r = await room(s[0]);
+    expect([isReady(r, 'u1'), isReady(r, 'u2')]).toEqual([false, false]);
+    expect(startProblem(r)).toBe('ready');
   });
   it('closes for everybody when the host closes it', async () => {
     const [host, guest] = await seated(2);
@@ -120,7 +139,7 @@ describe('Final Five and Big Rig seats', () => {
   it('ignores an unknown team and a team on a TRV9000 seat', () => {
     const r = readRoom({ host: 'u0', seats: {
       u0: { name: 'A', crew: 'red', joinedAt: 1, team: 'tank' }, 'trv9000-1': { name: 'TRV9000 1', crew: 'blue', joinedAt: 2, bot: true, team: 'big_rig' },
-      u1: { name: 'B', crew: 'green', joinedAt: 3, team: 'big_rig' } } })!;
+      u1: { name: 'B', crew: 'green', joinedAt: 3, team: 'big_rig', ready: true } } })!;
     expect(startProblem(r)).toBe(null);
   });
 });
@@ -261,8 +280,9 @@ describe('match', () => {
     const stores = await seated(2);
     await startMatch(stores[0], CODE, await room(stores[0]), SEED, COLOR);
     await stores[0].write(roomPath(CODE, 'log', '0'), 0);
-    await backToLobby(stores[0], CODE);
+    await backToLobby(stores[0], CODE, await room(stores[0]));
     const r = await room(stores[1]);
+    expect(startProblem(r)).toBe('ready'); // a new match: the guest confirms again
     expect(r.status).toBe('lobby');
     expect(r.setup).toBe(null);
     expect(r.log).toEqual([]);
