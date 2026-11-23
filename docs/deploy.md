@@ -128,6 +128,16 @@ restano nel browser, e la scheda **Confronta con la fonte** mostra le scansioni 
     scheda **Regole** e **Pubblica**: senza, il subentro viene rifiutato e la
     partita aspetta l'host come prima.
 
+13. **Statistiche per l'admin** (dal 2026-11-23): `database.rules.json` ha la
+    sezione `stats`: `matches` (ogni partita, in locale e online, scritta da chi
+    gioca o dall'host), `sessions/<uid>/<giorno>` (il tempo col gioco aperto, il
+    dispositivo, il browser, lo stile grafico) ed `errors` (gli errori del
+    programma). Scrivono solo gli account della Beta, legge solo l'admin; l'admin
+    può leggere anche le statistiche online di ogni account
+    (`users/<uid>/results`). Incolla di nuovo il file nella scheda **Regole** e
+    **Pubblica**: senza, niente viene registrato e **Pannello admin →
+    Statistiche** resta vuoto. I dati partono da quando le regole sono pubbliche.
+
 ## Come si gioca online
 
 - Gli amici richiedono un **account** (accesso con Google). Al primo accesso si

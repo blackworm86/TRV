@@ -128,6 +128,47 @@
   table.sum th, table.sum td { padding: 8px 14px; border-bottom: 1px solid var(--line); text-align: center; font-variant-numeric: tabular-nums; }
   table.sum tbody th { text-align: left; font-family: var(--body); font-weight: 600; letter-spacing: 0; }
   h3.sub { font-size: 26px; margin: 18px 0 6px; }
+  /* Statistiche (src/admin/stats-view.ts): series colours checked with the dataviz validator on --surface. */
+  #main { --us-lo: #bd862a; --us-on: #4f8fe0; }
+  #main > .wait { color: var(--muted); }
+  .us-tiles { display: grid; grid-template-columns: repeat(auto-fill, minmax(165px, 1fr)); gap: 10px; margin: 6px 0 16px; }
+  .us-tile { background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 12px 14px; display: grid; gap: 2px; }
+  .us-tile span { color: var(--muted); font-size: 13px; }
+  .us-tile b { font-family: var(--display); font-size: 40px; font-weight: 400; line-height: 1.05; font-variant-numeric: tabular-nums; }
+  .us-tile small { color: var(--muted); font-size: 12px; }
+  .us-box { background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 12px 14px; min-width: 0; }
+  .us-box.wide { margin: 0 0 16px; }
+  .us-box h4, .us-h4 { font-family: var(--body); font-size: 14px; font-weight: 600; margin: 0 0 10px; letter-spacing: 0; }
+  .us-h4 { margin: 16px 0 6px; }
+  .us-box h4 small, .us-h4 small { color: var(--muted); font-weight: 400; margin-left: 6px; }
+  .us-box .wait, .us-scroll + .wait, .us-h4 + .wait { color: var(--muted); font-size: 13px; margin: 0; }
+  .us-legend { display: flex; gap: 16px; font-size: 12px; color: var(--muted); margin: 0 0 8px; }
+  .us-legend i { display: inline-block; width: 10px; height: 10px; border-radius: 3px; margin-right: 6px; vertical-align: -1px; }
+  .us-legend .max { margin-left: auto; }
+  i.lo { background: var(--us-lo); } i.on { background: var(--us-on); }
+  .us-chart { position: relative; display: flex; align-items: flex-end; gap: 2px; height: 150px; border-bottom: 1px solid var(--line); }
+  .us-col { flex: 1; height: 100%; display: flex; align-items: flex-end; cursor: default; outline: none; }
+  .us-col:hover, .us-col:focus-visible { background: #ffffff0d; }
+  .us-stack { width: 100%; display: flex; flex-direction: column; gap: 2px; min-height: 0; }
+  .us-stack i { display: block; min-height: 3px; }
+  .us-stack i:first-child { border-radius: 4px 4px 0 0; }
+  .us-tip { position: absolute; top: -6px; transform: translate(-50%, -100%); background: var(--surface2); border: 1px solid var(--line); border-radius: 6px; padding: 5px 9px; font-size: 12px; white-space: nowrap; pointer-events: none; }
+  .us-axis { display: flex; justify-content: space-between; font-size: 12px; color: var(--muted); margin-top: 4px; }
+  .us-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 10px; margin: 6px 0 10px; }
+  .us-bars { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; }
+  .us-bars li { display: grid; grid-template-columns: minmax(0, 1.1fr) minmax(0, 1fr) auto; align-items: center; gap: 8px; font-size: 13px; }
+  .us-bars span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .us-bars i { display: block; height: 8px; width: var(--w); min-width: 2px; background: var(--us-on); border-radius: 0 4px 4px 0; }
+  .us-bars li.rest i { background: none; }
+  .us-bars b { font-variant-numeric: tabular-nums; font-weight: 600; min-width: 2ch; text-align: right; }
+  .us-scroll { overflow-x: auto; }
+  table.us-table { width: 100%; }
+  table.us-table thead th:first-child { text-align: left; }
+  table.us-table th small { display: block; color: var(--muted); font-weight: 400; font-size: 12px; }
+  table.us-table tbody th { max-width: 46ch; overflow-wrap: anywhere; }
+  .us-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; }
+  .us-list li { display: grid; gap: 2px; padding: 8px 10px; border: 1px solid var(--line); border-radius: 8px; }
+  .us-list span, .us-list small { color: var(--muted); font-size: 13px; }
   .testers-add { display: grid; gap: 8px; max-width: 640px; margin: 0 0 12px; }
   .testers-add textarea { font: inherit; padding: 8px 10px; border-radius: 8px; border: 1px solid var(--line); background: var(--bg); color: var(--ink); resize: vertical; min-height: 80px; }
   .testers-add div { display: flex; align-items: center; gap: 12px; }

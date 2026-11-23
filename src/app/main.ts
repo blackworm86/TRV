@@ -38,6 +38,7 @@ import { ROWS, COLS, snapshot, terrainAt, type Pos, type Frame } from '../game/t
 import { bootAccount, bootOnline } from './account';
 import { betaGate } from './beta';
 import { openReportGame } from './report';
+import { startUsage } from './usage';
 import './profile';
 import { playBeats, queue, skipBeats } from './beats';
 import { sceneState, shownLog } from './scenePlayer';
@@ -64,6 +65,7 @@ syncInert();
 // The closed Beta: on the real site nothing starts until an invited account is in (beta.ts).
 void betaGate().then(() => {
   void bootAccount().catch(e => console.error(e));
+  startUsage(); // the admins' usage statistics (usage.ts)
   const invited = bootOnline();
   // From the admin page: a tester's report, its game opened at the point it was sent (report.ts).
   const report = new URLSearchParams(location.search).get('report');

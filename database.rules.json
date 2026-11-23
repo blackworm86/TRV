@@ -125,7 +125,8 @@
           "$key": {
             ".write": "auth != null && (auth.token.firebase.sign_in_provider !== 'anonymous' && (root.child('admins').child(auth.uid).val() === true || root.child('testerUids').child(auth.uid).exists() || (auth.token.email != null && auth.token.email_verified === true && root.child('testers').child(auth.token.email.toLowerCase().replace('.', ',')).exists()))) && auth.uid === $uid && (!data.exists() || !newData.exists())",
             ".validate": "!newData.exists() || ($key.length <= 40 && newData.child('won').isBoolean() && newData.child('at').isNumber() && newData.child('jumps').isNumber() && newData.child('crew').isString())"
-          }
+          },
+          ".read": "auth != null && root.child('admins').child(auth.uid).val() === true"
         }
       }
     },
@@ -141,6 +142,29 @@
       "$id": {
         ".write": "auth != null && (auth.token.firebase.sign_in_provider !== 'anonymous' && (root.child('admins').child(auth.uid).val() === true || root.child('testerUids').child(auth.uid).exists() || (auth.token.email != null && auth.token.email_verified === true && root.child('testers').child(auth.token.email.toLowerCase().replace('.', ',')).exists()))) && !data.exists() && newData.child('uid').val() === auth.uid && !root.child('reports').child($id).exists()",
         ".validate": "newData.child('uid').isString() && (!newData.child('game').exists() || (newData.child('game').isString() && newData.child('game').val().length <= 400000)) && (!newData.child('shot').exists() || (newData.child('shot').isString() && newData.child('shot').val().length <= 600000))"
+      }
+    },
+    "stats": {
+      ".read": "auth != null && root.child('admins').child(auth.uid).val() === true",
+      "matches": {
+        "$id": {
+          ".write": "auth != null && (auth.token.firebase.sign_in_provider !== 'anonymous' && (root.child('admins').child(auth.uid).val() === true || root.child('testerUids').child(auth.uid).exists() || (auth.token.email != null && auth.token.email_verified === true && root.child('testers').child(auth.token.email.toLowerCase().replace('.', ',')).exists()))) && (!data.exists() || data.child('by').val() === auth.uid || (data.child('room').isString() && root.child('rooms').child(data.child('room').val()).child('host').val() === auth.uid))",
+          ".validate": "$id.length <= 60 && newData.child('by').val() === auth.uid && newData.child('start').isNumber() && newData.child('last').isNumber() && newData.child('active').isNumber() && newData.child('choices').isNumber() && (newData.child('mode').val() === 'locale' || newData.child('mode').val() === 'online')"
+        }
+      },
+      "sessions": {
+        "$uid": {
+          "$day": {
+            ".write": "auth != null && (auth.token.firebase.sign_in_provider !== 'anonymous' && (root.child('admins').child(auth.uid).val() === true || root.child('testerUids').child(auth.uid).exists() || (auth.token.email != null && auth.token.email_verified === true && root.child('testers').child(auth.token.email.toLowerCase().replace('.', ',')).exists()))) && auth.uid === $uid",
+            ".validate": "$day.matches(/^[0-9]{4}-[0-9]{2}-[0-9]{2}$/) && newData.child('first').isNumber() && newData.child('last').isNumber() && newData.child('active').isNumber() && newData.child('opens').isNumber() && newData.child('name').isString() && newData.child('name').val().length <= 24"
+          }
+        }
+      },
+      "errors": {
+        "$id": {
+          ".write": "auth != null && (auth.token.firebase.sign_in_provider !== 'anonymous' && (root.child('admins').child(auth.uid).val() === true || root.child('testerUids').child(auth.uid).exists() || (auth.token.email != null && auth.token.email_verified === true && root.child('testers').child(auth.token.email.toLowerCase().replace('.', ',')).exists()))) && !data.exists()",
+          ".validate": "$id.length <= 40 && newData.child('uid').val() === auth.uid && newData.child('at').isNumber() && newData.child('msg').isString() && newData.child('msg').val().length <= 500 && newData.child('where').isString() && newData.child('where').val().length <= 200"
+        }
       }
     }
   }

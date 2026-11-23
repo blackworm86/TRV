@@ -456,6 +456,29 @@ test.describe('game', () => {
     expect([...errors, ...adminErrors, ...againErrors]).toEqual([]);
   });
 
+  test('a local match is recorded for the admins, and the Statistiche page counts it with the day’s session', async ({ page, context }) => {
+    // Arrange: a local game a few choices in (?net=local keeps the records in this browser).
+    const errors = await open(page, { save: [] });
+    const made = await playFirst(page, 6);
+    expect(made).toBeGreaterThan(0);
+    // Act: the record is written after the choices; then the admin page.
+    const stored = (): Promise<{ matches: number; sessions: number }> => page.evaluate(() => {
+      const s = (JSON.parse(localStorage.getItem('trv-stats') ?? '{}') as { stats?: { matches?: object; sessions?: object } }).stats ?? {};
+      return { matches: Object.keys(s.matches ?? {}).length, sessions: Object.keys(s.sessions ?? {}).length };
+    });
+    await expect.poll(stored).toEqual({ matches: 1, sessions: 1 });
+    const admin = await context.newPage();
+    const adminErrors = watchErrors(admin);
+    await admin.goto('/admin.html?admin=local#statistiche');
+    // Assert: one local match under way, one player seen today.
+    const tile = (label: string) => admin.locator('.us-tile', { hasText: label }).locator('b');
+    await expect(tile('Partite giocate')).toHaveText('1');
+    await expect(admin.locator('.us-tile', { hasText: 'Partite giocate' })).toContainText('1 in locale · 0 online');
+    await expect(tile('Giocatori attivi oggi')).toHaveText('1');
+    await expect(admin.locator('.us-table tbody tr')).toHaveCount(1);
+    expect([...errors, ...adminErrors]).toEqual([]);
+  });
+
   test('the same seed and choices give the same game (resumed from storage)', async ({ page, context }) => {
     const errors = await open(page, { save: [] });
     const made = await playFirst(page, 40);

@@ -11,6 +11,7 @@ import { resetScenes } from './scenePlayer';
 import { S } from './state';
 import { stepAfter } from './pathsim';
 import { $, SAVE_KEY } from './util';
+import { trackMatch } from './usage';
 
 export interface Saved {
   setup: Setup; choices: number[];
@@ -329,6 +330,7 @@ export function dropLocal(): void {
 }
 
 export function persist(): void {
+  trackMatch(); // the admins' usage statistics (usage.ts): after every choice, online too
   if (S.net || S.scratch) return; // an online match lives in the room; a report's game is only looked at
   try { localStorage.setItem(SAVE_KEY, JSON.stringify(S.saved)); } catch { /* storage off: no resume */ }
 }

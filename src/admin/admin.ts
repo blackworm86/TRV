@@ -30,6 +30,8 @@ import { firebaseTesterStore, localTesterStore, type TesterStore } from '../net/
 import { drawTesters } from './tester-view';
 import { firebaseReportStore, localReportStore, unseen, type ReportStore } from '../net/reports';
 import { drawReports } from './report-view';
+import { firebaseUsageSource, localUsageSource, type UsageSource } from '../net/usage-store';
+import { drawStats } from './stats-view';
 import { BASE_CATALOG, commandBoardImage, dashboardImage, dieFaceImage, roadTileImage, tokenImage } from '../game/trv/catalog';
 import { ASSET_CATALOG, entryFor, officialPath, type ItemEntry } from './catalog';
 import { dieSolid, flatSolid, inlineImages, type Face } from './solids';
@@ -624,6 +626,9 @@ let testers: TesterStore | null = null;
 let reportsView = false;
 let reports: ReportStore | null = null;
 let newReports = 0;
+/** True while the "Statistiche" section is on show (stats-view.ts). */
+let statsView = false;
+let usage: UsageSource | null = null;
 const localMode = new URLSearchParams(location.search).get('admin') === 'local';
 let statusFilter: string | null = null;
 let shown: Item[] = [];
@@ -636,7 +641,7 @@ const statusName = (s: string): string => ASSET_CATALOG.statuses[s]?.name ?? s;
 const badge = (s: string): string => `<span class="st st-${esc(s)}">${esc(statusName(s))}</span>`;
 
 function drawNav(): void {
-  let html = `<button data-view="" class="${view || prod !== null || testerView || reportsView ? '' : 'on'}">Riepilogo<span>${ALL.length}</span></button>`;
+  let html = `<button data-view="" class="${view || prod !== null || testerView || reportsView || statsView ? '' : 'on'}">Riepilogo<span>${ALL.length}</span></button>`;
   for (const [g, name] of Object.entries(ASSET_CATALOG.games)) {
     const types = Object.keys(ASSET_CATALOG.types).filter(t => itemsOf({ game: g, type: t }).length);
     if (!types.length) continue;
@@ -652,7 +657,8 @@ function drawNav(): void {
     html += `<button data-view="produzione${page ? `/${page}` : ''}" class="${on ? 'on' : ''}">${esc(name)}<span>${n ?? ''}</span></button>`;
   }
   html += `<h2>Beta</h2><button data-view="tester" class="${testerView ? 'on' : ''}">Tester della Beta<span></span></button>`
-    + `<button data-view="segnalazioni" class="${reportsView ? 'on' : ''}">Segnalazioni<span>${newReports ? `${newReports} nuove` : ''}</span></button>`;
+    + `<button data-view="segnalazioni" class="${reportsView ? 'on' : ''}">Segnalazioni<span>${newReports ? `${newReports} nuove` : ''}</span></button>`
+    + `<button data-view="statistiche" class="${statsView ? 'on' : ''}">Statistiche<span></span></button>`;
   $('nav').innerHTML = html;
 }
 
@@ -706,6 +712,12 @@ function showDima(bar: HTMLElement): void {
 }
 
 function drawView(): void {
+  if (statsView) {
+    stopViewer();
+    $('main').scrollTop = 0;
+    void drawStats($('main'), usage!, () => statsView);
+    return;
+  }
   if (reportsView) {
     stopViewer();
     $('main').scrollTop = 0;
@@ -837,14 +849,16 @@ async function downloadAll(items: Item[]): Promise<void> {
 function goTo(hash: string): void {
   testerView = hash === 'tester' && !!testers;
   reportsView = hash === 'segnalazioni' && !!reports;
+  statsView = hash === 'statistiche' && !!usage;
   prod = hash === 'produzione' ? '' : hash.startsWith('produzione/') ? hash.slice('produzione/'.length) : null;
   const [g, t] = prod === null ? hash.split('/') : [];
   view = g && t && itemsOf({ game: g, type: t }).length ? { game: g, type: t } : null;
   statusFilter = null;
 }
 
-function startInspector(who: string, onSignOut: (() => void) | null, store: CommentStore, beta: TesterStore, sent: ReportStore): void {
+function startInspector(who: string, onSignOut: (() => void) | null, store: CommentStore, beta: TesterStore, sent: ReportStore, used: UsageSource): void {
   comments = store;
+  usage = used;
   testers = beta;
   reports = sent;
   // How many reports wait, beside the section's name.
@@ -954,7 +968,7 @@ function show(id: 'login' | 'denied' | 'nocfg' | null): void {
 async function boot(): Promise<void> {
   if (new URLSearchParams(location.search).get('admin') === 'local') {
     show(null);
-    startInspector('Modalità locale (?admin=local): accesso non verificato', null, localCommentStore(localStorage), localTesterStore(localStorage), localReportStore(localStorage));
+    startInspector('Modalità locale (?admin=local): accesso non verificato', null, localCommentStore(localStorage), localTesterStore(localStorage), localReportStore(localStorage), localUsageSource(localStorage));
     return;
   }
   if (!FIREBASE_CONFIG) { show('nocfg'); return; }
@@ -984,7 +998,7 @@ async function boot(): Promise<void> {
     if (!user || user.anonymous) { if (!started) show('login'); return; }
     if (await auth.isAdmin(user.uid)) {
       show(null);
-      if (!started) { started = true; startInspector(user.email ?? user.name ?? user.uid, out, await firebaseCommentStore(FIREBASE_CONFIG!), await firebaseTesterStore(FIREBASE_CONFIG!), await firebaseReportStore(FIREBASE_CONFIG!)); }
+      if (!started) { started = true; startInspector(user.email ?? user.name ?? user.uid, out, await firebaseCommentStore(FIREBASE_CONFIG!), await firebaseTesterStore(FIREBASE_CONFIG!), await firebaseReportStore(FIREBASE_CONFIG!), await firebaseUsageSource(FIREBASE_CONFIG!)); }
     } else {
       $('denied-who').textContent = user.email ?? user.name ?? 'utente senza email';
       $('uid').textContent = user.uid;
