@@ -1065,3 +1065,15 @@ html.touch #cmddock .mytok { width: calc(var(--u, 1) * 38px); height: calc(var(-
   #setup .card:has(.pane.on .hot.one) .bar { margin-bottom: 6px; }
   :is(#setup, #lobby) .hot.one > .foot { padding: 8px 18px; }
 }
+/* The retro styles (retro.ts): the few pixels drawn are enlarged with hard edges. */
+canvas.retro { image-rendering: pixelated; }
+/* The arcade cabinet's tube (retro.ts placeCrt, asked by the user, 2026-11-23): one scanline per row
+   of the game's pixels, the phosphors' grille and darker corners, drawn at the screen's own
+   resolution over the table only (the interface stays above it, sharp). */
+#crt { display: none; position: fixed; left: 0; top: 0; pointer-events: none;
+  background:
+    radial-gradient(ellipse at 50% 50%, transparent 55%, rgba(0, 0, 0, var(--crt-vignette)) 100%),
+    repeating-linear-gradient(180deg, transparent 0 calc(var(--crt-px) * .5), rgba(0, 0, 0, var(--crt-scan)) calc(var(--crt-px) * .5) var(--crt-px)),
+    repeating-linear-gradient(90deg, rgba(255, 60, 60, var(--crt-mask)) 0 1px, rgba(60, 255, 60, var(--crt-mask)) 1px 2px, rgba(70, 90, 255, var(--crt-mask)) 2px 3px); }
+#crt.on { display: block; }
+canvas.retro.crt { filter: brightness(var(--crt-glow, 1)); }

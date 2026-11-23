@@ -180,6 +180,12 @@
     "hold_ms": 450,
     "slop_px": 10
   },
+  "retro": {
+    "_module": "retro.ts: the retro graphics styles (asked by the user, 2026-11-22). pixel: CSS pixels per drawn pixel (2: readable, 3 and up: chunkier); levels: shades per colour (32 = 15-bit colour); dither: strength of the ordered dither, 0-1; outline: dark edge where a thing stands this share nearer than its neighbour, 0 = none; saturation: 1 = as drawn, pushes only what has colour; sharpen: unsharp mask before the colours are reduced, 0 = none; snap_px: the pieces' vertices snapped every this many pixels, 0 = none; affine: textures without perspective, 0-1; texture: largest model texture side; nearest: hard texels when enlarged; shadow: the lamp's shadow; crt: the arcade tube over the table (scanlines: darkness of the lines between the rows of pixels; mask: strength of the red-green-blue phosphor grille; vignette: darkness of the corners; bleed: each pixel glowing into the next to the right, 0-1; glow: brightness making up for the lines), null = none.",
+    "console": { "pixel": 2, "levels": 32, "dither": 0.5, "outline": 0, "saturation": 1.05, "sharpen": 0.5, "snap_px": 1, "affine": 0.25, "texture": 256, "nearest": true, "shadow": false, "crt": null },
+    "arcade": { "pixel": 2, "levels": 8, "dither": 0.2, "outline": 0.04, "saturation": 1.15, "sharpen": 0.7, "snap_px": 0, "affine": 0, "texture": 512, "nearest": false, "shadow": true,
+      "crt": { "scanlines": 0.32, "mask": 0.07, "vignette": 0.45, "bleed": 0.25, "glow": 1.15 } }
+  },
   "end_turn": {
     "_module": "dock.ts: End Turn pressed by itself when the option is on (asked by the user, 2026-11-22); milliseconds after the turn's last thing is shown.",
     "auto_ms": 700

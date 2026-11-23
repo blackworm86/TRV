@@ -3,12 +3,13 @@
 // open it again at that point), a picture of the table and where and on what it was played
 // (src/net/reports.ts). The admins read them in the admin page; `?report=<id>` opens a report's game.
 
+import { drawScene } from './retro';
 import { FIREBASE_CONFIG } from '../net/firebase-config';
 import { REPORT_KINDS, localReportStore, type NewReport, type ReportKind, type ReportStore } from '../net/reports';
 import { g, startGame, type Saved } from './game';
 import { closePops } from './menus';
 import { netMode } from './online';
-import { camera, renderer, scene } from './stage';
+import { renderer } from './stage';
 import { S } from './state';
 import { $ } from './util';
 
@@ -39,7 +40,7 @@ async function myUid(): Promise<string> {
 /** The table as it is now, as a JPEG data URL; null when there is no game on it. */
 function tableShot(): string | null {
   if (!g) return null;
-  renderer.render(scene, camera); // the drawing buffer is cleared after each frame: draw, then read at once
+  drawScene(); // the drawing buffer is cleared after each frame: draw, then read at once
   const src = renderer.domElement;
   const k = Math.min(1, SHOT_WIDTH / src.width);
   const c = document.createElement('canvas');

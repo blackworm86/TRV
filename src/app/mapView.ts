@@ -1,6 +1,7 @@
 // The map view: framing the whole road (angled or from above, V), the tilt when zooming in,
 // the swap between the two views, and the reset (Home).
 
+import { retroRatio } from './retro';
 import * as THREE from 'three';
 import { STRIP_ASPECT, STRIP_ASPECT_LEADER } from '../view/vector/art';
 import { DIE_W, TRAY_SCALE, TRAY_Z } from './board';
@@ -46,6 +47,9 @@ export function fit(): void {
   const botLim = -1 + 2 * (stripH + 6) / h;
   // The player bubbles float over the top of the map: keep the road below them.
   const topLim = 1 - 2 * top / h;
+  // A retro style draws few rows of pixels, enlarged with hard edges (retro.ts).
+  const rr = retroRatio();
+  if (rr) renderer.setPixelRatio(rr);
   renderer.setSize(W, h);
   camera.aspect = W / h;
   camera.updateProjectionMatrix();

@@ -2,6 +2,7 @@
 // data/trv/presentation_base.json. The file's keys are snake_case, as every data file of the
 // project; here they become camelCase once, so the code reads them as it always has.
 
+import type { RetroLook } from './retro';
 import RAW from '../../data/trv/presentation_base.json';
 import type { ThrowKnobs } from '../view/dice-throw';
 import type { RouteKnobs } from './route';
@@ -66,6 +67,8 @@ export interface Presentation {
   endTurn: { autoMs: number };
   /** The long press that shows what the mouse shows by pointing (app/touch.ts). */
   touch: { holdMs: number; slopPx: number };
+  /** The retro graphics styles (app/retro.ts). */
+  retro: { console: RetroLook; arcade: RetroLook };
   /** A gun's burst; it fires after the shooting die (aimBeat, afterDie), hitting (debris) or missing (missOffset). */
   burst: { aim: number; rounds: number; gap: number; speed: number; spread: number; aimBeat: number; afterDie: number; missOffset: number; debris: { pieces: number; speed: number; lift: number; life: number; size: number };
     /** The spent casings thrown out at every round (app/motion/casing.ts). */

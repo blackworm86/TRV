@@ -11,6 +11,8 @@ export type Level = Exclude<Quality, 'auto'>;
 export type Speed = 'full' | 'fast' | 'skip';
 /** How the dice rolled during a turn are thrown: by the game, or by the player with TIRA (handroll.ts). */
 export type DiceThrow = 'auto' | 'hand';
+/** How the table is drawn: modern, a nineties 32-bit console, a nineties arcade cabinet in pixel art (retro.ts). */
+export type Style = 'modern' | 'console' | 'arcade';
 /** How a car is moved: one space per click, or a whole path planned with waypoints and run with Vai! (waypoints.ts). */
 export type MoveMode = 'step' | 'path';
 /**
@@ -21,10 +23,11 @@ export type MoveMode = 'step' | 'path';
  * test car standing in for the Medium Car: the Medium Car itself is now mounted from its parts.
  */
 /** `autoEnd`: the turn passes on without pressing End Turn (asked by the user, 2026-11-22; off unless chosen). */
-export interface Settings { quality: Quality; speed: Speed; dice: DiceThrow; move: MoveMode; grid: boolean; actionCam: boolean; director2: boolean; effects: boolean; words: boolean; zenith: boolean; autoEnd: boolean }
+export interface Settings { quality: Quality; speed: Speed; dice: DiceThrow; move: MoveMode; grid: boolean; actionCam: boolean; director2: boolean; effects: boolean; words: boolean; zenith: boolean; autoEnd: boolean; style: Style }
 export const SETTINGS_KEY = 'trv-settings';
-export const settings: Settings = { quality: 'auto', speed: 'full', dice: 'auto', move: 'step', grid: true, actionCam: true, director2: true, effects: true, words: true, zenith: false, autoEnd: false };
+export const settings: Settings = { quality: 'auto', speed: 'full', dice: 'auto', move: 'step', grid: true, actionCam: true, director2: true, effects: true, words: true, zenith: false, autoEnd: false, style: 'modern' };
 try { Object.assign(settings, JSON.parse(localStorage.getItem(SETTINGS_KEY) ?? '{}') as Partial<Settings>); } catch { /* defaults */ }
+if (!['modern', 'console', 'arcade'].includes(settings.style)) settings.style = 'modern';
 export function saveSettings(): void {
   try { localStorage.setItem(SETTINGS_KEY, JSON.stringify(settings)); } catch { /* storage off */ }
 }

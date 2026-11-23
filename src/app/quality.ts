@@ -9,6 +9,7 @@ import { fit } from './mapView';
 import { syncOptions } from './menus';
 import { LEVELS, Level, settings } from './settings';
 import { lamp, renderer } from './stage';
+import { patchForStyle, retroRatio, styleCaps } from './retro';
 import { setReliefDetail } from '../view/board3d';
 import { S } from './state';
 import { $ } from './util';
@@ -24,7 +25,7 @@ export function registerTextures(m: THREE.Object3D): void {
     for (const mat of Array.isArray(mesh.material) ? mesh.material : [mesh.material]) {
       for (const v of Object.values(mat)) {
         const t = v as THREE.Texture;
-        if (t?.isTexture && t.image && !modelTextures.has(t)) { modelTextures.set(t, t.image as CanvasImageSource & { width: number; height: number }); fitTexture(t, LEVELS[S.level].texture); }
+        if (t?.isTexture && t.image && !modelTextures.has(t)) { modelTextures.set(t, t.image as CanvasImageSource & { width: number; height: number }); fitTexture(t, Math.min(LEVELS[S.level].texture, styleCaps().texture)); }
       }
     }
   });
@@ -41,23 +42,25 @@ export function fitTexture(t: THREE.Texture, max: number): void {
   t.image = c;
   t.needsUpdate = true;
 }
-/** Puts a quality level into effect: resolution of both renderers, the shadow, model textures. */
+/** Puts a quality level into effect: resolution of both renderers, the shadow, model textures (within what the graphics style allows, retro.ts). */
 export function applyLevel(l: Level): void {
   S.level = l;
-  const L = LEVELS[l];
+  const L = LEVELS[l], C = styleCaps();
   renderer.setPixelRatio(Math.min(devicePixelRatio, L.pixelRatio));
-  hudRenderer.setPixelRatio(Math.min(devicePixelRatio, l === 'high' ? 2 : 1));
-  lamp.castShadow = L.shadow > 0;
+  hudRenderer.setPixelRatio(retroRatio() ?? Math.min(devicePixelRatio, l === 'high' ? 2 : 1));
+  hudRenderer.domElement.classList.toggle('retro', settings.style !== 'modern');
+  lamp.castShadow = L.shadow > 0 && C.shadow;
   if (L.shadow > 0 && lamp.shadow.mapSize.x !== L.shadow) {
     lamp.shadow.mapSize.set(L.shadow, L.shadow / 2);
     lamp.shadow.map?.dispose();
     lamp.shadow.map = null;
   }
-  for (const t of modelTextures.keys()) fitTexture(t, L.texture);
+  for (const t of modelTextures.keys()) fitTexture(t, Math.min(L.texture, C.texture));
   setReliefDetail(L.relief);
   // "low": no blur behind the panels and no shadow filters, recomputed at every frame over the table.
   document.body.classList.toggle('lite', l === 'low');
   fit();
+  patchForStyle(true);
   syncOptions();
 }
 export let fpsAcc = 0;

@@ -1,5 +1,6 @@
 // The animation loop: every frame moves the cars, the camera, the effects and the dice.
 
+import { drawScene, patchForStyle } from './retro';
 import * as THREE from 'three';
 import { tickFlames } from '../view/terrain/carnage3d';
 import { HOVER, ROTOR_SPEED, hover } from '../view/models-config';
@@ -211,7 +212,8 @@ renderer.setAnimationLoop(t => {
   animTableDice(now, rawDt);
   const shake = now < S.shakeUntil ? new THREE.Vector3((Math.random() - 0.5) * 0.25, (Math.random() - 0.5) * 0.15, (Math.random() - 0.5) * 0.25) : null;
   if (shake) camera.position.add(shake);
-  renderer.render(scene, camera);
+  patchForStyle();
+  drawScene();
   if (shake) camera.position.sub(shake);
   syncHudDice(now);
   placeActions();

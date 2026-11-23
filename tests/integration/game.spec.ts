@@ -131,6 +131,32 @@ test.describe('game', () => {
     expect(errors).toEqual([]);
   });
 
+  test('a retro graphics style draws the table with few rows of pixels, and the modern one gives them back', async ({ page }) => {
+    // Asked by the user (2026-11-22): a nineties console style and an arcade pixel-art style.
+    const errors = await open(page, { save: [] });
+    await expect(page.locator('#turnsplash')).toHaveCount(1, { timeout: 60_000 });
+    await page.mouse.click(600, 400);
+    const rows = (): Promise<number> => page.evaluate(() => (document.querySelector('canvas.retro') as HTMLCanvasElement | null)?.height ?? 0);
+    // Act: the console style from the menu's Graphics tab.
+    await page.locator('#menu').click();
+    await page.locator('#mtabs [data-tab="gfx"]').click();
+    await page.locator('[data-set="style"] [data-v="console"]').click();
+    // Assert: fewer rows of pixels than the canvas is high on the screen, enlarged with hard edges.
+    await expect.poll(rows).toBeGreaterThan(100);
+    expect(await rows()).toBeLessThan(await page.evaluate(() => (document.querySelector('canvas.retro') as HTMLCanvasElement).clientHeight));
+    expect(await page.evaluate(() => getComputedStyle(document.querySelector('canvas.retro')!).imageRendering)).toBe('pixelated');
+    await expect(page.locator('#crt')).not.toHaveClass(/on/);
+    await page.locator('[data-set="style"] [data-v="arcade"]').click();
+    await expect.poll(rows).toBeGreaterThan(100);
+    // The arcade cabinet's tube lies over the table (asked by the user, 2026-11-23).
+    await expect(page.locator('#crt')).toHaveClass(/on/);
+    // Act and assert: back to modern, no retro canvas.
+    await page.locator('[data-set="style"] [data-v="modern"]').click();
+    await expect.poll(rows).toBe(0);
+    await expect(page.locator('#crt')).not.toHaveClass(/on/);
+    expect(errors).toEqual([]);
+  });
+
   test('on a tablet a long press shows what the mouse shows by pointing, and chooses nothing', async ({ browser }) => {
     // Asked by the user (2026-11-22): the whole game on a tablet, with no mouse hover.
     const context = await browser.newContext({ hasTouch: true, viewport: { width: 1180, height: 820 } });
